@@ -1,0 +1,268 @@
+# =================================================================
+#                  N8N with Workers Template
+# =================================================================
+# This file defines the entire application stack: N8N, Redis, and PostgreSQL.
+#
+# Usage:
+#   Start:     docker compose up -d
+#   Stop:      docker compose down
+#   Destroy:   docker compose down -v --remove-orphans
+#
+# =================================================================
+
+name: n8n-with-workers
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  n8n-data:
+  redis-data:
+  postgres-data:
+  seed-flag: # marks whether the N8N was populated with data
+  letsencrypt:
+
+services:
+  # -----------------------------------------------------------------
+  #                            Traefik
+  # -----------------------------------------------------------------
+  traefik:
+    image: traefik:v2.11
+    container_name: traefik
+    restart: unless-stopped
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --certificatesresolvers.le.acme.email=${LETSENCRYPT_EMAIL}
+      - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
+      - --certificatesresolvers.le.acme.httpchallenge=true
+      - --certificatesresolvers.le.acme.httpchallenge.entrypoint=web
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - letsencrypt:/letsencrypt
+    networks:
+      - app-network
+  # -----------------------------------------------------------------
+  #                            Redis Service
+  # -----------------------------------------------------------------
+  redis:
+    container_name: redis
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    networks: [app-network]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # -----------------------------------------------------------------
+  #                            N8N Import Service
+  # -----------------------------------------------------------------
+  n8n-import:
+    image: n8nio/n8n:latest
+    user: "0:0" 
+    networks: [app-network]
+    entrypoint: /bin/sh
+    command:
+      - -lc
+      - >
+        if [ ! -f /seed-flag/done ]; then
+          set -e;
+          if ls /seed/credentials/*.json >/dev/null 2>&1; then
+            n8n import:credentials --separate --input=/seed/credentials || true;
+          fi;
+          n8n import:workflow --separate --input=/seed/workflows;
+          touch /seed-flag/done;
+        else
+          echo "Seed already applied. Skipping.";
+        fi
+    env_file:
+      - .env
+    environment:
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_USER=postgres
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_POSTGRESDB_DATABASE=${POSTGRES_DB:-postgres}
+      - DB_POSTGRESDB_SCHEMA=n8n_data
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      - HMAC_SECRET=${HMAC_SECRET}
+    volumes:
+      - ./data:/seed:ro
+      - seed-flag:/seed-flag
+    depends_on:
+      postgres: { condition: service_healthy }
+
+
+
+  # -----------------------------------------------------------------
+  #                            N8N Main Service
+  # -----------------------------------------------------------------
+  n8n:
+    container_name: n8n
+    image: n8nio/n8n:latest
+    user: "1000:1000"
+    restart: unless-stopped
+    environment:
+      # Basic Configuration
+      - GENERIC_TIMEZONE=${GENERIC_TIMEZONE:-Europe/Berlin}
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      - N8N_HOST=${N8N_HOST}
+      - N8N_PROTOCOL=https
+      - WEBHOOK_URL=${WEBHOOK_URL}
+      - N8N_SECURE_COOKIE=true
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=false
+      - N8N_RUNNERS_ENABLED=true
+      - OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS=true
+      - NODE_ENV=production
+      - N8N_DISABLE_UI=${N8N_DISABLE_UI:-false}
+
+      # User Management & Authentication
+      - N8N_USER_MANAGEMENT_DISABLED=false
+      - N8N_BASIC_AUTH_ACTIVE=false
+      - N8N_USER_FOLDER=/home/node/.n8n
+
+      # Database Configuration  
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_USER=postgres
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_POSTGRESDB_DATABASE=postgres
+      - DB_POSTGRESDB_SCHEMA=n8n_data
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/postgres?schema=n8n_data
+
+      # Queue Configuration
+      - EXECUTIONS_MODE=queue
+      - QUEUE_BULL_REDIS_HOST=redis
+      - QUEUE_BULL_REDIS_PORT=6379
+      - QUEUE_BULL_REDIS_DB=2
+      - QUEUE_HEALTH_CHECK_ACTIVE=true
+
+      # Performance & Security
+      - EXECUTIONS_DATA_PRUNE=true
+      - EXECUTIONS_DATA_MAX_AGE=168
+      - EXECUTIONS_DATA_PRUNE_MAX_COUNT=10000
+      - N8N_TEMPLATES_ENABLED=true
+      - N8N_PUBLIC_API_DISABLED=false
+      - HMAC_SECRET=${HMAC_SECRET}
+
+    volumes:
+      - n8n-data:/home/node/.n8n
+    networks: [app-network]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      n8n-import: { condition: service_completed_successfully }
+
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5678/healthz"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
+    labels:
+      - traefik.enable=true
+      # UI host (example.com)
+      - traefik.http.routers.n8n-ui.rule=Host(`${N8N_HOST}`)
+      - traefik.http.routers.n8n-ui.entrypoints=websecure
+      - traefik.http.routers.n8n-ui.tls=true
+      - traefik.http.routers.n8n-ui.tls.certresolver=le
+
+      - traefik.http.routers.n8n-ui-web.rule=Host(`${N8N_HOST}`)
+      - traefik.http.routers.n8n-ui-web.entrypoints=web
+      - traefik.http.routers.n8n-ui-web.middlewares=redirect-to-https
+
+      # Webhook host (webhook.example.com)
+      - traefik.http.routers.n8n-webhooks.rule=Host(`${WEBHOOK_HOST}`)
+      - traefik.http.routers.n8n-webhooks.entrypoints=websecure
+      - traefik.http.routers.n8n-webhooks.tls=true
+      - traefik.http.routers.n8n-webhooks.tls.certresolver=le
+
+      - traefik.http.routers.n8n-webhooks-web.rule=Host(`${WEBHOOK_HOST}`)
+      - traefik.http.routers.n8n-webhooks-web.entrypoints=web
+      - traefik.http.routers.n8n-webhooks-web.middlewares=redirect-to-https
+
+      # Common
+      - traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https
+      - traefik.http.services.n8n.loadbalancer.server.port=5678
+
+  # -----------------------------------------------------------------
+  #                            N8N Worker Service
+  # -----------------------------------------------------------------
+  n8n-worker:
+    container_name: n8n-worker
+    image: n8nio/n8n:latest
+    user: "1000:1000"
+    restart: unless-stopped
+    command: worker
+    environment:
+      # Basic Configuration
+      - GENERIC_TIMEZONE=${GENERIC_TIMEZONE:-Europe/Berlin}
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=false
+
+      # Database Configuration
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_USER=postgres
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_POSTGRESDB_DATABASE=postgres
+      - DB_POSTGRESDB_SCHEMA=n8n_data
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/postgres?schema=n8n_data
+
+      # Queue Configuration
+      - EXECUTIONS_MODE=queue
+      - QUEUE_BULL_REDIS_HOST=redis
+      - QUEUE_BULL_REDIS_PORT=6379
+      - QUEUE_BULL_REDIS_DB=2
+      - QUEUE_HEALTH_CHECK_ACTIVE=true
+      - HMAC_SECRET=${HMAC_SECRET}
+
+    volumes:
+      - n8n-data:/home/node/.n8n
+    networks: [app-network]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      n8n: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "node", "-v"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+
+  # -----------------------------------------------------------------
+  #                         LOCAL POSTGRES DB
+  # -----------------------------------------------------------------
+  # Simple PostgreSQL for n8n data storage only
+  postgres:
+    container_name: postgres
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_HOST_AUTH_METHOD: trust
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks: [app-network]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10

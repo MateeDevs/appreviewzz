@@ -1,0 +1,306 @@
+{
+  "active": false,
+  "connections": {
+    "CREATE RATINGS TABLE": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Merge",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Execute a SQL query",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "CREATE RATINGS TABLE",
+            "type": "main"
+          },
+          {
+            "index": 1,
+            "node": "Merge",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2025-09-03T08:01:00.019Z",
+  "id": "HhBwImsc63u9W4GA",
+  "isArchived": false,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "name": "ReviewBot Ratings: Save Rating To DB",
+  "nodes": [
+    {
+      "id": "7f543b15-c811-4329-94d6-680cdc8379ea",
+      "name": "When Executed by Another Workflow",
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "rating_list",
+              "type": "array"
+            },
+            {
+              "name": "app_id"
+            },
+            {
+              "name": "platform"
+            }
+          ]
+        }
+      },
+      "position": [
+        0,
+        0
+      ],
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1
+    },
+    {
+      "id": "e0a896b9-84e6-4f72-9703-4b6dc5533f26",
+      "name": "Merge",
+      "parameters": {
+        "combineBy": "combineByPosition",
+        "mode": "combine",
+        "options": {}
+      },
+      "position": [
+        464,
+        -16
+      ],
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2
+    },
+    {
+      "id": "72fee963-0050-4e88-9c91-2ae9e8a7a821",
+      "name": "Sticky Note",
+      "parameters": {
+        "content": "## Dangerous\nDangerous helper nodes for playing with the DB.",
+        "height": 864,
+        "width": 352
+      },
+      "position": [
+        112,
+        192
+      ],
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "MnjbALoOI0zZ4Fyu",
+          "name": "Postgres account"
+        }
+      },
+      "id": "d2cdfbb4-2d6f-43f1-97ee-448e6a4327f1",
+      "name": "Delete the Ratings Table",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {},
+        "query": "DROP TABLE appstore_ratings_agg_daily"
+      },
+      "position": [
+        192,
+        496
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "MnjbALoOI0zZ4Fyu",
+          "name": "Postgres account"
+        }
+      },
+      "id": "a1fb0ba8-a405-476f-aa24-8f0009f172f7",
+      "name": "Clean the Ratings Table",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {},
+        "query": "TRUNCATE TABLE appstore_ratings_agg_daily"
+      },
+      "position": [
+        192,
+        688
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "MnjbALoOI0zZ4Fyu",
+          "name": "Postgres account"
+        }
+      },
+      "id": "b321230a-e851-498c-acb0-9b0037534c12",
+      "name": "Show the Ratings Table",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {},
+        "query": "SELECT * FROM appstore_ratings_agg_daily"
+      },
+      "position": [
+        192,
+        880
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "MnjbALoOI0zZ4Fyu",
+          "name": "Postgres account"
+        }
+      },
+      "id": "7a7821ff-e5dc-4134-8c80-3e92b4278da5",
+      "name": "Insert Mock Data into the Ratings Table",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {},
+        "query": "-- Start clean WITHOUT dropping the table (keeps the PK!)\nTRUNCATE TABLE public.appstore_ratings_agg_daily;\n\n-- iOS: 2025-08-30 .. 2025-09-03\nINSERT INTO public.appstore_ratings_agg_daily\n  (platform, snapshot_date, app_id, star1, star2, star3, star4, star5)\nVALUES\n  ('ios','2025-08-30','muj_up',220, 80,255,570,5200),\n  ('ios','2025-08-31','muj_up',225, 82,258,575,5230),\n  ('ios','2025-09-01','muj_up',229, 83,260,581,5258),\n  ('ios','2025-09-02','muj_up',1788,83,260,582,5265),\n  ('ios','2025-09-03','muj_up',1788,83,260,582,5265),\n    ('ios','2025-09-14','muj_up',1788,83,260,582,5265),\n      ('ios','2025-09-22','muj_up',1788,83,260,582,5265),\n  ('ios','2025-09-22','scream',1788,83,260,582,5265),\n\n\n-- Android: 2025-08-30 .. 2025-09-03\n  ('android','2025-08-30','muj_up',470,115,350,880,4700),\n  ('android','2025-08-31','muj_up',472,116,352,885,4720),\n  ('android','2025-09-01','muj_up',475,118,360,900,4775),\n  ('android','2025-09-02','muj_up',480,120,365,920,4805),\n  ('android','2025-09-03','muj_up',498,124,374,936,4820),\n('android','2025-09-22','muj_up',498,124,374,936,4820);\n"
+      },
+      "position": [
+        192,
+        288
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "MnjbALoOI0zZ4Fyu",
+          "name": "Postgres account"
+        }
+      },
+      "id": "4a74d777-0530-4719-92f3-e0386c551664",
+      "name": "CREATE RATINGS TABLE",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {},
+        "query": "CREATE SCHEMA IF NOT EXISTS public;\n\nCREATE TABLE IF NOT EXISTS public.appstore_ratings_agg_daily (\n  app_id        TEXT    NOT NULL,\n  platform      TEXT    NOT NULL,      -- 'ios' | 'android'\n  snapshot_date DATE    NOT NULL,      -- UTC date\n  star1         INT     NOT NULL,\n  star2         INT     NOT NULL,\n  star3         INT     NOT NULL,\n  star4         INT     NOT NULL,\n  star5         INT     NOT NULL,\n  CONSTRAINT appstore_ratings_agg_daily_pkey PRIMARY KEY (platform, snapshot_date, app_id)\n);\n\nCREATE INDEX IF NOT EXISTS idx_appstore_ratings_agg_daily_snapshot_date\n  ON public.appstore_ratings_agg_daily (snapshot_date);\n"
+      },
+      "position": [
+        240,
+        -144
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "MnjbALoOI0zZ4Fyu",
+          "name": "Postgres account"
+        }
+      },
+      "id": "eebcb4e1-dbdd-49f2-9176-6be8f272c9e1",
+      "name": "Execute a SQL query",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {},
+        "query": "INSERT INTO public.appstore_ratings_agg_daily\n  (platform, snapshot_date, app_id, star1, star2, star3, star4, star5)\nVALUES\n  (\n    '{{ $json.platform        ?? \"ios\" }}',\n    '{{ $json.snapshot_date   ?? $now.toISO().slice(0,10) }}'::date,\n    '{{ $json.app_id          ?? \"muj_up\" }}',\n    {{ $json.rating_list?.[0] ?? $json.ratingCountList?.[0] ?? 0 }},\n    {{ $json.rating_list?.[1] ?? $json.ratingCountList?.[1] ?? 0 }},\n    {{ $json.rating_list?.[2] ?? $json.ratingCountList?.[2] ?? 0 }},\n    {{ $json.rating_list?.[3] ?? $json.ratingCountList?.[3] ?? 0 }},\n    {{ $json.rating_list?.[4] ?? $json.ratingCountList?.[4] ?? 0 }}\n  )\nON CONFLICT (platform, snapshot_date, app_id)\nDO UPDATE SET\n  star1 = EXCLUDED.star1,\n  star2 = EXCLUDED.star2,\n  star3 = EXCLUDED.star3,\n  star4 = EXCLUDED.star4,\n  star5 = EXCLUDED.star5;\n"
+      },
+      "position": [
+        672,
+        -16
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    }
+  ],
+  "pinData": {
+    "When Executed by Another Workflow": [
+      {
+        "json": {
+          "app_id": "muj_up",
+          "platform": "ios",
+          "rating_list": [
+            234,
+            86,
+            262,
+            594,
+            5402
+          ]
+        }
+      }
+    ]
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "shared": [
+    {
+      "createdAt": "2025-10-24T13:32:31.940Z",
+      "project": {
+        "createdAt": "2025-10-24T13:32:29.955Z",
+        "description": null,
+        "icon": null,
+        "id": "VkQs5OwIPTLelYCF",
+        "name": "Michal Janecek <michal.janecek@gmail.com>",
+        "projectRelations": [
+          {
+            "createdAt": "2025-10-24T13:32:29.955Z",
+            "projectId": "VkQs5OwIPTLelYCF",
+            "updatedAt": "2025-10-24T13:32:29.955Z",
+            "user": {
+              "createdAt": "2025-10-24T13:32:28.786Z",
+              "disabled": false,
+              "email": "michal.janecek@gmail.com",
+              "firstName": "Michal",
+              "id": "12951ae8-ddcc-476d-9f57-387eafc1e9d9",
+              "isPending": false,
+              "lastActiveAt": "2025-10-24",
+              "lastName": "Janecek",
+              "mfaEnabled": false,
+              "personalizationAnswers": {
+                "personalization_survey_n8n_version": "1.116.2",
+                "personalization_survey_submitted_at": "2025-10-24T13:39:35.272Z",
+                "version": "v4"
+              },
+              "settings": {
+                "easyAIWorkflowOnboarded": true,
+                "userActivated": false
+              },
+              "updatedAt": "2025-10-24T13:51:04.011Z"
+            },
+            "userId": "12951ae8-ddcc-476d-9f57-387eafc1e9d9"
+          }
+        ],
+        "type": "personal",
+        "updatedAt": "2025-10-24T13:39:31.750Z"
+      },
+      "projectId": "VkQs5OwIPTLelYCF",
+      "role": "workflow:owner",
+      "updatedAt": "2025-10-24T13:32:31.940Z",
+      "workflowId": "HhBwImsc63u9W4GA"
+    }
+  ],
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-09-23T09:38:16.875Z",
+  "versionId": "3d047240-ff54-4d82-b404-f45d4cebb416"
+}

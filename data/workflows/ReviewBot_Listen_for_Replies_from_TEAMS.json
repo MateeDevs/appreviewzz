@@ -1,0 +1,698 @@
+{
+  "active": false,
+  "connections": {
+    "Authenticate requests from the Bot Connector": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Authentication successful",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Authentication successful": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Request Processing",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "403 Access Denied",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Extract From Invoke": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Merge2",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Get App Config": {
+      "main": [
+        [
+          {
+            "index": 3,
+            "node": "Merge",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Get OpenID metadata": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Get list of valid signing keys",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Get Token for: Teams Bot Tadeas": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Merge",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Get list of valid signing keys": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Merge1",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Reply Posted Successfuly",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Authenticate requests from the Bot Connector",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Merge2": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Post the Reply",
+            "type": "main"
+          },
+          {
+            "index": 1,
+            "node": "Merge",
+            "type": "main"
+          },
+          {
+            "index": 0,
+            "node": "Get Token for: Teams Bot Tadeas",
+            "type": "main"
+          },
+          {
+            "index": 0,
+            "node": "Get App Config",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Post the Reply": {
+      "main": [
+        [
+          {
+            "index": 2,
+            "node": "Merge",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Reply Posted Successfuly": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Update Teams Message (Reply Posted)",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Start Error Thread",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Request Processing": {
+      "main": [
+        [
+          {
+            "index": 1,
+            "node": "Merge2",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Start Error Thread": {
+      "main": [
+        []
+      ]
+    },
+    "Teams Webhook": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Get OpenID metadata",
+            "type": "main"
+          },
+          {
+            "index": 0,
+            "node": "Extract From Invoke",
+            "type": "main"
+          },
+          {
+            "index": 1,
+            "node": "Merge1",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Update Teams Message (Reply Posted)": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "createdAt": "2025-08-13T09:20:56.329Z",
+  "id": "WNHe964s2BCda9Jm",
+  "isArchived": false,
+  "meta": null,
+  "name": "ReviewBot: Listen for Replies from TEAMS",
+  "nodes": [
+    {
+      "id": "7d97787e-507d-492b-9b96-4c785c851365",
+      "name": "Post the Reply",
+      "parameters": {
+        "options": {},
+        "workflowId": {
+          "__rl": true,
+          "cachedResultName": "ReviewBot: Post Reply",
+          "mode": "list",
+          "value": "FxVE7l2gg9ZJP5xr"
+        },
+        "workflowInputs": {
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true,
+          "mappingMode": "defineBelow",
+          "matchingColumns": [],
+          "schema": [
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "platform",
+              "id": "platform",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "reviewId",
+              "id": "reviewId",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "replyText",
+              "id": "replyText",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "app_id",
+              "id": "app_id",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "value": {
+            "app_id": "={{ $json.clientID }}",
+            "platform": "={{ $json.platform }}",
+            "replyText": "={{ $json.responseText }}",
+            "reviewId": "={{ $json.reviewId }}"
+          }
+        }
+      },
+      "position": [
+        1408,
+        752
+      ],
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2
+    },
+    {
+      "id": "0cca9542-0005-44b1-9c91-c6eac35428eb",
+      "name": "Reply Posted Successfuly",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "81763f49-1963-4f72-8b21-b6fbd5ce0da0",
+              "leftValue": "={{ $json.success }}",
+              "operator": {
+                "operation": "true",
+                "singleValue": true,
+                "type": "boolean"
+              },
+              "rightValue": "true"
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          }
+        },
+        "options": {}
+      },
+      "position": [
+        1872,
+        624
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2
+    },
+    {
+      "id": "b43eab8d-c186-4f97-b49a-49ecca24fd4b",
+      "name": "Merge",
+      "parameters": {
+        "combineBy": "combineByPosition",
+        "mode": "combine",
+        "numberInputs": 4,
+        "options": {}
+      },
+      "position": [
+        1648,
+        608
+      ],
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2
+    },
+    {
+      "id": "d656e0f1-ba9c-4cb7-b1ae-4828f6803b38",
+      "name": "Update Teams Message (Reply Posted)",
+      "parameters": {
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $json.access_token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "jsonBody": "={{\nJSON.stringify((function () {\n  var cfg = ($items('Get App Config').first().json || {});\n  var loc = (cfg.localization || {});\n  var lang = String(cfg.language || 'cs').toLowerCase();\n  var locale = lang.indexOf('cs') === 0 ? 'cs-CZ' : 'en-US';\n\n  var fmt = function (ts) {\n    try { return new Date(ts).toLocaleString(locale, { dateStyle: 'medium', timeStyle: 'short' }); }\n    catch (e) { return ''; }\n  };\n\n  var need = function (key) {\n    var v = loc[key];\n    if (typeof v !== 'string' || v.trim() === '') throw new Error('Missing localization key: ' + key);\n    return v.trim();\n  };\n\n  var authorName = String($json.author || '').trim();\n  if (!authorName) authorName = need('user_fallback');\n\n  var versionLabel = '';\n  if ($json.appVersion) versionLabel = need('version_label');\n\n  var replyTitle = (function () {\n    var a = loc.reply_sent_title;\n    if (typeof a === 'string' && a.trim()) return a.trim();\n    var b = loc.you_replied;\n    if (typeof b === 'string' && b.trim()) return b.trim();\n    throw new Error('Missing localization key: reply_sent_title or you_replied');\n  })();\n\n  var userReviews  = Array.isArray($json.customerTexts) ? $json.customerTexts : [];\n  var latestReview = userReviews.length ? userReviews[userReviews.length - 1] : null;\n  var stars        = latestReview ? (Number(latestReview.stars) || 0) : 0;\n\n  var cardBody = [];\n\n  cardBody.push({\n    type: 'ColumnSet',\n    columns: [\n      { type: 'Column', width: 'auto', items: [{ type: 'TextBlock', text: ($json.platform === 'Android' ? '🤖' : '🍎'), size: 'Large' }] },\n      { type: 'Column', width: 'stretch', spacing: 'Small', items: [\n        { type: 'TextBlock', text: '**' + authorName + '**', weight: 'Bolder', size: 'Medium' },\n        { type: 'TextBlock', text: '★'.repeat(stars) + '☆'.repeat(Math.max(0, 5 - stars)), spacing: 'None' }\n      ]}\n    ]\n  });\n\n  var metadataParts = [];\n  if ($json.reviewId) metadataParts.push('🆔 ' + String($json.reviewId));\n  if ($json.appVersion) metadataParts.push(versionLabel + ' ' + String($json.appVersion));\n  if (metadataParts.length > 0) {\n    cardBody.push({ type: 'TextBlock', text: metadataParts.join('  ·  '), isSubtle: true, separator: true, spacing: 'Medium' });\n  }\n\n  if (latestReview) {\n    var userDateStr = fmt(latestReview.createdDate);\n    cardBody.push({\n      type: 'RichTextBlock',\n      spacing: 'Large',\n      inlines: [\n        { type: 'TextRun', text: '👤 ' },\n        { type: 'TextRun', text: authorName, weight: 'Bolder' },\n        { type: 'TextRun', text: ' · ' },\n        { type: 'TextRun', text: userDateStr, italic: true },\n        { type: 'TextRun', text: '\\n\\n' },\n        { type: 'TextRun', text: (latestReview.title ? String(latestReview.title) + ': ' : '') + String(latestReview.text || ''), italic: true }\n      ]\n    });\n  }\n\n  cardBody.push({\n    type: 'Container',\n    style: 'good',\n    separator: true,\n    items: [\n      { type: 'TextBlock', text: '✅ **' + replyTitle + '**', weight: 'Bolder' },\n      { type: 'TextBlock', text: String($json.responseText || ''), wrap: true, isSubtle: true }\n    ]\n  });\n\n  return {\n    type: 'message',\n    attachments: [{\n      contentType: 'application/vnd.microsoft.card.adaptive',\n      content: {\n        \"$schema\": \"http://adaptivecards.io/schemas/adaptive-card.json\",\n        type: \"AdaptiveCard\",\n        version: \"1.5\",\n        body: cardBody\n      }\n    }]\n  };\n})())\n}}\n",
+        "method": "PUT",
+        "options": {},
+        "sendBody": true,
+        "sendHeaders": true,
+        "specifyBody": "json",
+        "url": "={{ ($json.serviceUrl || 'https://smba.trafficmanager.net/emea') + '/v3/conversations/' + $json.conversationId + '/activities/' + $json.activityId }}"
+      },
+      "position": [
+        2096,
+        496
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "id": "51b9d7f9-e527-4314-8628-a5cceb38ee64",
+      "name": "Get OpenID metadata",
+      "parameters": {
+        "options": {},
+        "url": "https://login.botframework.com/v1/.well-known/openidconfiguration"
+      },
+      "position": [
+        128,
+        784
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "id": "b3f76454-c6ed-4d0c-9833-90b8c9d6a4d0",
+      "name": "Get list of valid signing keys",
+      "parameters": {
+        "options": {},
+        "url": "={{ $json.jwks_uri }}"
+      },
+      "position": [
+        320,
+        784
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "id": "a909cc9d-df08-44cd-95ab-5f646d3d67ac",
+      "name": "Merge1",
+      "parameters": {
+        "combineBy": "combineByPosition",
+        "mode": "combine",
+        "options": {}
+      },
+      "position": [
+        512,
+        992
+      ],
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2
+    },
+    {
+      "id": "7f728a42-13cd-42ee-a582-a6a24b627857",
+      "name": "Extract From Invoke",
+      "parameters": {
+        "jsCode": "// Point to the correct nested object from the webhook\nconst input = $input.item.json.body;\n\n// This object will hold all the cleanly extracted data\nconst output = {};\n\n// Extract conversation data from the top level of the 'body' object\noutput.responseText = input.value?.replyText || '';\noutput.conversationId = input.conversation?.id || '';\noutput.activityId = input.replyToId || '';\noutput.serviceUrl = input.serviceUrl || 'https://smba.trafficmanager.net/emea';\n\n// The data packed into the button is directly in 'input.value'\nconst actionData = input.value || {};\n\n// Extract all the original review data from the 'value' object\noutput.reviewId = actionData.reviewId || '';\noutput.platform = actionData.platform || '';\noutput.clientID = actionData.clientId || '';\noutput.author = actionData.author || '';\noutput.appVersion = actionData.appVersion || '';\noutput.customerTexts = actionData.customerTexts || [];\noutput.developerTexts = actionData.developerTexts || [];\n\n// Return a single, clean object for the next node to use\nreturn output;"
+      },
+      "position": [
+        128,
+        608
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "id": "4b85e979-fe24-4046-b686-44016d17cb7d",
+      "name": "Authenticate requests from the Bot Connector",
+      "parameters": {
+        "jsCode": "/**\n * Full Bot Framework JWT verification for n8n Code node (no fetch, no process).\n * Requires JWKS already fetched upstream.\n *\n * Expects in $json:\n *   - headers.authorization = \"Bearer <JWT>\"\n *   - body = Activity object (needs serviceUrl, channelId)\n *   - keys = JWKS keys array (from the JWKS HTTP Request node)\n *   - (optional) id_token_signing_alg_values_supported = [\"RS256\", ...] from OpenID metadata\n *   - (preferred) botAppId  (or hardcode BOT_APP_ID below)\n */\n\nconst REQUIRED_ISS = \"https://api.botframework.com\";\nconst DEFAULT_EXPECTED_ALG = \"RS256\";\nconst CLOCK_SKEW_SEC = 300; // 5 minutes\nconst BOT_APP_ID = \"YOUR_BOT_APP_ID\"\n\nfunction ok(extra = {}) {\n  return [{ json: { valid: true, ...extra } }];\n}\nfunction fail(reason, status = 403, extra = {}) {\n  return [{ json: { valid: false, status, reason, ...extra } }];\n}\n\nfunction b64urlToBytes(b64url) {\n  const pad = \"=\".repeat((4 - (b64url.length % 4)) % 4);\n  const b64 = (b64url + pad).replace(/-/g, \"+\").replace(/_/g, \"/\");\n  return Buffer.from(b64, \"base64\");\n}\n\nfunction decodeJwtPart(partB64) {\n  return JSON.parse(Buffer.from(b64urlToBytes(partB64)).toString(\"utf8\"));\n}\n\nfunction nowSeconds() {\n  return Math.floor(Date.now() / 1000);\n}\n\nreturn (async () => {\n  try {\n    // 1) Inputs\n    const headers = $json.headers || {};\n    const activity = $json.body || {};\n    const keys = Array.isArray($json.keys) ? $json.keys : [];\n    const supportedAlgs = Array.isArray($json.id_token_signing_alg_values_supported)\n      ? $json.id_token_signing_alg_values_supported\n      : null;\n\n    const botAppIdInput = (typeof $json.botAppId === \"string\" ? $json.botAppId : BOT_APP_ID).trim?.() || \"\";\n    if (!botAppIdInput) return fail(\"Missing bot App ID. Provide $json.botAppId or fill BOT_APP_ID.\", 500);\n\n    let auth = headers.authorization || headers.Authorization || \"\";\n    if (!auth.startsWith(\"Bearer \")) return fail(\"Missing/invalid Authorization header (must be Bearer).\", 401);\n    const token = auth.slice(7).trim();\n\n    // 2) Parse JWT\n    const parts = token.split(\".\");\n    if (parts.length !== 3) return fail(\"Malformed JWT (expected header.payload.signature).\", 401);\n    const [hB64, pB64, sB64] = parts;\n    const header = decodeJwtPart(hB64);\n    const payload = decodeJwtPart(pB64);\n    const signature = b64urlToBytes(sB64);\n    const signingInput = `${hB64}.${pB64}`;\n\n    const alg = header.alg;\n    const kid = header.kid;\n    if (!alg) return fail(\"JWT header missing alg.\", 401);\n    if (!kid) return fail(\"JWT header missing kid.\", 401);\n\n    // 3) Algorithm checks\n    if (supportedAlgs && !supportedAlgs.includes(alg)) {\n      return fail(`JWT alg ${alg} not allowed by OpenID metadata.`, 401, { alg, supportedAlgs });\n    }\n    if (!supportedAlgs && alg !== DEFAULT_EXPECTED_ALG) {\n      return fail(`Unexpected alg ${alg}. Expected ${DEFAULT_EXPECTED_ALG}.`, 401, { alg });\n    }\n\n    // 4) Claims checks (issuer, audience, serviceUrl, time)\n    if (payload.iss !== REQUIRED_ISS) {\n      return fail(`Invalid issuer: ${payload.iss}`, 401, { expectedIss: REQUIRED_ISS });\n    }\n    if (payload.aud !== botAppIdInput) {\n      return fail(`Invalid audience.`, 401, { aud: payload.aud, expected: botAppIdInput });\n    }\n\n   const claimServiceUrl = (payload.serviceUrl || payload.serviceurl || \"\").trim();\nif (!claimServiceUrl) return fail(\"Missing serviceUrl claim in token.\", 401);\n\n// 1) Must be https and BF host (case-insensitive), allow any path after the host.\n//    Example valid: https://smba.trafficmanager.net/emea/<guid>/\nconst lower = claimServiceUrl.toLowerCase();\nconst prefix = \"https://smba.trafficmanager.net/\";\nif (!lower.startsWith(prefix)) {\n  return fail(\"serviceUrl host not allowed.\", 401, { claimServiceUrl });\n}\n\n// 2) Optional lenient sanity against activity.serviceUrl: same host only (ignore path differences)\nconst activityServiceUrl = String(activity?.serviceUrl || \"\").trim();\nif (activityServiceUrl) {\n  const al = activityServiceUrl.toLowerCase();\n  const hostA = al.startsWith(\"https://\") ? al.split(\"/\", 3).slice(0,3).join(\"/\") : \"\";\n  const hostC = lower.split(\"/\", 3).slice(0,3).join(\"/\"); // \"https://smba.trafficmanager.net\"\n  if (!hostA || !hostA.startsWith(\"https://smba.trafficmanager.net\")) {\n    return fail(\"serviceUrl host mismatch.\", 401, { claimServiceUrl, activityServiceUrl });\n  }\n}\n// ← do not compare paths; BF adds per-conversation segments\n\n\n\n\n    // Time validity with 5-min skew\n    const now = nowSeconds();\n    const nbf = typeof payload.nbf === \"number\" ? payload.nbf : undefined;\n    const exp = typeof payload.exp === \"number\" ? payload.exp : undefined;\n    if (nbf !== undefined && now + CLOCK_SKEW_SEC < nbf) {\n      return fail(\"Token not yet valid (nbf).\", 401, { nbf, now });\n    }\n    if (exp !== undefined && now - CLOCK_SKEW_SEC > exp) {\n      return fail(\"Token expired (exp).\", 401, { exp, now });\n    }\n\n    // 5) Locate JWK by kid\n    const jwk = keys.find(k => k.kid === kid);\n    if (!jwk) return fail(`No JWKS key found for kid=${kid}.`, 401, { kid });\n\n    // 6) Endorsement check (if present, must include channelId)\n    const channelId = activity?.channelId;\n    if (channelId && Array.isArray(jwk.endorsements) && jwk.endorsements.length > 0) {\n      if (!jwk.endorsements.includes(channelId)) {\n        return fail(`Key not endorsed for channelId=${channelId}.`, 403, { endorsements: jwk.endorsements });\n      }\n    }\n\n    // 7) Signature verification (RS256)\n    const subtle = globalThis.crypto?.subtle || require(\"crypto\").webcrypto.subtle;\n    const key = await subtle.importKey(\n      \"jwk\",\n      jwk,\n      { name: \"RSASSA-PKCS1-v1_5\", hash: \"SHA-256\" },\n      false,\n      [\"verify\"]\n    );\n    const enc = new TextEncoder();\n    const okSig = await subtle.verify({ name: \"RSASSA-PKCS1-v1_5\" }, key, signature, enc.encode(signingInput));\n    if (!okSig) return fail(\"Invalid token signature.\", 401);\n\n    // ✅ All checks passed\n    return ok({\n      kid,\n      alg,\n      iss: payload.iss,\n      aud: payload.aud,\n      serviceUrl: claimServiceUrl,\n      endorsedForChannel: Array.isArray(jwk.endorsements) ? jwk.endorsements : null,\n      timeWindow: { nbf, exp, skewSeconds: CLOCK_SKEW_SEC }\n    });\n\n  } catch (e) {\n    return fail(String(e?.message || e));\n  }\n})();\n"
+      },
+      "position": [
+        672,
+        992
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "id": "1cfbb9c8-cba3-4275-aaf2-880e4ac8e69d",
+      "name": "Authentication successful",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "397421ed-ccea-494e-9f11-cf3334f08b61",
+              "leftValue": "={{$json.valid}}",
+              "operator": {
+                "operation": "true",
+                "singleValue": true,
+                "type": "boolean"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          }
+        },
+        "options": {}
+      },
+      "position": [
+        832,
+        992
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2
+    },
+    {
+      "id": "fa47d6dc-5989-4b8f-b52a-000d64e4eec4",
+      "name": "403 Access Denied",
+      "parameters": {
+        "options": {
+          "responseCode": 403
+        },
+        "respondWith": "noData"
+      },
+      "position": [
+        1168,
+        1008
+      ],
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4
+    },
+    {
+      "id": "bb69c55a-3281-4f37-aeeb-9149fef43261",
+      "name": "Merge2",
+      "parameters": {
+        "combineBy": "combineByPosition",
+        "mode": "combine",
+        "options": {}
+      },
+      "position": [
+        1152,
+        624
+      ],
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2
+    },
+    {
+      "id": "671eea35-e162-43e8-b60e-c0b26cbaa963",
+      "name": "Request Processing",
+      "parameters": {
+        "options": {},
+        "respondWith": "text",
+        "responseBody": "We started processing your request."
+      },
+      "position": [
+        992,
+        800
+      ],
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4
+    },
+    {
+      "id": "190d9b89-19c6-4526-abd2-7f3a0737cb0f",
+      "name": "Start Error Thread",
+      "parameters": {
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{'Bearer '+$json.access_token.replace(/[\\r\\n]+/g,'')}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "jsonBody": "={{ JSON.stringify({\n  type: 'message',\n  replyToId: $json.activityId,\n  attachments: [\n    {\n      contentType: 'application/vnd.microsoft.card.adaptive',\n      content: {\n        $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',\n        type: 'AdaptiveCard',\n        version: '1.4',\n        body: [\n          {\n            type: 'TextBlock',\n            size: 'Medium',\n            weight: 'Bolder',\n            color: 'Attention',\n            text: '⚠️ Your reply could not be posted'\n          },\n          {\n            type: 'TextBlock',\n            wrap: true,\n            text: '*Error:* ' + String($json.error || 'Unknown error')\n          }\n        ]\n      }\n    }\n  ]\n}) }}\n",
+        "method": "POST",
+        "options": {},
+        "sendBody": true,
+        "sendHeaders": true,
+        "specifyBody": "json",
+        "url": "={{ ($json.serviceUrl || 'https://smba.trafficmanager.net/emea') + '/v3/conversations/' + $json.conversationId + '/activities' }}"
+      },
+      "position": [
+        2112,
+        736
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "id": "33accd47-5021-47cf-8241-e5059986f9df",
+      "name": "Teams Webhook",
+      "parameters": {
+        "httpMethod": "POST",
+        "options": {},
+        "path": "b2a5e60e-b2c9-4b75-b8aa-5500e1f20c62",
+        "responseMode": "responseNode"
+      },
+      "position": [
+        -144,
+        1008
+      ],
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "webhookId": "b2a5e60e-b2c9-4b75-b8aa-5500e1f20c62"
+    },
+    {
+      "executeOnce": true,
+      "id": "5dd0bd53-edcb-4f78-8e3c-e6bba5558f9a",
+      "name": "Get Token for: Teams Bot Tadeas",
+      "parameters": {
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "grant_type",
+              "value": "client_credentials"
+            },
+            {
+              "name": "client_id",
+              "value": "fill"
+            },
+            {
+              "name": "client_secret",
+              "value": "fill"
+            },
+            {
+              "name": "scope",
+              "value": "https://api.botframework.com/.default"
+            }
+          ]
+        },
+        "contentType": "form-urlencoded",
+        "method": "POST",
+        "options": {},
+        "sendBody": true,
+        "url": "https://login.microsoftonline.com/YOUR_TENANT_ID/oauth2/v2.0/token"
+      },
+      "position": [
+        1408,
+        464
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "id": "88543553-5a49-4d09-a7cc-809df1ef27e3",
+      "name": "Get App Config",
+      "parameters": {
+        "options": {},
+        "workflowId": {
+          "__rl": true,
+          "cachedResultName": "ReviewBot: Get App Config",
+          "mode": "list",
+          "value": "eNNAQSWM6Uwy6Vp6"
+        },
+        "workflowInputs": {
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true,
+          "mappingMode": "defineBelow",
+          "matchingColumns": [
+            "appId"
+          ],
+          "schema": [
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "appId",
+              "id": "appId",
+              "removed": false,
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "value": {
+            "appId": "={{ $json.clientID }}"
+          }
+        }
+      },
+      "position": [
+        1408,
+        944
+      ],
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2
+    }
+  ],
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "shared": [
+    {
+      "createdAt": "2025-10-24T13:32:31.940Z",
+      "project": {
+        "createdAt": "2025-10-24T13:32:29.955Z",
+        "description": null,
+        "icon": null,
+        "id": "VkQs5OwIPTLelYCF",
+        "name": "Michal Janecek <michal.janecek@gmail.com>",
+        "projectRelations": [
+          {
+            "createdAt": "2025-10-24T13:32:29.955Z",
+            "projectId": "VkQs5OwIPTLelYCF",
+            "updatedAt": "2025-10-24T13:32:29.955Z",
+            "user": {
+              "createdAt": "2025-10-24T13:32:28.786Z",
+              "disabled": false,
+              "email": "michal.janecek@gmail.com",
+              "firstName": "Michal",
+              "id": "12951ae8-ddcc-476d-9f57-387eafc1e9d9",
+              "isPending": false,
+              "lastActiveAt": "2025-10-24",
+              "lastName": "Janecek",
+              "mfaEnabled": false,
+              "personalizationAnswers": {
+                "personalization_survey_n8n_version": "1.116.2",
+                "personalization_survey_submitted_at": "2025-10-24T13:39:35.272Z",
+                "version": "v4"
+              },
+              "settings": {
+                "easyAIWorkflowOnboarded": true,
+                "userActivated": false
+              },
+              "updatedAt": "2025-10-24T13:51:04.011Z"
+            },
+            "userId": "12951ae8-ddcc-476d-9f57-387eafc1e9d9"
+          }
+        ],
+        "type": "personal",
+        "updatedAt": "2025-10-24T13:39:31.750Z"
+      },
+      "projectId": "VkQs5OwIPTLelYCF",
+      "role": "workflow:owner",
+      "updatedAt": "2025-10-24T13:32:31.940Z",
+      "workflowId": "WNHe964s2BCda9Jm"
+    }
+  ],
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-10-24T13:58:33.009Z",
+  "versionId": "380f4644-699e-412b-8901-5c188510b49b"
+}

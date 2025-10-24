@@ -1,0 +1,586 @@
+{
+  "active": false,
+  "connections": {
+    "App Switch": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Download ratings overview for current month",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "App Switch1": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Download ratings overview for previous month",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Code1": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Take last day1",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Download csv": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Extract from File1",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Download csv1": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Extract from File",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Download ratings overview for current month": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Download csv1",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Download ratings overview for previous month": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Download csv",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Merge",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Extract from File1": {
+      "main": [
+        [
+          {
+            "index": 1,
+            "node": "Merge",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Code1",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "structure",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Take last day1": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Merge1",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "App Switch",
+            "type": "main"
+          },
+          {
+            "index": 0,
+            "node": "App Switch1",
+            "type": "main"
+          },
+          {
+            "index": 1,
+            "node": "Merge1",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2025-09-15T06:52:42.767Z",
+  "id": "NBPTbzphXockzdFv",
+  "isArchived": false,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "name": "ReviewBot Ratings: Google Play",
+  "nodes": [
+    {
+      "credentials": {
+        "googleCloudStorageOAuth2Api": {
+          "id": "hpE0krWShgyUygZO",
+          "name": "Google Cloud Storage account"
+        }
+      },
+      "id": "667fd909-0157-426c-95cd-e8e800dc0e37",
+      "name": "Download ratings overview for current month",
+      "parameters": {
+        "bucketName": "YOUR_GCS_BUCKET_NAME",
+        "listFilters": {
+          "prefix": "=stats/ratings/ratings_YOUR_ANDROID_PACKAGE_{{ new Date().getFullYear() }}{{ String(new Date().getMonth() + 1).padStart(2, '0') }}_overview"
+        },
+        "maxResults": 10,
+        "projection": "full",
+        "requestOptions": {},
+        "resource": "object"
+      },
+      "position": [
+        128,
+        96
+      ],
+      "type": "n8n-nodes-base.googleCloudStorage",
+      "typeVersion": 1
+    },
+    {
+      "alwaysOutputData": false,
+      "id": "b0f722c8-f5e3-4cd1-8edb-bc5073a28d43",
+      "name": "Extract from File",
+      "parameters": {
+        "options": {
+          "encoding": "utf16le"
+        }
+      },
+      "position": [
+        576,
+        96
+      ],
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1
+    },
+    {
+      "id": "cc840bc2-73fe-43be-aaca-e0581793edf6",
+      "name": "Extract from File1",
+      "parameters": {
+        "options": {
+          "encoding": "utf16le"
+        }
+      },
+      "position": [
+        576,
+        352
+      ],
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1
+    },
+    {
+      "id": "4fe65a6d-a5a6-4577-a964-ed282b1a3a15",
+      "name": "Merge",
+      "parameters": {},
+      "position": [
+        976,
+        208
+      ],
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2
+    },
+    {
+      "credentials": {
+        "googleCloudStorageOAuth2Api": {
+          "id": "hpE0krWShgyUygZO",
+          "name": "Google Cloud Storage account"
+        }
+      },
+      "id": "0eb0d5f1-065e-4739-8f7c-f093d8ebdc8f",
+      "name": "Download ratings overview for previous month",
+      "parameters": {
+        "bucketName": "YOUR_GCS_BUCKET_NAME",
+        "listFilters": {
+          "prefix": "=stats/ratings/ratings_YOUR_ANDROID_PACKAGE_{{ new Date(new Date().getFullYear(), new Date().getMonth() - 1).getFullYear() }}{{ String(new Date(new Date().getFullYear(), new Date().getMonth() - 1).getMonth() + 1).padStart(2, '0') }}_overview"
+        },
+        "maxResults": 10,
+        "projection": "full",
+        "requestOptions": {},
+        "resource": "object"
+      },
+      "position": [
+        128,
+        352
+      ],
+      "type": "n8n-nodes-base.googleCloudStorage",
+      "typeVersion": 1
+    },
+    {
+      "credentials": {
+        "googleCloudStorageOAuth2Api": {
+          "id": "hpE0krWShgyUygZO",
+          "name": "Google Cloud Storage account"
+        }
+      },
+      "id": "7e26bb29-4a9a-4f09-ba53-efbacf325bfd",
+      "name": "Download csv",
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleCloudStorageOAuth2Api",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        },
+        "url": "={{ $json.mediaLink }}"
+      },
+      "position": [
+        352,
+        352
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "credentials": {
+        "googleCloudStorageOAuth2Api": {
+          "id": "hpE0krWShgyUygZO",
+          "name": "Google Cloud Storage account"
+        }
+      },
+      "id": "88865b3b-0634-49da-9ca6-b7a6347d528f",
+      "name": "Download csv1",
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleCloudStorageOAuth2Api",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        },
+        "url": "={{ $json.mediaLink }}"
+      },
+      "position": [
+        352,
+        96
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "id": "7d5e45fd-216a-48f5-a37f-f1aa98ecb262",
+      "name": "Code1",
+      "parameters": {
+        "jsCode": "// Získání všech vstupních položek\nconst items = $input.all();\nconst data = items.map(item => item.json);\n\n// Najdeme klíč, který obsahuje \"Date\"\nconst dateKey = Object.keys(data[0]).find(key => key.includes(\"Date\"));\nconsole.log(\"Nalezený klíč pro datum:\", dateKey);\n\n// Sestupné řazení podle nalezeného klíče\ndata.sort((a, b) => {\n  const dateA = new Date(a[dateKey]);\n  const dateB = new Date(b[dateKey]);\n  \n  // Sestupné řazení (novější první)\n  return dateB - dateA;\n});\n\nreturn data.map(row => ({ json: row }));"
+      },
+      "position": [
+        1168,
+        208
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "id": "03411ecf-52b1-4617-bbbe-94fe7c70caa8",
+      "name": "When Executed by Another Workflow",
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "app_id"
+            }
+          ]
+        }
+      },
+      "position": [
+        -560,
+        224
+      ],
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1
+    },
+    {
+      "id": "0eadb4b4-98a3-4316-8ef2-c97e83a9d299",
+      "name": "App Switch",
+      "parameters": {
+        "options": {},
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "3d037526-b7c0-4bac-90cf-2abfd425301c",
+                    "leftValue": "={{ $json.app_id }}",
+                    "operator": {
+                      "operation": "equals",
+                      "type": "string"
+                    },
+                    "rightValue": "muj_up"
+                  }
+                ],
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                }
+              },
+              "outputKey": "Muj Up",
+              "renameOutput": true
+            },
+            {
+              "conditions": {
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "b328f19e-627c-41d8-ae7b-72f99a8332d8",
+                    "leftValue": "={{ $json.app_id }}",
+                    "operator": {
+                      "name": "filter.operator.equals",
+                      "operation": "equals",
+                      "type": "string"
+                    },
+                    "rightValue": "scream"
+                  }
+                ],
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                }
+              },
+              "outputKey": "Scream",
+              "renameOutput": true
+            }
+          ]
+        }
+      },
+      "position": [
+        -288,
+        112
+      ],
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2
+    },
+    {
+      "id": "236edff1-beca-45cb-b8bf-84ca3925e8c5",
+      "name": "App Switch1",
+      "parameters": {
+        "options": {},
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "3d037526-b7c0-4bac-90cf-2abfd425301c",
+                    "leftValue": "={{ $json.app_id }}",
+                    "operator": {
+                      "operation": "equals",
+                      "type": "string"
+                    },
+                    "rightValue": "muj_up"
+                  }
+                ],
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                }
+              },
+              "outputKey": "Muj Up",
+              "renameOutput": true
+            },
+            {
+              "conditions": {
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "b328f19e-627c-41d8-ae7b-72f99a8332d8",
+                    "leftValue": "={{ $json.app_id }}",
+                    "operator": {
+                      "name": "filter.operator.equals",
+                      "operation": "equals",
+                      "type": "string"
+                    },
+                    "rightValue": "scream"
+                  }
+                ],
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                }
+              },
+              "outputKey": "Scream",
+              "renameOutput": true
+            }
+          ]
+        }
+      },
+      "position": [
+        -304,
+        368
+      ],
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2
+    },
+    {
+      "id": "d25309ec-0e8c-488f-89ce-33c4142ef1b5",
+      "name": "Take last day1",
+      "parameters": {
+        "jsCode": "return $input.first()"
+      },
+      "position": [
+        1376,
+        208
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "id": "eb5767a3-9919-4d2d-89ff-e3cc3772fc68",
+      "name": "Merge1",
+      "parameters": {
+        "combineBy": "combineByPosition",
+        "mode": "combine",
+        "options": {}
+      },
+      "position": [
+        1584,
+        368
+      ],
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2
+    },
+    {
+      "id": "a829dac7-d443-4093-837e-774cef5a8d3c",
+      "name": "structure",
+      "parameters": {
+        "jsCode": "// n8n Code node (JavaScript)\n\nconst item = items[0].json;\n\nconst payload = {\n  app_id: item.app_id,\n  today_average: Number(item[\"Daily Average Rating\"]) || 0,\n  total_average: Number(item[\"Total Average Rating\"]) || 0,\n  rating_count_list_new: [], // not provided in Android input\n  date: item[\"﻿Date\"],\n};\n\nreturn [{\n  json: {\n    android: payload,\n  }\n}];\n"
+      },
+      "position": [
+        1776,
+        368
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    }
+  ],
+  "pinData": {
+    "When Executed by Another Workflow": [
+      {
+        "json": {
+          "app_id": "muj_up"
+        }
+      }
+    ]
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "shared": [
+    {
+      "createdAt": "2025-10-24T13:32:31.940Z",
+      "project": {
+        "createdAt": "2025-10-24T13:32:29.955Z",
+        "description": null,
+        "icon": null,
+        "id": "VkQs5OwIPTLelYCF",
+        "name": "Michal Janecek <michal.janecek@gmail.com>",
+        "projectRelations": [
+          {
+            "createdAt": "2025-10-24T13:32:29.955Z",
+            "projectId": "VkQs5OwIPTLelYCF",
+            "updatedAt": "2025-10-24T13:32:29.955Z",
+            "user": {
+              "createdAt": "2025-10-24T13:32:28.786Z",
+              "disabled": false,
+              "email": "michal.janecek@gmail.com",
+              "firstName": "Michal",
+              "id": "12951ae8-ddcc-476d-9f57-387eafc1e9d9",
+              "isPending": false,
+              "lastActiveAt": "2025-10-24",
+              "lastName": "Janecek",
+              "mfaEnabled": false,
+              "personalizationAnswers": {
+                "personalization_survey_n8n_version": "1.116.2",
+                "personalization_survey_submitted_at": "2025-10-24T13:39:35.272Z",
+                "version": "v4"
+              },
+              "settings": {
+                "easyAIWorkflowOnboarded": true,
+                "userActivated": false
+              },
+              "updatedAt": "2025-10-24T13:51:04.011Z"
+            },
+            "userId": "12951ae8-ddcc-476d-9f57-387eafc1e9d9"
+          }
+        ],
+        "type": "personal",
+        "updatedAt": "2025-10-24T13:39:31.750Z"
+      },
+      "projectId": "VkQs5OwIPTLelYCF",
+      "role": "workflow:owner",
+      "updatedAt": "2025-10-24T13:32:31.940Z",
+      "workflowId": "NBPTbzphXockzdFv"
+    }
+  ],
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-10-24T13:55:27.057Z",
+  "versionId": "099fa5bc-0438-4c68-b98b-38a1e3c3cb2b"
+}

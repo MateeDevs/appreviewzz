@@ -1,0 +1,411 @@
+{
+  "active": false,
+  "connections": {
+    "CREATE REVIEW_ID TABLE": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Merge",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Compose list of existing IDs in the DB": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Merge1",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Filter Out Old Review (before Launch Date)": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Get Processed Review IDs",
+            "type": "main"
+          },
+          {
+            "index": 1,
+            "node": "Merge1",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Get App Config": {
+      "main": [
+        [
+          {
+            "index": 2,
+            "node": "Merge",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Get Processed Review IDs": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Compose list of existing IDs in the DB",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Filter Out Old Review (before Launch Date)",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Filter out already processed reviews",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "CREATE REVIEW_ID TABLE",
+            "type": "main"
+          },
+          {
+            "index": 0,
+            "node": "Get App Config",
+            "type": "main"
+          },
+          {
+            "index": 1,
+            "node": "Merge",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2025-08-22T07:28:13.826Z",
+  "id": "qjworWryiCcAkYQD",
+  "isArchived": false,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "name": "ReviewBot: Filter Unprocessed Reviews",
+  "nodes": [
+    {
+      "id": "5a2350fa-dc53-4b12-9c5e-01a50e5bedc3",
+      "name": "When Executed by Another Workflow",
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "position": [
+        0,
+        0
+      ],
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "MnjbALoOI0zZ4Fyu",
+          "name": "Postgres account"
+        }
+      },
+      "id": "e39278a5-20d8-48d8-ad6d-c0a709f0b612",
+      "name": "CREATE REVIEW_ID TABLE",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {},
+        "query": "CREATE TABLE IF NOT EXISTS review_ids (\n  app_id TEXT NOT NULL,\n  review_id TEXT PRIMARY KEY,\n  review_platform TEXT NOT NULL CHECK (review_platform IN ('ios', 'android'))\n);\n"
+      },
+      "position": [
+        256,
+        -144
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "id": "7218b4f1-b3c4-438e-803b-b92c9a4cf273",
+      "name": "Merge",
+      "parameters": {
+        "combineBy": "combineByPosition",
+        "mode": "combine",
+        "numberInputs": 3,
+        "options": {}
+      },
+      "position": [
+        496,
+        -16
+      ],
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2
+    },
+    {
+      "id": "a0a6d831-b9ca-4e9e-b249-60810913e54e",
+      "name": "Get App Config",
+      "parameters": {
+        "options": {},
+        "workflowId": {
+          "__rl": true,
+          "cachedResultName": "ReviewBot: Get Client Config",
+          "mode": "list",
+          "value": "eNNAQSWM6Uwy6Vp6"
+        },
+        "workflowInputs": {
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true,
+          "mappingMode": "defineBelow",
+          "matchingColumns": [
+            "appId"
+          ],
+          "schema": [
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "appId",
+              "id": "appId",
+              "removed": false,
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "value": {
+            "appId": "={{$json.app_id}}"
+          }
+        }
+      },
+      "position": [
+        256,
+        128
+      ],
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2
+    },
+    {
+      "id": "1bc5a7c3-e939-492e-a572-d2b619ca56c5",
+      "name": "Filter Out Old Review (before Launch Date)",
+      "parameters": {
+        "jsCode": "// Input: first item is your big object (what you pasted)\nconst app = items[0].json;\n\nconst HOUR = 60 * 60 * 1000;\n\n// Inclusive + TZ-safe cutoff = launch_date 00:00 at UTC+14 (earliest place on Earth)\n// -> subtract 14h from UTC midnight of the given date.\nfunction inclusiveGlobalCutoffMs(launch) {\n  if (!launch) return -Infinity; // include everything if missing\n  const isDateOnly = /^\\d{4}-\\d{2}-\\d{2}$/.test(launch);\n  const utcMidnightMs = isDateOnly\n    ? Date.parse(`${launch}T00:00:00.000Z`)\n    : Date.parse(launch);\n  if (!Number.isFinite(utcMidnightMs)) return -Infinity;\n  return utcMidnightMs - 14 * HOUR; // UTC+14 midnight -> most inclusive\n}\n\nconst launch = app.launch_date || app.launchDate;\nconst cutoff = inclusiveGlobalCutoffMs(launch);\n\n// per your rule: \"date of the review is the createdAt of the LAST item in customerTexts\"\nfunction lastCustomerTextTimestamp(review) {\n  const arr = Array.isArray(review.customerTexts) ? review.customerTexts : [];\n  if (!arr.length) return NaN;\n  const last = arr[arr.length - 1];\n  const ts = Date.parse(last?.createdDate || last?.created_at || last?.created);\n  return Number.isFinite(ts) ? ts : NaN;\n}\n\nconst filteredReviews = (app.reviews || []).filter(r => {\n  const ts = lastCustomerTextTimestamp(r);\n  return Number.isFinite(ts) && ts >= cutoff; // INCLUSIVE\n});\n\n// (optional) sort newest-first for consistency\nfilteredReviews.sort((a, b) => lastCustomerTextTimestamp(b) - lastCustomerTextTimestamp(a));\n\nreturn [\n  {\n    json: {\n      ...app,\n      reviews: filteredReviews,\n    },\n  },\n];\n"
+      },
+      "position": [
+        704,
+        0
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "MnjbALoOI0zZ4Fyu",
+          "name": "Postgres account"
+        }
+      },
+      "id": "aa22d586-94af-45ff-8910-4a8e73a92f4e",
+      "name": "Get Processed Review IDs",
+      "parameters": {
+        "operation": "select",
+        "options": {},
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "cachedResultName": "review_ids",
+          "mode": "list",
+          "value": "review_ids"
+        },
+        "where": {
+          "values": [
+            {
+              "column": "app_id",
+              "value": "={{ $json.app_id }}"
+            }
+          ]
+        }
+      },
+      "position": [
+        976,
+        -176
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "alwaysOutputData": true,
+      "id": "0ced937a-4559-496d-a155-c4b59e8a554f",
+      "name": "Compose list of existing IDs in the DB",
+      "parameters": {
+        "fieldsToAggregate": {
+          "fieldToAggregate": [
+            {
+              "fieldToAggregate": "review_id",
+              "outputFieldName": "existing_ids",
+              "renameField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "position": [
+        1184,
+        -176
+      ],
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1
+    },
+    {
+      "id": "1fcb0443-914c-4e0c-a560-54865325807e",
+      "name": "Merge1",
+      "parameters": {
+        "combineBy": "combineByPosition",
+        "mode": "combine",
+        "options": {}
+      },
+      "position": [
+        1440,
+        -16
+      ],
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2
+    },
+    {
+      "id": "d16d1171-b99d-481e-b180-36fda2f312ac",
+      "name": "Filter out already processed reviews",
+      "parameters": {
+        "jsCode": "// Input: one item with { existing_ids: [...], reviews: [...], ... }\nconst app = items[0]?.json ?? {};\n\n// Build lookup of already-processed IDs\nconst existingIds =\n  Array.isArray(app.existing_ids) ? app.existing_ids\n  : Array.isArray(app.existingIds) ? app.existingIds\n  : [];\nconst seen = new Set(existingIds.filter(id => typeof id === 'string' && id));\n\n// Filter reviews whose ID is NOT in the seen set\nconst reviews = Array.isArray(app.reviews) ? app.reviews : [];\nconst keep = reviews.filter(r => {\n  const id = r?.reviewId ?? r?.review_id ?? r?.id;\n  return typeof id === 'string' && id && !seen.has(id);\n});\n\n// Return ONLY the review objects (no wrapper), one item per review\nreturn keep.map(r => ({ json: r }));\n"
+      },
+      "position": [
+        1648,
+        -16
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    }
+  ],
+  "pinData": {
+    "When Executed by Another Workflow": [
+      {
+        "json": {
+          "app_id": "scream",
+          "reviews": [
+            {
+              "author": "MagicMikeWazowski",
+              "customerTexts": [
+                {
+                  "createdDate": "2025-08-26T08:29:52.000Z",
+                  "stars": 5,
+                  "text": "Very solid app. Provides me with natural soothing sounds",
+                  "title": "Solid app"
+                }
+              ],
+              "developerTexts": [],
+              "platform": "iOS",
+              "replyCharLimit": 5000,
+              "reviewId": "00000183-b948-d503-0a8d-066b00000000",
+              "territory": "CZE"
+            },
+            {
+              "author": "MCAnaSwana",
+              "customerTexts": [
+                {
+                  "createdDate": "2024-08-02T09:16:59.000Z",
+                  "stars": 5,
+                  "text": "Cista fantazia! 🤣🤣🤣",
+                  "title": "Vaginovy somilieeeer"
+                }
+              ],
+              "developerTexts": [],
+              "platform": "iOS",
+              "replyCharLimit": 5000,
+              "reviewId": "00000183-b948-d502-b132-bf0000000000",
+              "territory": "CZE"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "shared": [
+    {
+      "createdAt": "2025-10-24T13:32:31.940Z",
+      "project": {
+        "createdAt": "2025-10-24T13:32:29.955Z",
+        "description": null,
+        "icon": null,
+        "id": "VkQs5OwIPTLelYCF",
+        "name": "Michal Janecek <michal.janecek@gmail.com>",
+        "projectRelations": [
+          {
+            "createdAt": "2025-10-24T13:32:29.955Z",
+            "projectId": "VkQs5OwIPTLelYCF",
+            "updatedAt": "2025-10-24T13:32:29.955Z",
+            "user": {
+              "createdAt": "2025-10-24T13:32:28.786Z",
+              "disabled": false,
+              "email": "michal.janecek@gmail.com",
+              "firstName": "Michal",
+              "id": "12951ae8-ddcc-476d-9f57-387eafc1e9d9",
+              "isPending": false,
+              "lastActiveAt": "2025-10-24",
+              "lastName": "Janecek",
+              "mfaEnabled": false,
+              "personalizationAnswers": {
+                "personalization_survey_n8n_version": "1.116.2",
+                "personalization_survey_submitted_at": "2025-10-24T13:39:35.272Z",
+                "version": "v4"
+              },
+              "settings": {
+                "easyAIWorkflowOnboarded": true,
+                "userActivated": false
+              },
+              "updatedAt": "2025-10-24T13:51:04.011Z"
+            },
+            "userId": "12951ae8-ddcc-476d-9f57-387eafc1e9d9"
+          }
+        ],
+        "type": "personal",
+        "updatedAt": "2025-10-24T13:39:31.750Z"
+      },
+      "projectId": "VkQs5OwIPTLelYCF",
+      "role": "workflow:owner",
+      "updatedAt": "2025-10-24T13:32:31.940Z",
+      "workflowId": "qjworWryiCcAkYQD"
+    }
+  ],
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-08-28T10:36:36.897Z",
+  "versionId": "d40d8c2e-0ab1-4798-929c-ecb1be31bbf5"
+}

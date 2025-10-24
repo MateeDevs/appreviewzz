@@ -1,0 +1,324 @@
+{
+  "active": false,
+  "connections": {
+    "Client Switch": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Post Reply on Google Play",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Get Client Config": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Merge",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Client Switch",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Post Reply on Google Play": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Set Result",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Get Client Config",
+            "type": "main"
+          },
+          {
+            "index": 1,
+            "node": "Merge",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2025-08-13T08:27:45.829Z",
+  "id": "oTQIWayY9yey7pJI",
+  "isArchived": false,
+  "meta": null,
+  "name": "ReviewBot: Post Reply to GooglePlay",
+  "nodes": [
+    {
+      "id": "be593395-3966-4919-9be1-99b832ec12c6",
+      "name": "When Executed by Another Workflow",
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "reviewId"
+            },
+            {
+              "name": "replyText"
+            },
+            {
+              "name": "app_id"
+            }
+          ]
+        }
+      },
+      "position": [
+        -512,
+        480
+      ],
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1
+    },
+    {
+      "id": "d46784ad-9a5a-4511-a765-ecebe9c323ad",
+      "name": "Get Client Config",
+      "parameters": {
+        "options": {},
+        "workflowId": {
+          "__rl": true,
+          "cachedResultName": "ReviewBot: Get Client Config",
+          "mode": "list",
+          "value": "eNNAQSWM6Uwy6Vp6"
+        },
+        "workflowInputs": {
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true,
+          "mappingMode": "defineBelow",
+          "matchingColumns": [
+            "appId"
+          ],
+          "schema": [
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "appId",
+              "id": "appId",
+              "removed": false,
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "value": {
+            "appId": "={{ $json.app_id }}"
+          }
+        }
+      },
+      "position": [
+        -304,
+        320
+      ],
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2
+    },
+    {
+      "id": "95c4c8fc-9360-4268-9fbb-d99f7863c1b3",
+      "name": "Client Switch",
+      "parameters": {
+        "options": {},
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "d3038bca-e8c0-467a-89c0-23e3132b9da9",
+                    "leftValue": "={{ $json.app_id }}",
+                    "operator": {
+                      "operation": "equals",
+                      "type": "string"
+                    },
+                    "rightValue": "muj_up"
+                  }
+                ],
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                }
+              },
+              "outputKey": "Muj Up",
+              "renameOutput": true
+            }
+          ]
+        }
+      },
+      "position": [
+        96,
+        464
+      ],
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2
+    },
+    {
+      "id": "ae0ce8c9-14eb-42d3-bfea-7091612f1042",
+      "name": "Merge",
+      "parameters": {
+        "combineBy": "combineByPosition",
+        "mode": "combine",
+        "options": {}
+      },
+      "position": [
+        -112,
+        464
+      ],
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2
+    },
+    {
+      "credentials": {
+        "googleApi": {
+          "id": "sGHI6D4PMOjkr9lV",
+          "name": "Google Service Account account 2"
+        }
+      },
+      "id": "b5bda1e2-f43e-44c2-aed4-c26441adfca0",
+      "name": "Post Reply on Google Play",
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "replyText",
+              "value": "={{ $json.replyText }}"
+            }
+          ]
+        },
+        "method": "POST",
+        "nodeCredentialType": "googleApi",
+        "options": {},
+        "sendBody": true,
+        "url": "=https://androidpublisher.googleapis.com/androidpublisher/v3/applications/{{$json.google_package_name}}/reviews/{{ $json.reviewId }}:reply"
+      },
+      "position": [
+        336,
+        464
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "alwaysOutputData": true,
+      "id": "1ffb9971-e99c-4e22-8a5d-e61837ccead0",
+      "name": "Set Result",
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "88bb3078-4fd6-429e-b8f6-7a18c966daa7",
+              "name": "=success",
+              "type": "boolean",
+              "value": "={{ $json.error == null }}"
+            },
+            {
+              "id": "4ee65e89-d838-49a7-b1f4-7eeea77ef64c",
+              "name": "error",
+              "type": "string",
+              "value": "={{ $json.error.description }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "position": [
+        544,
+        464
+      ],
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4
+    }
+  ],
+  "pinData": {
+    "When Executed by Another Workflow": [
+      {
+        "json": {
+          "app_id": "muj_up",
+          "replyText": "Děkujeme za review.",
+          "reviewId": "test-544774"
+        }
+      }
+    ]
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "shared": [
+    {
+      "createdAt": "2025-10-24T13:32:31.940Z",
+      "project": {
+        "createdAt": "2025-10-24T13:32:29.955Z",
+        "description": null,
+        "icon": null,
+        "id": "VkQs5OwIPTLelYCF",
+        "name": "Michal Janecek <michal.janecek@gmail.com>",
+        "projectRelations": [
+          {
+            "createdAt": "2025-10-24T13:32:29.955Z",
+            "projectId": "VkQs5OwIPTLelYCF",
+            "updatedAt": "2025-10-24T13:32:29.955Z",
+            "user": {
+              "createdAt": "2025-10-24T13:32:28.786Z",
+              "disabled": false,
+              "email": "michal.janecek@gmail.com",
+              "firstName": "Michal",
+              "id": "12951ae8-ddcc-476d-9f57-387eafc1e9d9",
+              "isPending": false,
+              "lastActiveAt": "2025-10-24",
+              "lastName": "Janecek",
+              "mfaEnabled": false,
+              "personalizationAnswers": {
+                "personalization_survey_n8n_version": "1.116.2",
+                "personalization_survey_submitted_at": "2025-10-24T13:39:35.272Z",
+                "version": "v4"
+              },
+              "settings": {
+                "easyAIWorkflowOnboarded": true,
+                "userActivated": false
+              },
+              "updatedAt": "2025-10-24T13:51:04.011Z"
+            },
+            "userId": "12951ae8-ddcc-476d-9f57-387eafc1e9d9"
+          }
+        ],
+        "type": "personal",
+        "updatedAt": "2025-10-24T13:39:31.750Z"
+      },
+      "projectId": "VkQs5OwIPTLelYCF",
+      "role": "workflow:owner",
+      "updatedAt": "2025-10-24T13:32:31.940Z",
+      "workflowId": "oTQIWayY9yey7pJI"
+    }
+  ],
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-08-26T07:59:50.483Z",
+  "versionId": "68a9d911-a6f1-4f3e-99e4-a30a50fad7cc"
+}

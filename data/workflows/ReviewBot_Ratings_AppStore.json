@@ -1,0 +1,501 @@
+{
+  "active": false,
+  "connections": {
+    "AGGREGATE LOCS": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Merge1",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Calculate Average Ratings": {
+      "main": [
+        []
+      ]
+    },
+    "Get App Config": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Merge",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Get Store Listing": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "PARSE RATING LIST",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Get Yesterday Rating": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Merge2",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Get Store Listing",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Get Yesterday Rating",
+            "type": "main"
+          },
+          {
+            "index": 1,
+            "node": "Merge2",
+            "type": "main"
+          },
+          {
+            "index": 0,
+            "node": "Save Ratings to DB",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Merge2": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Calculate Average Ratings",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "PARSE RATING LIST": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "AGGREGATE LOCS",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Return All LOCS": {
+      "main": [
+        [
+          {
+            "index": 1,
+            "node": "Merge",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Get App Config",
+            "type": "main"
+          },
+          {
+            "index": 0,
+            "node": "Return All LOCS",
+            "type": "main"
+          },
+          {
+            "index": 1,
+            "node": "Merge1",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2025-09-02T13:30:23.864Z",
+  "id": "TQWiqyEabl1zAei7",
+  "isArchived": false,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "name": "ReviewBot Ratings: AppStore",
+  "nodes": [
+    {
+      "id": "1f4eaab8-eec2-4c2b-b713-e2f51c5ae155",
+      "name": "When Executed by Another Workflow",
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "app_id"
+            }
+          ]
+        }
+      },
+      "position": [
+        48,
+        -16
+      ],
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1
+    },
+    {
+      "id": "7c69779a-11e3-4257-82d9-45c2a8da8b5b",
+      "name": "Return All LOCS",
+      "parameters": {
+        "jsCode": "const codes = [\n  /**\n   * \n   \"ae\",\"ag\",\"ai\",\"al\",\"am\",\"ao\",\"ar\",\"at\",\"au\",\"az\",\"bb\",\"bd\",\"be\",\"bf\",\"bg\",\"bh\",\"bj\",\"bm\",\"bn\",\"bo\",\n  \"br\",\"bs\",\"bt\",\"bw\",\"by\",\"bz\",\"ca\",\"cd\",\"cg\",\"ch\",\"ci\",\"cl\",\"cm\",\"cn\",\"co\",\"cr\",\"cv\",\"cy\",\"cz\",\"de\",\n  \"dk\",\"dm\",\"do\",\"dz\",\"ec\",\"ee\",\"eg\",\"es\",\"fi\",\"fj\",\"fm\",\"fr\",\"ga\",\"gb\",\"gd\",\"gh\",\"gm\",\"gr\",\"gt\",\"gw\",\n  \"gy\",\"hk\",\"hn\",\"hr\",\"hu\",\"id\",\"ie\",\"il\",\"in\",\"iq\",\"is\",\"it\",\"jm\",\"jo\",\"jp\",\"ke\",\"kg\",\"kh\",\"kn\",\"kr\",\n  \"kw\",\"ky\",\"kz\",\"la\",\"lb\",\"lc\",\"lk\",\"lr\",\"lt\",\"lu\",\"lv\",\"ly\",\"ma\",\"md\",\"me\",\"mg\",\"mk\",\"ml\",\"mn\",\"mo\",\n  \"mr\",\"ms\",\"mt\",\"mu\",\"mv\",\"mw\",\"mx\",\"my\",\"mz\",\"na\",\"ne\",\"ng\",\"ni\",\"nl\",\"no\",\"np\",\"nz\",\"om\",\"pa\",\"pe\",\n  \"pg\",\"ph\",\"pk\",\"pl\",\"pt\",\"pw\",\"py\",\"qa\",\"ro\",\"rs\",\"ru\",\"sa\",\"sb\",\"sc\",\"se\",\"sg\",\"si\",\"sk\",\"sl\",\"sn\",\n  \"sr\",\"st\",\"sv\",\"sz\",\"tc\",\"td\",\"th\",\"tj\",\"tm\",\"tn\",\"to\",\"tr\",\"tt\",\"tw\",\"tz\",\"ua\",\"ug\",\"us\",\"uy\",\"uz\",\n  \"vc\",\"ve\",\"vg\",\"vn\",\"ye\",\"za\",\"zm\",\"zw\"*/\n  \"cz\", \"sk\", \"en\"\n];\n\nreturn codes.map(code => ({ json: { code } }));\n"
+      },
+      "position": [
+        288,
+        112
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "id": "3dad0d52-c608-4363-bf59-6fb9ef0b47de",
+      "name": "Merge",
+      "parameters": {
+        "combineBy": "combineAll",
+        "mode": "combine",
+        "options": {}
+      },
+      "position": [
+        496,
+        -16
+      ],
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2
+    },
+    {
+      "executeOnce": false,
+      "id": "a1b97ad8-cfed-4b17-9714-11616ecfa9d7",
+      "name": "Get Store Listing",
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "options": {
+          "batching": {
+            "batch": {
+              "batchInterval": 2500,
+              "batchSize": 10
+            }
+          }
+        },
+        "url": "={{ 'https://apps.apple.com/' + $json.code + '/app/' + $json.app_store_app_id }}"
+      },
+      "position": [
+        720,
+        -16
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "id": "fe817f49-13ba-4b59-bb06-4299af342e70",
+      "name": "AGGREGATE LOCS",
+      "parameters": {
+        "jsCode": "const agg = [0,0,0,0,0];\n\nfor (const item of items) {\n  const list = item.json.ratingCountList;\n  if (Array.isArray(list)) {\n    for (let i=0; i<agg.length; i++) {\n      agg[i] += list[i] || 0;\n    }\n  }\n}\n\nreturn [{ json: { ratingCountList: agg } }];\n"
+      },
+      "position": [
+        1152,
+        -16
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "id": "debde27f-6c78-4b8b-8820-673ae890721c",
+      "name": "PARSE RATING LIST",
+      "parameters": {
+        "jsCode": "// === helpers ================================================================\n\nfunction htmlUnescape(s) {\n  // Minimal unescape for how Apple encodes script contents sometimes\n  return s\n    .replace(/&quot;/g, '\"')\n    .replace(/&#34;/g, '\"')\n    .replace(/&#39;/g, \"'\")\n    .replace(/&apos;/g, \"'\")\n    .replace(/&lt;/g, '<')\n    .replace(/&gt;/g, '>')\n    .replace(/&amp;/g, '&');\n}\n\nfunction safeJSONParse(text) {\n  if (typeof text !== 'string') return null;\n  // Remove stray BOM/whitespace and tolerate JS line separators\n  const cleaned = text\n    .replace(/^\\uFEFF/, '')\n    .replace(/\\u2028|\\u2029/g, '\\n')\n    .trim();\n  try { return JSON.parse(cleaned); } catch {}\n  try { return JSON.parse(htmlUnescape(cleaned)); } catch {}\n  return null;\n}\n\nfunction ensureIntArray(arr) {\n  if (!Array.isArray(arr)) return null;\n  const nums = arr.map(x => Number.isFinite(x) ? x : parseInt(x, 10)).filter(n => Number.isFinite(n));\n  return nums.length === arr.length && nums.length > 0 ? nums : null;\n}\n\n// === your existing functions, lightly hardened ==============================\n\nfunction getHtml(item) {\n  const j = item.json;\n  if (typeof j === 'string') return j;\n  if (j && typeof j === 'object') {\n    if (typeof j.html === 'string') return j.html;\n    if (typeof j.body === 'string') return j.body;\n    if (typeof j.data === 'string') return j.data;\n    if (j.response && typeof j.response.body === 'string') return j.response.body;\n    if (j.body && typeof j.body.data === 'string') return j.body.data;\n  }\n  if (item.binary && typeof item.binary === 'object') {\n    for (const name of Object.keys(item.binary)) {\n      const part = item.binary[name];\n      if (part && typeof part === 'object') {\n        for (const k of ['data', 'body']) {\n          const v = part[k];\n          if (typeof v === 'string' && v) {\n            try { return Buffer.from(v, 'base64').toString('utf8'); } catch {}\n          }\n        }\n      }\n    }\n  }\n  return null;\n}\n\nfunction appIdFromOg(html) {\n  const m = html.match(/<meta[^>]*property=[\"']og:url[\"'][^>]*content=[\"'][^\"']*\\/id(\\d+)[^\"']*[\"'][^>]*>/i);\n  if (m) return m[1];\n  const m2 = html.match(/\\/id(\\d{6,})/); // fallback\n  return m2 ? m2[1] : null;\n}\n\nfunction extractFromShoebox(html, appId) {\n  // Apple sometimes duplicates/changes id casing; match robustly\n  const m = html.match(/<script[^>]*id=[\"']shoebox-media-api-cache-apps[\"'][^>]*>([\\s\\S]*?)<\\/script>/i);\n  if (!m) return null;\n\n  // Try normal + html-unescape parsing\n  const outer = safeJSONParse(m[1]);\n  if (!outer || typeof outer !== 'object') return null;\n\n  for (const val of Object.values(outer)) {\n    let data = val;\n    if (typeof data === 'string') {\n      const parsed = safeJSONParse(data);\n      if (parsed) data = parsed; else continue;\n    }\n    if (!data || typeof data !== 'object') continue;\n\n    // Apple uses .d most often; some pages use .data\n    const arr = Array.isArray(data.d) ? data.d : Array.isArray(data.data) ? data.data : null;\n    if (!arr) continue;\n\n    for (const obj of arr) {\n      if (!obj || typeof obj !== 'object') continue;\n\n      // Match by app id when available; if appId is missing, accept the first that has userRating\n      const id = String(obj.id || (obj.attributes && obj.attributes.id) || '');\n      if (appId && id !== String(appId)) continue;\n\n      const ur = obj.userRating || (obj.attributes && obj.attributes.userRating) || null;\n      if (ur && Array.isArray(ur.ratingCountList)) {\n        const list = ensureIntArray(ur.ratingCountList);\n        if (list) return list;\n      }\n\n      // Fallback: scan object JSON\n      const s = JSON.stringify(obj);\n      let mm = s.match(/\"ratingCountList\"\\s*:\\s*(\\[(?:\\s*\\d+(?:\\s*,\\s*\\d+)*)\\])/);\n      if (!mm) mm = s.match(/\\\\\"ratingCountList\\\\\"\\s*:\\s*(\\[(?:\\s*\\d+(?:\\s*,\\s*\\d+)*)\\])/);\n      if (mm) {\n        const parsed = safeJSONParse(mm[1]) || (mm[1].match(/\\d+/g) || []).map(n => parseInt(n, 10));\n        const list = ensureIntArray(parsed);\n        if (list) return list;\n      }\n\n      // If appId was unknown and we reached here, try next entry\n      if (!appId) continue;\n    }\n  }\n  return null;\n}\n\nfunction fallbackByProximity(html, appId) {\n  if (!appId) return null;\n  const idx = html.search(new RegExp('\\\\/id' + appId));\n  if (idx === -1) return null;\n  const window = html.slice(Math.max(0, idx - 3000), idx + 9000);\n  let m = window.match(/\"ratingCountList\"\\s*:\\s*(\\[(?:\\s*\\d+(?:\\s*,\\s*\\d+)*)\\])/);\n  if (!m) m = window.match(/\\\\\"ratingCountList\\\\\"\\s*:\\s*(\\[(?:\\s*\\d+(?:\\s*,\\s*\\d+)*)\\])/);\n  if (!m) return null;\n\n  const parsed = safeJSONParse(m[1]) || (m[1].match(/\\d+/g) || []).map(n => parseInt(n, 10));\n  const list = ensureIntArray(parsed);\n  return list;\n}\n\n// === main ===================================================================\n\nconst out = [];\nfor (const item of items) {\n  const html = getHtml(item);\n  if (!html) { out.push({ json: { error: 'no html' } }); continue; }\n\n  const appId = appIdFromOg(html);\n  let list = extractFromShoebox(html, appId);\n  if (!list) list = fallbackByProximity(html, appId);\n\n  if (list) out.push({ json: { ratingCountList: list, appId } });\n  else out.push({ json: { error: 'ratingCountList not found', appId } });\n}\nreturn out;\n"
+      },
+      "position": [
+        944,
+        -16
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "id": "8a2dd89a-0fae-4391-8cd4-aa3116c8cdea",
+      "name": "Merge1",
+      "parameters": {
+        "combineBy": "combineByPosition",
+        "mode": "combine",
+        "options": {}
+      },
+      "position": [
+        1328,
+        272
+      ],
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "MnjbALoOI0zZ4Fyu",
+          "name": "Postgres account"
+        }
+      },
+      "id": "843a79f3-e27c-41ad-b270-5fdbcb949c31",
+      "name": "Get Yesterday Rating",
+      "parameters": {
+        "limit": 1,
+        "operation": "select",
+        "options": {},
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "cachedResultName": "appstore_ratings_agg_daily",
+          "mode": "list",
+          "value": "appstore_ratings_agg_daily"
+        },
+        "where": {
+          "values": [
+            {
+              "column": "snapshot_date",
+              "value": "={{ $now.minus({ days: 1 }).toISODate() }}"
+            },
+            {
+              "column": "app_id",
+              "value": "={{ $json.app_id }}"
+            },
+            {
+              "column": "platform",
+              "value": "ios"
+            }
+          ]
+        }
+      },
+      "position": [
+        1696,
+        272
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "id": "ca23a648-0d35-4842-b732-31445a93e9ab",
+      "name": "Merge2",
+      "parameters": {
+        "combineBy": "combineByPosition",
+        "mode": "combine",
+        "options": {}
+      },
+      "position": [
+        1888,
+        432
+      ],
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2
+    },
+    {
+      "id": "6453bf12-1b60-4213-92ef-d11041ea198e",
+      "name": "Calculate Average Ratings",
+      "parameters": {
+        "jsCode": "// n8n Code node (JavaScript)\n\nconst item = items[0].json;\n\n// Cumulative totals as of yesterday (explicit numbers) and today (snapshot list)\nconst yesterday = [item.star1, item.star2, item.star3, item.star4, item.star5].map(v => Number(v) || 0);\nconst today_totals = Array.isArray(item.ratingCountList)\n  ? item.ratingCountList.slice(0, 5).map(v => Number(v) || 0)\n  : [0, 0, 0, 0, 0];\n\n// Weighted average for 1..5 star buckets\nfunction average(counts) {\n  const total = counts.reduce((a, b) => a + b, 0);\n  if (!total) return 0;\n  const weighted = counts.reduce((s, c, i) => s + c * (i + 1), 0);\n  return weighted / total;\n}\n\n// New ratings per star since yesterday (today - yesterday), non-negative\nconst rating_count_list_new = today_totals.map((t, i) => Math.max(0, t - yesterday[i]));\n\n// Averages\nconst today_average = average(rating_count_list_new);\nconst total_average = average(today_totals);\n\n// Robust date normalization to YYYY-MM-DD without risking RangeError\nfunction toYmd(raw) {\n  if (raw == null) return null;\n  const s = String(raw).trim();\n  if (!s) return null;\n  if (s.includes(\"T\")) return s.split(\"T\")[0];                   // ISO datetime -> date\n  if (/^\\d{4}-\\d{2}-\\d{2}$/.test(s)) return s;                   // already YYYY-MM-DD\n  const d = new Date(s);\n  return isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);\n}\n\nconst date = toYmd(item.snapshot_date);\n\nconst payload = {\n  app_id: item.app_id,\n  today_average,\n  total_average,\n  date,\n  rating_count_list_new,\n};\n\nreturn [{\n  json: {\n    ios: payload,\n  }\n}];\n"
+      },
+      "position": [
+        2096,
+        432
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "id": "a14a9384-a81e-4727-b630-6b2019881135",
+      "name": "Get App Config",
+      "parameters": {
+        "options": {},
+        "workflowId": {
+          "__rl": true,
+          "cachedResultName": "ReviewBot: Get App Config",
+          "mode": "list",
+          "value": "eNNAQSWM6Uwy6Vp6"
+        },
+        "workflowInputs": {
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true,
+          "mappingMode": "defineBelow",
+          "matchingColumns": [
+            "appId"
+          ],
+          "schema": [
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "appId",
+              "id": "appId",
+              "removed": false,
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "value": {
+            "appId": "={{ $json.app_id }}"
+          }
+        }
+      },
+      "position": [
+        288,
+        -144
+      ],
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2
+    },
+    {
+      "id": "0a9a266d-fa85-442a-8fa5-9f74f99a714d",
+      "name": "Save Ratings to DB",
+      "parameters": {
+        "options": {},
+        "workflowId": {
+          "__rl": true,
+          "cachedResultName": "ReviewBot Ratings: Save Rating To DB",
+          "mode": "list",
+          "value": "HhBwImsc63u9W4GA"
+        },
+        "workflowInputs": {
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true,
+          "mappingMode": "defineBelow",
+          "matchingColumns": [],
+          "schema": [
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "rating_list",
+              "id": "rating_list",
+              "required": false,
+              "type": "array"
+            },
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "app_id",
+              "id": "app_id",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "platform",
+              "id": "platform",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "value": {
+            "app_id": "={{ $json.app_id }}",
+            "platform": "ios",
+            "rating_list": "={{ $json.ratingCountList }}"
+          }
+        }
+      },
+      "position": [
+        1696,
+        80
+      ],
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2
+    }
+  ],
+  "pinData": {
+    "When Executed by Another Workflow": [
+      {
+        "json": {
+          "app_id": "muj_up"
+        }
+      }
+    ]
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "shared": [
+    {
+      "createdAt": "2025-10-24T13:32:31.940Z",
+      "project": {
+        "createdAt": "2025-10-24T13:32:29.955Z",
+        "description": null,
+        "icon": null,
+        "id": "VkQs5OwIPTLelYCF",
+        "name": "Michal Janecek <michal.janecek@gmail.com>",
+        "projectRelations": [
+          {
+            "createdAt": "2025-10-24T13:32:29.955Z",
+            "projectId": "VkQs5OwIPTLelYCF",
+            "updatedAt": "2025-10-24T13:32:29.955Z",
+            "user": {
+              "createdAt": "2025-10-24T13:32:28.786Z",
+              "disabled": false,
+              "email": "michal.janecek@gmail.com",
+              "firstName": "Michal",
+              "id": "12951ae8-ddcc-476d-9f57-387eafc1e9d9",
+              "isPending": false,
+              "lastActiveAt": "2025-10-24",
+              "lastName": "Janecek",
+              "mfaEnabled": false,
+              "personalizationAnswers": {
+                "personalization_survey_n8n_version": "1.116.2",
+                "personalization_survey_submitted_at": "2025-10-24T13:39:35.272Z",
+                "version": "v4"
+              },
+              "settings": {
+                "easyAIWorkflowOnboarded": true,
+                "userActivated": false
+              },
+              "updatedAt": "2025-10-24T13:51:04.011Z"
+            },
+            "userId": "12951ae8-ddcc-476d-9f57-387eafc1e9d9"
+          }
+        ],
+        "type": "personal",
+        "updatedAt": "2025-10-24T13:39:31.750Z"
+      },
+      "projectId": "VkQs5OwIPTLelYCF",
+      "role": "workflow:owner",
+      "updatedAt": "2025-10-24T13:32:31.940Z",
+      "workflowId": "TQWiqyEabl1zAei7"
+    }
+  ],
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-10-24T13:56:32.555Z",
+  "versionId": "2955733a-f161-4cd7-a55a-90b78875f54f"
+}

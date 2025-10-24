@@ -1,0 +1,571 @@
+{
+  "active": false,
+  "connections": {
+    "I18n CS (Set)1": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Wrap Locs In Loc Object",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "I18n EN (Set)1": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Wrap Locs In Loc Object",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "I18n EN (Set)1",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "I18n CS (Set)1",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Switch",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2025-08-28T09:25:09.233Z",
+  "id": "mAWhdyQwe3gIXOIH",
+  "isArchived": false,
+  "meta": null,
+  "name": "ReviewBot: Get Localized Strings",
+  "nodes": [
+    {
+      "id": "466d73e5-e1d9-4911-89c4-8588b53a4296",
+      "name": "When Executed by Another Workflow",
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "language"
+            }
+          ]
+        }
+      },
+      "position": [
+        0,
+        0
+      ],
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1
+    },
+    {
+      "id": "51e0764e-8f42-487f-8d29-e6bf3e935e3d",
+      "name": "Switch",
+      "parameters": {
+        "options": {},
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "0f84bf72-f02e-44d0-bc3c-e40640501be3",
+                    "leftValue": "={{ $json.language }}",
+                    "operator": {
+                      "operation": "equals",
+                      "type": "string"
+                    },
+                    "rightValue": "en"
+                  }
+                ],
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                }
+              },
+              "outputKey": "English",
+              "renameOutput": true
+            },
+            {
+              "conditions": {
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "ba1bf720-c88f-4416-9a97-1f46461b9857",
+                    "leftValue": "={{ $json.language }}",
+                    "operator": {
+                      "name": "filter.operator.equals",
+                      "operation": "equals",
+                      "type": "string"
+                    },
+                    "rightValue": "cs"
+                  }
+                ],
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                }
+              },
+              "outputKey": "Čeština",
+              "renameOutput": true
+            }
+          ]
+        }
+      },
+      "position": [
+        208,
+        0
+      ],
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2
+    },
+    {
+      "id": "1cd8cfc1-1c91-4121-92d1-b1588ad2f0ef",
+      "name": "Wrap Locs In Loc Object",
+      "parameters": {
+        "jsCode": "// Wrap all incoming fields from the Set node into { localization: { ... } }\nconst items = await $input.all();\n\nreturn items.map(item => {\n  return {\n    json: {\n      localization: item.json || {}\n    }\n  };\n});\n"
+      },
+      "position": [
+        752,
+        0
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "id": "5c0ae205-1264-4640-8b2e-e7022a786b74",
+      "name": "I18n CS (Set)1",
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cs-0001",
+              "name": "send",
+              "type": "string",
+              "value": "Odeslat"
+            },
+            {
+              "id": "cs-0002",
+              "name": "suggested_reply_label",
+              "type": "string",
+              "value": "Návrh odpovědi (max {{limit}} znaků)"
+            },
+            {
+              "id": "cs-0003",
+              "name": "already_replied_warning_android",
+              "type": "string",
+              "value": "V minulosti jste již odpověděli. Další odpověď bude přidána do konverzace."
+            },
+            {
+              "id": "cs-0004",
+              "name": "already_replied_warning_ios",
+              "type": "string",
+              "value": "V minulosti jste již odpověděli. Nová odpověď přepíše tu předchozí."
+            },
+            {
+              "id": "cs-0005",
+              "name": "you_already_replied",
+              "type": "string",
+              "value": "Už jste na tuto recenzi odpověděli:"
+            },
+            {
+              "id": "cs-0006",
+              "name": "you_replied",
+              "type": "string",
+              "value": "Odpověděli jste"
+            },
+            {
+              "id": "cs-0007",
+              "name": "review_processed",
+              "type": "string",
+              "value": ":white_check_mark: Recenze byla zpracována"
+            },
+            {
+              "id": "cs-1001",
+              "name": "ratings_summary_title",
+              "type": "string",
+              "value": "Souhrn hodnocení"
+            },
+            {
+              "id": "cs-1002",
+              "name": "ratings_summary_for_word",
+              "type": "string",
+              "value": "pro"
+            },
+            {
+              "id": "cs-1003",
+              "name": "date_label",
+              "type": "string",
+              "value": "Datum"
+            },
+            {
+              "id": "cs-1004",
+              "name": "today_label",
+              "type": "string",
+              "value": "Dnes"
+            },
+            {
+              "id": "cs-1005",
+              "name": "total_label",
+              "type": "string",
+              "value": "Celkem"
+            },
+            {
+              "id": "cs-1006",
+              "name": "delta_label",
+              "type": "string",
+              "value": "Δ vůči celkem"
+            },
+            {
+              "id": "cs-1007",
+              "name": "new_ratings_today_label",
+              "type": "string",
+              "value": "Nová hodnocení"
+            },
+            {
+              "id": "cs-1008",
+              "name": "platform_emoji_ios",
+              "type": "string",
+              "value": "🍎"
+            },
+            {
+              "id": "cs-1009",
+              "name": "platform_emoji_android",
+              "type": "string",
+              "value": "🤖"
+            },
+            {
+              "id": "903744b9-5e6f-4f34-8c34-a1ae60409785",
+              "name": "app_has_new_review",
+              "type": "string",
+              "value": "Nová recenze aplikace X!"
+            },
+            {
+              "id": "ed6420c8-3827-4728-8559-70698577045c",
+              "name": "review",
+              "type": "string",
+              "value": "recenze"
+            },
+            {
+              "id": "22e28682-1f4d-49d4-991d-d17ce126dab3",
+              "name": "new",
+              "type": "string",
+              "value": "nová"
+            },
+            {
+              "id": "cs-2001",
+              "name": "user_fallback",
+              "type": "string",
+              "value": "Uživatel"
+            },
+            {
+              "id": "cs-2002",
+              "name": "date_locale",
+              "type": "string",
+              "value": "cs-CZ"
+            },
+            {
+              "id": "cs-2003",
+              "name": "version_label",
+              "type": "string",
+              "value": "verze"
+            },
+            {
+              "id": "cs-2004",
+              "name": "developer_label",
+              "type": "string",
+              "value": "Vývojář"
+            },
+            {
+              "id": "cs-2005",
+              "name": "missing_review_text",
+              "type": "string",
+              "value": "Chybí text recenze."
+            },
+            {
+              "id": "e3c970d8-e69a-439d-9b6e-fe9a8062e9b4",
+              "name": "ios_only_label",
+              "type": "string",
+              "value": "Jen iOS"
+            },
+            {
+              "id": "dc13915d-86f3-4584-aafb-89cdf58933a9",
+              "name": "ratings_overview_title",
+              "type": "string",
+              "value": "Přehled hodnocení pro aplikaci"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "position": [
+        512,
+        160
+      ],
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4
+    },
+    {
+      "id": "e23c531d-d39d-4297-82c4-e06a064e17ae",
+      "name": "I18n EN (Set)1",
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "en-0001",
+              "name": "send",
+              "type": "string",
+              "value": "Send"
+            },
+            {
+              "id": "en-0002",
+              "name": "suggested_reply_label",
+              "type": "string",
+              "value": "Suggested reply (max {{limit}} characters)"
+            },
+            {
+              "id": "en-0003",
+              "name": "already_replied_warning_android",
+              "type": "string",
+              "value": "You’ve already replied in the past. Another reply will be added to the thread."
+            },
+            {
+              "id": "en-0004",
+              "name": "already_replied_warning_ios",
+              "type": "string",
+              "value": "You’ve already replied in the past. The new reply will replace the previous one."
+            },
+            {
+              "id": "en-0005",
+              "name": "you_already_replied",
+              "type": "string",
+              "value": "You already replied to this review:"
+            },
+            {
+              "id": "en-0006",
+              "name": "you_replied",
+              "type": "string",
+              "value": "You replied"
+            },
+            {
+              "id": "en-0007",
+              "name": "review_processed",
+              "type": "string",
+              "value": ":white_check_mark: Review was processed"
+            },
+            {
+              "id": "en-1001",
+              "name": "ratings_summary_title",
+              "type": "string",
+              "value": "Ratings Summary"
+            },
+            {
+              "id": "en-1002",
+              "name": "ratings_summary_for_word",
+              "type": "string",
+              "value": "for"
+            },
+            {
+              "id": "en-1003",
+              "name": "date_label",
+              "type": "string",
+              "value": "Date"
+            },
+            {
+              "id": "en-1004",
+              "name": "today_label",
+              "type": "string",
+              "value": "Today"
+            },
+            {
+              "id": "en-1005",
+              "name": "total_label",
+              "type": "string",
+              "value": "Total"
+            },
+            {
+              "id": "en-1006",
+              "name": "delta_label",
+              "type": "string",
+              "value": "Δ vs Total"
+            },
+            {
+              "id": "en-1007",
+              "name": "new_ratings_today_label",
+              "type": "string",
+              "value": "New ratings"
+            },
+            {
+              "id": "en-1008",
+              "name": "platform_emoji_ios",
+              "type": "string",
+              "value": "🍎"
+            },
+            {
+              "id": "en-1009",
+              "name": "platform_emoji_android",
+              "type": "string",
+              "value": "🤖"
+            },
+            {
+              "id": "bd54537f-1a26-42d5-8c5c-b1e66054eadf",
+              "name": "app_has_new_review",
+              "type": "string",
+              "value": "New review for App X!"
+            },
+            {
+              "id": "1bf86a05-c8c1-47ad-9a63-0a2d355e66f2",
+              "name": "review",
+              "type": "string",
+              "value": "review"
+            },
+            {
+              "id": "f2219898-2c80-4f71-826d-5691cde41f9d",
+              "name": "new",
+              "type": "string",
+              "value": "new"
+            },
+            {
+              "id": "en-2001",
+              "name": "user_fallback",
+              "type": "string",
+              "value": "User"
+            },
+            {
+              "id": "en-2002",
+              "name": "date_locale",
+              "type": "string",
+              "value": "en-US"
+            },
+            {
+              "id": "en-2003",
+              "name": "version_label",
+              "type": "string",
+              "value": "version"
+            },
+            {
+              "id": "en-2004",
+              "name": "developer_label",
+              "type": "string",
+              "value": "Developer"
+            },
+            {
+              "id": "en-2005",
+              "name": "missing_review_text",
+              "type": "string",
+              "value": "No review text."
+            },
+            {
+              "id": "9043ddfd-d417-4e43-bcde-431dc5d3dd70",
+              "name": "ios_only_label",
+              "type": "string",
+              "value": "iOS Only"
+            },
+            {
+              "id": "7a9277ef-7ee6-470e-9e2a-d23331b3ae45",
+              "name": "ratings_overview_title",
+              "type": "string",
+              "value": "New Ratings Overview delivered for"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "position": [
+        512,
+        -128
+      ],
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4
+    }
+  ],
+  "pinData": {
+    "When Executed by Another Workflow": [
+      {
+        "json": {
+          "language": "en"
+        }
+      }
+    ]
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "shared": [
+    {
+      "createdAt": "2025-10-24T13:32:31.940Z",
+      "project": {
+        "createdAt": "2025-10-24T13:32:29.955Z",
+        "description": null,
+        "icon": null,
+        "id": "VkQs5OwIPTLelYCF",
+        "name": "Michal Janecek <michal.janecek@gmail.com>",
+        "projectRelations": [
+          {
+            "createdAt": "2025-10-24T13:32:29.955Z",
+            "projectId": "VkQs5OwIPTLelYCF",
+            "updatedAt": "2025-10-24T13:32:29.955Z",
+            "user": {
+              "createdAt": "2025-10-24T13:32:28.786Z",
+              "disabled": false,
+              "email": "michal.janecek@gmail.com",
+              "firstName": "Michal",
+              "id": "12951ae8-ddcc-476d-9f57-387eafc1e9d9",
+              "isPending": false,
+              "lastActiveAt": "2025-10-24",
+              "lastName": "Janecek",
+              "mfaEnabled": false,
+              "personalizationAnswers": {
+                "personalization_survey_n8n_version": "1.116.2",
+                "personalization_survey_submitted_at": "2025-10-24T13:39:35.272Z",
+                "version": "v4"
+              },
+              "settings": {
+                "easyAIWorkflowOnboarded": true,
+                "userActivated": false
+              },
+              "updatedAt": "2025-10-24T13:51:04.011Z"
+            },
+            "userId": "12951ae8-ddcc-476d-9f57-387eafc1e9d9"
+          }
+        ],
+        "type": "personal",
+        "updatedAt": "2025-10-24T13:39:31.750Z"
+      },
+      "projectId": "VkQs5OwIPTLelYCF",
+      "role": "workflow:owner",
+      "updatedAt": "2025-10-24T13:32:31.940Z",
+      "workflowId": "mAWhdyQwe3gIXOIH"
+    }
+  ],
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-09-24T10:39:59.401Z",
+  "versionId": "081e9731-bb00-41b5-b414-aaaeee448949"
+}

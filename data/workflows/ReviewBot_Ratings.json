@@ -1,0 +1,664 @@
+{
+  "active": false,
+  "connections": {
+    "App Switch": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Send Message To Matee Slack",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Send Message To Matee Slack",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Get App Config": {
+      "main": [
+        [
+          {
+            "index": 1,
+            "node": "Merge1",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Get Token for: Teams Bot Tadeas": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Merge3",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "If Slack Configured": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "App Switch",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "If Teams Configured": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Get Token for: Teams Bot Tadeas",
+            "type": "main"
+          },
+          {
+            "index": 1,
+            "node": "Merge3",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Get App Config",
+            "type": "main"
+          },
+          {
+            "index": 0,
+            "node": "Merge1",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "If Teams Configured",
+            "type": "main"
+          },
+          {
+            "index": 0,
+            "node": "If Slack Configured",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Merge3": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Post as Bot to Teams",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "RATINGS: App Store": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Merge",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "RATINGS: Google Play": {
+      "main": [
+        [
+          {
+            "index": 1,
+            "node": "Merge",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "START": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "RATINGS: App Store",
+            "type": "main"
+          },
+          {
+            "index": 0,
+            "node": "RATINGS: Google Play",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2025-09-23T09:09:16.622Z",
+  "id": "RwR0pN6rg4T24keU",
+  "isArchived": false,
+  "meta": null,
+  "name": "ReviewBot Ratings",
+  "nodes": [
+    {
+      "alwaysOutputData": true,
+      "id": "674708fc-eeac-400f-a648-e11566cbd234",
+      "name": "RATINGS: App Store",
+      "parameters": {
+        "options": {},
+        "workflowId": {
+          "__rl": true,
+          "cachedResultName": "ReviewBot Ratings: AppStore",
+          "cachedResultUrl": "/workflow/TQWiqyEabl1zAei7",
+          "mode": "list",
+          "value": "TQWiqyEabl1zAei7"
+        },
+        "workflowInputs": {
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true,
+          "mappingMode": "defineBelow",
+          "matchingColumns": [
+            "app_id"
+          ],
+          "schema": [
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "app_id",
+              "id": "app_id",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "value": {
+            "app_id": "={{ $json.app_id }}"
+          }
+        }
+      },
+      "position": [
+        -288,
+        16
+      ],
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2
+    },
+    {
+      "alwaysOutputData": true,
+      "id": "e1dadafc-150d-461a-8b3b-bef7d22a1a00",
+      "name": "RATINGS: Google Play",
+      "parameters": {
+        "options": {},
+        "workflowId": {
+          "__rl": true,
+          "cachedResultName": "ReviewBot Ratings: Google Play",
+          "cachedResultUrl": "/workflow/NBPTbzphXockzdFv",
+          "mode": "list",
+          "value": "NBPTbzphXockzdFv"
+        },
+        "workflowInputs": {
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true,
+          "mappingMode": "defineBelow",
+          "matchingColumns": [
+            "app_id"
+          ],
+          "schema": [
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "app_id",
+              "id": "app_id",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "value": {
+            "app_id": "={{ $json.app_id }}"
+          }
+        }
+      },
+      "position": [
+        -288,
+        240
+      ],
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2
+    },
+    {
+      "id": "baac950f-bd6b-4265-a2e4-c4a44c787c32",
+      "name": "Merge",
+      "parameters": {
+        "combineBy": "combineByPosition",
+        "mode": "combine",
+        "options": {}
+      },
+      "position": [
+        -32,
+        128
+      ],
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2
+    },
+    {
+      "id": "dedecfb4-9ad9-4c9b-82d4-e12eaede2288",
+      "name": "Get App Config",
+      "parameters": {
+        "options": {},
+        "workflowId": {
+          "__rl": true,
+          "cachedResultName": "ReviewBot: Get App Config",
+          "mode": "list",
+          "value": "eNNAQSWM6Uwy6Vp6"
+        },
+        "workflowInputs": {
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true,
+          "mappingMode": "defineBelow",
+          "matchingColumns": [
+            "appId"
+          ],
+          "schema": [
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "appId",
+              "id": "appId",
+              "removed": false,
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "value": {
+            "appId": "={{ $('START').item.json.app_id }}"
+          }
+        }
+      },
+      "position": [
+        176,
+        272
+      ],
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2
+    },
+    {
+      "id": "131f2819-b211-4afa-bc89-79d27952ad1a",
+      "name": "Merge1",
+      "parameters": {
+        "combineBy": "combineByPosition",
+        "mode": "combine",
+        "options": {}
+      },
+      "position": [
+        368,
+        144
+      ],
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2
+    },
+    {
+      "id": "20f6165e-ce7e-4386-a983-b9f947ea0a7c",
+      "name": "App Switch",
+      "parameters": {
+        "options": {},
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "3d037526-b7c0-4bac-90cf-2abfd425301c",
+                    "leftValue": "={{ $items('Get App Config').first().json.app_id }}",
+                    "operator": {
+                      "operation": "equals",
+                      "type": "string"
+                    },
+                    "rightValue": "muj_up"
+                  }
+                ],
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                }
+              },
+              "outputKey": "Muj Up",
+              "renameOutput": true
+            },
+            {
+              "conditions": {
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "b328f19e-627c-41d8-ae7b-72f99a8332d8",
+                    "leftValue": "={{ $items('Get App Config').first().json.app_id }}",
+                    "operator": {
+                      "name": "filter.operator.equals",
+                      "operation": "equals",
+                      "type": "string"
+                    },
+                    "rightValue": "scream"
+                  }
+                ],
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                }
+              },
+              "outputKey": "Scream",
+              "renameOutput": true
+            }
+          ]
+        }
+      },
+      "position": [
+        944,
+        80
+      ],
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2
+    },
+    {
+      "credentials": {
+        "slackApi": {
+          "id": "iscUIB6CSQ10nY7d",
+          "name": "Matee Slack Test API"
+        }
+      },
+      "id": "ee34bc6b-1353-41b6-9296-698209ad6079",
+      "name": "Send Message To Matee Slack",
+      "parameters": {
+        "blocksUi": "={\n  \"blocks\": {{\n    JSON.stringify((function () {\n      var cfg  = ($json || {});\n      var loc  = cfg.localization || {};\n      var app  = String(cfg.client_name || cfg.app_id || \"App\");\n\n      var getLocale = function () {\n        var lang = String(cfg.language || \"en\").toLowerCase();\n        return String(loc.date_locale || (lang.indexOf(\"cs\") === 0 ? \"cs-CZ\" : \"en-US\"));\n      };\n      var tz     = String(cfg.timezone || \"Europe/Prague\");\n      var locale = getLocale();\n\n      var fmt = function (v, d) {\n        v = Number(v); if (!isFinite(v)) return \"-\";\n        return v.toFixed(d).replace(/\\.?0+$/, \"\");\n      };\n\n      var makeBar = function (v) {\n        v = Number(v); var cells = 20;\n        if (!isFinite(v)) return Array(cells + 1).join(\"▱\");\n        var filled = Math.max(0, Math.min(cells, Math.round((v / 5) * cells)));\n        var out = \"\"; for (var i = 0; i < cells; i++) out += (i < filled) ? \"▰\" : \"▱\";\n        return out;\n      };\n\n      var dayLabelFor = function (dateStr) {\n        var raw = String(dateStr || \"\").trim();\n        var d = raw ? new Date(raw) : new Date();\n        if (isNaN(d)) d = new Date();\n        var now = new Date();\n        var sameDay = (d.getFullYear() === now.getFullYear() &&\n                       d.getMonth() === now.getMonth() &&\n                       d.getDate() === now.getDate());\n        var label = sameDay ? String(loc.today_label || \"Today\")\n                            : d.toLocaleDateString(locale, { day: \"numeric\", month: \"long\", timeZone: tz });\n        if (!sameDay && String(locale).toLowerCase().startsWith(\"en\")) {\n          var day = d.getDate();\n          var suf = (day % 10 === 1 && day !== 11) ? \"st\"\n                  : (day % 10 === 2 && day !== 12) ? \"nd\"\n                  : (day % 10 === 3 && day !== 13) ? \"rd\" : \"th\";\n          var month = d.toLocaleDateString(\"en-US\", { month: \"long\", timeZone: tz });\n          label = month + \" \" + day + suf;\n        }\n        return label;\n      };\n\n      var buildPlatformSection = function (platformKey) {\n        var data = cfg[platformKey];\n        if (!data) return null;\n\n        var isIOS    = (platformKey === \"ios\");\n        var pEmoji   = isIOS ? String(loc.platform_emoji_ios || \"🍎\") : String(loc.platform_emoji_android || \"🤖\");\n        var pName    = isIOS ? \"iOS\" : \"Android\";\n        var today    = Number(data.today_average != null ? data.today_average : data.todayAverage);\n        var total    = Number(data.total_average  != null ? data.total_average  : data.totalAverage);\n        var delta    = (isNaN(today) || isNaN(total)) ? NaN : (today - total);\n        var dir      = (isNaN(delta) || delta === 0) ? \"▪︎\" : (delta > 0 ? \"▲\" : \"▼\");\n        var sign     = (isNaN(delta) || delta === 0) ? \"\"  : (delta > 0 ? \"+\" : \"\");\n        var dayLabel = dayLabelFor(data.date || cfg.date);\n\n        // Buckets: only show if provided AND at least one non-zero\n        var bucketsIn = Array.isArray(data.rating_count_list_new) ? data.rating_count_list_new : [];\n        var buckets = [0,0,0,0,0];\n        var showBuckets = false;\n        if (bucketsIn.length > 0) {\n          var anyNonZero = false;\n          for (var i = 0; i < 5; i++) {\n            var n = Number(bucketsIn[i]);\n            buckets[i] = isFinite(n) ? n : 0;\n            if (buckets[i] > 0) anyNonZero = true;\n          }\n          showBuckets = anyNonZero;\n        }\n\n        var lines = [];\n        lines.push(pEmoji + \" *\" + pName + \"*\");\n        lines.push(\"⭐ *\" + dayLabel + \"*: `\" + fmt(today, 2) + \"` (\" + dir + \" \" + sign + fmt(delta, 2) + \")\");\n        lines.push(makeBar(today));\n        lines.push(\"📈 *\" + String(loc.total_label || \"Total\") + \"*: `\" + fmt(total, 2) + \"`\");\n        lines.push(makeBar(total));\n        if (showBuckets) {\n          var newLine = \":new: *\" + String(loc.new_ratings_today_label || \"New ratings\") + \"* · \" +\n                        [\"1★: \"+buckets[0], \"2★: \"+buckets[1], \"3★: \"+buckets[2], \"4★: \"+buckets[3], \"5★: \"+buckets[4]].join(\" · \");\n          if (isIOS) {\n            var iosOnlyLabel = String(loc.ios_only_label || \"iOS Only\");\n            newLine += \" _(🧑‍💻 \" + iosOnlyLabel + \")_\";\n          }\n          lines.push(newLine);\n        }\n\n        return { type: \"section\", text: { type: \"mrkdwn\", text: lines.join(\"\\n\") } };\n      };\n\n      var blocks = [];\n      blocks.push({\n        type: \"header\",\n        text: { type: \"plain_text\", emoji: true, text: \"📊 \" + String(loc.ratings_summary_title || \"Ratings Summary\") + \" - 📱 \" + app }\n      });\n\n      var androidSec = buildPlatformSection(\"android\");\n      var iosSec     = buildPlatformSection(\"ios\");\n\n      if (androidSec) blocks.push(androidSec);\n      if (androidSec && iosSec) blocks.push({ type: \"divider\" });\n      if (iosSec) blocks.push(iosSec);\n\n      return blocks;\n    })())\n  }}\n}",
+        "channelId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $items('Get App Config').first().json.slack_channel_id }}"
+        },
+        "messageType": "block",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        },
+        "select": "channel",
+        "text": "={{\n  (function () {\n    var cfg = $json || {};\n    var loc = cfg.localization || {};\n    var app = String(cfg.client_name);\n\n    var fmt = function (v, d) {\n      return Number(v).toFixed(d).replace(/\\.?0+$/, \"\");\n    };\n\n    var parts = [];\n    if (cfg.ios && cfg.ios.today_average != null) {\n      parts.push(\"🍎 \" + fmt(cfg.ios.today_average, 2));\n    }\n    if (cfg.android && cfg.android.today_average != null) {\n      parts.push(\"🤖 \" + fmt(cfg.android.today_average, 2));\n    }\n\n    var todayStr = parts.length > 0 ? \" · \" + parts.join(\" · \") : \"\";\n\n    return loc.ratings_overview_title + \" \" + app + todayStr;\n  })()\n}}\n"
+      },
+      "position": [
+        1200,
+        80
+      ],
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "webhookId": "73c0ed99-db75-4199-ab3e-d524b451f20b"
+    },
+    {
+      "id": "b3f0cd04-8ec2-4628-a8d1-82bfaba259f4",
+      "name": "If Slack Configured",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "4200f8f3-86d6-445d-88c1-95a4213ee7a4",
+              "leftValue": "={{ $items('Get App Config').first().json.slack_channel_id }}",
+              "operator": {
+                "operation": "notEmpty",
+                "singleValue": true,
+                "type": "string"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          }
+        },
+        "options": {}
+      },
+      "position": [
+        688,
+        144
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2
+    },
+    {
+      "id": "e4adbf10-11ea-4bde-9016-ca6d24566b73",
+      "name": "If Teams Configured",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "4200f8f3-86d6-445d-88c1-95a4213ee7a4",
+              "leftValue": "={{ $items('Get App Config').first().json.teams_tenant_id }}",
+              "operator": {
+                "operation": "notEmpty",
+                "singleValue": true,
+                "type": "string"
+              },
+              "rightValue": ""
+            },
+            {
+              "id": "24764f96-3430-48ee-9304-e2e78e1c4d6c",
+              "leftValue": "={{ $items('Get App Config').first().json.teams_team_id }}",
+              "operator": {
+                "operation": "notEmpty",
+                "singleValue": true,
+                "type": "string"
+              },
+              "rightValue": ""
+            },
+            {
+              "id": "81edd579-8fc7-4202-b5e4-94c609927b73",
+              "leftValue": "={{ $items('Get App Config').first().json.teams_channel_id }}",
+              "operator": {
+                "operation": "notEmpty",
+                "singleValue": true,
+                "type": "string"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          }
+        },
+        "options": {}
+      },
+      "position": [
+        672,
+        416
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2
+    },
+    {
+      "executeOnce": true,
+      "id": "e9223dac-6bce-4d09-ad33-41c3417bf69a",
+      "name": "Get Token for: Teams Bot Tadeas",
+      "parameters": {
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "grant_type",
+              "value": "client_credentials"
+            },
+            {
+              "name": "client_id"
+            },
+            {
+              "name": "client_secret"
+            },
+            {
+              "name": "scope",
+              "value": "https://api.botframework.com/.default"
+            }
+          ]
+        },
+        "contentType": "form-urlencoded",
+        "method": "POST",
+        "options": {},
+        "sendBody": true,
+        "url": "https://login.microsoftonline.com/YOUR_TENANT_ID/oauth2/v2.0/token"
+      },
+      "position": [
+        896,
+        256
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "id": "b9318fec-801f-4450-9bbe-de7ef27a5bec",
+      "name": "Merge3",
+      "parameters": {
+        "combineBy": "combineAll",
+        "mode": "combine",
+        "options": {}
+      },
+      "position": [
+        1120,
+        384
+      ],
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2
+    },
+    {
+      "id": "e7184664-3b2e-45e1-8553-add53ec50af5",
+      "name": "Post as Bot to Teams",
+      "parameters": {
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{'Bearer '+$json.access_token.replace(/[\\r\\n]+/g,'')}}"
+            }
+          ]
+        },
+        "jsonBody": "={{\nJSON.stringify((function () {\n  var cfg  = ($json || {});\n  var loc  = cfg.localization || {};\n  var app  = String(cfg.client_name || cfg.app_id || \"App\");\n\n  var getLocale = function () {\n    var lang = String(cfg.language || \"en\").toLowerCase();\n    return String(loc.date_locale || (lang.indexOf(\"cs\") === 0 ? \"cs-CZ\" : \"en-US\"));\n  };\n  var tz     = String(cfg.timezone || \"Europe/Prague\");\n  var locale = getLocale();\n\n  var fmt = function (v, d) { v = Number(v); if (!isFinite(v)) return \"-\"; return v.toFixed(d).replace(/\\.?0+$/, \"\"); };\n\n  var makeBar = function (v) {\n    v = Number(v); var cells = 20;\n    if (!isFinite(v)) return Array(cells + 1).join(\"▱\");\n    var filled = Math.max(0, Math.min(cells, Math.round((v / 5) * cells)));\n    var out = \"\"; for (var i = 0; i < cells; i++) out += (i < filled) ? \"▰\" : \"▱\";\n    return out;\n  };\n\n  var dayLabelFor = function (dateStr) {\n    var raw = String(dateStr || \"\").trim();\n    var d = raw ? new Date(raw) : new Date();\n    if (isNaN(d)) d = new Date();\n    var now = new Date();\n    var sameDay = (d.getFullYear() === now.getFullYear() &&\n                   d.getMonth() === now.getMonth() &&\n                   d.getDate() === now.getDate());\n    var label = sameDay ? String(loc.today_label || \"Today\")\n                        : d.toLocaleDateString(locale, { day: \"numeric\", month: \"long\", timeZone: tz });\n    if (!sameDay && String(locale).toLowerCase().startsWith(\"en\")) {\n      var day = d.getDate();\n      var suf = (day % 10 === 1 && day !== 11) ? \"st\"\n              : (day % 10 === 2 && day !== 12) ? \"nd\"\n              : (day % 10 === 3 && day !== 13) ? \"rd\" : \"th\";\n      var month = d.toLocaleDateString(\"en-US\", { month: \"long\", timeZone: tz });\n      label = month + \" \" + day + suf;\n    }\n    return label;\n  };\n\n  var platformHeader = function(isIOS){\n    var pEmoji = isIOS ? String(loc.platform_emoji_ios || \"🍎\") : String(loc.platform_emoji_android || \"🤖\");\n    var pName  = isIOS ? \"iOS\" : \"Android\";\n    return { type: \"TextBlock\", text: pEmoji + \" **\" + pName + \"**\", wrap: true, spacing: \"Small\" };\n  };\n\n  var buildPlatformBody = function(platformKey) {\n    var data = cfg[platformKey];\n    if (!data) return null;\n    var isIOS = (platformKey === \"ios\");\n\n    var today    = Number(data.today_average != null ? data.today_average : data.todayAverage);\n    var total    = Number(data.total_average  != null ? data.total_average  : data.totalAverage);\n    var delta    = (isNaN(today) || isNaN(total)) ? NaN : (today - total);\n    var dir      = (isNaN(delta) || delta === 0) ? \"▪︎\" : (delta > 0 ? \"▲\" : \"▼\");\n    var sign     = (isNaN(delta) || delta === 0) ? \"\"  : (delta > 0 ? \"+\" : \"\");\n    var dayLabel = dayLabelFor(data.date || cfg.date);\n\n    // Buckets: only if provided and any > 0\n    var bucketsIn = Array.isArray(data.rating_count_list_new) ? data.rating_count_list_new : [];\n    var buckets = [0,0,0,0,0];\n    var showBuckets = false;\n    if (bucketsIn.length > 0) {\n      var anyNonZero = false;\n      for (var i = 0; i < 5; i++) {\n        var n = Number(bucketsIn[i]);\n        buckets[i] = isFinite(n) ? n : 0;\n        if (buckets[i] > 0) anyNonZero = true;\n      }\n      showBuckets = anyNonZero;\n    }\n\n    var parts = [];\n    parts.push(platformHeader(isIOS));\n\n    parts.push({\n      type: \"RichTextBlock\",\n      inlines: [\n        { type: \"TextRun\", text: \"⭐ \" + String(loc.today_label || \"Today\"), weight: \"Bolder\" },\n        { type: \"TextRun\", text: \": \" + fmt(today, 2) + \" \" },\n        { type: \"TextRun\", text: \"(\" + dir + \" \" + sign + fmt(delta, 2) + \")\", isSubtle: true }\n      ],\n      spacing: \"Small\"\n    });\n\n    parts.push({ type: \"TextBlock\", text: makeBar(today), wrap: true, fontType: \"Monospace\", isSubtle: true, spacing: \"None\" });\n\n    parts.push({\n      type: \"RichTextBlock\",\n      inlines: [\n        { type: \"TextRun\", text: \"📈 \" + String(loc.total_label || \"Total\"), weight: \"Bolder\" },\n        { type: \"TextRun\", text: \": \" + fmt(total, 2) }\n      ],\n      spacing: \"Small\"\n    });\n\n    parts.push({ type: \"TextBlock\", text: makeBar(total), wrap: true, fontType: \"Monospace\", isSubtle: true, spacing: \"None\" });\n\n    if (showBuckets) {\n      // 🔁 Only change here: ':new:' → '🆕'\n      var ratingsPrefix = \"🆕 \" + String(loc.new_ratings_today_label || \"New ratings\") + \" · \";\n      var ratingsLine = ratingsPrefix\n        + [\"1★: \"+buckets[0], \"2★: \"+buckets[1], \"3★: \"+buckets[2], \"4★: \"+buckets[3], \"5★: \"+buckets[4]].join(\" · \");\n\n      var inlines = [{ type: \"TextRun\", text: ratingsLine }];\n\n      if (isIOS) {\n        var iosOnlyLabel = String(loc.ios_only_label || \"iOS Only\");\n        inlines.push({ type: \"TextRun\", text: \" (🧑‍💻 \" + iosOnlyLabel + \")\", italic: true });\n      }\n\n      parts.push({ type: \"RichTextBlock\", inlines: inlines, spacing: \"Small\" });\n    }\n\n    return parts;\n  };\n\n  var body = [];\n  body.push({\n    type: \"TextBlock\",\n    text: \"📊 \" + String(loc.ratings_summary_title || \"Ratings Summary\") + \" – 📱 \" + app,\n    weight: \"Bolder\",\n    size: \"Medium\",\n    wrap: true\n  });\n\n  var androidParts = buildPlatformBody(\"android\");\n  var iosParts     = buildPlatformBody(\"ios\");\n\n  if (androidParts) body = body.concat(androidParts);\n  if (androidParts && iosParts) body.push({ type: \"TextBlock\", text: \"\", separator: true, spacing: \"Medium\" });\n  if (iosParts) body = body.concat(iosParts);\n\n  var channelInfo = {\n    isGroup: true,\n    channelData: {\n      tenant:  { id: String(cfg.teams_tenant_id  || \"\") },\n      team:    { id: String(cfg.teams_team_id    || \"\") },\n      channel: { id: String(cfg.teams_channel_id || \"\") }\n    }\n  };\n\n  var activity = {\n    type: \"message\",\n    attachments: [{\n      contentType: \"application/vnd.microsoft.card.adaptive\",\n      content: {\n        \"$schema\": \"http://adaptivecards.io/schemas/adaptive-card.json\",\n        \"type\": \"AdaptiveCard\",\n        \"version\": \"1.5\",\n        \"body\": body\n      }\n    }]\n  };\n\n  return { isGroup: channelInfo.isGroup, channelData: channelInfo.channelData, activity: activity };\n})())\n}}\n",
+        "method": "POST",
+        "options": {},
+        "sendBody": true,
+        "sendHeaders": true,
+        "specifyBody": "json",
+        "url": "https://smba.trafficmanager.net/emea/v3/conversations"
+      },
+      "position": [
+        1344,
+        384
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "id": "1e8ce815-2c32-47bf-93cd-b0a6a29541c9",
+      "name": "START",
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "app_id"
+            }
+          ]
+        }
+      },
+      "position": [
+        -592,
+        128
+      ],
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1
+    }
+  ],
+  "pinData": {
+    "START": [
+      {
+        "json": {
+          "app_id": "muj_up"
+        }
+      }
+    ]
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "shared": [
+    {
+      "createdAt": "2025-10-24T13:32:31.940Z",
+      "project": {
+        "createdAt": "2025-10-24T13:32:29.955Z",
+        "description": null,
+        "icon": null,
+        "id": "VkQs5OwIPTLelYCF",
+        "name": "Michal Janecek <michal.janecek@gmail.com>",
+        "projectRelations": [
+          {
+            "createdAt": "2025-10-24T13:32:29.955Z",
+            "projectId": "VkQs5OwIPTLelYCF",
+            "updatedAt": "2025-10-24T13:32:29.955Z",
+            "user": {
+              "createdAt": "2025-10-24T13:32:28.786Z",
+              "disabled": false,
+              "email": "michal.janecek@gmail.com",
+              "firstName": "Michal",
+              "id": "12951ae8-ddcc-476d-9f57-387eafc1e9d9",
+              "isPending": false,
+              "lastActiveAt": "2025-10-24",
+              "lastName": "Janecek",
+              "mfaEnabled": false,
+              "personalizationAnswers": {
+                "personalization_survey_n8n_version": "1.116.2",
+                "personalization_survey_submitted_at": "2025-10-24T13:39:35.272Z",
+                "version": "v4"
+              },
+              "settings": {
+                "easyAIWorkflowOnboarded": true,
+                "userActivated": false
+              },
+              "updatedAt": "2025-10-24T13:51:04.011Z"
+            },
+            "userId": "12951ae8-ddcc-476d-9f57-387eafc1e9d9"
+          }
+        ],
+        "type": "personal",
+        "updatedAt": "2025-10-24T13:39:31.750Z"
+      },
+      "projectId": "VkQs5OwIPTLelYCF",
+      "role": "workflow:owner",
+      "updatedAt": "2025-10-24T13:32:31.940Z",
+      "workflowId": "RwR0pN6rg4T24keU"
+    }
+  ],
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-10-24T13:52:27.145Z",
+  "versionId": "e98ee071-c7c6-4772-b049-6e722bcd3aa1"
+}

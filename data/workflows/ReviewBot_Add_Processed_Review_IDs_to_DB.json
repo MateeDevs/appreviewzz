@@ -1,0 +1,322 @@
+{
+  "active": false,
+  "connections": {
+    "Code": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Insert Review IDs into the DB",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Code",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2025-08-22T09:06:11.312Z",
+  "id": "4hOz4jU4vHXz9vfS",
+  "isArchived": false,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "name": "ReviewBot: Add Processed Review IDs to DB",
+  "nodes": [
+    {
+      "id": "305ebd78-ba87-4bb1-a665-39a336fb57bd",
+      "name": "When Executed by Another Workflow",
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "position": [
+        -224,
+        -96
+      ],
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "MnjbALoOI0zZ4Fyu",
+          "name": "Postgres account"
+        }
+      },
+      "id": "260da2f6-2041-4a78-bac4-777b596dfced",
+      "name": "Delete the Review Table",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {},
+        "query": "DROP TABLE review_ids"
+      },
+      "position": [
+        -160,
+        480
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "MnjbALoOI0zZ4Fyu",
+          "name": "Postgres account"
+        }
+      },
+      "id": "7b67870f-a90d-4576-8077-258fe030d3cf",
+      "name": "Insert Mock Data into the Review Table",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {},
+        "query": "-- Ensure table exists (your schema)\nCREATE TABLE IF NOT EXISTS review_ids (\n  app_id TEXT NOT NULL,\n  review_id TEXT PRIMARY KEY,\n  review_platform TEXT NOT NULL CHECK (review_platform IN ('ios', 'android'))\n);\n\nBEGIN;\n\nINSERT INTO review_ids (app_id, review_id, review_platform) VALUES\n  ('muj_up','9f2689l4-bcf7-4b8c-b392-8d5b077163ab','android'),\n  ('muj_up','41e0w7da-5b49-4ae6-876b-ed905fd50b84','android'),\n  ('muj_up','408ffe32-c02c-4420-ac82-73ea4f2a2f0a','android'),\n  ('muj_up','00000058-0bdd-a203-06f8-d5f900000000','ios'),\n  ('muj_up','00000058-0bdd-a202-fdbb-b07600000000','ios'),\n  ('muj_up','06000058-0bdd-a202-f3ca-7f0500000000','ios'),\n  ('muj_up','00066658-0bdd-a202-f1d9-bb7200000000','ios'),\n  ('muj_up','00000058-0bdd-a202-f1d8-5e7900000000','ios'),\n  ('muj_up','00000058-0bdd-a202-ead5-873200000000','ios'),\n  ('muj_up','00000058-0bdd-a202-d9d5-9e9500000000','ios'),\n  ('muj_up','00000058-0bdd-a202-d78b-714200000000','ios'),\n  ('muj_up','00666058-0bdd-a202-d44b-ad0200000000','ios')\nON CONFLICT (review_id) DO NOTHING;\n\nCOMMIT;\n\n-- Quick check\nSELECT * FROM review_ids ORDER BY app_id, review_platform, review_id;\n"
+      },
+      "position": [
+        -160,
+        272
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "id": "1a7b2bc8-9afb-4c2d-99b8-838113d1a80b",
+      "name": "Code",
+      "parameters": {
+        "jsCode": "const appId = $json.app_id;\nreturn $json.reviews.map(r => {\n  return {\n    json: {\n      app_id: appId,\n      review_id: r.reviewId,\n      review_platform: (r.platform || \"\").toLowerCase()\n    }\n  };\n});\n"
+      },
+      "position": [
+        -16,
+        -96
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "id": "e8589950-f61c-4169-9358-c8c6ceb0b27a",
+      "name": "Sticky Note",
+      "parameters": {
+        "content": "## Dangerous\nDangerous helper nodes for playing with the DB.",
+        "height": 1024,
+        "width": 368
+      },
+      "position": [
+        -240,
+        176
+      ],
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "MnjbALoOI0zZ4Fyu",
+          "name": "Postgres account"
+        }
+      },
+      "id": "0c9aa893-d505-4e90-8c05-be46560d0c4d",
+      "name": "Clean the Review Table",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {},
+        "query": "TRUNCATE TABLE review_ids"
+      },
+      "position": [
+        -160,
+        672
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "MnjbALoOI0zZ4Fyu",
+          "name": "Postgres account"
+        }
+      },
+      "id": "792a0081-b30e-48d7-a6ca-c6a6a5ab78ed",
+      "name": "Show the Review Table",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {},
+        "query": "SELECT * FROM review_ids"
+      },
+      "position": [
+        -160,
+        864
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "MnjbALoOI0zZ4Fyu",
+          "name": "Postgres account"
+        }
+      },
+      "id": "07d0586d-ad9f-445f-8e27-242db4da5bb6",
+      "name": "Insert Review IDs into the DB",
+      "parameters": {
+        "options": {
+          "skipOnConflict": true
+        },
+        "schema": "public",
+        "table": "review_ids"
+      },
+      "position": [
+        192,
+        -96
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "MnjbALoOI0zZ4Fyu",
+          "name": "Postgres account"
+        }
+      },
+      "id": "0a126cda-2d08-4330-8358-a9c00a15dfe9",
+      "name": "Clean Reviews for App with ID Scream",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {},
+        "query": "DELETE FROM review_ids WHERE app_id = 'scream';"
+      },
+      "position": [
+        -160,
+        1040
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    }
+  ],
+  "pinData": {
+    "When Executed by Another Workflow": [
+      {
+        "json": {
+          "app_id": "muj_up",
+          "reviews": [
+            {
+              "author": "Luboš Vrňák",
+              "customerTexts": [
+                {
+                  "createdDate": "2025-08-21T11:26:46.375Z",
+                  "stars": 5,
+                  "text": "Vše OK",
+                  "title": ""
+                }
+              ],
+              "developerTexts": [],
+              "platform": "Android",
+              "replyCharLimit": 350,
+              "reviewId": "9f268954-bcf7-4b8c-b392-8d5b077163ab",
+              "suggestedResponse": "Dobrý den,\nvelice děkujeme za Vaše milé hodnocení! Jsme rádi, že jste spokojen/a.\nS pozdravem,\nMůj Up tým",
+              "territory": null
+            },
+            {
+              "author": "ZDENĚK GAŠPAR",
+              "customerTexts": [
+                {
+                  "createdDate": "2025-08-20T15:42:45.396Z",
+                  "stars": 1,
+                  "text": "nelze se připojit",
+                  "title": ""
+                }
+              ],
+              "developerTexts": [],
+              "platform": "Android",
+              "replyCharLimit": 350,
+              "reviewId": "41e0b7da-5b49-4ae6-876b-ed905fd50b84",
+              "suggestedResponse": "Dobrý den, děkujeme za Vaši recenzi. Je nám líto, že máte potíže s připojením. Pro urychlené řešení nás prosím kontaktujte na +420 241 043 111. Rádi Vám pomůžeme.\n\nMůj Up tým",
+              "territory": null
+            },
+            {
+              "author": "zdeněk šenk",
+              "customerTexts": [
+                {
+                  "createdDate": "2025-08-19T17:27:45.751Z",
+                  "stars": 1,
+                  "text": "nefunguje, děsně pomalé a když chci převést peníze , tak nejde a dokonce mě to napíše, jestli nemám problém s připojením. Oni mají problém a házejí to na mě",
+                  "title": ""
+                }
+              ],
+              "developerTexts": [],
+              "platform": "Android",
+              "replyCharLimit": 350,
+              "reviewId": "408bfe32-c02c-4420-ac82-73ea4f2a2f0a",
+              "suggestedResponse": "Dobrý den, děkujeme za Vaši recenzi. Mrzí nás, že máte takové potíže. Pomalost prověříme. Problémy s funkčností a převodem peněz prosím řešte s naší podporou na tel. +420 241 043 111, kde Vám rádi pomohou. S pozdravem, Můj Up tým.",
+              "territory": null
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "shared": [
+    {
+      "createdAt": "2025-10-24T13:32:31.940Z",
+      "project": {
+        "createdAt": "2025-10-24T13:32:29.955Z",
+        "description": null,
+        "icon": null,
+        "id": "VkQs5OwIPTLelYCF",
+        "name": "Michal Janecek <michal.janecek@gmail.com>",
+        "projectRelations": [
+          {
+            "createdAt": "2025-10-24T13:32:29.955Z",
+            "projectId": "VkQs5OwIPTLelYCF",
+            "updatedAt": "2025-10-24T13:32:29.955Z",
+            "user": {
+              "createdAt": "2025-10-24T13:32:28.786Z",
+              "disabled": false,
+              "email": "michal.janecek@gmail.com",
+              "firstName": "Michal",
+              "id": "12951ae8-ddcc-476d-9f57-387eafc1e9d9",
+              "isPending": false,
+              "lastActiveAt": "2025-10-24",
+              "lastName": "Janecek",
+              "mfaEnabled": false,
+              "personalizationAnswers": {
+                "personalization_survey_n8n_version": "1.116.2",
+                "personalization_survey_submitted_at": "2025-10-24T13:39:35.272Z",
+                "version": "v4"
+              },
+              "settings": {
+                "easyAIWorkflowOnboarded": true,
+                "userActivated": false
+              },
+              "updatedAt": "2025-10-24T13:51:04.011Z"
+            },
+            "userId": "12951ae8-ddcc-476d-9f57-387eafc1e9d9"
+          }
+        ],
+        "type": "personal",
+        "updatedAt": "2025-10-24T13:39:31.750Z"
+      },
+      "projectId": "VkQs5OwIPTLelYCF",
+      "role": "workflow:owner",
+      "updatedAt": "2025-10-24T13:32:31.940Z",
+      "workflowId": "4hOz4jU4vHXz9vfS"
+    }
+  ],
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-09-22T12:53:24.691Z",
+  "versionId": "72e7620c-d796-4760-bf63-9d1c1a843fd3"
+}

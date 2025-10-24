@@ -1,0 +1,987 @@
+{
+  "active": false,
+  "connections": {
+    "Adjust Slack Message Blocks": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Merge",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Client Switch": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Get original Slack Message",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Get original Slack Message",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Client Switch1": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Update the Review Slack message after Send",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Update the Review Slack message after Send",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Client Switch2": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Start Error Thread",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Crypto": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "If signature does not match",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Verification pretext",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Extract the Review Reply Info": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Client Switch",
+            "type": "main"
+          },
+          {
+            "index": 1,
+            "node": "Merge",
+            "type": "main"
+          },
+          {
+            "index": 1,
+            "node": "Merge1",
+            "type": "main"
+          },
+          {
+            "index": 0,
+            "node": "Post the Reply",
+            "type": "main"
+          },
+          {
+            "index": 0,
+            "node": "Get App Config",
+            "type": "main"
+          },
+          {
+            "index": 1,
+            "node": "Merge2",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Get App Config": {
+      "main": [
+        [
+          {
+            "index": 2,
+            "node": "Merge2",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Get original Slack Message": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Merge2",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "If signature does not match": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Access Denied",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Processing Started",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Client Switch1",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Client Switch2",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Merge2": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Adjust Slack Message Blocks",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Post the Reply": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Reply Posted Successfuly",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Processing Started": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Extract the Review Reply Info",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Reply Posted Successfuly": {
+      "main": [
+        [
+          {
+            "index": 2,
+            "node": "Merge",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Merge1",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Slack Webhook": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Extract from File",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Verification pretext": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Crypto",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2025-08-13T07:55:53.078Z",
+  "id": "MfCFjN6nmi7YsNaJ",
+  "isArchived": false,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "name": "ReviewBot: Listen for Replies from SLACK",
+  "nodes": [
+    {
+      "id": "82115305-cf4e-4d40-a4a6-749983738014",
+      "name": "Extract the Review Reply Info",
+      "parameters": {
+        "jsCode": "// Nahradíme Slack x-www-form-urlencoded tělo -> payload JSON\nconst body = JSON.parse(items[0].json.body.payload);\n\n// Najdeme blok s inputem (první klíč v body.state.values)\nconst inputBlockId = Object.keys(body.state.values)[0];\nconst inputBlock = body.state.values[inputBlockId];\n\n// Najdeme první input element, který obsahuje .value\nlet responseText = \"\";\nfor (const actionId in inputBlock) {\n  if (inputBlock[actionId].value) {\n    responseText = inputBlock[actionId].value;\n    break;\n  }\n}\n\n// ID zprávy pro odpověď (thread)\nconst messageTs = body.container.message_ts;\n\n// Slack kanál\nconst channelId = body.container.channel_id;\n\n// NEW: Get data directly from the message metadata\nconst metadata = body.message.metadata.event_payload;\nconst clientID = metadata.clientID;\nconst reviewId = metadata.review_id;\nconst platform = metadata.platform;\n\n// Výstup\nreturn [\n  {\n    json: {\n      responseText,\n      messageTs,\n      channelId,\n      clientID, // The clientID is now available for the next steps\n      reviewId,\n      platform\n    }\n  }\n];\n"
+      },
+      "position": [
+        -176,
+        704
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "credentials": {
+        "slackApi": {
+          "id": "iscUIB6CSQ10nY7d",
+          "name": "Matee Slack Test API"
+        }
+      },
+      "id": "4a0cc374-e182-4c89-a026-898fccf4b051",
+      "name": "Get original Slack Message",
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "slackApi",
+        "options": {},
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "channel",
+              "value": "={{ $json.channelId }}"
+            },
+            {
+              "name": "latest",
+              "value": "={{ $json.messageTs }}"
+            },
+            {
+              "name": "inclusive",
+              "value": "true"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "url": "https://slack.com/api/conversations.history"
+      },
+      "position": [
+        128,
+        256
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "id": "770a44ad-022c-499a-9cd5-1b3cdb1f0a86",
+      "name": "Adjust Slack Message Blocks",
+      "parameters": {
+        "jsCode": "/**\n * Input  (single merged item)\n *   $json.messages[0].blocks\n *   $json.responseText, channelId, messageTs\n * Also needs: node \"Get App Config\" producing { localization: {...}, language? }\n * Output\n *   { blocks, channelId, messageTs }\n */\n\n// ---- read localization from \"Get App Config\"\nvar cfgItems = $items('Get App Config', 0, 0);\nvar cfg = (Array.isArray(cfgItems) && cfgItems.length && cfgItems[0] && cfgItems[0].json) ? cfgItems[0].json : {};\nvar loc = cfg.localization || {};\nvar lang = String(cfg.language || '').toLowerCase();\n\n// helper: require a loc key (no hardcoded fallback)\nfunction requireLoc(key) {\n  var v = loc[key];\n  if (typeof v !== 'string' || v.trim() === '') {\n    throw new Error('Missing localization key: ' + key);\n  }\n  return v.trim();\n}\n\n// required loc keys\nvar YOU_REPLIED = requireLoc('you_replied');                    // e.g. \"You replied\" / \"Odpověděli jste\"\nvar REVIEW_PROCESSED_PREFIX = requireLoc('review_processed'); // e.g. \":white_check_mark: Review was processed\"\n\n// optional loc keys\n// Slack date pattern, e.g. \"{date_short} at {time}\" or \"{date_short} v {time}\"\nvar DATE_PATTERN = (typeof loc.slack_date_pattern === 'string' && loc.slack_date_pattern.trim().length)\n  ? loc.slack_date_pattern.trim()\n  : '{date_short} {time}';\n\n// Optional marker to strip any old automation footer section by substring match\nvar AUTOMATION_FOOTER_MARKER = (typeof loc.automation_footer_marker === 'string' && loc.automation_footer_marker.trim().length)\n  ? loc.automation_footer_marker.trim()\n  : null;\n\n// ---- validate input message\nif (!($json && $json.messages && $json.messages[0] && Array.isArray($json.messages[0].blocks))) {\n  throw new Error('messages[0].blocks not found – did HTTP Request 3 change?');\n}\n\nvar original = $json.messages[0].blocks;\n\n// 1) keep only “safe” blocks (no input/actions, optionally drop previous automation footer by marker), drop block_id\nvar filtered = original\n  .filter(function (b) {\n    if (!b || !b.type) return false;\n    if (b.type === 'input' || b.type === 'actions') return false;\n    if (AUTOMATION_FOOTER_MARKER && b.type === 'section' && b.text && b.text.text && b.text.text.indexOf(AUTOMATION_FOOTER_MARKER) !== -1) return false;\n    return true;\n  })\n  .map(function (b) {\n    var copy = Object.assign({}, b);\n    delete copy.block_id;\n    return copy;\n  });\n\n// 2) collapse consecutive dividers\nvar cleaned = [];\nfor (var i = 0; i < filtered.length; i++) {\n  var b = filtered[i];\n  var prev = cleaned.length ? cleaned[cleaned.length - 1] : null;\n  if (b.type === 'divider' && prev && prev.type === 'divider') continue;\n  cleaned.push(b);\n}\n\n// 3) append the immutable reply (formatting outside of loc keys)\ncleaned.push(\n  {\n    type: 'section',\n    text: { type: 'mrkdwn', text: '*' + YOU_REPLIED + ':*' }\n  },\n  {\n    type: 'section',\n    text: {\n      type: 'plain_text',\n      text: String($json.responseText || '—'),\n      emoji: false\n    }\n  }\n);\n\n// 4) add fresh automation footer with timestamp\nvar ts = Math.floor(Date.now() / 1000);   // Unix seconds\nvar nice = '<!date^' + ts + '^' + DATE_PATTERN + '|' + new Date().toISOString() + '>';\n\ncleaned.push({\n  type: 'context',\n  elements: [{\n    type: 'mrkdwn',\n    text: REVIEW_PROCESSED_PREFIX + ' ' + nice\n  }]\n});\n\n// 5) emit one item\nreturn [{\n  json: {\n    blocks: cleaned,\n    channelId: $json.channelId,\n    messageTs: $json.messageTs\n  }\n}];\n"
+      },
+      "position": [
+        544,
+        272
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "id": "44a27b88-9d0a-454e-985e-3d72d4a6402e",
+      "name": "Merge2",
+      "parameters": {
+        "combineBy": "combineByPosition",
+        "mode": "combine",
+        "numberInputs": 3,
+        "options": {}
+      },
+      "position": [
+        352,
+        272
+      ],
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2
+    },
+    {
+      "id": "99a497b6-8477-4366-ac00-2216682f83a3",
+      "name": "Slack Webhook",
+      "parameters": {
+        "httpMethod": "POST",
+        "options": {
+          "rawBody": true
+        },
+        "path": "slack-reaction",
+        "responseMode": "responseNode"
+      },
+      "position": [
+        -1600,
+        688
+      ],
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "webhookId": "fa3fce3b-a992-4635-b351-9b995bbb5afe"
+    },
+    {
+      "id": "957c29e2-17ea-4d81-b27a-9549449c8801",
+      "name": "Client Switch",
+      "parameters": {
+        "options": {},
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "f4fe3cc5-5066-4065-be0c-40fe3bf32e8b",
+                    "leftValue": "muj_up",
+                    "operator": {
+                      "operation": "equals",
+                      "type": "string"
+                    },
+                    "rightValue": "={{ $json.clientID }}"
+                  }
+                ],
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                }
+              },
+              "outputKey": "Muj Up",
+              "renameOutput": true
+            },
+            {
+              "conditions": {
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "0eb249b1-2281-4fe0-8e74-501faa22227a",
+                    "leftValue": "scream",
+                    "operator": {
+                      "name": "filter.operator.equals",
+                      "operation": "equals",
+                      "type": "string"
+                    },
+                    "rightValue": "={{ $json.clientID }}"
+                  }
+                ],
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                }
+              }
+            }
+          ]
+        }
+      },
+      "position": [
+        -64,
+        256
+      ],
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2
+    },
+    {
+      "id": "89ce1681-b4fc-4a02-8d05-ffc69ae2b94e",
+      "name": "Reply Posted Successfuly",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "81763f49-1963-4f72-8b21-b6fbd5ce0da0",
+              "leftValue": "={{ $json.success }}",
+              "operator": {
+                "operation": "true",
+                "singleValue": true,
+                "type": "boolean"
+              },
+              "rightValue": "true"
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          }
+        },
+        "options": {}
+      },
+      "position": [
+        816,
+        512
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2
+    },
+    {
+      "credentials": {
+        "slackApi": {
+          "id": "iscUIB6CSQ10nY7d",
+          "name": "Matee Slack Test API"
+        }
+      },
+      "id": "12ca8d72-adec-4f99-8297-d56056f67439",
+      "name": "Update the Review Slack message after Send",
+      "parameters": {
+        "blocksUi": "={{ $json }}",
+        "channelId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $json.channelId }}"
+        },
+        "messageType": "block",
+        "operation": "update",
+        "otherOptions": {},
+        "text": "Something went wrong. Contact us.",
+        "ts": "={{ $json.messageTs }}",
+        "updateFields": {}
+      },
+      "position": [
+        1360,
+        336
+      ],
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "webhookId": "63dde33b-effb-4bbf-b0f0-df75d3aafddd"
+    },
+    {
+      "id": "ff69557c-2f2c-495b-abef-9c7207c3ac62",
+      "name": "Client Switch1",
+      "parameters": {
+        "options": {},
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "f4fe3cc5-5066-4065-be0c-40fe3bf32e8b",
+                    "leftValue": "muj_up",
+                    "operator": {
+                      "operation": "equals",
+                      "type": "string"
+                    },
+                    "rightValue": "={{ $json.clientID }}"
+                  }
+                ],
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                }
+              },
+              "outputKey": "Muj Up",
+              "renameOutput": true
+            },
+            {
+              "conditions": {
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "e08dfbc5-489f-43b6-a3d6-2eb4d6312d63",
+                    "leftValue": "scream",
+                    "operator": {
+                      "name": "filter.operator.equals",
+                      "operation": "equals",
+                      "type": "string"
+                    },
+                    "rightValue": "={{ $json.clientID }}"
+                  }
+                ],
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                }
+              }
+            }
+          ]
+        }
+      },
+      "position": [
+        1168,
+        336
+      ],
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2
+    },
+    {
+      "id": "92b88309-26ea-44e1-9dbd-a815c9c0dc78",
+      "name": "Merge",
+      "parameters": {
+        "combineBy": "combineByPosition",
+        "mode": "combine",
+        "numberInputs": 3,
+        "options": {}
+      },
+      "position": [
+        960,
+        320
+      ],
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2
+    },
+    {
+      "id": "f9c03578-fe88-4e05-9b54-289b3e40f84a",
+      "name": "Client Switch2",
+      "parameters": {
+        "options": {},
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "f4fe3cc5-5066-4065-be0c-40fe3bf32e8b",
+                    "leftValue": "muj_up",
+                    "operator": {
+                      "operation": "equals",
+                      "type": "string"
+                    },
+                    "rightValue": "={{ $json.clientID }}"
+                  }
+                ],
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                }
+              },
+              "outputKey": "Muj Up",
+              "renameOutput": true
+            }
+          ]
+        }
+      },
+      "position": [
+        1184,
+        736
+      ],
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2
+    },
+    {
+      "id": "adfe3184-7aa4-4594-b590-c5832dfdedaf",
+      "name": "Merge1",
+      "parameters": {
+        "combineBy": "combineByPosition",
+        "mode": "combine",
+        "options": {}
+      },
+      "position": [
+        960,
+        736
+      ],
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2
+    },
+    {
+      "credentials": {
+        "slackApi": {
+          "id": "iscUIB6CSQ10nY7d",
+          "name": "Matee Slack Test API"
+        }
+      },
+      "id": "49bc972d-2146-4bcd-ac9a-8bc420a96410",
+      "name": "Start Error Thread",
+      "parameters": {
+        "blocksUi": "={\n  \"blocks\": [\n    {\n      \"type\": \"section\",\n      \"text\": { \"type\": \"mrkdwn\", \"text\": \":warning: *Your reply could not be posted*\" }\n    },\n    {\n      \"type\": \"section\",\n      \"text\": {\n        \"type\": \"mrkdwn\",\n        \"text\": {{ JSON.stringify('*Error:* ```' + ($json.error ?? 'Unknown error') + '```') }}\n      }\n    }\n  ]\n}\n",
+        "channelId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $json.channelId }}"
+        },
+        "messageType": "block",
+        "otherOptions": {
+          "includeLinkToWorkflow": false,
+          "thread_ts": {
+            "replyValues": {
+              "thread_ts": "={{ $json.messageTs }}"
+            }
+          }
+        },
+        "select": "channel",
+        "text": "={{ ':warning: The reply was rejected. Error: ' + ($json.error ?? 'Unknown error') }}"
+      },
+      "position": [
+        1392,
+        736
+      ],
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "webhookId": "63dde33b-effb-4bbf-b0f0-df75d3aafddd"
+    },
+    {
+      "id": "5cadef1a-774c-4d81-9ea0-eb86ede3a3b8",
+      "name": "Crypto",
+      "parameters": {
+        "action": "hmac",
+        "dataPropertyName": "hash",
+        "secret": "={{ $env.HMAC_SECRET }}",
+        "type": "SHA256",
+        "value": "=v0:{{ $json[\"timestamp\"] }}:{{ $json[\"raw_body\"] }}"
+      },
+      "position": [
+        -976,
+        688
+      ],
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 1
+    },
+    {
+      "id": "3837872a-eaec-4507-a563-d6699ced4d6f",
+      "name": "Sticky Note1",
+      "parameters": {
+        "content": "## Slack signature verification\n### See [Verifying requests from Slack](https://api.slack.com/authentication/verifying-requests-from-slack)",
+        "height": 272.62045280477054,
+        "width": 836.8082543637081
+      },
+      "position": [
+        -1248,
+        576
+      ],
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1
+    },
+    {
+      "id": "0df4364b-d42c-482b-9a02-4250562ec91e",
+      "name": "If signature does not match",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "0e6f9102-2d54-41c8-95ae-7afb5f8b635d",
+              "leftValue": "={{ $json.slack_signature }}",
+              "operator": {
+                "operation": "notEquals",
+                "type": "string"
+              },
+              "rightValue": "=v0={{ $json.hash }}"
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          }
+        },
+        "options": {}
+      },
+      "position": [
+        -768,
+        688
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2
+    },
+    {
+      "id": "a8534c1b-f235-4ede-88c0-ae77fe404a5a",
+      "name": "Extract from File",
+      "parameters": {
+        "destinationKey": "rawBody",
+        "operation": "text",
+        "options": {
+          "keepSource": "json"
+        }
+      },
+      "position": [
+        -1424,
+        688
+      ],
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1
+    },
+    {
+      "id": "d1aa8aea-ce6b-45d3-bb06-7bc01cfdd598",
+      "name": "Verification pretext",
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e5ae550a-a310-4af2-b271-f76f777334cc",
+              "name": "slack_signature",
+              "type": "string",
+              "value": "={{ $json.headers[\"x-slack-signature\"] }}"
+            },
+            {
+              "id": "e0cbfb50-42f9-4156-97f8-cace599f6cdf",
+              "name": "timestamp",
+              "type": "string",
+              "value": "={{ $json.headers[\"x-slack-request-timestamp\"] }}"
+            },
+            {
+              "id": "d67e380f-0897-4a5f-8e1f-fedb01730cb0",
+              "name": "body",
+              "type": "object",
+              "value": "={{ $json.body }}"
+            },
+            {
+              "id": "fc10fefd-5a8b-4f26-9ce8-7de1f1bd74b9",
+              "name": "raw_body",
+              "type": "string",
+              "value": "={{ $json.rawBody }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "position": [
+        -1216,
+        688
+      ],
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3
+    },
+    {
+      "id": "5291659b-cf81-470f-93ab-fbee6bba1d46",
+      "name": "Access Denied",
+      "parameters": {
+        "options": {
+          "responseCode": 403
+        },
+        "respondWith": "noData"
+      },
+      "position": [
+        -544,
+        384
+      ],
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4
+    },
+    {
+      "id": "904e8542-9673-4bc6-b5cc-acc505e0cdc4",
+      "name": "Processing Started",
+      "parameters": {
+        "options": {},
+        "respondWith": "text",
+        "responseBody": "We started processing your request."
+      },
+      "position": [
+        -352,
+        704
+      ],
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4
+    },
+    {
+      "id": "6c748088-1ec8-4318-86c1-0a1c7644037d",
+      "name": "Post the Reply",
+      "parameters": {
+        "options": {},
+        "workflowId": {
+          "__rl": true,
+          "cachedResultName": "ReviewBot: Post Reply",
+          "mode": "list",
+          "value": "FxVE7l2gg9ZJP5xr"
+        },
+        "workflowInputs": {
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true,
+          "mappingMode": "defineBelow",
+          "matchingColumns": [],
+          "schema": [
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "platform",
+              "id": "platform",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "reviewId",
+              "id": "reviewId",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "replyText",
+              "id": "replyText",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "app_id",
+              "id": "app_id",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "value": {
+            "app_id": "={{ $json.clientID }}",
+            "platform": "={{ $json.platform }}",
+            "replyText": "={{ $json.responseText }}",
+            "reviewId": "={{ $json.reviewId }}"
+          }
+        }
+      },
+      "position": [
+        560,
+        576
+      ],
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2
+    },
+    {
+      "id": "dc726c52-4026-470a-84cc-ad35a4c881ce",
+      "name": "Get App Config",
+      "parameters": {
+        "options": {},
+        "workflowId": {
+          "__rl": true,
+          "cachedResultName": "ReviewBot: Get Client Config",
+          "mode": "list",
+          "value": "eNNAQSWM6Uwy6Vp6"
+        },
+        "workflowInputs": {
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true,
+          "mappingMode": "defineBelow",
+          "matchingColumns": [
+            "appId"
+          ],
+          "schema": [
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "appId",
+              "id": "appId",
+              "removed": false,
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "value": {
+            "appId": "={{$json.clientID}}"
+          }
+        }
+      },
+      "position": [
+        224,
+        528
+      ],
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2
+    }
+  ],
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "shared": [
+    {
+      "createdAt": "2025-10-24T13:32:31.940Z",
+      "project": {
+        "createdAt": "2025-10-24T13:32:29.955Z",
+        "description": null,
+        "icon": null,
+        "id": "VkQs5OwIPTLelYCF",
+        "name": "Michal Janecek <michal.janecek@gmail.com>",
+        "projectRelations": [
+          {
+            "createdAt": "2025-10-24T13:32:29.955Z",
+            "projectId": "VkQs5OwIPTLelYCF",
+            "updatedAt": "2025-10-24T13:32:29.955Z",
+            "user": {
+              "createdAt": "2025-10-24T13:32:28.786Z",
+              "disabled": false,
+              "email": "michal.janecek@gmail.com",
+              "firstName": "Michal",
+              "id": "12951ae8-ddcc-476d-9f57-387eafc1e9d9",
+              "isPending": false,
+              "lastActiveAt": "2025-10-24",
+              "lastName": "Janecek",
+              "mfaEnabled": false,
+              "personalizationAnswers": {
+                "personalization_survey_n8n_version": "1.116.2",
+                "personalization_survey_submitted_at": "2025-10-24T13:39:35.272Z",
+                "version": "v4"
+              },
+              "settings": {
+                "easyAIWorkflowOnboarded": true,
+                "userActivated": false
+              },
+              "updatedAt": "2025-10-24T13:51:04.011Z"
+            },
+            "userId": "12951ae8-ddcc-476d-9f57-387eafc1e9d9"
+          }
+        ],
+        "type": "personal",
+        "updatedAt": "2025-10-24T13:39:31.750Z"
+      },
+      "projectId": "VkQs5OwIPTLelYCF",
+      "role": "workflow:owner",
+      "updatedAt": "2025-10-24T13:32:31.940Z",
+      "workflowId": "MfCFjN6nmi7YsNaJ"
+    }
+  ],
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-10-24T13:59:50.672Z",
+  "versionId": "e550da92-15e5-4252-8a36-87d659b0669d"
+}

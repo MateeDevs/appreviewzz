@@ -1,0 +1,712 @@
+{
+  "active": false,
+  "connections": {
+    "App Is On App Store": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "App Switch 2",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "App Is On Google Play": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "App Switch",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "App Switch": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Fetch Reviews from GP",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "App Switch 2": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Generate JWT",
+            "type": "main"
+          },
+          {
+            "index": 1,
+            "node": "Merge Token",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 1,
+            "node": "Merge Token",
+            "type": "main"
+          },
+          {
+            "index": 0,
+            "node": "Generate JWT1",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Fetch Reviews from GP": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Transform Android to review structure",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Flatten And Enrich Review by App Version": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Transform iOS to Review Structure",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Generate JWT": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Merge Token",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Generate JWT1": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Merge Token",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Get Reviews for Version": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Flatten And Enrich Review by App Version",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "List App Store Versions": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Prepare Versions",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Merge Token": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "List App Store Versions",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Prepare Versions": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Get Reviews for Version",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "START": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "App Is On Google Play",
+            "type": "main"
+          },
+          {
+            "index": 0,
+            "node": "App Is On App Store",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Transform Android to review structure": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Merge platforms",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Transform iOS to Review Structure": {
+      "main": [
+        [
+          {
+            "index": 1,
+            "node": "Merge platforms",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2025-08-22T11:46:01.240Z",
+  "id": "Wa3TU1ro2tsRhEji",
+  "isArchived": false,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "name": "ReviewBot: Fetch Reviews",
+  "nodes": [
+    {
+      "id": "32a526c9-0544-4b9f-939d-44a9eb6bdd2c",
+      "name": "START",
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "position": [
+        -304,
+        -16
+      ],
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1
+    },
+    {
+      "id": "f2a7055b-206c-4ccc-95d3-3a435329e695",
+      "name": "Transform Android to review structure",
+      "parameters": {
+        "jsCode": "// Input (Google Play Reviews API) expected at: $input.first().json.reviews : Review[]\n// Output (per review):\n// {\n//   reviewId, author, territory, platform, replyCharLimit, hasResponse,\n//   customerTexts: [{ title, text, stars, createdDate }],\n//   developerTexts: [{ text, lastModifiedDate, state, responseId }],\n//   appVersion, appName\n// }\n\nconst reviews = $input.first().json.reviews;\n\n// Pull app name from START node\nconst appName = $item(0).$node[\"START\"].json.client_name || null;\n\nif (!Array.isArray(reviews)) {\n  throw new Error('Expected \"reviews\" to be an array, but got: ' + typeof reviews);\n}\n\nfunction toIsoFromPb(ts) {\n  if (!ts) return null;\n  const sec = Number(ts.seconds || 0);\n  const nanos = Number(ts.nanos || 0);\n  const ms = sec * 1000 + Math.floor(nanos / 1e6);\n  const d = new Date(ms);\n  return isNaN(d.getTime()) ? null : d.toISOString();\n}\n\nfunction toMsFromPb(ts) {\n  if (!ts) return 0;\n  const sec = Number(ts.seconds || 0);\n  const nanos = Number(ts.nanos || 0);\n  return sec * 1000 + Math.floor(nanos / 1e6);\n}\n\nfunction clean(s) {\n  return (typeof s === 'string' ? s.trim() : '');\n}\n\nreturn reviews.map(review => {\n  const reviewId = review.reviewId || null;\n  const author = review.authorName || '';\n  const comments = Array.isArray(review.comments) ? review.comments : [];\n\n  // Build arrays from all comments (if multiple exist)\n  const customerTexts = [];\n  const developerTexts = [];\n\n  // Track latest userComment to pick most relevant appVersion\n  let latestUserMs = -1;\n  let appVersionName = null;\n\n  for (const c of comments) {\n    if (c.userComment) {\n      const uc = c.userComment;\n      const createdIso = toIsoFromPb(uc.lastModified);\n      const createdMs = toMsFromPb(uc.lastModified);\n\n      customerTexts.push({\n        title: \"\", // Google Play has no separate title\n        text: clean(uc.text || uc.originalText || \"\"),\n        stars: typeof uc.starRating === \"number\" ? uc.starRating : -1,\n        createdDate: createdIso || null,\n      });\n\n      if (createdMs > latestUserMs) {\n        latestUserMs = createdMs;\n        appVersionName = uc.appVersionName || null; // <-- capture version\n      }\n    } else if (c.developerComment) {\n      const dc = c.developerComment;\n      developerTexts.push({\n        text: clean(dc.text || \"\"),\n        lastModifiedDate: toIsoFromPb(dc.lastModified) || null,\n        // Keep same keys as iOS for symmetry\n        state: null,\n        responseId: null,\n      });\n    }\n  }\n\n  // Sort by date ascending to render as a conversation (optional but nice)\n  const parseIso = s => (s ? new Date(s).getTime() : 0);\n  customerTexts.sort((a, b) => parseIso(a.createdDate) - parseIso(b.createdDate));\n  developerTexts.sort((a, b) => parseIso(a.lastModifiedDate) - parseIso(b.lastModifiedDate));\n\n  return {\n    json: {\n      reviewId,\n      author,\n      territory: null,           // not provided by Google Play\n      platform: 'Android',\n      appName,                   // <-- added\n      appVersion: appVersionName,// <-- added\n      customerTexts,\n      developerTexts,\n      replyCharLimit: 350        // Play’s reply limit\n    }\n  };\n});\n"
+      },
+      "position": [
+        880,
+        -208
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "credentials": {
+        "jwtAuth": {
+          "id": "a443crHMoTsuEJ7h",
+          "name": "Matee - Tadeas - Individual Key"
+        }
+      },
+      "id": "617719d8-5776-46c6-9a80-1c89f9040001",
+      "name": "Generate JWT",
+      "parameters": {
+        "claimsJson": "={\n  \"sub\": \"user\",\n  \"aud\": \"appstoreconnect-v1\",\n  \"iat\": {{ Math.floor(Date.now()/1000) }},\n  \"exp\": {{ Math.floor(Date.now()/1000) + 20 * 60 }}\n}",
+        "options": {
+          "kid": "={{$json.app_store_key_id}}"
+        },
+        "useJson": true
+      },
+      "position": [
+        384,
+        176
+      ],
+      "type": "n8n-nodes-base.jwt",
+      "typeVersion": 1
+    },
+    {
+      "id": "699b5ccc-4ae0-42f4-9389-1ab91630d7ab",
+      "name": "Transform iOS to Review Structure",
+      "parameters": {
+        "jsCode": "// Produces ONLY arrays for the convo, no top-level text/title/content/date.\n// Output per review:\n// {\n//   reviewId, author, territory, platform, appVersion, hasResponse, replyCharLimit,\n//   customerTexts: [{ title, text, stars, createdDate }],\n//   developerTexts: [{ text, lastModifiedDate, state, responseId }]\n// }\n\n// Handles inputs like:\n// 1) [{ json: { data:[customerReviews...], included:[customerReviewResponses...] } }]\n// 2) [{ json: { type:\"customerReviews\", ... } }, ...]  (already flattened)\n\nconst pages = $input.all();\nconst out = [];\n\n// Pull app name from START node\nconst appName = $item(0).$node[\"START\"].json.client_name || null;\n\n// Index all included responses (from any upstream page/item)\nconst responseIndex = new Map();\nfor (const item of pages) {\n  const inc = item.json?.included;\n  if (Array.isArray(inc)) {\n    for (const o of inc) {\n      if (o?.type === \"customerReviewResponses\" && o.id) {\n        responseIndex.set(o.id, o);\n      }\n    }\n  }\n}\n\nconst toIso = (s) => {\n  if (!s) return null;\n  const d = new Date(s);\n  return isNaN(d.getTime()) ? s : d.toISOString();\n};\n\nfunction buildCustomerTexts(r) {\n  const a = r.attributes || {};\n  return [{\n    title: a.title || \"\",\n    text: a.body || \"\",\n    stars: typeof a.rating === \"number\" ? a.rating : -1,\n    createdDate: toIso(a.createdDate) || null,\n  }];\n}\n\nfunction findDeveloperResponse(r) {\n  const relId = r?.relationships?.response?.data?.id;\n  if (!relId) return null;\n  const resp = responseIndex.get(relId);\n  if (!resp) return null;\n  const aa = resp.attributes || {};\n  return {\n    text: aa.responseBody || \"\",\n    lastModifiedDate: toIso(aa.lastModifiedDate) || null,\n    state: aa.state || null,           // e.g., \"PUBLISHED\"\n    responseId: resp.id || null,\n  };\n}\n\nfunction pushReview(r) {\n  const a = r.attributes || {};\n  const customerTexts = buildCustomerTexts(r);\n  const dev = findDeveloperResponse(r);\n  const developerTexts = dev ? [dev] : [];\n\n  out.push({\n    json: {\n      // minimal non-text metadata\n      reviewId: r.id || null,\n      author: a.reviewerNickname || \"\",\n      territory: a.territory || null,\n      platform: \"iOS\",\n      appVersion: a.appVersionString || null,   // <-- kept\n      appName,                                   // <-- added\n\n      // convo arrays ONLY\n      customerTexts,\n      developerTexts,\n\n      replyCharLimit: 5000,\n    },\n  });\n}\n\nfor (const item of pages) {\n  const j = item.json || {};\n  if (Array.isArray(j.data)) {\n    for (const r of j.data) {\n      if (r?.type === \"customerReviews\") pushReview(r);\n    }\n  } else if (j?.type === \"customerReviews\") {\n    pushReview(j);\n  }\n  // ignore meta/links-only payloads\n}\n\nreturn out;\n"
+      },
+      "position": [
+        1248,
+        208
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "credentials": {
+        "googleApi": {
+          "id": "sGHI6D4PMOjkr9lV",
+          "name": "Google Service Account account 2"
+        },
+        "googleOAuth2Api": {
+          "id": "Mp7YRWdJPP0Zwk5w",
+          "name": "Google account 2"
+        }
+      },
+      "id": "fe4f7716-d304-4708-8b91-af087e6a9db9",
+      "name": "Fetch Reviews from GP",
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleApi",
+        "options": {},
+        "url": "=https://androidpublisher.googleapis.com/androidpublisher/v3/applications/{{$json.google_package_name}}/reviews\n"
+      },
+      "position": [
+        528,
+        -416
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "id": "24b8e09f-b0f3-4147-9c2f-1973ee887422",
+      "name": "Merge platforms",
+      "parameters": {},
+      "position": [
+        1408,
+        64
+      ],
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.1
+    },
+    {
+      "id": "bdbe9097-69f2-4338-8380-15aac93959ba",
+      "name": "Sticky Note",
+      "parameters": {
+        "content": "# Google Play\n",
+        "height": 80,
+        "width": 224
+      },
+      "position": [
+        -352,
+        -192
+      ],
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1
+    },
+    {
+      "id": "ab57cd8b-7dc2-4713-a459-da34d6d4b1b7",
+      "name": "Sticky Note1",
+      "parameters": {
+        "content": "# AppStore\n",
+        "height": 80,
+        "width": 224
+      },
+      "position": [
+        -352,
+        176
+      ],
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1
+    },
+    {
+      "id": "629cda5e-43d0-4bd9-83b8-fdfc85862ea4",
+      "name": "App Switch",
+      "parameters": {
+        "options": {},
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "3d037526-b7c0-4bac-90cf-2abfd425301c",
+                    "leftValue": "={{$json.app_id}}",
+                    "operator": {
+                      "operation": "equals",
+                      "type": "string"
+                    },
+                    "rightValue": "muj_up"
+                  }
+                ],
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                }
+              },
+              "outputKey": "MujUp",
+              "renameOutput": true
+            }
+          ]
+        }
+      },
+      "position": [
+        208,
+        -416
+      ],
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2
+    },
+    {
+      "id": "6da9ffe2-b8ca-4c65-bb14-838808e9f366",
+      "name": "App Switch 2",
+      "parameters": {
+        "options": {},
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "3d037526-b7c0-4bac-90cf-2abfd425301c",
+                    "leftValue": "={{$json.app_id}}",
+                    "operator": {
+                      "operation": "equals",
+                      "type": "string"
+                    },
+                    "rightValue": "muj_up"
+                  }
+                ],
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                }
+              },
+              "outputKey": "Matee",
+              "renameOutput": true
+            },
+            {
+              "conditions": {
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "413eface-3c52-4be8-9914-be59b79c8a3e",
+                    "leftValue": "={{$json.app_id}}",
+                    "operator": {
+                      "name": "filter.operator.equals",
+                      "operation": "equals",
+                      "type": "string"
+                    },
+                    "rightValue": "scream"
+                  }
+                ],
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                }
+              }
+            }
+          ]
+        }
+      },
+      "position": [
+        128,
+        352
+      ],
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2
+    },
+    {
+      "id": "5dcbaa39-64ac-4474-bbd9-1baed77f1f2f",
+      "name": "App Is On Google Play",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "e6940de2-9a7c-445d-9a62-d085e76d4513",
+              "leftValue": "={{ $json.google_package_name }}",
+              "operator": {
+                "operation": "notEmpty",
+                "singleValue": true,
+                "type": "string"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          }
+        },
+        "options": {}
+      },
+      "position": [
+        -48,
+        -272
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2
+    },
+    {
+      "id": "39c75dbd-a08e-4863-b63f-68d8fe4e0d09",
+      "name": "App Is On App Store",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "e6940de2-9a7c-445d-9a62-d085e76d4513",
+              "leftValue": "={{ $json.app_store_app_id }}",
+              "operator": {
+                "operation": "notEmpty",
+                "singleValue": true,
+                "type": "number"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          }
+        },
+        "options": {}
+      },
+      "position": [
+        -64,
+        224
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2
+    },
+    {
+      "credentials": {
+        "jwtAuth": {
+          "id": "1nt0cC7v8buL8HLj",
+          "name": "Matee Mjanec"
+        }
+      },
+      "id": "bf355db4-a8ff-4676-9b9f-02f13346dc3c",
+      "name": "Generate JWT1",
+      "parameters": {
+        "claimsJson": "={\n  \"sub\": \"user\",\n  \"aud\": \"appstoreconnect-v1\",\n  \"iat\": {{ Math.floor(Date.now()/1000) }},\n  \"exp\": {{ Math.floor(Date.now()/1000) + 20 * 60 }}\n}",
+        "options": {
+          "kid": "={{$json.app_store_key_id}}"
+        },
+        "useJson": true
+      },
+      "position": [
+        368,
+        512
+      ],
+      "type": "n8n-nodes-base.jwt",
+      "typeVersion": 1
+    },
+    {
+      "id": "231affb3-e0e1-4997-a651-6a9a0207fded",
+      "name": "List App Store Versions",
+      "parameters": {
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{\"Bearer \" + $('Merge Token').item.json.token}}"
+            }
+          ]
+        },
+        "options": {},
+        "sendHeaders": true,
+        "url": "=https://api.appstoreconnect.apple.com/v1/apps/{{$json.app_store_app_id}}/appStoreVersions?fields[appStoreVersions]=versionString,appStoreState,platform,createdDate&limit=200"
+      },
+      "position": [
+        720,
+        592
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "id": "663d59b1-b27f-47ff-9139-9edd2d25dcee",
+      "name": "Get Reviews for Version",
+      "parameters": {
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{\"Bearer \" + $('Merge Token').item.json.token}}"
+            }
+          ]
+        },
+        "options": {},
+        "sendHeaders": true,
+        "url": "=https://api.appstoreconnect.apple.com/v1/appStoreVersions/{{$json.versionId}}/customerReviews?limit=200&sort=-createdDate\n"
+      },
+      "position": [
+        976,
+        576
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "id": "629336b2-b52d-4ab4-86e4-8ba400cd811c",
+      "name": "Merge Token",
+      "parameters": {
+        "combineBy": "combineByPosition",
+        "mode": "combine",
+        "options": {}
+      },
+      "position": [
+        560,
+        352
+      ],
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2
+    },
+    {
+      "id": "0cf5ce0c-ad9d-4f6f-9d4c-47c41195aec8",
+      "name": "Flatten And Enrich Review by App Version",
+      "parameters": {
+        "jsCode": "// Grab ALL items from \"Prepare Versions\" run 0, output 0\nconst versionItems = $items('Prepare Versions', 0, 0); // <-- runIndex fixed at 0\nconst out = [];\n\nfor (let i = 0; i < items.length; i++) {\n  const httpItem = items[i];\n  const versionString = versionItems[i].json.versionString; // same position\n  const reviews = httpItem.json.data || [];\n\n  for (const r of reviews) {\n    out.push({\n      json: {\n        ...r,\n        attributes: {\n          ...r.attributes,\n          appVersionString: versionString,\n        },\n      },\n    });\n  }\n}\n\nreturn out;\n"
+      },
+      "position": [
+        1088,
+        416
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "id": "4f707c6f-8e3a-45df-99aa-b522f4893506",
+      "name": "Prepare Versions",
+      "parameters": {
+        "jsCode": "// Input is the List Versions HTTP node output (items[0])\nconst versions = (items[0].json.data || [])\n  .filter(v => v.attributes.platform === 'IOS'); // keep IOS only\n\nreturn versions.map(v => ({\n  json: {\n    versionId: v.id,\n    versionString: v.attributes.versionString\n  }\n}));\n"
+      },
+      "position": [
+        848,
+        432
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    }
+  ],
+  "pinData": {
+    "START": [
+      {
+        "json": {
+          "ai_instructions": "You are reacting to customer's reviews. Response in czech language. Use professional tone. Greed customer, thanks them for nice review. In case review is not positive or something is not working, thanks them anyway and ask them to contact our support on this number +420 241 043 111 that will help them to solve it. In case customer is complains about speed and general problem that are not bugs, like they don't like UI. Just thanks them and answer that we are watching customer feedback and we will react according it. And for example speed issue, we will check it and try to do the best. In case review is not clear, like \\\"it's not working\\\", ask them for more information so we can help them. Use signature \\\"Můj Up tým\\\"..",
+          "app_id": "muj_up",
+          "app_store_app_id": 1477172642,
+          "app_store_key_id": "38T86ZAR26",
+          "client_name": "Můj Up",
+          "discord_channel_id": "1405271901219324066",
+          "discord_server_id": "1405271899872825415",
+          "google_package_name": "cz.myup.customer",
+          "language": "en",
+          "launch_date": "2025-08-20",
+          "localization": {
+            "already_replied_warning_android": "You’ve already replied in the past. Another reply will be added to the thread.",
+            "already_replied_warning_ios": "You’ve already replied in the past. The new reply will replace the previous one.",
+            "app_has_new_review": "New review for App X!",
+            "date_label": "Date",
+            "delta_label": "Δ vs Total",
+            "new": "new",
+            "new_ratings_today_label": "New ratings today",
+            "platform_emoji_android": "🤖",
+            "platform_emoji_ios": "🍎",
+            "ratings_summary_for_word": "for",
+            "ratings_summary_title": "Ratings Summary",
+            "review": "review",
+            "review_processed": ":white_check_mark: Review was processed",
+            "send": "Send",
+            "suggested_reply_label": "Suggested reply (max {{limit}} characters)",
+            "today_label": "Today",
+            "total_label": "Total",
+            "you_already_replied": "You already replied to this review:",
+            "you_replied": "You replied"
+          },
+          "row_number": 2,
+          "slack_channel_id": "C0968SEMBL1",
+          "teams_channel_id": "19:f_mT1SA5vZ7H2mM4Hl4w3qrVptIfSdu0svmzjdU55eA1@thread.tacv2",
+          "teams_team_id": "7be0922d-0328-4f5a-a6ce-f9158ea5c3c4",
+          "teams_tenant_id": "201d8078-e5a4-4a55-9b1a-9b349572909e"
+        }
+      }
+    ]
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "shared": [
+    {
+      "createdAt": "2025-10-24T13:32:31.940Z",
+      "project": {
+        "createdAt": "2025-10-24T13:32:29.955Z",
+        "description": null,
+        "icon": null,
+        "id": "VkQs5OwIPTLelYCF",
+        "name": "Michal Janecek <michal.janecek@gmail.com>",
+        "projectRelations": [
+          {
+            "createdAt": "2025-10-24T13:32:29.955Z",
+            "projectId": "VkQs5OwIPTLelYCF",
+            "updatedAt": "2025-10-24T13:32:29.955Z",
+            "user": {
+              "createdAt": "2025-10-24T13:32:28.786Z",
+              "disabled": false,
+              "email": "michal.janecek@gmail.com",
+              "firstName": "Michal",
+              "id": "12951ae8-ddcc-476d-9f57-387eafc1e9d9",
+              "isPending": false,
+              "lastActiveAt": "2025-10-24",
+              "lastName": "Janecek",
+              "mfaEnabled": false,
+              "personalizationAnswers": {
+                "personalization_survey_n8n_version": "1.116.2",
+                "personalization_survey_submitted_at": "2025-10-24T13:39:35.272Z",
+                "version": "v4"
+              },
+              "settings": {
+                "easyAIWorkflowOnboarded": true,
+                "userActivated": false
+              },
+              "updatedAt": "2025-10-24T13:51:04.011Z"
+            },
+            "userId": "12951ae8-ddcc-476d-9f57-387eafc1e9d9"
+          }
+        ],
+        "type": "personal",
+        "updatedAt": "2025-10-24T13:39:31.750Z"
+      },
+      "projectId": "VkQs5OwIPTLelYCF",
+      "role": "workflow:owner",
+      "updatedAt": "2025-10-24T13:32:31.940Z",
+      "workflowId": "Wa3TU1ro2tsRhEji"
+    }
+  ],
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-09-22T12:51:16.503Z",
+  "versionId": "da5a9cc5-7d42-40cc-b3af-227d0f97e5f1"
+}

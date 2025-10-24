@@ -1,0 +1,955 @@
+{
+  "active": false,
+  "connections": {
+    "App Switch": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Send Message To Matee Slack",
+            "type": "main"
+          },
+          {
+            "index": 0,
+            "node": "Prepare Data For Saving into DB",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Send Message To Matee Slack",
+            "type": "main"
+          },
+          {
+            "index": 0,
+            "node": "Prepare Data For Saving into DB",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Change Field Name",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Change Field Name": {
+      "main": [
+        [
+          {
+            "index": 1,
+            "node": "Merge",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "ClientConfig": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Fetch Reviews",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "FILTER REVIEWS": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Basic LLM Chain",
+            "type": "main"
+          },
+          {
+            "index": 0,
+            "node": "Merge",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Fetch Reviews": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Prepare Data For Filter",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Get App Config 2": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "ClientConfig",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Get Token for: Teams Bot Tadeas": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Merge1",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "index": 0,
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel"
+          }
+        ]
+      ]
+    },
+    "If Slack Configured": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "App Switch",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "If Teams Configured": {
+      "main": [
+        [
+          {
+            "index": 1,
+            "node": "Merge1",
+            "type": "main"
+          },
+          {
+            "index": 0,
+            "node": "Get Token for: Teams Bot Tadeas",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "If Teams Configured",
+            "type": "main"
+          },
+          {
+            "index": 0,
+            "node": "If Slack Configured",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Post as Bot to Teams",
+            "type": "main"
+          },
+          {
+            "index": 0,
+            "node": "Prepare Data For Saving into DB1",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "OK Data, OK Response": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Save Processed Review IDs",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "OK Data, OK Response1": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Save Processed Review IDs1",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Post as Bot to Teams": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "OK Data, OK Response1",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Prepare Data For Filter": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "FILTER REVIEWS",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Prepare Data For Saving into DB": {
+      "main": [
+        [
+          {
+            "index": 1,
+            "node": "OK Data, OK Response",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Prepare Data For Saving into DB1": {
+      "main": [
+        [
+          {
+            "index": 1,
+            "node": "OK Data, OK Response1",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "START": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Get App Config 2",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Send Message To Matee Slack": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "OK Data, OK Response",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2025-08-12T08:25:20.644Z",
+  "id": "4k0CSTJ3Hslt7WZx",
+  "isArchived": false,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "name": "ReviewBot: Load & Send Reviews",
+  "nodes": [
+    {
+      "alwaysOutputData": false,
+      "id": "de958ecb-01da-4854-b662-4a5e7570c9f3",
+      "name": "Basic LLM Chain",
+      "parameters": {
+        "messages": {
+          "messageValues": [
+            {
+              "message": "={{ $items('ClientConfig').first().json.ai_instructions + \" Also, make absolutely sure that your suggested reply is shorter than \" + ($json.replyCharLimit ?? 350) + \" characters.\" }}"
+            }
+          ]
+        },
+        "promptType": "define",
+        "text": "=Review: {{ \"Title: \" + $json.customerTexts.last().title + \"Content: \" + $json.customerTexts.last().text}}"
+      },
+      "position": [
+        -1552,
+        1088
+      ],
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.6
+    },
+    {
+      "id": "33a0c1a7-3d64-4741-8b8d-7b1b9ff7bfbc",
+      "name": "Merge",
+      "parameters": {
+        "combineBy": "combineByPosition",
+        "mode": "combine",
+        "options": {}
+      },
+      "position": [
+        -1152,
+        976
+      ],
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.1
+    },
+    {
+      "credentials": {
+        "slackApi": {
+          "id": "iscUIB6CSQ10nY7d",
+          "name": "Matee Slack Test API"
+        }
+      },
+      "id": "a2cbc286-4534-4e05-a1d2-7ef511306528",
+      "name": "Send Message To Matee Slack",
+      "parameters": {
+        "blocksUi": "={\n  \"blocks\": [\n    {\n      \"type\": \"header\",\n      \"text\": {\n        \"type\": \"plain_text\",\n        \"text\": {{\n          JSON.stringify(\n            (function () {\n              var cfg = $items('ClientConfig').first().json || {};\n              var loc = cfg.localization || {};\n              var lang = String(cfg.language || 'cs').toLowerCase();\n              var userFallback = String(loc.user_fallback || (lang.indexOf('cs') === 0 ? 'Uživatel' : 'User'));\n\n              var prefix = ($json.platform === 'Android' ? '🤖' : '🍎');\n              var reviewer = String($json.author || userFallback);\n              var stars = (function(){\n                var arr = Array.isArray($json.customerTexts) ? $json.customerTexts : [];\n                var s = arr.length ? Number(arr[arr.length - 1].stars) : 0;\n                var full = isNaN(s) ? 0 : Math.max(0, Math.min(5, s));\n                return ':star: '.repeat(full) + ':empty_star: '.repeat(5 - full);\n              })();\n\n              return prefix + ' ' + reviewer + ' ' + stars;\n            })()\n          )\n        }},\n        \"emoji\": true\n      }\n    },\n\n    {\n      \"type\": \"header\",\n      \"text\": {\n        \"type\": \"plain_text\",\n        \"text\": {{\n          JSON.stringify(\n            (function () {\n              var userReviews = Array.isArray($json.customerTexts) ? $json.customerTexts : [];\n              if (userReviews.length === 0) return '';\n              var review = userReviews[userReviews.length - 1];\n              var fullText = (review.title && review.title.trim() !== ''\n                ? (review.title.trim() + ': ')\n                : '') + String(review.text || '');\n              return fullText;\n            })()\n          )\n        }},\n        \"emoji\": true\n      }\n    },\n\n    {\n      \"type\": \"input\",\n      \"element\": {\n        \"type\": \"plain_text_input\",\n        \"multiline\": true,\n        \"initial_value\": {{ JSON.stringify($json.suggestedResponse || '') }},\n        \"max_length\": {{\n          (function(){\n            var rc = Number($json.replyCharLimit);\n            if (isNaN(rc) || rc < 1) rc = 350;\n            rc = Math.max(1, Math.min(3000, rc));\n            return rc;\n          })()\n        }},\n        \"action_id\": \"id_review_input\"\n      },\n      \"label\": {\n        \"type\": \"plain_text\",\n        \"text\": {{\n          JSON.stringify((function () {\n            var cfg = $items('ClientConfig').first().json || {};\n            var loc = cfg.localization || {};\n            var lang = String(cfg.language || 'cs').toLowerCase();\n\n            var rc = Number($json.replyCharLimit);\n            if (isNaN(rc) || rc < 1) rc = 350;\n            rc = Math.max(1, Math.min(3000, rc));\n\n            var label = String(loc.suggested_reply_label || '');\n            var OPEN = String.fromCharCode(123) + String.fromCharCode(123);\n            var CLOSE = String.fromCharCode(125) + String.fromCharCode(125);\n            var token = OPEN + 'limit' + CLOSE;\n            while (label.indexOf('[[limit]]') !== -1) label = label.replace('[[limit]]', String(rc));\n            while (label.indexOf(token) !== -1) label = label.replace(token, String(rc));\n\n            label = label.replace(/:[a-zA-Z0-9_+\\-]+:/g, '').trim();\n\n            if (!label) {\n              label = (lang.indexOf('cs') === 0)\n                ? ('Návrh odpovědi (max ' + rc + ' znaků)')\n                : ('Suggested reply (max ' + rc + ' characters)');\n            }\n\n            var devReplies = Array.isArray($json.developerTexts) ? $json.developerTexts : [];\n            var out = '✍️ ' + label;\n            if (devReplies.length > 0) {\n              var warn = ($json.platform === 'Android')\n                ? (loc.already_replied_warning_android || '')\n                : (loc.already_replied_warning_ios || '');\n              if (warn) out = '⚠️ ' + warn + '\\\\n\\\\n' + out;\n            }\n            return out;\n          })())\n        }},\n        \"emoji\": true\n      }\n    },\n\n    {\n      \"type\": \"actions\",\n      \"elements\": [\n        {\n          \"type\": \"button\",\n          \"text\": { \n            \"type\": \"plain_text\",\n            \"text\": {{\n              JSON.stringify(\n                (function(){\n                  var cfg = $items('ClientConfig').first().json || {};\n                  var loc = cfg.localization || {};\n                  var lang = String(cfg.language || 'cs').toLowerCase();\n                  var v = loc.send;\n                  if (v === undefined || v === null || v === '') {\n                    v = (lang.indexOf('cs') === 0 ? 'Odeslat' : 'Send');\n                  }\n                  return String(v);\n                })()\n              )\n            }},\n            \"emoji\": true \n          },\n          \"value\": \"confirm\",\n          \"action_id\": \"id_button_confirm\"\n        }\n      ]\n    },\n\n    {\n      \"type\": \"context\",\n      \"elements\": [\n        {\n          \"type\": \"mrkdwn\",\n          \"text\": {{\n            JSON.stringify(\n              (function() {\n                var cfg = $items('ClientConfig').first().json || {};\n                var loc = cfg.localization || {};\n                var lang = String(cfg.language || 'cs').toLowerCase();\n\n                var dateLocale = String(loc.date_locale || (lang.indexOf('cs') === 0 ? 'cs-CZ' : 'en-US'));\n                var versionLabel = String(loc.version_label || (lang.indexOf('cs') === 0 ? 'verze' : 'version'));\n\n                var fmt = function(ts) {\n                  try { return new Date(ts).toLocaleString(dateLocale, { dateStyle: 'medium', timeStyle: 'short' }); }\n                  catch (e) { return ''; }\n                };\n\n                var arr = Array.isArray($json.customerTexts) ? $json.customerTexts : [];\n                if (!arr.length) return '\\u200B';\n                var review = arr[arr.length - 1];\n                var appName = $json.appName || (lang.indexOf('cs') === 0 ? 'Aplikace' : 'App');\n                var dateStr = fmt(review.createdDate);\n                var versionStr = $json.appVersion ? (' (' + versionLabel + ' ' + $json.appVersion + ')') : '';\n\n                return ':iphone: *' + appName + '* · _' + (dateStr || '') + versionStr + '_';\n              })()\n            )\n          }}\n        }\n      ]\n    }\n  ],\n  \"metadata\": {\n    \"event_type\": \"review_reply_data\",\n    \"event_payload\": {\n      \"clientID\": \"{{ $items('ClientConfig').first().json.app_id }}\",\n      \"review_id\": \"{{ $json.reviewId }}\",\n      \"platform\": \"{{ $json.platform }}\"\n    }\n  }\n}\n",
+        "channelId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $items('ClientConfig').first().json.slack_channel_id }}"
+        },
+        "messageType": "block",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        },
+        "select": "channel",
+        "text": "={{ $json.customerTexts.last().text }}"
+      },
+      "position": [
+        -368,
+        560
+      ],
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "webhookId": "73c0ed99-db75-4199-ab3e-d524b451f20b"
+    },
+    {
+      "id": "d074f88d-142d-48d6-a3ff-b9645a7c2229",
+      "name": "START",
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "app_id"
+            }
+          ]
+        }
+      },
+      "position": [
+        -2736,
+        1088
+      ],
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1
+    },
+    {
+      "id": "9eec26d9-5144-4fd9-ae25-04378e40699f",
+      "name": "ClientConfig",
+      "parameters": {
+        "jsonOutput": "={{ $json }}",
+        "mode": "raw",
+        "options": {}
+      },
+      "position": [
+        -2304,
+        960
+      ],
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4
+    },
+    {
+      "credentials": {
+        "googlePalmApi": {
+          "id": "XlPo2bAWXDD6JcD5",
+          "name": "ReviewBot: Google Gemini Api account"
+        }
+      },
+      "id": "3fd0c3c4-9dd1-40b8-b5ed-1a4e49cc0433",
+      "name": "Google Gemini Chat Model",
+      "parameters": {
+        "modelName": "models/gemini-2.5-flash-preview-05-20",
+        "options": {}
+      },
+      "position": [
+        -1552,
+        1280
+      ],
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1
+    },
+    {
+      "id": "daef1495-ab87-4e1c-a088-2af0f44b84c3",
+      "name": "Post as Bot to Teams",
+      "parameters": {
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{'Bearer '+$json.access_token.replace(/[\\r\\n]+/g,'')}}"
+            }
+          ]
+        },
+        "jsonBody": "={{\nJSON.stringify((function () {\n  var cfg = ($items('ClientConfig').first().json || {});\n  var loc = (cfg.localization || {});\n  var lang = String(cfg.language || 'cs').toLowerCase();\n  var locale = lang.indexOf('cs') === 0 ? 'cs-CZ' : 'en-US';\n\n  var fmt = function (ts) {\n    try { return new Date(ts).toLocaleString(locale, { dateStyle: 'medium', timeStyle: 'short' }); }\n    catch (e) { return ''; }\n  };\n\n  var L = function (key, fallback) {\n    var v = loc[key];\n    return (typeof v === 'string' && v.trim() !== '') ? v : (fallback || '');\n  };\n\n  var stripSlackCodes = function (s) {\n    return String(s || '').replace(/:[a-zA-Z0-9_+\\-]+:/g, '').replace(/\\s{2,}/g, ' ').trim();\n  };\n\n  var replaceLimitTokens = function (s, n) {\n    s = String(s || '');\n    while (s.indexOf('[[limit]]') !== -1) s = s.replace('[[limit]]', String(n));\n    var OPEN = String.fromCharCode(123) + String.fromCharCode(123);\n    var CLOSE = String.fromCharCode(125) + String.fromCharCode(125);\n    var token = OPEN + 'limit' + CLOSE;\n    while (s.indexOf(token) !== -1) s = s.replace(token, String(n));\n    return s;\n  };\n\n  var userReviews    = Array.isArray($json.customerTexts)   ? $json.customerTexts   : [];\n  var latestReview   = userReviews.length ? userReviews[userReviews.length - 1] : null;\n  var devResponses   = Array.isArray($json.developerTexts)  ? $json.developerTexts  : [];\n  var latestResponse = devResponses.length ? devResponses[devResponses.length - 1] : null;\n\n  var stars = latestReview ? Math.max(0, Math.min(5, Number(latestReview.stars) || 0)) : 0;\n\n  var limit = Number($json.replyCharLimit || 350);\n  if (isNaN(limit) || limit < 1) limit = 350;\n  if (limit > 3000) limit = 3000;\n\n  var userFallback   = L('user_fallback', (lang.indexOf('cs') === 0 ? 'Uživatel' : 'User'));\n  var versionLabel   = L('version_label', (lang.indexOf('cs') === 0 ? 'verze'   : 'version'));\n  var warnAndroid    = L('already_replied_warning_android', '');\n  var warnIos        = L('already_replied_warning_ios', '');\n  var sendButton     = L('send_button', L('send', (lang.indexOf('cs') === 0 ? 'Odeslat' : 'Send')));\n  var suggestedTpl   = L('suggested_reply_label', '');\n\n  var composeHeader  = suggestedTpl\n    ? stripSlackCodes(replaceLimitTokens(suggestedTpl, limit))\n    : ((lang.indexOf('cs') === 0 ? 'Návrh odpovědi' : 'Suggested reply') + ' (max ' + limit + (lang.indexOf('cs') === 0 ? ' znaků' : ' characters') + ')');\n\n  var warningText = latestResponse ? (($json.platform === 'Android') ? warnAndroid : warnIos) : '';\n\n  var reviewer = String(($json.author || '').trim() || userFallback);\n  var appName  = String(($json.appName || (lang.indexOf('cs') === 0 ? 'Aplikace' : 'App')));\n\n  var starStr = (stars > 0) ? (' ' + '⭐'.repeat(stars)) : '';\n\n  var body = [];\n\n  // HEADER: platform emoji + \"Name ⭐⭐⭐\" — name clearly largest\n  body.push({\n    type: 'ColumnSet',\n    spacing: 'None',\n    columns: [\n      {\n        type: 'Column',\n        width: 'auto',\n        items: [\n          { type: 'TextBlock', text: ($json.platform === 'Android' ? '🤖' : '🍎'), size: 'Large' }\n        ]\n      },\n      {\n        type: 'Column',\n        width: 'stretch',\n        spacing: 'Small',\n        items: [\n          {\n            type: 'TextBlock',\n            text: reviewer + starStr,               // one space before stars, none if 0 stars\n            weight: 'Bolder',\n            size: 'ExtraLarge',                     // headline\n            wrap: true\n          }\n        ]\n      }\n    ]\n  });\n\n  // REVIEW: big and bold, but smaller than name\n  if (latestReview) {\n    var fullText = (latestReview.title && String(latestReview.title).trim() !== '' ? (String(latestReview.title).trim() + ': ') : '') + String(latestReview.text || '');\n    var cleaned  = fullText.split('\\n').map(function (l){ return l.trim(); }).join(' ');\n    body.push({\n      type: 'TextBlock',\n      text: cleaned,\n      size: 'Large',                                // below the name size\n      weight: 'Bolder',                             // punchy but still secondary to name\n      wrap: true,\n      spacing: 'Medium'\n    });\n  }\n\n  // COMPOSER: warning + label + textarea\n  var inputItems = [];\n  if (warningText) {\n    inputItems.push({ type: 'TextBlock', text: '⚠️ ' + warningText, color: 'warning', wrap: true });\n  }\n  inputItems.push({ type: 'TextBlock', text: '✍️ ' + composeHeader, weight: 'Bolder', wrap: true });\n  inputItems.push({\n    type: 'Input.Text',\n    id: 'replyText',\n    isMultiline: true,\n    value: String($json.suggestedResponse || $json.text || ''),\n    maxLength: limit\n  });\n  body.push({ type: 'Container', style: 'emphasis', items: inputItems, separator: true, spacing: 'Medium' });\n\n  // ACTIONS: ActionSet in body so we can place footer *after* the button\n  var buttonTitle = '🚀 ' + stripSlackCodes(sendButton);\n  body.push({\n    type: 'ActionSet',\n    actions: [{\n      type: 'Action.Submit',\n      title: buttonTitle,\n      data: {\n        verb: \"sendReply\",\n        reviewId: String($json.reviewId || \"\"),  // hidden, still in payload\n        platform: String($json.platform || \"\"),\n        clientId: String(cfg.app_id || \"\"),\n        author: String($json.author || \"\"),\n        appVersion: String($json.appVersion || \"\"),\n        customerTexts: $json.customerTexts,\n        developerTexts: $json.developerTexts\n      }\n    }]\n  });\n\n  // FOOTER NOW UNDER THE BUTTON: App · Date (version X) — no visual review ID\n  var metaBits = [];\n  if (appName) metaBits.push(appName);\n  if (latestReview) {\n    var dateStr = fmt(latestReview.createdDate);\n    if (dateStr) metaBits.push(dateStr);\n  }\n  if ($json.appVersion) metaBits.push(versionLabel + ' ' + String($json.appVersion));\n  if (metaBits.length) {\n    body.push({ type: 'TextBlock', text: metaBits.join(' · '), isSubtle: true, wrap: true, spacing: 'Small' });\n  }\n\n  var activity = {\n    type: 'message',\n    attachments: [{\n      contentType: 'application/vnd.microsoft.card.adaptive',\n      content: {\n        \"$schema\": \"http://adaptivecards.io/schemas/adaptive-card.json\",\n        type: \"AdaptiveCard\",\n        version: \"1.5\",\n        body: body\n        // (no top-level actions; we use ActionSet in body so footer can appear below it)\n      }\n    }]\n  };\n\n  return {\n    isGroup: true,\n    channelData: {\n      tenant:  { id: String(cfg.teams_tenant_id)  || \"\" },\n      team:    { id: String(cfg.teams_team_id)    || \"\" },\n      channel: { id: String(cfg.teams_channel_id) || \"\" }\n    },\n    activity: activity\n  };\n})())\n}}\n",
+        "method": "POST",
+        "options": {},
+        "sendBody": true,
+        "sendHeaders": true,
+        "specifyBody": "json",
+        "url": "https://smba.trafficmanager.net/emea/v3/conversations"
+      },
+      "position": [
+        -192,
+        1056
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "id": "66b27c8b-45a1-4fb6-9b15-2b97afe8a36c",
+      "name": "If Slack Configured",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "4200f8f3-86d6-445d-88c1-95a4213ee7a4",
+              "leftValue": "={{ $items('ClientConfig').first().json.slack_channel_id }}",
+              "operator": {
+                "operation": "notEmpty",
+                "singleValue": true,
+                "type": "string"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          }
+        },
+        "options": {}
+      },
+      "position": [
+        -864,
+        880
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2
+    },
+    {
+      "id": "2a05a2ba-1340-4949-a6d7-af2d45b3ef54",
+      "name": "If Teams Configured",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "4200f8f3-86d6-445d-88c1-95a4213ee7a4",
+              "leftValue": "={{ $items('ClientConfig').first().json.teams_tenant_id }}",
+              "operator": {
+                "operation": "notEmpty",
+                "singleValue": true,
+                "type": "string"
+              },
+              "rightValue": ""
+            },
+            {
+              "id": "24764f96-3430-48ee-9304-e2e78e1c4d6c",
+              "leftValue": "={{ $items('ClientConfig').first().json.teams_team_id }}",
+              "operator": {
+                "operation": "notEmpty",
+                "singleValue": true,
+                "type": "string"
+              },
+              "rightValue": ""
+            },
+            {
+              "id": "81edd579-8fc7-4202-b5e4-94c609927b73",
+              "leftValue": "={{ $items('ClientConfig').first().json.teams_channel_id }}",
+              "operator": {
+                "operation": "notEmpty",
+                "singleValue": true,
+                "type": "string"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          }
+        },
+        "options": {}
+      },
+      "position": [
+        -864,
+        1088
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2
+    },
+    {
+      "id": "03b406db-d7c5-4f97-aef4-61cd7682fe38",
+      "name": "Sticky Note4",
+      "parameters": {
+        "content": "## Max Length in Adaptive Card\nThe Input.Text block type in Adaptive Cards HAS a property maxLength, but it \"may be ignored\" in some clients. And it seems that MS Teams is one of those clients."
+      },
+      "position": [
+        -16,
+        1104
+      ],
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1
+    },
+    {
+      "id": "7e0ee3a5-b10e-40f9-8b13-e17ac57f8cb4",
+      "name": "Merge1",
+      "parameters": {
+        "combineBy": "combineAll",
+        "mode": "combine",
+        "options": {}
+      },
+      "position": [
+        -368,
+        1056
+      ],
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2
+    },
+    {
+      "id": "14300762-b97e-479f-a106-92e860604963",
+      "name": "Change Field Name",
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c8ce6fff-9063-4ee3-bfa5-7a2c4f7b139f",
+              "name": "suggestedResponse",
+              "type": "string",
+              "value": "={{$json.text}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "position": [
+        -1296,
+        1088
+      ],
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4
+    },
+    {
+      "executeOnce": true,
+      "id": "9d85ec8e-814f-4ef2-bb6c-0b6ac8bfdb48",
+      "name": "Get Token for: Teams Bot Tadeas",
+      "parameters": {
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "grant_type",
+              "value": "client_credentials"
+            },
+            {
+              "name": "client_id",
+              "value": "-fill your app id-"
+            },
+            {
+              "name": "client_secret",
+              "value": "-fill your key-"
+            },
+            {
+              "name": "scope",
+              "value": "https://api.botframework.com/.default"
+            }
+          ]
+        },
+        "contentType": "form-urlencoded",
+        "method": "POST",
+        "options": {},
+        "sendBody": true,
+        "url": "https://login.microsoftonline.com/YOUR_TENANT_ID/oauth2/v2.0/token"
+      },
+      "position": [
+        -592,
+        960
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "id": "21829ed8-2d38-4fcb-be4b-c6b83e62b4d2",
+      "name": "FILTER REVIEWS",
+      "parameters": {
+        "options": {},
+        "workflowId": {
+          "__rl": true,
+          "cachedResultName": "ReviewBot: Filter Unprocessed Reviews",
+          "mode": "list",
+          "value": "qjworWryiCcAkYQD"
+        },
+        "workflowInputs": {
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true,
+          "mappingMode": "defineBelow",
+          "matchingColumns": [],
+          "schema": [],
+          "value": {}
+        }
+      },
+      "position": [
+        -1744,
+        960
+      ],
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2
+    },
+    {
+      "id": "7d47eaa5-7c66-49e0-9937-625ca3f14940",
+      "name": "Prepare Data For Filter",
+      "parameters": {
+        "jsCode": "// Code node (JavaScript)\n// Aggregates all incoming items into one payload: { app_id, reviews: [...] }\n\nconst inputItems = await $input.all();           // all incoming items\nconst reviews = inputItems.map(i => i.json);     // strip to raw review objects\n\n// Prefer app_id from the \"ClientConfig\" node; fallback to first review if present\nconst app_id = $node[\"ClientConfig\"]?.json?.app_id ?? reviews[0]?.app_id;\n\nif (!app_id) {\n  throw new Error('app_id not found. Ensure \"ClientConfig\" produces app_id or include it on input items.');\n}\n\n// n8n must return an array of items; each item has a `json` object\nreturn [\n  {\n    json: {\n      app_id,\n      reviews,\n    },\n  },\n];\n"
+      },
+      "position": [
+        -1904,
+        960
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "id": "8457f9e6-6a5d-42cc-a4be-d91c3e0a7a26",
+      "name": "Prepare Data For Saving into DB",
+      "parameters": {
+        "jsCode": "// Code node (JavaScript)\n// Aggregates all incoming items into one payload: { app_id, reviews: [...] }\n\nconst inputItems = await $input.all();           // all incoming items\nconst reviews = inputItems.map(i => i.json);     // strip to raw review objects\n\n// Prefer app_id from the \"ClientConfig\" node; fallback to first review if present\nconst app_id = $node[\"ClientConfig\"]?.json?.app_id ?? reviews[0]?.app_id;\n\nif (!app_id) {\n  throw new Error('app_id not found. Ensure \"ClientConfig\" produces app_id or include it on input items.');\n}\n\n// n8n must return an array of items; each item has a `json` object\nreturn [\n  {\n    json: {\n      app_id,\n      reviews,\n    },\n  },\n];\n"
+      },
+      "position": [
+        -368,
+        752
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "id": "56da388b-69ff-442c-82f0-c1677eb424c8",
+      "name": "OK Data, OK Response",
+      "parameters": {
+        "mode": "chooseBranch",
+        "useDataOfInput": 2
+      },
+      "position": [
+        -96,
+        672
+      ],
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2
+    },
+    {
+      "id": "a36189aa-03a5-4560-a1db-8612f52cb5f6",
+      "name": "Save Processed Review IDs",
+      "parameters": {
+        "options": {},
+        "workflowId": {
+          "__rl": true,
+          "cachedResultName": "ReviewBot: Add Processed Review IDs to DB",
+          "mode": "list",
+          "value": "4hOz4jU4vHXz9vfS"
+        },
+        "workflowInputs": {
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true,
+          "mappingMode": "defineBelow",
+          "matchingColumns": [],
+          "schema": [],
+          "value": {}
+        }
+      },
+      "position": [
+        112,
+        672
+      ],
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2
+    },
+    {
+      "id": "7b032d1a-5bc4-4732-93e8-fedd45593aec",
+      "name": "Prepare Data For Saving into DB1",
+      "parameters": {
+        "jsCode": "// Code node (JavaScript)\n// Aggregates all incoming items into one payload: { app_id, reviews: [...] }\n\nconst inputItems = await $input.all();           // all incoming items\nconst reviews = inputItems.map(i => i.json);     // strip to raw review objects\n\n// Prefer app_id from the \"ClientConfig\" node; fallback to first review if present\nconst app_id = $node[\"ClientConfig\"]?.json?.app_id ?? reviews[0]?.app_id;\n\nif (!app_id) {\n  throw new Error('app_id not found. Ensure \"ClientConfig\" produces app_id or include it on input items.');\n}\n\n// n8n must return an array of items; each item has a `json` object\nreturn [\n  {\n    json: {\n      app_id,\n      reviews,\n    },\n  },\n];\n"
+      },
+      "position": [
+        -256,
+        1312
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "id": "1571c188-6f14-49cb-ace4-eefa25ab1742",
+      "name": "OK Data, OK Response1",
+      "parameters": {
+        "mode": "chooseBranch",
+        "useDataOfInput": 2
+      },
+      "position": [
+        -80,
+        1296
+      ],
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2
+    },
+    {
+      "id": "ac48be8c-0603-4e13-b5d0-0e3ef43da2c6",
+      "name": "Save Processed Review IDs1",
+      "parameters": {
+        "options": {},
+        "workflowId": {
+          "__rl": true,
+          "cachedResultName": "ReviewBot: Add Processed Review IDs to DB",
+          "mode": "list",
+          "value": "4hOz4jU4vHXz9vfS"
+        },
+        "workflowInputs": {
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true,
+          "mappingMode": "defineBelow",
+          "matchingColumns": [],
+          "schema": [],
+          "value": {}
+        }
+      },
+      "position": [
+        96,
+        1296
+      ],
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2
+    },
+    {
+      "id": "506966d9-e407-4f7e-a8d1-e5156c65ecb7",
+      "name": "Fetch Reviews",
+      "parameters": {
+        "options": {},
+        "workflowId": {
+          "__rl": true,
+          "cachedResultName": "ReviewBot: Fetch Reviews",
+          "mode": "list",
+          "value": "Wa3TU1ro2tsRhEji"
+        },
+        "workflowInputs": {
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true,
+          "mappingMode": "defineBelow",
+          "matchingColumns": [],
+          "schema": [],
+          "value": {}
+        }
+      },
+      "position": [
+        -2096,
+        960
+      ],
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2
+    },
+    {
+      "id": "a78940a6-6234-45f0-b022-1d41a3ba3507",
+      "name": "App Switch",
+      "parameters": {
+        "options": {},
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "3d037526-b7c0-4bac-90cf-2abfd425301c",
+                    "leftValue": "={{ $items('ClientConfig').first().json.app_id }}",
+                    "operator": {
+                      "operation": "equals",
+                      "type": "string"
+                    },
+                    "rightValue": "muj_up"
+                  }
+                ],
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                }
+              },
+              "outputKey": "Muj Up",
+              "renameOutput": true
+            },
+            {
+              "conditions": {
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "b328f19e-627c-41d8-ae7b-72f99a8332d8",
+                    "leftValue": "={{ $items('ClientConfig').first().json.app_id }}",
+                    "operator": {
+                      "name": "filter.operator.equals",
+                      "operation": "equals",
+                      "type": "string"
+                    },
+                    "rightValue": "scream"
+                  }
+                ],
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                }
+              },
+              "outputKey": "Scream",
+              "renameOutput": true
+            }
+          ]
+        }
+      },
+      "position": [
+        -688,
+        752
+      ],
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2
+    },
+    {
+      "id": "4ca3a080-4af2-4915-ab2f-65f9fa09cc9f",
+      "name": "Get App Config 2",
+      "parameters": {
+        "options": {},
+        "workflowId": {
+          "__rl": true,
+          "cachedResultName": "ReviewBot: Get App Config",
+          "mode": "list",
+          "value": "eNNAQSWM6Uwy6Vp6"
+        },
+        "workflowInputs": {
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true,
+          "mappingMode": "defineBelow",
+          "matchingColumns": [
+            "appId"
+          ],
+          "schema": [
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "appId",
+              "id": "appId",
+              "removed": false,
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "value": {
+            "appId": "={{ $json.app_id }}"
+          }
+        }
+      },
+      "position": [
+        -2544,
+        1088
+      ],
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2
+    }
+  ],
+  "pinData": {
+    "START": [
+      {
+        "json": {
+          "app_id": "scream"
+        }
+      }
+    ]
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "shared": [
+    {
+      "createdAt": "2025-10-24T13:32:31.940Z",
+      "project": {
+        "createdAt": "2025-10-24T13:32:29.955Z",
+        "description": null,
+        "icon": null,
+        "id": "VkQs5OwIPTLelYCF",
+        "name": "Michal Janecek <michal.janecek@gmail.com>",
+        "projectRelations": [
+          {
+            "createdAt": "2025-10-24T13:32:29.955Z",
+            "projectId": "VkQs5OwIPTLelYCF",
+            "updatedAt": "2025-10-24T13:32:29.955Z",
+            "user": {
+              "createdAt": "2025-10-24T13:32:28.786Z",
+              "disabled": false,
+              "email": "michal.janecek@gmail.com",
+              "firstName": "Michal",
+              "id": "12951ae8-ddcc-476d-9f57-387eafc1e9d9",
+              "isPending": false,
+              "lastActiveAt": "2025-10-24",
+              "lastName": "Janecek",
+              "mfaEnabled": false,
+              "personalizationAnswers": {
+                "personalization_survey_n8n_version": "1.116.2",
+                "personalization_survey_submitted_at": "2025-10-24T13:39:35.272Z",
+                "version": "v4"
+              },
+              "settings": {
+                "easyAIWorkflowOnboarded": true,
+                "userActivated": false
+              },
+              "updatedAt": "2025-10-24T13:51:04.011Z"
+            },
+            "userId": "12951ae8-ddcc-476d-9f57-387eafc1e9d9"
+          }
+        ],
+        "type": "personal",
+        "updatedAt": "2025-10-24T13:39:31.750Z"
+      },
+      "projectId": "VkQs5OwIPTLelYCF",
+      "role": "workflow:owner",
+      "updatedAt": "2025-10-24T13:32:31.940Z",
+      "workflowId": "4k0CSTJ3Hslt7WZx"
+    }
+  ],
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-10-24T13:51:51.211Z",
+  "versionId": "53a052a0-709f-46b2-a2be-8da710d670f3"
+}

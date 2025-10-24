@@ -1,0 +1,411 @@
+{
+  "active": false,
+  "connections": {
+    "Client Switch": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Generate JWT",
+            "type": "main"
+          },
+          {
+            "index": 1,
+            "node": "Merge1",
+            "type": "main"
+          }
+        ],
+        []
+      ]
+    },
+    "Generate JWT": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Merge1",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Get Client Config": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Merge",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Client Switch",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Post Reply to AppStore",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Post Reply to AppStore": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Set Result",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Get Client Config",
+            "type": "main"
+          },
+          {
+            "index": 1,
+            "node": "Merge",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2025-08-13T08:05:51.556Z",
+  "id": "qMsIjEBybWyKV9KV",
+  "isArchived": false,
+  "meta": null,
+  "name": "ReviewBot: Post Reply to AppStore",
+  "nodes": [
+    {
+      "id": "cf6cdf76-17ad-4783-9be2-2a9361d904c2",
+      "name": "When Executed by Another Workflow",
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "reviewId"
+            },
+            {
+              "name": "replyText"
+            },
+            {
+              "name": "app_id"
+            }
+          ]
+        }
+      },
+      "position": [
+        560,
+        256
+      ],
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1
+    },
+    {
+      "id": "578faf40-e412-4f45-8c08-b7f55c4fee5d",
+      "name": "Get Client Config",
+      "parameters": {
+        "options": {},
+        "workflowId": {
+          "__rl": true,
+          "cachedResultName": "ReviewBot: Get Client Config",
+          "mode": "list",
+          "value": "eNNAQSWM6Uwy6Vp6"
+        },
+        "workflowInputs": {
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true,
+          "mappingMode": "defineBelow",
+          "matchingColumns": [
+            "appId"
+          ],
+          "schema": [
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "appId",
+              "id": "appId",
+              "removed": false,
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "value": {
+            "appId": "={{ $json.app_id }}"
+          }
+        }
+      },
+      "position": [
+        768,
+        96
+      ],
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2
+    },
+    {
+      "id": "6f777e3f-2b7f-422c-a950-84b4e8d60d24",
+      "name": "Client Switch",
+      "parameters": {
+        "options": {},
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "d3038bca-e8c0-467a-89c0-23e3132b9da9",
+                    "leftValue": "={{ $json.app_id }}",
+                    "operator": {
+                      "operation": "equals",
+                      "type": "string"
+                    },
+                    "rightValue": "muj_up"
+                  }
+                ],
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                }
+              },
+              "outputKey": "Muj Up",
+              "renameOutput": true
+            },
+            {
+              "conditions": {
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "5259a76a-6c5d-4500-a636-e9b3216c4cf9",
+                    "leftValue": "={{ $json.app_id }}",
+                    "operator": {
+                      "name": "filter.operator.equals",
+                      "operation": "equals",
+                      "type": "string"
+                    },
+                    "rightValue": "kf"
+                  }
+                ],
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                }
+              }
+            }
+          ]
+        }
+      },
+      "position": [
+        1168,
+        240
+      ],
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2
+    },
+    {
+      "id": "ab34e23a-999c-42ce-8561-9da77af667c0",
+      "name": "Merge",
+      "parameters": {
+        "combineBy": "combineByPosition",
+        "mode": "combine",
+        "options": {}
+      },
+      "position": [
+        960,
+        240
+      ],
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2
+    },
+    {
+      "id": "d27e1d41-7f80-4a25-ba48-9649e7f84717",
+      "name": "Post Reply to AppStore",
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "jsonBody": "={\n  \"data\": {\n    \"type\": \"customerReviewResponses\",\n    \"attributes\": {\n      \"responseBody\": {{ JSON.stringify($json.replyText) }}\n    },\n    \"relationships\": {\n      \"review\": {\n        \"data\": {\n          \"type\": \"customerReviews\",\n          \"id\": {{ JSON.stringify($json.reviewId) }}\n        }\n      }\n    }\n  }\n}\n",
+        "method": "POST",
+        "options": {},
+        "sendBody": true,
+        "sendHeaders": true,
+        "specifyBody": "json",
+        "url": "https://api.appstoreconnect.apple.com/v1/customerReviewResponses"
+      },
+      "position": [
+        1856,
+        224
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "id": "e710e4e2-13c8-47c6-baa7-9c4065a511cf",
+      "name": "Merge1",
+      "parameters": {
+        "combineBy": "combineByPosition",
+        "mode": "combine",
+        "options": {}
+      },
+      "position": [
+        1664,
+        224
+      ],
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2
+    },
+    {
+      "id": "6323a6da-7170-4cd9-addd-ceeb54769f49",
+      "name": "Set Result",
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "88bb3078-4fd6-429e-b8f6-7a18c966daa7",
+              "name": "=success",
+              "type": "boolean",
+              "value": "={{ $json.error == null }}"
+            },
+            {
+              "id": "4ee65e89-d838-49a7-b1f4-7eeea77ef64c",
+              "name": "error",
+              "type": "string",
+              "value": "={{\n(() => {\n  try {\n    const raw = $json.error.message;\n    const noPrefix = raw.replace(/^\\d+\\s*-\\s*/, ''); // remove \"409 - \"\n    const parsedOnce = JSON.parse(noPrefix); // removes first layer of quotes/escapes\n    const parsed = typeof parsedOnce === 'string' ? JSON.parse(parsedOnce) : parsedOnce;\n    const err = parsed.errors?.[0] || {};\n    return [err.title || '', err.detail || ''].filter(Boolean).join(' — ');\n  } catch (e) {\n    return '';\n  }\n})()\n}}\n"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "position": [
+        2064,
+        224
+      ],
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4
+    },
+    {
+      "credentials": {
+        "jwtAuth": {
+          "id": "a443crHMoTsuEJ7h",
+          "name": "Matee - Tadeas - Individual Key"
+        }
+      },
+      "id": "aa50495f-3ea5-4a74-b36f-14f4ce5b7bcb",
+      "name": "Generate JWT",
+      "parameters": {
+        "claimsJson": "={\n  \"sub\": \"user\",\n  \"aud\": \"appstoreconnect-v1\",\n  \"iat\": {{ Math.floor(Date.now()/1000) }},\n  \"exp\": {{ Math.floor(Date.now()/1000) + 20 * 60 }}\n}",
+        "options": {
+          "kid": "={{ $json.app_store_key_id }}"
+        },
+        "useJson": true
+      },
+      "position": [
+        1392,
+        -32
+      ],
+      "type": "n8n-nodes-base.jwt",
+      "typeVersion": 1
+    }
+  ],
+  "pinData": {
+    "When Executed by Another Workflow": [
+      {
+        "json": {
+          "app_id": "muj_up",
+          "replyText": "Dobrý den,\n\nvelmi nás těší, že aplikaci používáte téměř denně a že Vám přináší nejlepší užitek. Děkujeme za Vaši skvělou zpětnou vazbu!\n\nMůj Up tým",
+          "reviewId": "00000058-0bdd-a203-06f8-d5f900000000"
+        }
+      }
+    ]
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "shared": [
+    {
+      "createdAt": "2025-10-24T13:32:31.940Z",
+      "project": {
+        "createdAt": "2025-10-24T13:32:29.955Z",
+        "description": null,
+        "icon": null,
+        "id": "VkQs5OwIPTLelYCF",
+        "name": "Michal Janecek <michal.janecek@gmail.com>",
+        "projectRelations": [
+          {
+            "createdAt": "2025-10-24T13:32:29.955Z",
+            "projectId": "VkQs5OwIPTLelYCF",
+            "updatedAt": "2025-10-24T13:32:29.955Z",
+            "user": {
+              "createdAt": "2025-10-24T13:32:28.786Z",
+              "disabled": false,
+              "email": "michal.janecek@gmail.com",
+              "firstName": "Michal",
+              "id": "12951ae8-ddcc-476d-9f57-387eafc1e9d9",
+              "isPending": false,
+              "lastActiveAt": "2025-10-24",
+              "lastName": "Janecek",
+              "mfaEnabled": false,
+              "personalizationAnswers": {
+                "personalization_survey_n8n_version": "1.116.2",
+                "personalization_survey_submitted_at": "2025-10-24T13:39:35.272Z",
+                "version": "v4"
+              },
+              "settings": {
+                "easyAIWorkflowOnboarded": true,
+                "userActivated": false
+              },
+              "updatedAt": "2025-10-24T13:51:04.011Z"
+            },
+            "userId": "12951ae8-ddcc-476d-9f57-387eafc1e9d9"
+          }
+        ],
+        "type": "personal",
+        "updatedAt": "2025-10-24T13:39:31.750Z"
+      },
+      "projectId": "VkQs5OwIPTLelYCF",
+      "role": "workflow:owner",
+      "updatedAt": "2025-10-24T13:32:31.940Z",
+      "workflowId": "qMsIjEBybWyKV9KV"
+    }
+  ],
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-09-10T09:36:15.179Z",
+  "versionId": "ff7bbd2f-cce8-4800-9717-668774611f09"
+}
