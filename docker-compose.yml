@@ -28,7 +28,7 @@ services:
   #                            Traefik
   # -----------------------------------------------------------------
   traefik:
-    image: traefik:v2.11
+    image: traefik:v2.11.31
     container_name: traefik
     restart: unless-stopped
     command:
@@ -53,7 +53,7 @@ services:
   # -----------------------------------------------------------------
   redis:
     container_name: redis
-    image: redis:7-alpine
+    image: redis:7.4.7-alpine
     restart: unless-stopped
     command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
     volumes:
@@ -69,23 +69,27 @@ services:
   #                            N8N Import Service
   # -----------------------------------------------------------------
   n8n-import:
-    image: n8nio/n8n:latest
-    user: "0:0" 
+    image: n8nio/n8n:1.121.3
+    user: "0:0"
     networks: [app-network]
     entrypoint: /bin/sh
     command:
       - -lc
       - >
-        if [ ! -f /seed-flag/done ]; then
-          set -e;
-          if ls /seed/credentials/*.json >/dev/null 2>&1; then
-            n8n import:credentials --separate --input=/seed/credentials || true;
-          fi;
-          n8n import:workflow --separate --input=/seed/workflows;
-          touch /seed-flag/done;
-        else
-          echo "Seed already applied. Skipping.";
-        fi
+        mkdir -p /seed-flag;
+        chown -R 1000:1000 /seed-flag;
+        su node -c '
+          if [ ! -f /seed-flag/done ]; then
+            set -e;
+            if ls /seed/credentials/*.json >/dev/null 2>&1; then
+              n8n import:credentials --separate --input=/seed/credentials || true;
+            fi;
+            n8n import:workflow --separate --input=/seed/workflows;
+            touch /seed-flag/done;
+          else
+            echo "Seed already applied. Skipping.";
+          fi
+        '
     env_file:
       - .env
     environment:
@@ -111,7 +115,7 @@ services:
   # -----------------------------------------------------------------
   n8n:
     container_name: n8n
-    image: n8nio/n8n:latest
+    image: n8nio/n8n:1.121.3
     user: "1000:1000"
     restart: unless-stopped
     environment:
@@ -203,7 +207,7 @@ services:
   # -----------------------------------------------------------------
   n8n-worker:
     container_name: n8n-worker
-    image: n8nio/n8n:latest
+    image: n8nio/n8n:1.121.3
     user: "1000:1000"
     restart: unless-stopped
     command: worker
@@ -252,12 +256,12 @@ services:
   # Simple PostgreSQL for n8n data storage only
   postgres:
     container_name: postgres
-    image: postgres:15
+    image: postgres:15.15
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_USER: postgres
     volumes:
       - postgres-data:/var/lib/postgresql/data
     networks: [app-network]
