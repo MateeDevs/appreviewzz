@@ -16,7 +16,10 @@ FROM eclipse-temurin:21-jre AS runtime
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/* \
-    && useradd --system --uid 10001 --create-home --shell /usr/sbin/nologin appreviewzz
+    && useradd --system --uid 10001 --create-home --shell /usr/sbin/nologin appreviewzz \
+    # Pebble je service manager zděděný z Ubuntu base image; nic ho tu nespouští
+    # a tahá s sebou zranitelnosti Go runtime. Pryč s ním.
+    && rm -rf /usr/bin/pebble /var/lib/pebble
 
 WORKDIR /opt/appreviewzz
 COPY --from=build /workspace/server/app/build/install/appreviewzz ./
@@ -31,4 +34,5 @@ ENV APPREVIEWZZ_ROLE=api \
 HEALTHCHECK --interval=15s --timeout=3s --start-period=30s --retries=3 \
     CMD curl -fsS "http://127.0.0.1:${SERVER_PORT}/health/live" || exit 1
 
-ENTRYPOINT ["/opt/appreviewzz/bin/appreviewzz"]
+# __cacert_entrypoint.sh z base image poskládá truststore ze systémových CA a pak nás spustí.
+ENTRYPOINT ["/__cacert_entrypoint.sh", "/opt/appreviewzz/bin/appreviewzz"]
