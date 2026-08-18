@@ -1,0 +1,44 @@
+# Gradle / JVM
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+*.class
+*.log
+hs_err_pid*
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+
+# Node / console
+node_modules/
+dist/
+.vite/
+
+# Local config & secrets — NIKDY necommitovat
+.env
+.env.*
+!.env.example
+*.p8
+*-service-account*.json
+local-keyset.json
+secrets/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+.terraform.lock.hcl
+
+# OS
+.DS_Store
+
+# Interní analýza a plán — jména klientů a interní identifikátory, nepatří do veřejného repa
+docs/00-n8n-inventura.md
+docs/01-plan-implementace.md
+docs/inventura/

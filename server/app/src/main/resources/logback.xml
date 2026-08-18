@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Lokální vývoj: čitelný text. V kontejneru se přepíná na logback-json.xml. -->
+<configuration>
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} %highlight(%-5level) %cyan(%logger{24}) %X{requestId:-} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <logger name="com.zaxxer.hikari" level="INFO"/>
+    <logger name="org.flywaydb" level="INFO"/>
+    <logger name="io.netty" level="WARN"/>
+    <!-- Ktor plugin MicrometerMetrics si při instalaci založí výchozí LoggingMeterRegistry,
+         který jen ohlásí sám sebe. Náš Prometheus registry je jinde. -->
+    <logger name="io.micrometer.core.instrument.push" level="WARN"/>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+</configuration>

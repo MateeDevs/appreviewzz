@@ -1,0 +1,61 @@
+# Self-host / lokální vývoj: app + Postgres, nic dalšího.
+#   cp .env.example .env && docker compose up
+
+name: appreviewzz
+
+x-app-env: &app-env
+  APPREVIEWZZ_ENV: ${APPREVIEWZZ_ENV:-local}
+  DATABASE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-appreviewzz}
+  DATABASE_USER: ${POSTGRES_USER:-appreviewzz}
+  DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD musí být nastaveno v .env}
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-appreviewzz}
+      POSTGRES_USER: ${POSTGRES_USER:-appreviewzz}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD musí být nastaveno v .env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-appreviewzz} -d ${POSTGRES_DB:-appreviewzz}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    image: appreviewzz:local
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile
+      args:
+        GIT_SHA: ${GIT_SHA:-unknown}
+    environment:
+      <<: *app-env
+      APPREVIEWZZ_ROLE: api
+    ports:
+      - "${API_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    image: appreviewzz:local
+    environment:
+      <<: *app-env
+      APPREVIEWZZ_ROLE: worker
+      # Migrace pouští API; worker jen čeká, až je schéma hotové.
+      DATABASE_MIGRATE_ON_START: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
