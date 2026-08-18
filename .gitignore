@@ -42,3 +42,6 @@ secrets/
 docs/00-n8n-inventura.md
 docs/01-plan-implementace.md
 docs/inventura/
+
+# Interní ops dokumentace (account ID, ARNy)
+docs/internal/
