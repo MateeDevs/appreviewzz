@@ -1,64 +1,48 @@
 # Terraform
 
-Infrastruktura pro cloudovou instanci appreviewzz. Modul `modules/appreviewzz`
-je celý stack; `envs/dev` a později `envs/prod` jsou tenké obálky s parametry.
+AWS zdroje pro appreviewzz. Rozdělené podle toho, co je nasazené a co čeká.
 
-> **Stav: nenasazeno.** Kód vznikl ve F0, ale zatím nikdy neproběhl `terraform apply` —
-> na stroji, kde vznikal, nebyl AWS účet ani přístup. První `plan` proto berte jako
-> revizi, ne jako hotovou věc.
+| Modul | Stav |
+|---|---|
+| `modules/vault-kms` | **nasazené** — KMS klíč pro credential vault a IAM uživatel aplikace |
+| `modules/appreviewzz` | **zaparkované** — kompletní ECS Fargate + RDS + ALB stack, zatím se nepoužívá |
 
-## Co stack staví
+Aplikace běží na Coolify a z AWS potřebuje jen správu klíčů — viz
+[ADR 0008](../../docs/adr/0008-hosting-coolify-kek-v-kms.md). ECS/RDS modul zůstává
+v repozitáři nedotčený; je zvalidovaný (`tofu validate`), ale nikdy neproběhl `apply`.
 
-- VPC se dvěma veřejnými (ALB, ECS tasky) a dvěma privátními subnety (RDS)
-- ECS Fargate cluster, služby `api` (za ALB) a `worker` — [jeden image, dvě role](../../docs/adr/0006-jeden-image-dve-role.md)
-- RDS PostgreSQL 17, šifrovaná, privátní, s automatickými zálohami
-- KMS CMK pro credential vault + IAM task role s právem jen na `GenerateDataKey`/`Decrypt`
-- Secrets Manager s přihlašovacími údaji k databázi (kontejner je čte přes secret ARN,
-  v task definici není plaintext)
-- ECR s immutable tagy, scan on push a lifecycle politikou
-- CloudWatch log groups
-
-## Bootstrap (jednorázově na účet)
-
-Stav se drží v S3, ale bucket samotný nemůže vzniknout ve stavu, který v něm má být uložený.
-Založte ho ručně:
-
-```bash
-aws s3api create-bucket --bucket matee-terraform-state --region eu-central-1 \
-  --create-bucket-configuration LocationConstraint=eu-central-1
-aws s3api put-bucket-versioning --bucket matee-terraform-state \
-  --versioning-configuration Status=Enabled
-aws s3api put-public-access-block --bucket matee-terraform-state \
-  --public-access-block-configuration BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
-```
-
-Zamykání používá nativní S3 lockfile (`use_lockfile`), DynamoDB tabulka není potřeba.
-
-## Nasazení dev
+## Prostředí dev
 
 ```bash
 cd deploy/terraform/envs/dev
-cp backend.hcl.example backend.hcl     # doplň bucket
-terraform init -backend-config=backend.hcl
-terraform plan
-terraform apply
+tofu init -backend-config=backend.hcl
+tofu plan
 ```
 
-Pořadí při úplně prvním běhu: `apply` založí ECR ještě prázdné, takže ECS služby se
-nerozeběhnou, dokud CI nepushne první image. Buď spusťte `apply` s `-target=module.appreviewzz.aws_ecr_repository.this`,
-pushněte image a pak dojeďte zbytek, nebo nechte služby chvíli v selhávajícím stavu.
+`backend.hcl` není v repozitáři (obsahuje jméno bucketu). Obsah:
 
-## Deploy z CI
+```hcl
+bucket = "<jméno state bucketu>"
+region = "eu-north-1"
+```
 
-`.github/workflows/deploy-dev.yml` se autentizuje přes GitHub OIDC (žádné dlouhožijící AWS
-klíče v repozitáři), pushne image tagovaný git SHA do ECR a přepíše `image_tag`.
-Potřebuje IAM roli s trust policy na `token.actions.githubusercontent.com` a repozitářovou
-proměnnou `AWS_DEPLOY_ROLE_ARN`.
+State bucket se zakládá mimo terraform — nemůže být uložený sám v sobě:
 
-## Co ještě chybí (F5)
+```bash
+aws s3api create-bucket --bucket <jméno> --region eu-north-1 --create-bucket-configuration LocationConstraint=eu-north-1
+```
 
-- WAF před ALB s rate limity na webhook endpointy
-- CloudFront + S3 pro konzoli
-- ACM certifikát a doména (`certificate_arn` je zatím `null` → jen HTTP)
-- Alerting (CloudWatch alarmy → Slack), OTel collector
-- `envs/prod` s deletion protection a většími instancemi
+Následně na něm zapnout versioning, blokovat veřejný přístup, zapnout šifrování a přidat
+bucket policy odmítající nešifrovaný přenos. Zamykání state používá nativní S3 lockfile
+(`use_lockfile`), DynamoDB tabulka není potřeba.
+
+## Access key aplikace
+
+Negeneruje se terraformem — tajná část by ležela ve state souboru. Vytváří se ručně:
+IAM → Users → `appreviewzz-<env>-app` → *Security credentials* → *Create access key* →
+use case *Application running outside AWS*. Hodnota jde rovnou do Coolify.
+
+## Co přijde později
+
+- CloudTrail metric filter nad `kms:Decrypt` s alarmem na neobvyklý objem odemykání (F1)
+- `envs/prod` — až bude potřeba produkční prostředí

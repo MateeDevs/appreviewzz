@@ -65,6 +65,17 @@ docs/adr/          architektonická rozhodnutí
 Jeden image běží ve dvou rolích podle `APPREVIEWZZ_ROLE` (`api` | `worker`) —
 viz [ADR 0006](docs/adr/0006-jeden-image-dve-role.md).
 
+## Nasazení
+
+Aplikace běží jako kontejner vedle Postgresu; jediná externí závislost je KMS klíč pro
+credential vault. CI staví image a publikuje ho do `ghcr.io/mateedevs/appreviewzz`.
+
+- **Coolify** — [deploy/coolify/](deploy/coolify/) (aktuální provozní prostředí)
+- **AWS ECS + RDS** — [deploy/terraform/](deploy/terraform/), modul připravený, zatím nenasazený
+- **Cokoli s Dockerem** — `compose.yaml` v kořeni
+
+Proč je to rozdělené takhle, vysvětluje [ADR 0008](docs/adr/0008-hosting-coolify-kek-v-kms.md).
+
 ## Konfigurace
 
 Vše přes proměnné prostředí (12-factor), žádný konfigurační soubor v image.
@@ -80,6 +91,7 @@ Vše přes proměnné prostředí (12-factor), žádný konfigurační soubor v 
 | `DATABASE_PASSWORD` | — | povinné |
 | `DATABASE_MAX_POOL_SIZE` | `10` | |
 | `DATABASE_MIGRATE_ON_START` | `true` | pouští Flyway; u role `worker` nastavit `false` |
+| `VAULT_KEK_URI` | — | KEK provider: `aws-kms://arn:…`, `local://cesta` nebo `vault://transit/klíč` (F1) |
 
 Chybějící povinná proměnná shodí start s konkrétní hláškou — žádný tichý fallback.
 

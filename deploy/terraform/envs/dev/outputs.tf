@@ -1,19 +1,13 @@
-output "alb_dns_name" {
-  value = module.appreviewzz.alb_dns_name
-}
-
-output "ecr_repository_url" {
-  value = module.appreviewzz.ecr_repository_url
-}
-
-output "ecs_cluster_name" {
-  value = module.appreviewzz.ecs_cluster_name
-}
-
-output "ecs_service_names" {
-  value = module.appreviewzz.ecs_service_names
-}
-
 output "vault_kek_uri" {
-  value = module.appreviewzz.vault_kek_uri
+  description = "Do konfigurace aplikace jako VAULT_KEK_URI."
+  value       = module.vault.kek_uri
+}
+
+output "vault_key_alias" {
+  value = module.vault.key_alias
+}
+
+output "app_iam_user_name" {
+  description = "Pro tohoto uživatele se v konzoli vygeneruje access key."
+  value       = module.vault.app_iam_user_name
 }

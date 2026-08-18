@@ -1,0 +1,61 @@
+# Nasazení na Coolify. Image staví CI a publikuje do GHCR — na hostiteli se nic nebuildí.
+# Proměnné se vyplňují v Coolify UI, ne tady.
+
+services:
+  api:
+    image: ghcr.io/mateedevs/appreviewzz:${APP_VERSION:-latest}
+    environment:
+      APPREVIEWZZ_ROLE: api
+      APPREVIEWZZ_ENV: ${APPREVIEWZZ_ENV:-dev}
+      DATABASE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-appreviewzz}
+      DATABASE_USER: ${POSTGRES_USER:-appreviewzz}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?}
+      DATABASE_MIGRATE_ON_START: "true"
+      # Credential vault (F1) — KEK v AWS KMS, viz ADR 0008.
+      VAULT_KEK_URI: ${VAULT_KEK_URI}
+      AWS_REGION: ${AWS_REGION:-eu-north-1}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    image: ghcr.io/mateedevs/appreviewzz:${APP_VERSION:-latest}
+    environment:
+      APPREVIEWZZ_ROLE: worker
+      APPREVIEWZZ_ENV: ${APPREVIEWZZ_ENV:-dev}
+      DATABASE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-appreviewzz}
+      DATABASE_USER: ${POSTGRES_USER:-appreviewzz}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?}
+      # Migrace vlastní role api — dvě instance by se přetahovaly o Flyway zámek.
+      DATABASE_MIGRATE_ON_START: "false"
+      VAULT_KEK_URI: ${VAULT_KEK_URI}
+      AWS_REGION: ${AWS_REGION:-eu-north-1}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-appreviewzz}
+      POSTGRES_USER: ${POSTGRES_USER:-appreviewzz}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-appreviewzz} -d ${POSTGRES_DB:-appreviewzz}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  postgres-data:

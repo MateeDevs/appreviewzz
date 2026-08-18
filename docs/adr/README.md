@@ -11,5 +11,6 @@ Krátké záznamy o rozhodnutích, která se těžko vracejí. Formát: kontext 
 | [0005](0005-envelope-encryption.md) | Envelope encryption s DEK per organizaci | Přijato |
 | [0006](0006-jeden-image-dve-role.md) | Jeden image, role `api` a `worker` | Přijato |
 | [0007](0007-agpl-3.md) | Licence AGPL-3.0 | Přijato |
+| [0008](0008-hosting-coolify-kek-v-kms.md) | Aplikace na Coolify, KEK zůstává v AWS KMS | Přijato |
 
 Nové ADR: zkopíruj strukturu z 0001, další číslo v pořadí, přidej řádek do tabulky.

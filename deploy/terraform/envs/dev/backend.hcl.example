@@ -1,4 +1,0 @@
-# Zkopíruj na backend.hcl a doplň svůj bucket:
-#   terraform init -backend-config=backend.hcl
-bucket = "matee-terraform-state"
-region = "eu-central-1"

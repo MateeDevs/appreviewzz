@@ -45,3 +45,4 @@ docs/inventura/
 
 # Interní ops dokumentace (account ID, ARNy)
 docs/internal/
+backend.hcl
