@@ -27,6 +27,7 @@ locals {
   common_environment = [
     { name = "APPREVIEWZZ_ENV", value = var.environment },
     { name = "SERVER_PORT", value = tostring(local.container_port) },
+    { name = "MANAGEMENT_PORT", value = tostring(local.management_port) },
     { name = "DATABASE_URL", value = "jdbc:postgresql://${aws_db_instance.this.endpoint}/${aws_db_instance.this.db_name}" },
     { name = "VAULT_KEK_URI", value = "aws-kms://${aws_kms_key.vault.arn}" },
   ]

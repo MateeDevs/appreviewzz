@@ -20,7 +20,7 @@ Aplikace poslouchá na `http://localhost:8080`:
 |---|---|
 | `GET /health/live` | proces žije; vrací verzi a git SHA |
 | `GET /health/ready` | umíme obsloužit provoz (kontroluje databázi) |
-| `GET /metrics` | Prometheus scrape |
+| `GET /metrics` | Prometheus scrape — na portu 8081, ne na veřejném |
 
 ## Vývoj bez Dockeru
 
@@ -85,7 +85,8 @@ Vše přes proměnné prostředí (12-factor), žádný konfigurační soubor v 
 | `APPREVIEWZZ_ROLE` | `api` | `api` (HTTP) nebo `worker` (joby) |
 | `APPREVIEWZZ_ENV` | `local` | `local` / `dev` / `prod` — jen pro logy a telemetrii |
 | `SERVER_HOST` | `0.0.0.0` | |
-| `SERVER_PORT` | `8080` | |
+| `SERVER_PORT` | `8080` | veřejný port — REST, webhooky, healthchecky |
+| `MANAGEMENT_PORT` | `8081` | `/metrics`; **nikdy nevystavovat ven** |
 | `DATABASE_URL` | — | povinné, např. `jdbc:postgresql://host:5432/appreviewzz` |
 | `DATABASE_USER` | — | povinné |
 | `DATABASE_PASSWORD` | — | povinné |

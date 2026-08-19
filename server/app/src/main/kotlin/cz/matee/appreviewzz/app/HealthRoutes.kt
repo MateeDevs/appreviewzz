@@ -3,10 +3,8 @@ package cz.matee.appreviewzz.app
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.Application
 import io.ktor.server.response.respond
-import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
-import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -26,10 +24,7 @@ data class ReadinessResponse(
  * `live` = proces běží (nezávisí na DB, jinak by restart smyčka po výpadku DB byla zbytečná).
  * `ready` = umíme obsloužit provoz, tedy i sáhnout do databáze.
  */
-fun Application.healthRoutes(
-    readiness: () -> Boolean,
-    metrics: PrometheusMeterRegistry,
-) {
+fun Application.healthRoutes(readiness: () -> Boolean) {
     routing {
         get("/health/live") {
             call.respond(
@@ -46,10 +41,6 @@ fun Application.healthRoutes(
                     checks = mapOf("database" to if (databaseUp) "UP" else "DOWN"),
                 ),
             )
-        }
-
-        get("/metrics") {
-            call.respondText(metrics.scrape())
         }
     }
 }

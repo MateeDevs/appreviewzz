@@ -15,18 +15,23 @@ fun runApi(
     database: Database,
 ) {
     logger.info { "API listening on ${config.server.host}:${config.server.port}" }
+    val metrics = PrometheusMeterRegistry(PrometheusConfig.DEFAULT)
+    startManagementServer(config, metrics)
+
     embeddedServer(
         Netty,
         port = config.server.port,
         host = config.server.host,
-        module = { apiModule(database) },
+        module = { apiModule(database, metrics) },
     ).start(wait = true)
 }
 
-fun Application.apiModule(database: Database) {
-    val metrics = PrometheusMeterRegistry(PrometheusConfig.DEFAULT)
+fun Application.apiModule(
+    database: Database,
+    metrics: PrometheusMeterRegistry,
+) {
     installObservability(metrics)
     installSerialization()
     installErrorHandling()
-    healthRoutes(readiness = database::isHealthy, metrics = metrics)
+    healthRoutes(readiness = database::isHealthy)
 }

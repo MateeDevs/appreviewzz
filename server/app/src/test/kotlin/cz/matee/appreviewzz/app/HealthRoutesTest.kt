@@ -19,7 +19,7 @@ class HealthRoutesTest :
                 installObservability(metrics)
                 installSerialization()
                 installErrorHandling()
-                healthRoutes(readiness = { databaseUp }, metrics = metrics)
+                healthRoutes(readiness = { databaseUp })
             }
 
         "liveness je UP i když databáze neodpovídá" {
@@ -53,6 +53,27 @@ class HealthRoutesTest :
                 val response = client.get("/neexistuje")
                 response.status shouldBe HttpStatusCode.NotFound
                 response.bodyAsText() shouldContain "not_found"
+            }
+        }
+
+        "metriky nejsou na veřejném portu" {
+            testApplication {
+                application(testModule(databaseUp = true))
+                client.get("/metrics").status shouldBe HttpStatusCode.NotFound
+            }
+        }
+
+        "management port metriky vystavuje" {
+            // JVM metriky do registru zapisuje až plugin na hlavním serveru, který oba
+            // servery sdílí; tady stačí ověřit, že endpoint vrací obsah registru.
+            val metrics = PrometheusMeterRegistry(PrometheusConfig.DEFAULT)
+            metrics.counter("test_marker").increment()
+
+            testApplication {
+                application { managementModule(metrics) }
+                val response = client.get("/metrics")
+                response.status shouldBe HttpStatusCode.OK
+                response.bodyAsText() shouldContain "test_marker"
             }
         }
     })

@@ -20,18 +20,23 @@ fun runWorker(
     database: Database,
 ) {
     logger.info { "Worker started — no scheduled tasks registered yet (F1)" }
+    val metrics = PrometheusMeterRegistry(PrometheusConfig.DEFAULT)
+    startManagementServer(config, metrics)
+
     embeddedServer(
         Netty,
         port = config.server.port,
         host = config.server.host,
-        module = { workerModule(database) },
+        module = { workerModule(database, metrics) },
     ).start(wait = true)
 }
 
-fun Application.workerModule(database: Database) {
-    val metrics = PrometheusMeterRegistry(PrometheusConfig.DEFAULT)
+fun Application.workerModule(
+    database: Database,
+    metrics: PrometheusMeterRegistry,
+) {
     installObservability(metrics)
     installSerialization()
     installErrorHandling()
-    healthRoutes(readiness = database::isHealthy, metrics = metrics)
+    healthRoutes(readiness = database::isHealthy)
 }

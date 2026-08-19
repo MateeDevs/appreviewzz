@@ -47,6 +47,10 @@ curl -s https://<doména>/health/ready
 
 Musí vrátit `{"status":"UP","checks":{"database":"UP"}}`.
 
+`/metrics` běží na portu 8081, který se schválně nikde nevystavuje — Prometheus endpoint
+prozrazuje vnitřní stav aplikace i provoz na jednotlivých endpointech. Scrape si pro něj
+chodí po interní síti.
+
 ## Automatický deploy z CI
 
 Workflow `.github/workflows/deploy.yml` po pushi na `epic/v2` postaví image, publikuje ho

@@ -20,6 +20,8 @@ enum class Role {
 data class ServerConfig(
     val host: String,
     val port: Int,
+    /** Port pro /metrics. Nikdy se nevystavuje ven. */
+    val managementPort: Int,
 )
 
 data class AppConfig(
@@ -37,6 +39,7 @@ data class AppConfig(
                     ServerConfig(
                         host = env.optional("SERVER_HOST", "0.0.0.0"),
                         port = env.optional("SERVER_PORT", "8080").toInt(),
+                        managementPort = env.optional("MANAGEMENT_PORT", "8081").toInt(),
                     ),
                 database =
                     DatabaseConfig(

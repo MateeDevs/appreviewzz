@@ -38,6 +38,8 @@ services:
       APPREVIEWZZ_ROLE: api
     ports:
       - "${API_PORT:-8080}:8080"
+      # Metriky jen na loopback — ven nemají co dělat.
+      - "127.0.0.1:${MANAGEMENT_PORT:-8081}:8081"
     depends_on:
       postgres:
         condition: service_healthy
