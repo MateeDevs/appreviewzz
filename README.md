@@ -44,6 +44,49 @@ Automatické doformátování Kotlinu:
 ./gradlew ktlintFormat
 ```
 
+## Seed CLI
+
+Dokud není konzole (F3), zakládá organizace, aplikace a klíče ke storům stejný binárek jako
+server — jen dostane příkaz místo role:
+
+```bash
+docker compose run --rm api org create --name "Isle Grow"
+```
+
+Onboarding klienta od nuly (`appreviewzz help` vypíše všechny příkazy):
+
+```bash
+appreviewzz org create --name "Isle Grow"
+appreviewzz user add --org isle-grow --email klient@example.com --role owner
+appreviewzz app create --org isle-grow --name IsleGrow \
+  --gp-package cz.matee.islegrow --asc-app-id 1234567890 --notify-from now
+appreviewzz credential add --org isle-grow --type gp --label "Play SA" --file service-account.json
+appreviewzz credential attach --org isle-grow --app <APP_ID> --credential <CREDENTIAL_ID>
+appreviewzz credential validate --org isle-grow --app <APP_ID> --credential <CREDENTIAL_ID>
+appreviewzz ingest run --org isle-grow --app <APP_ID>
+```
+
+Klíč do App Store Connect se poskládá ze staženého `.p8` a údajů opsaných z ASC
+(individuální klíč nemá Issuer ID, tak se `--issuer-id` vynechá):
+
+```bash
+appreviewzz credential add --org isle-grow --type asc --label "IsleGrow ASC" \
+  --file AuthKey_ABC123DEFG.p8 --key-id ABC123DEFG --issuer-id 69a6de70-…
+```
+
+Několik věcí, které stojí za zmínku:
+
+- `--notify-from now` je watermark: starší recenze se uloží kvůli historii, ale do kanálů
+  nepůjdou — připojení staré appky tedy Slack nezaplaví.
+- Payload klíče z vaultu nikdy nevyjde. CLI tiskne jen fingerprint a neutrální nápovědu
+  (`client_email`, Key ID) — přesně to, co uvidí klient v konzoli.
+- Nová appka se rozjede sama, worker si ji vyzvedne při nejbližším sweepu.
+- Návratové kódy: `0` hotovo, `1` příkaz neprošel (neexistující organizace, klíč odmítnutý
+  storem), `2` špatně zadaný příkaz. Skript nad tím pozná překlep od odmítnutí storu.
+
+Lokálně bez Dockeru vyrobí spustitelný `appreviewzz` příkaz `./gradlew :server:app:installDist`;
+najdeš ho v `server/app/build/install/appreviewzz/bin/`.
+
 ## Struktura repa
 
 ```
@@ -110,7 +153,7 @@ Zranitelnosti hlaste podle [SECURITY.md](SECURITY.md).
 | Fáze | Obsah | Stav |
 |---|---|---|
 | **F0** | Repo, CI, Docker, Ktor + Flyway + healthcheck, ADR, Terraform dev | hotovo |
-| **F1** | Datový model, credential vault, konektory Google Play a App Store, ingest pipeline, scheduler | |
+| **F1** | Datový model, credential vault, konektory Google Play a App Store, ingest pipeline, scheduler, seed CLI | |
 | **F2** | Slack end-to-end: OAuth install, Block Kit s AI návrhem, publikace odpovědi | |
 | **F3** | Konzole: auth, organizace, onboarding wizard, review inbox, delivery health | |
 | **F4** | Teams bot, ratings pipeline, denní digesty a trendy | |

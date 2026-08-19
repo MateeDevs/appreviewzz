@@ -31,7 +31,13 @@ dependencies {
 application {
     mainClass.set("cz.matee.appreviewzz.app.MainKt")
     applicationName = "appreviewzz"
-    applicationDefaultJvmArgs = listOf("-XX:MaxRAMPercentage=75.0", "-XX:+UseZGC")
+    applicationDefaultJvmArgs =
+        listOf(
+            "-XX:MaxRAMPercentage=75.0",
+            "-XX:+UseZGC",
+            // Uvítací řádek kotlin-loggingu jde na stdout mimo logback; ve výstupu seed CLI nemá co dělat.
+            "-Dkotlin-logging.logStartupMessage=false",
+        )
 }
 
 tasks.named<JavaExec>("run") {

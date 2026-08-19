@@ -21,6 +21,7 @@ private val logger = KotlinLogging.logger {}
 fun runWorker(
     config: AppConfig,
     database: Database,
+    components: Components,
 ) {
     val metrics = PrometheusMeterRegistry(PrometheusConfig.DEFAULT)
     startManagementServer(config, metrics)
@@ -28,7 +29,7 @@ fun runWorker(
     val scheduler =
         buildScheduler(
             dataSource = database.asDataSource(),
-            jobs = ingestJobs(config, database),
+            jobs = components.ingestJobs(),
             config =
                 SchedulerConfig(
                     threads = config.worker.schedulerThreads,
