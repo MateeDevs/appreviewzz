@@ -13,6 +13,8 @@ import cz.matee.appreviewzz.core.port.ReviewSource
 import cz.matee.appreviewzz.core.usecase.IngestReviewsUseCase
 import cz.matee.appreviewzz.crypto.CredentialVault
 import cz.matee.appreviewzz.crypto.KekProviders
+import cz.matee.appreviewzz.crypto.KekUsage
+import cz.matee.appreviewzz.crypto.MeteredKekProvider
 import cz.matee.appreviewzz.jobs.BackupJobs
 import cz.matee.appreviewzz.jobs.IngestJobs
 import cz.matee.appreviewzz.persistence.Database
@@ -59,13 +61,19 @@ class Components(
     private val storeClientsDelegate = lazy { StoreClients() }
     private val storeClients by storeClientsDelegate
 
+    /**
+     * Počítadla volání KEK. Vznikají hned, i když se vault nikdy nepoužije — worker nad nimi
+     * registruje metriku při startu a ta nesmí záviset na tom, jestli už někdo sáhl na klíč.
+     */
+    val kekUsage = KekUsage()
+
     val vault: CredentialVault by lazy {
         val kekUri =
             config.vaultKekUri
                 ?: throw IllegalStateException(
                     "Práce s credentials potřebuje VAULT_KEK_URI (aws-kms://… nebo local://…) — bez něj se nedají ani uložit, ani rozbalit",
                 )
-        CredentialVault(dataKeys, credentials, KekProviders.fromUri(kekUri))
+        CredentialVault(dataKeys, credentials, MeteredKekProvider(KekProviders.fromUri(kekUri), kekUsage))
     }
 
     val reviewSources: List<ReviewSource> by lazy {

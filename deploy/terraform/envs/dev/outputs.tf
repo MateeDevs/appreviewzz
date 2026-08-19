@@ -16,3 +16,13 @@ output "backup_target" {
   description = "Do konfigurace aplikace jako BACKUP_TARGET."
   value       = module.backups.backup_target
 }
+
+output "alarm_topic_arn" {
+  description = "SNS topic s alarmy nad vault klíčem. Odběr e-mailem je potřeba potvrdit klikem v došlé zprávě."
+  value       = module.key_audit.alarm_topic_arn
+}
+
+output "audit_log_group_name" {
+  description = "CloudWatch Logs skupina, ve které se dohledává použití vault klíče."
+  value       = module.key_audit.log_group_name
+}

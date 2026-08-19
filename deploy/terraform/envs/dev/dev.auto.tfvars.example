@@ -1,0 +1,2 @@
+# Zkopíruj jako dev.auto.tfvars (soubor je v .gitignore) nebo předej přes TF_VAR_alarm_email.
+alarm_email = "nekdo@example.com"

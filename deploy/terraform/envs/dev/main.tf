@@ -36,3 +36,15 @@ module "backups" {
   environment       = "dev"
   app_iam_user_name = module.vault.app_iam_user_name
 }
+
+# Auditní stopa a alarmy nad vault klíčem (F1.9) — objem rozbalování, cizí principal,
+# odmítnutá volání. Adresa pro alarmy se předává přes TF_VAR_alarm_email nebo tfvars,
+# aby nebyla v repozitáři.
+module "key_audit" {
+  source = "../../modules/key-audit"
+
+  environment      = "dev"
+  vault_key_arn    = module.vault.key_arn
+  app_iam_user_arn = module.vault.app_iam_user_arn
+  alarm_email      = var.alarm_email
+}

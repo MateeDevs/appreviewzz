@@ -156,6 +156,13 @@ Klientské klíče ke storům se ukládají šifrovaně (envelope encryption, DE
 KEK v KMS nebo lokálním keysetu) — detaily v [ADR 0005](docs/adr/0005-envelope-encryption.md).
 Zranitelnosti hlaste podle [SECURITY.md](SECURITY.md).
 
+Použití KEK se **hlídá**, ne jen povoluje: aplikace vystavuje metriku
+`appreviewzz_vault_kek_unwrap_total` (rozbalení datového klíče) a v našem provozu k ní běží
+CloudTrail alarm na neobvyklý objem, na cizí volající a na odmítnutá volání
+([ADR 0011](docs/adr/0011-audit-vault-klice.md), [runbook](docs/runbooks/vault-klic-alarm.md)).
+Rozbalený klíč žije jen v paměti a jen pět minut, takže běžný provoz je plochá čára a skok
+je vidět.
+
 ## Zálohy
 
 Worker každou noc udělá `pg_dump` a nahraje ho do `BACKUP_TARGET`; obnova se dělá příkazem
@@ -171,7 +178,7 @@ v obnovené databázi nečitelné.
 | Fáze | Obsah | Stav |
 |---|---|---|
 | **F0** | Repo, CI, Docker, Ktor + Flyway + healthcheck, ADR, Terraform dev | hotovo |
-| **F1** | Datový model, credential vault, konektory Google Play a App Store, ingest pipeline, scheduler, seed CLI, zálohy s vyzkoušenou obnovou | |
+| **F1** | Datový model, credential vault, konektory Google Play a App Store, ingest pipeline, scheduler, seed CLI, zálohy s vyzkoušenou obnovou, audit použití klíče | |
 | **F2** | Slack end-to-end: OAuth install, Block Kit s AI návrhem, publikace odpovědi | |
 | **F3** | Konzole: auth, organizace, onboarding wizard, review inbox, delivery health | |
 | **F4** | Teams bot, ratings pipeline, denní digesty a trendy | |
@@ -181,7 +188,7 @@ v obnovené databázi nečitelné.
 ## Dokumentace
 
 - [ADR](docs/adr/) — architektonická rozhodnutí a jejich důvody
-- [Runbooky](docs/runbooks/) — provozní postupy (zálohy a obnova)
+- [Runbooky](docs/runbooks/) — provozní postupy (zálohy a obnova, alarm na vault klíč)
 - [SECURITY.md](SECURITY.md) — hlášení zranitelností a jak zacházíme s klíči
 
 ## Licence

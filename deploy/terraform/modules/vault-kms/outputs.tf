@@ -17,3 +17,8 @@ output "app_iam_user_name" {
   description = "IAM uživatel, pro kterého se v konzoli vygeneruje access key."
   value       = aws_iam_user.app.name
 }
+
+output "app_iam_user_arn" {
+  description = "ARN uživatele aplikace — modul key-audit podle něj pozná cizí volání nad klíčem."
+  value       = aws_iam_user.app.arn
+}

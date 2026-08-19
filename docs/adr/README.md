@@ -14,5 +14,6 @@ Krátké záznamy o rozhodnutích, která se těžko vracejí. Formát: kontext 
 | [0008](0008-hosting-coolify-kek-v-kms.md) | Aplikace na Coolify, KEK zůstává v AWS KMS | Přijato |
 | [0009](0009-domenove-schema-tenancy.md) | Doménové schéma: `org_id` všude, enumy jako text s CHECK | Přijato |
 | [0010](0010-zalohy-pg-dump.md) | Logické zálohy `pg_dump` do object storage, obnova vedle | Přijato |
+| [0011](0011-audit-vault-klice.md) | Použití vault klíče hlídá CloudTrail alarm | Přijato |
 
 Nové ADR: zkopíruj strukturu z 0001, další číslo v pořadí, přidej řádek do tabulky.

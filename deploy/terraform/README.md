@@ -6,6 +6,7 @@ AWS zdroje pro appreviewzz. Rozdělené podle toho, co je nasazené a co čeká.
 |---|---|
 | `modules/vault-kms` | **nasazené** — KMS klíč pro credential vault a IAM uživatel aplikace |
 | `modules/backups` | **připravené** — S3 bucket na dumpy databáze a práva pro aplikaci (F1.8); čeká na `apply` |
+| `modules/key-audit` | **připravené** — CloudTrail, metric filtry a alarmy nad použitím vault klíče (F1.9); čeká na `apply` |
 | `modules/appreviewzz` | **zaparkované** — kompletní ECS Fargate + RDS + ALB stack, zatím se nepoužívá |
 
 Aplikace běží na Coolify a z AWS potřebuje jen správu klíčů — viz
@@ -43,7 +44,18 @@ Negeneruje se terraformem — tajná část by ležela ve state souboru. Vytvá�
 IAM → Users → `appreviewzz-<env>-app` → *Security credentials* → *Create access key* →
 use case *Application running outside AWS*. Hodnota jde rovnou do Coolify.
 
+## Adresa pro alarmy
+
+Modul `key-audit` posílá alarmy na e-mail a ten v repozitáři není. Předává se proměnnou:
+
+```bash
+TF_VAR_alarm_email=nekdo@example.com tofu apply
+```
+
+Nebo souborem `dev.auto.tfvars` podle [šablony](envs/dev/dev.auto.tfvars.example) — `*.tfvars`
+je v `.gitignore`. Bez adresy se topic vytvoří bez odběratele a alarm nikam nedojde; odběr
+je navíc potřeba potvrdit klikem v došlém e-mailu.
+
 ## Co přijde později
 
-- CloudTrail metric filter nad `kms:Decrypt` s alarmem na neobvyklý objem odemykání (F1)
 - `envs/prod` — až bude potřeba produkční prostředí

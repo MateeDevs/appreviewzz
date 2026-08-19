@@ -1,5 +1,6 @@
 package cz.matee.appreviewzz.app
 
+import cz.matee.appreviewzz.crypto.KekUsage
 import cz.matee.appreviewzz.jobs.BackupJobs
 import cz.matee.appreviewzz.jobs.SchedulerConfig
 import cz.matee.appreviewzz.jobs.buildScheduler
@@ -9,6 +10,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.server.application.Application
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
+import io.micrometer.core.instrument.FunctionCounter
 import io.micrometer.core.instrument.Gauge
 import io.micrometer.prometheusmetrics.PrometheusConfig
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
@@ -27,6 +29,7 @@ fun runWorker(
 ) {
     val metrics = PrometheusMeterRegistry(PrometheusConfig.DEFAULT)
     startManagementServer(config, metrics)
+    registerVaultMetrics(metrics, components.kekUsage)
 
     val backupJobs = components.backupJobs()
     if (backupJobs == null) {
@@ -77,6 +80,29 @@ private fun registerBackupMetrics(
         .description("Stáří poslední úspěšné zálohy databáze")
         .baseUnit("seconds")
         .strongReference(true)
+        .register(metrics)
+}
+
+/**
+ * Volání do správce klíčů. V našem provozu totéž hlídá CloudTrail alarm (F1.9), tahle metrika
+ * je jeho protějšek pro self-host — a zároveň druhý pohled na tentýž jev: kdyby počty
+ * nesouhlasily, klíč používá i někdo jiný než aplikace.
+ */
+private fun registerVaultMetrics(
+    metrics: PrometheusMeterRegistry,
+    usage: KekUsage,
+) {
+    FunctionCounter
+        .builder("appreviewzz.vault.kek.unwrap", usage) { it.unwrapCount.toDouble() }
+        .description("Rozbalení datového klíče správcem klíčů (v našem provozu jedno kms:Decrypt)")
+        .register(metrics)
+    FunctionCounter
+        .builder("appreviewzz.vault.kek.generate", usage) { it.generateCount.toDouble() }
+        .description("Vyrobené datové klíče — první credential organizace nebo rotace")
+        .register(metrics)
+    FunctionCounter
+        .builder("appreviewzz.vault.kek.failure", usage) { it.failureCount.toDouble() }
+        .description("Volání správce klíčů, která skončila chybou")
         .register(metrics)
 }
 

@@ -24,7 +24,9 @@ nikam jinam se nedostane.
 IAM → Users → `appreviewzz-dev-app` → *Security credentials* → *Create access key* →
 use case *Application running outside AWS*.
 
-## Co přijde s F1
+## Detekce zneužití
 
-Detekce: CloudTrail metric filter nad `kms:Decrypt` s alarmem na neobvyklý objem
-odemykání. Zapojí se, až vault poběží a půjde to otestovat proti reálnému provozu.
+Sama policy nestačí — kdo získá access key aplikace, volá `Decrypt` úplně stejně jako ona.
+Použití klíče proto hlídá modul [`key-audit`](../key-audit/README.md): CloudTrail stopa,
+alarm na objem rozbalování, na cizí volající a na odmítnutá volání
+([ADR 0011](../../../../docs/adr/0011-audit-vault-klice.md)).
