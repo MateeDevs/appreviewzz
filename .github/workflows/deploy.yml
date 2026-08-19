@@ -118,18 +118,10 @@ jobs:
             exit 0
           fi
 
-          # Coolify má dva tvary spouštěče a každý bere jinou metodu:
-          # API endpoint /api/v1/deploy?uuid=… reaguje na GET, webhook ze
-          # záložky Automation → Webhooks na POST. Jinak vrátí 405.
-          case "$COOLIFY_WEBHOOK_URL" in
-            */api/v1/deploy*) method=GET ;;
-            *)                method=POST ;;
-          esac
-          echo "Spouštím deploy metodou $method."
-
+          # Deploy endpoint bere POST; na GET vrací 405 s vysvětlením v těle.
           status=$(curl --silent --show-error --output /tmp/coolify-response \
             --write-out '%{http_code}' \
-            --request "$method" "$COOLIFY_WEBHOOK_URL" \
+            --request POST "$COOLIFY_WEBHOOK_URL" \
             --header "Authorization: Bearer $COOLIFY_TOKEN")
 
           echo "Coolify odpověděl HTTP $status:"
