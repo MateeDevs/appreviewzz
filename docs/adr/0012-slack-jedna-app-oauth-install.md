@@ -38,9 +38,13 @@ rovnou podle jejich požadavků — minimální scopes, OAuth install flow, žá
   self-serve console (F3).
 - Rotace tajemství se zjednodušila: jeden signing secret a jeden client secret místo jednoho
   páru na klienta.
-- Vzniká závislost na App Directory review, ale až s finální doménou (§13.5 plánu); do té doby
-  se jede na vlastní dev appce a self-hosteři si zakládají vlastní podle
-  [docs/slack-app.md](../slack-app.md).
+- **Do schválení v App Directory jedeme v režimu jednoho workspace** — našeho. První klienti
+  jsou partneři, kterým nevadí, že jim recenze chodí do našeho Slacku a našich kanálů; každý
+  má vlastní organizaci a vlastní kanál, takže se datově nemíchají a přechod na vlastní
+  workspace je pak jen nová instalace. Token se v tomhle režimu vkládá ručně
+  (`slack connect`) a vzniká z něj stejný credential jako po OAuth instalaci — install flow
+  se tím nezahazuje, jen se zatím nepoužívá. Submit do App Directory je proto až na konci
+  (F5/launch), s finální doménou.
 - Vyšší scope `chat:write.public` (psaní do veřejného kanálu bez pozvání bota) je vědomá
   výměna: bez něj je první krok onboardingu „napiš `/invite`" a klienti na něm zůstávají viset.
   U privátních kanálů pozvání bota potřeba je a runbook to říká.

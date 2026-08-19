@@ -27,6 +27,7 @@ import cz.matee.appreviewzz.core.model.Review
 import cz.matee.appreviewzz.core.model.ReviewState
 import cz.matee.appreviewzz.core.model.SecretPayload
 import cz.matee.appreviewzz.core.model.ValidationStatus
+import cz.matee.appreviewzz.core.port.ChannelException
 import cz.matee.appreviewzz.core.port.NewApp
 import cz.matee.appreviewzz.core.port.NewChannel
 import cz.matee.appreviewzz.core.port.StoreConnectorException
@@ -325,6 +326,64 @@ class SeedCommands(
     }
 
     /**
+     * Ruční vložení bot tokenu — cesta pro self-host a pro náš vlastní workspace, kde se appka
+     * nainstaluje přímo z api.slack.com („Install to Workspace") a OAuth flow není potřeba.
+     * Výsledek je tentýž credential jako po instalaci odkazem, takže se pak nic nepřepisuje.
+     */
+    suspend fun slackConnect(args: Arguments) {
+        val organization = organization(args)
+        val token = SecretPayload(args.required("token"))
+        if (!token.value.startsWith("xoxb-")) {
+            throw UsageException("--token čeká bot token workspace (začíná xoxb-), ne app-level ani user token")
+        }
+
+        // Ověření hned při vkládání: špatný token se má poznat tady, ne až první recenzí.
+        val install =
+            try {
+                components.slackApi.authTest(token)
+            } catch (error: ChannelException) {
+                throw CommandException("Slack token neuznal: ${error.message}", error)
+            }
+        val missing =
+            REQUIRED_SLACK_SCOPES.filterNot { scope ->
+                install.scopes
+                    .orEmpty()
+                    .split(',')
+                    .contains(scope)
+            }
+
+        val meta =
+            components.vault.store(
+                organization.id,
+                CredentialType.SLACK_INSTALL,
+                args.optional("label") ?: "Slack ${install.hint()}",
+                install.payload(),
+                install.hint(),
+            )
+        audit(
+            organization.id,
+            "slack.installed",
+            "credential",
+            meta.id.toString(),
+            mapOf("team" to install.teamId, "scopes" to install.scopes.orEmpty()),
+        )
+
+        out("Slack workspace připojený (token uložený zašifrovaný, ven už z vaultu nevyjde)")
+        out(
+            details(
+                "ID" to meta.id.toString(),
+                "workspace" to install.hint(),
+                "bot" to (install.botUserId ?: "—"),
+                "scopes" to (install.scopes ?: "neuvedeny"),
+            ),
+        )
+        if (missing.isNotEmpty() && install.scopes != null) {
+            out("Pozor: appce chybí scopes ${missing.joinToString()} — doplň je v api.slack.com a nainstaluj znovu")
+        }
+        out("Dál: `channel add --org ${organization.slug} --app <APP_ID> --credential ${meta.id} --slack-channel C…`")
+    }
+
+    /**
      * Kanál, do kterého mají recenze chodit. Credential je instalace Slacku, `--slack-channel`
      * je ID kanálu (`C…`) — jméno se mění, ID ne.
      */
@@ -583,6 +642,9 @@ class SeedCommands(
     )
 
     private companion object {
+        /** Bez těchhle scopes se zpráva buď neodešle, nebo nepůjde přepsat po odeslání odpovědi. */
+        val REQUIRED_SLACK_SCOPES = listOf("chat:write")
+
         const val DEFAULT_REVIEW_LIMIT = 20
         const val HISTORY_LIMIT = 5
         const val SLUG_COLUMN = 24

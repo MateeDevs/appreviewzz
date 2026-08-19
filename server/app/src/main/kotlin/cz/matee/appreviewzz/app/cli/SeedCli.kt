@@ -166,6 +166,12 @@ private val COMMANDS =
             run = { args -> slackInstallUrl(args) },
         ),
         Command(
+            name = "slack connect",
+            options = setOf("org", "token", "label"),
+            usage = "slack connect --org <slug|ID> --token <xoxb-…> [--label <štítek>]",
+            run = { args -> slackConnect(args) },
+        ),
+        Command(
             name = "channel add",
             options = setOf("org", "app", "credential", "slack-channel", "label", "locale"),
             usage =

@@ -65,7 +65,7 @@ appreviewzz app create --org isle-grow --name IsleGrow \
 appreviewzz credential add --org isle-grow --type gp --label "Play SA" --file service-account.json
 appreviewzz credential attach --org isle-grow --app <APP_ID> --credential <CREDENTIAL_ID>
 appreviewzz credential validate --org isle-grow --app <APP_ID> --credential <CREDENTIAL_ID>
-appreviewzz slack install-url --org isle-grow      # odkaz pošli klientovi
+appreviewzz slack connect --org isle-grow --token xoxb-…   # nebo `slack install-url` pro cizí workspace
 appreviewzz channel add --org isle-grow --app <APP_ID> \
   --credential <ID_INSTALACE> --slack-channel C0123456789
 appreviewzz ingest run --org isle-grow --app <APP_ID>
@@ -94,9 +94,13 @@ najdeš ho v `server/app/build/install/appreviewzz/bin/`.
 
 ## Slack
 
-Jedna Slack App pro všechny klienty, instalace přes OAuth ([ADR 0012](docs/adr/0012-slack-jedna-app-oauth-install.md)).
-Klient dostane odkaz z `slack install-url`, schválí tři oprávnění (`chat:write`,
-`chat:write.public`, `channels:read`) a vybere kanál — nic dalšího se za něj nenastavuje.
+Jedna Slack App pro všechny klienty ([ADR 0012](docs/adr/0012-slack-jedna-app-oauth-install.md))
+se třemi oprávněními: `chat:write`, `chat:write.public`, `channels:read`.
+
+Připojit workspace jde dvěma způsoby. Do **vlastního workspace** (self-host i náš provoz do
+schválení v App Directory) se appka nainstaluje z api.slack.com a token se vloží příkazem
+`slack connect`. Do **cizího workspace** dostane klient odkaz z `slack install-url` a appku si
+nainstaluje sám; výsledek je v obou případech tentýž zašifrovaný credential.
 
 Nová recenze dorazí do kanálu s předvyplněným návrhem odpovědi. Po kliknutí na *Odeslat* se
 odpověď publikuje do storu a zpráva se přepíše na „✅ Recenze byla zpracována"; když ji store
@@ -168,7 +172,7 @@ Vše přes proměnné prostředí (12-factor), žádný konfigurační soubor v 
 | `AI_MODEL` | `gemini-2.5-flash` | model providera |
 | `AI_API_KEY` | — | povinné pro `AI_PROVIDER=gemini` |
 | `SLACK_SIGNING_SECRET` | — | bez něj se interactivity endpoint nezaregistruje a ze Slacku nejde odpovídat |
-| `SLACK_CLIENT_ID` / `SLACK_CLIENT_SECRET` | — | zapínají „Add to Slack"; bez nich se appka instaluje ručně |
+| `SLACK_CLIENT_ID` / `SLACK_CLIENT_SECRET` | — | zapínají „Add to Slack" do cizích workspaců; do vlastního stačí `slack connect` |
 | `PUBLIC_BASE_URL` | — | veřejná adresa API; z ní se skládá OAuth redirect a instalační odkaz |
 
 Chybějící povinná proměnná shodí start s konkrétní hláškou — žádný tichý fallback.

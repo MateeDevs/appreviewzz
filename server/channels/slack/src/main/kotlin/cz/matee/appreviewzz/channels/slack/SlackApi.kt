@@ -54,7 +54,7 @@ class SlackApi(
                 metadata?.let { put("metadata", it) }
                 threadTs?.let { put("thread_ts", it) }
             }
-        val response = call("chat.postMessage", token, body)
+        val response = call("chat.postMessage", token, body).payload
         return PostedMessage(
             conversationId = response["channel"]?.jsonPrimitive?.contentOrNull ?: channel,
             messageId =
@@ -80,11 +80,35 @@ class SlackApi(
         call("chat.update", token, body)
     }
 
+    /**
+     * Ověření tokenu workspace. Používá se při ručním vložení tokenu (self-host, náš vlastní
+     * workspace): z odpovědi se poznají údaje o workspace a z hlavičky i schválené scopes,
+     * takže chybějící oprávnění je vidět hned, ne až první nedoručenou zprávou.
+     */
+    suspend fun authTest(token: SecretPayload): SlackInstall {
+        val response = call("auth.test", token, buildJsonObject { })
+        return SlackInstall(
+            botToken = token.value,
+            teamId =
+                response.payload["team_id"]?.jsonPrimitive?.contentOrNull
+                    ?: throw ChannelException(ChannelErrorKind.AUTH, "Slack nevrátil ID workspace — je to opravdu bot token?"),
+            teamName = response.payload["team"]?.jsonPrimitive?.contentOrNull,
+            botUserId = response.payload["user_id"]?.jsonPrimitive?.contentOrNull,
+            scopes = response.scopes,
+        )
+    }
+
+    /** Odpověď Slack API i se schválenými scopes z hlavičky — ty v těle nejsou. */
+    private data class SlackResponse(
+        val payload: JsonObject,
+        val scopes: String?,
+    )
+
     private suspend fun call(
         method: String,
         token: SecretPayload,
         body: JsonObject,
-    ): JsonObject {
+    ): SlackResponse {
         val response =
             try {
                 httpClient.post("$baseUrl/$method") {
@@ -111,7 +135,7 @@ class SlackApi(
             runCatching { json.parseToJsonElement(response.bodyAsText()) as JsonObject }
                 .getOrElse { throw ChannelException(ChannelErrorKind.TRANSIENT, "Slack API vrátilo nečitelnou odpověď", it) }
         val ok = payload["ok"]?.jsonPrimitive?.boolean == true
-        if (ok) return payload
+        if (ok) return SlackResponse(payload, response.headers[OAUTH_SCOPES_HEADER])
 
         val error = payload["error"]?.jsonPrimitive?.contentOrNull ?: "unknown_error"
         logger.warn { "Slack $method odmítl: $error" }
@@ -140,5 +164,7 @@ class SlackApi(
 
         /** Notifikační text (mobil, náhled). Slack delší stejně ořízne. */
         private const val FALLBACK_TEXT_LIMIT = 3_000
+
+        private const val OAUTH_SCOPES_HEADER = "x-oauth-scopes"
     }
 }

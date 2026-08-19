@@ -11,6 +11,8 @@ import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 import io.ktor.client.engine.mock.respond
 import io.ktor.client.engine.mock.toByteArray
+import io.ktor.http.HttpHeaders
+import io.ktor.http.headersOf
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
@@ -94,6 +96,41 @@ class SlackOAuthTest :
             parsed shouldBe install
             // Payload je tajemství: v logu z něj nesmí být nic.
             install.payload().toString() shouldNotContain "xoxb-1"
+        }
+
+        test("ručně vložený token se ověří a doplní workspace i scopes") {
+            val engine =
+                RecordingEngine {
+                    respond(
+                        """{"ok":true,"url":"https://matee.slack.com/","team":"Matee","user":"appreviewzz",
+                           "team_id":"T0123","user_id":"U0BOT"}""",
+                        headers =
+                            headersOf(
+                                HttpHeaders.ContentType to listOf("application/json"),
+                                "x-oauth-scopes" to listOf("chat:write,chat:write.public"),
+                            ),
+                    )
+                }
+            val api = SlackApi(engine.client())
+
+            val install = api.authTest(SecretPayload("xoxb-rucne-vlozeny"))
+
+            install.teamId shouldBe "T0123"
+            install.teamName shouldBe "Matee"
+            install.botUserId shouldBe "U0BOT"
+            install.scopes shouldBe "chat:write,chat:write.public"
+            engine.requests
+                .single()
+                .url
+                .toString() shouldContain "/auth.test"
+        }
+
+        test("neplatný token se pozná při vkládání, ne až první recenzí") {
+            val engine = RecordingEngine { respond("""{"ok":false,"error":"invalid_auth"}""", headers = jsonHeaders) }
+
+            shouldThrow<ChannelException> {
+                SlackApi(engine.client()).authTest(SecretPayload("xoxb-neplatny"))
+            }.kind shouldBe ChannelErrorKind.AUTH
         }
 
         test("poškozený payload instalace chce novou instalaci, ne retry") {

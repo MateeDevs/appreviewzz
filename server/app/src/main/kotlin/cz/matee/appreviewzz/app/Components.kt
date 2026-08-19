@@ -128,9 +128,9 @@ class Components(
      * Kanály, do kterých se doručuje. Teams přibude ve F4 stejným způsobem — doručovací
      * use-case o konkrétních kanálech neví nic.
      */
-    val notificationChannels: List<NotificationChannel> by lazy {
-        listOf(SlackNotificationChannel(SlackApi(slackClientDelegate.value)))
-    }
+    val slackApi: SlackApi by lazy { SlackApi(slackClientDelegate.value) }
+
+    val notificationChannels: List<NotificationChannel> by lazy { listOf(SlackNotificationChannel(slackApi)) }
 
     val delivery: DeliverReviewUseCase by lazy {
         DeliverReviewUseCase(
