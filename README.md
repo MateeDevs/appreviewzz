@@ -3,9 +3,9 @@
 Recenze z Google Play a App Store do Slacku a Teams — s AI návrhem odpovědi, kterou pošlete
 zpátky do storu jedním kliknutím. Plus denní přehled ratingů a trendů.
 
-> **Stav: F0 — základy repa.** Běží kostra aplikace (Ktor + Flyway + healthcheck), CI a
-> Docker. Store konektory, vault, Slack/Teams a konzole přicházejí ve fázích F1–F4
-> (viz [roadmapa](#roadmapa)).
+> **Stav: F2 — Slack end-to-end.** Recenze se stahují z Google Play i App Store, chodí do
+> Slacku s AI návrhem odpovědi a kliknutí na *Odeslat* publikuje odpověď zpátky do storu.
+> Konzole (F3) a Teams s ratingy (F4) teprve přijdou (viz [roadmapa](#roadmapa)).
 
 ## Rychlý start (self-host / lokální vývoj)
 
@@ -21,6 +21,8 @@ Aplikace poslouchá na `http://localhost:8080`:
 | `GET /health/live` | proces žije; vrací verzi a git SHA |
 | `GET /health/ready` | umíme obsloužit provoz (kontroluje databázi) |
 | `GET /metrics` | Prometheus scrape — na portu 8081, ne na veřejném |
+| `POST /webhooks/slack/interactivity` | odpovědi ze Slacku; existuje jen se `SLACK_SIGNING_SECRET` |
+| `GET /slack/install` | „Add to Slack" — odkaz vydává `slack install-url` |
 
 ## Vývoj bez Dockeru
 
@@ -63,6 +65,9 @@ appreviewzz app create --org isle-grow --name IsleGrow \
 appreviewzz credential add --org isle-grow --type gp --label "Play SA" --file service-account.json
 appreviewzz credential attach --org isle-grow --app <APP_ID> --credential <CREDENTIAL_ID>
 appreviewzz credential validate --org isle-grow --app <APP_ID> --credential <CREDENTIAL_ID>
+appreviewzz slack install-url --org isle-grow      # odkaz pošli klientovi
+appreviewzz channel add --org isle-grow --app <APP_ID> \
+  --credential <ID_INSTALACE> --slack-channel C0123456789
 appreviewzz ingest run --org isle-grow --app <APP_ID>
 ```
 
@@ -86,6 +91,18 @@ Několik věcí, které stojí za zmínku:
 
 Lokálně bez Dockeru vyrobí spustitelný `appreviewzz` příkaz `./gradlew :server:app:installDist`;
 najdeš ho v `server/app/build/install/appreviewzz/bin/`.
+
+## Slack
+
+Jedna Slack App pro všechny klienty, instalace přes OAuth ([ADR 0012](docs/adr/0012-slack-jedna-app-oauth-install.md)).
+Klient dostane odkaz z `slack install-url`, schválí tři oprávnění (`chat:write`,
+`chat:write.public`, `channels:read`) a vybere kanál — nic dalšího se za něj nenastavuje.
+
+Nová recenze dorazí do kanálu s předvyplněným návrhem odpovědi. Po kliknutí na *Odeslat* se
+odpověď publikuje do storu a zpráva se přepíše na „✅ Recenze byla zpracována"; když ji store
+odmítne, přistane důvod ve vlákně a formulář zůstane, takže jde odpověď opravit a poslat znovu.
+
+Založení vlastní Slack Appky (self-host) a řešení potíží: [docs/slack-app.md](docs/slack-app.md).
 
 ## Struktura repa
 
@@ -147,6 +164,12 @@ Vše přes proměnné prostředí (12-factor), žádný konfigurační soubor v 
 | `BACKUP_KEEP_AT_LEAST` | `7` | kolik posledních záloh zůstává bez ohledu na stáří |
 | `BACKUP_S3_ENDPOINT` | — | jiné S3 než AWS (MinIO, Backblaze); zapíná path-style adresaci |
 | `PG_DUMP_PATH` / `PG_RESTORE_PATH` | `pg_dump` / `pg_restore` | cesty ke klientským nástrojům Postgresu |
+| `AI_PROVIDER` | `none` | `gemini` nebo `none`; bez AI chodí do Slacku prázdný vstup a odpověď píše člověk |
+| `AI_MODEL` | `gemini-2.5-flash` | model providera |
+| `AI_API_KEY` | — | povinné pro `AI_PROVIDER=gemini` |
+| `SLACK_SIGNING_SECRET` | — | bez něj se interactivity endpoint nezaregistruje a ze Slacku nejde odpovídat |
+| `SLACK_CLIENT_ID` / `SLACK_CLIENT_SECRET` | — | zapínají „Add to Slack"; bez nich se appka instaluje ručně |
+| `PUBLIC_BASE_URL` | — | veřejná adresa API; z ní se skládá OAuth redirect a instalační odkaz |
 
 Chybějící povinná proměnná shodí start s konkrétní hláškou — žádný tichý fallback.
 
@@ -178,8 +201,8 @@ v obnovené databázi nečitelné.
 | Fáze | Obsah | Stav |
 |---|---|---|
 | **F0** | Repo, CI, Docker, Ktor + Flyway + healthcheck, ADR, Terraform dev | hotovo |
-| **F1** | Datový model, credential vault, konektory Google Play a App Store, ingest pipeline, scheduler, seed CLI, zálohy s vyzkoušenou obnovou, audit použití klíče | |
-| **F2** | Slack end-to-end: OAuth install, Block Kit s AI návrhem, publikace odpovědi | |
+| **F1** | Datový model, credential vault, konektory Google Play a App Store, ingest pipeline, scheduler, seed CLI, zálohy s vyzkoušenou obnovou, audit použití klíče | hotovo |
+| **F2** | Slack end-to-end: OAuth install, Block Kit s AI návrhem, publikace odpovědi | hotovo |
 | **F3** | Konzole: auth, organizace, onboarding wizard, review inbox, delivery health | |
 | **F4** | Teams bot, ratings pipeline, denní digesty a trendy | |
 | **F5** | Hardening, rate limity, dokumentace, OSS launch | |
@@ -189,6 +212,7 @@ v obnovené databázi nečitelné.
 
 - [ADR](docs/adr/) — architektonická rozhodnutí a jejich důvody
 - [Runbooky](docs/runbooks/) — provozní postupy (zálohy a obnova, alarm na vault klíč)
+- [Slack App](docs/slack-app.md) — založení appky, oprávnění, připojení kanálu, řešení potíží
 - [SECURITY.md](SECURITY.md) — hlášení zranitelností a jak zacházíme s klíči
 
 ## Licence

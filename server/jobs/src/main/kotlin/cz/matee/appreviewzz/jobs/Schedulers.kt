@@ -4,6 +4,7 @@ import com.github.kagkarlsson.scheduler.Scheduler
 import com.github.kagkarlsson.scheduler.SchedulerClient
 import com.github.kagkarlsson.scheduler.logging.LogLevel
 import io.github.oshai.kotlinlogging.KotlinLogging
+import java.sql.Connection
 import java.time.Duration
 import javax.sql.DataSource
 
@@ -61,6 +62,23 @@ fun buildSchedulerClient(
     replyJobs: ReplyJobs,
 ): SchedulerClient =
     SchedulerClient.Builder
-        .create(dataSource, listOf(replyJobs.publishTask))
+        .create(AutoCommitDataSource(dataSource), listOf(replyJobs.publishTask))
         .serializer(JsonTaskSerializer)
         .build()
+
+/**
+ * Spojení se zapnutým autocommitem. Náš pool ho má kvůli Exposedu vypnutý; plánovač na to má
+ * přepínač (`commitWhenAutocommitDisabled`), ale **klient fronty ho nemá** — bez tohohle obalu
+ * by se zařazená úloha nikdy nepotvrdila a webhook by odpovědi tiše zahazoval. Hikari při
+ * vrácení spojení do poolu autocommit stejně resetuje, takže se nastavení nikam nešíří.
+ */
+private class AutoCommitDataSource(
+    private val delegate: DataSource,
+) : DataSource by delegate {
+    override fun getConnection(): Connection = delegate.connection.apply { autoCommit = true }
+
+    override fun getConnection(
+        username: String?,
+        password: String?,
+    ): Connection = delegate.getConnection(username, password).apply { autoCommit = true }
+}
