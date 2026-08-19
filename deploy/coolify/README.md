@@ -30,9 +30,14 @@ tajná část nikdy neocitla v terraform state.
 
 1. V Coolify vytvoř resource typu **Docker Compose** nad `deploy/coolify/compose.yaml`.
 2. Vyplň proměnné z tabulky výše.
-3. Vystav ven **jen službu `api`** na portu 8080. Worker ani Postgres port nepotřebují.
-4. Domain nastav na subdoménu pro webhooky — Coolify vyřídí TLS přes Let's Encrypt.
-5. Deploy.
+3. Vystav ven **jen službu `api`** na portu 8080 (doména se zapisuje ve tvaru
+   `https://domena:8080` — ten port říká proxy, kam routovat uvnitř kontejneru).
+   Worker ani Postgres doménu nepotřebují.
+4. Zapni **Connect To Predefined Network**. Bez toho kontejnery nejsou na `coolify`
+   síti, Traefik nezjistí jejich IP a vrací `503 no available server` — i když
+   aplikace uvnitř běží úplně v pořádku.
+5. Domain nastav na subdoménu pro webhooky — Coolify vyřídí TLS přes Let's Encrypt.
+6. Deploy.
 
 Kontrola po nasazení:
 

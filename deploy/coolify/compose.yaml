@@ -4,6 +4,10 @@
 services:
   api:
     image: ghcr.io/mateedevs/appreviewzz:${APP_VERSION:-latest}
+    # Deklaruje port pro reverzní proxy, ale nepublikuje ho na hostitele —
+    # ven se aplikace dostane výhradně přes Traefik.
+    expose:
+      - "8080"
     environment:
       APPREVIEWZZ_ROLE: api
       APPREVIEWZZ_ENV: ${APPREVIEWZZ_ENV:-dev}
