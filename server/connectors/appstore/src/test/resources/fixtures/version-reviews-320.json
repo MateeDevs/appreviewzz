@@ -1,0 +1,10 @@
+{
+  "data": [
+    {
+      "type": "customerReviews",
+      "id": "55555555-6666-7777-8888-999999999999",
+      "attributes": { "createdDate": "2026-08-18T22:04:10-07:00" }
+    }
+  ],
+  "links": { "self": "https://api.appstoreconnect.apple.com/v1/appStoreVersions/verze-3-2-0/customerReviews" }
+}

@@ -10,8 +10,11 @@ import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import io.ktor.client.engine.mock.MockRequestHandleScope
 import io.ktor.client.engine.mock.respond
 import io.ktor.client.engine.mock.toByteArray
+import io.ktor.client.request.HttpRequestData
+import io.ktor.client.request.HttpResponseData
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
@@ -29,14 +32,7 @@ class AppStoreConnectorTest :
         val context = StoreContext(appIdentifier = APP_ID, credential = TestAscKey.teamKey())
 
         test("stáhne recenze včetně odpovědí vývojáře a projde stránkování") {
-            val engine =
-                RecordingEngine { request ->
-                    if (request.url.parameters["cursor"] == "DALEJ") {
-                        respond(fixture("customer-reviews-page2.json"), headers = jsonHeaders)
-                    } else {
-                        respond(fixture("customer-reviews-page1.json"), headers = jsonHeaders)
-                    }
-                }
+            val engine = RecordingEngine { storeResponse(it) }
             val connector = AppStoreConnector(engine.client())
 
             val reviews = connector.fetchReviews(context)
@@ -58,13 +54,13 @@ class AppStoreConnectorTest :
             answered.developerResponseBody shouldBe "Díky! Rádi to slyšíme."
             answered.developerResponseAt shouldBe Instant.parse("2026-08-19T13:00:00Z")
 
-            val firstRequest = engine.requests.first()
-            firstRequest.url.parameters["include"] shouldBe "response"
-            firstRequest.url.parameters["sort"] shouldBe "-createdDate"
+            val reviewsRequest = engine.requests.first { it.url.encodedPath.endsWith("/apps/$APP_ID/customerReviews") }
+            reviewsRequest.url.parameters["include"] shouldBe "response"
+            reviewsRequest.url.parameters["sort"] shouldBe "-createdDate"
         }
 
         test("token je ES256 podepsaný klíčem, s kid a aud podle Applu") {
-            val engine = RecordingEngine { respond(fixture("customer-reviews-page2.json"), headers = jsonHeaders) }
+            val engine = RecordingEngine { storeResponse(it) }
             AppStoreConnector(engine.client()).fetchReviews(context)
 
             val authorization =
@@ -87,7 +83,7 @@ class AppStoreConnectorTest :
         }
 
         test("individuální klíč posílá sub=user místo iss") {
-            val engine = RecordingEngine { respond(fixture("customer-reviews-page2.json"), headers = jsonHeaders) }
+            val engine = RecordingEngine { storeResponse(it) }
             AppStoreConnector(engine.client())
                 .fetchReviews(StoreContext(APP_ID, TestAscKey.individualKey()))
 
@@ -101,7 +97,7 @@ class AppStoreConnectorTest :
         }
 
         test("token se podepíše jednou a používá se z cache") {
-            val engine = RecordingEngine { respond(fixture("customer-reviews-page2.json"), headers = jsonHeaders) }
+            val engine = RecordingEngine { storeResponse(it) }
             val connector = AppStoreConnector(engine.client())
 
             connector.fetchReviews(context)
@@ -118,7 +114,7 @@ class AppStoreConnectorTest :
                     if (request.method == HttpMethod.Post) {
                         respond(fixture("create-response.json"), HttpStatusCode.Created, jsonHeaders)
                     } else {
-                        null
+                        storeResponse(request)
                     }
                 }
             val connector = AppStoreConnector(engine.client())
@@ -148,7 +144,7 @@ class AppStoreConnectorTest :
                     if (request.method == HttpMethod.Post) {
                         respond(fixture("create-response.json"), HttpStatusCode.Created, jsonHeaders)
                     } else {
-                        null
+                        storeResponse(request)
                     }
                 }
             val connector = AppStoreConnector(engine.client())
@@ -188,6 +184,35 @@ class AppStoreConnectorTest :
             outcome.message.shouldNotBeNull() shouldContain "Customer Support"
         }
 
+        test("verze u iOS recenze se doplní z listingu verzí, macOS verze se ignorují") {
+            val engine = RecordingEngine { storeResponse(it) }
+
+            val reviews = AppStoreConnector(engine.client()).fetchReviews(context)
+
+            reviews.first { it.storeReviewId == "00000000-1111-2222-3333-444444444444" }.appVersion shouldBe "3.2.1"
+            reviews.first { it.storeReviewId == "55555555-6666-7777-8888-999999999999" }.appVersion shouldBe "3.2.0"
+            // Recenze ze druhé stránky nepatří k žádné verzi v okně — dorazí bez verze.
+            reviews.first { it.storeReviewId == "cccccccc-dddd-eeee-ffff-000000000000" }.appVersion shouldBe null
+
+            engine.requests.none { it.url.encodedPath.contains("verze-mac-2-0") } shouldBe true
+        }
+
+        test("klíč bez přístupu k verzím ingest nezastaví, jen chybí verze") {
+            val engine =
+                RecordingEngine { request ->
+                    when {
+                        request.url.encodedPath.contains("appStoreVersions") ->
+                            respond(fixture("error-forbidden.json"), HttpStatusCode.Forbidden, jsonHeaders)
+                        else -> storeResponse(request)
+                    }
+                }
+
+            val reviews = AppStoreConnector(engine.client()).fetchReviews(context)
+
+            reviews shouldHaveSize 3
+            reviews.all { it.appVersion == null } shouldBe true
+        }
+
         test("404 je špatné App ID, 429 a 5xx se dají zkusit znovu") {
             fun connector(status: HttpStatusCode) =
                 AppStoreConnector(RecordingEngine { respond("""{"errors":[]}""", status, jsonHeaders) }.client())
@@ -205,6 +230,24 @@ class AppStoreConnectorTest :
             }.isRetryable shouldBe true
         }
     })
+
+/** Odpovídá jako App Store Connect: listing verzí, recenze per verze a plochý výpis recenzí. */
+private fun MockRequestHandleScope.storeResponse(request: HttpRequestData): HttpResponseData? {
+    val path = request.url.encodedPath
+    return when {
+        path.endsWith("/apps/$APP_ID/appStoreVersions") ->
+            respond(fixture("app-store-versions.json"), headers = jsonHeaders)
+        path.contains("appStoreVersions/verze-3-2-1/customerReviews") ->
+            respond(fixture("version-reviews-321.json"), headers = jsonHeaders)
+        path.contains("appStoreVersions/verze-3-2-0/customerReviews") ->
+            respond(fixture("version-reviews-320.json"), headers = jsonHeaders)
+        path.endsWith("/apps/$APP_ID/customerReviews") && request.url.parameters["cursor"] == "DALEJ" ->
+            respond(fixture("customer-reviews-page2.json"), headers = jsonHeaders)
+        path.endsWith("/apps/$APP_ID/customerReviews") ->
+            respond(fixture("customer-reviews-page1.json"), headers = jsonHeaders)
+        else -> null
+    }
+}
 
 private fun base64UrlDecode(value: String): ByteArray =
     java.util.Base64

@@ -36,14 +36,20 @@ private val errorJson = Json { ignoreUnknownKeys = true }
  * Klíčový rozdíl proti dnešnímu n8n: recenze se stahují **s `include=response`**, takže
  * víme, na které už někdo odpověděl. Bez toho iOS „už odpovězeno" nikdy nefungovalo.
  *
- * Verzi aplikace ASC u recenze nevrací a my si ji nedomýšlíme — přiřadit recenzi aktuální
- * verzi appky by bylo prostě nepravdivé. `appVersion` proto zůstává u iOS prázdné.
+ * Verzi aplikace atributy recenze neobsahují, ale zjistit ji jde: recenze visí na konkrétní
+ * verzi (`/v1/appStoreVersions/{id}/customerReviews`), takže se verze doplní odtud — stejně
+ * jako to dělá dnešní n8n, jen s `include=response` a stránkováním navíc.
+ *
+ * Doplnění verze je **best-effort**: klíč s rolí Customer Support na seznam verzí nemusí mít
+ * právo. Když listing selže, recenze dorazí bez verze místo toho, aby spadl celý ingest.
  */
 class AppStoreConnector(
     private val httpClient: HttpClient,
     private val tokens: AscTokens = AscTokens(),
     private val clock: Clock = Clock.System,
     private val baseUrl: String = APP_STORE_CONNECT_BASE_URL,
+    /** Kolik posledních verzí se prochází kvůli doplnění verze k recenzi. */
+    private val versionWindow: Int = DEFAULT_VERSION_WINDOW,
 ) : ReviewSource,
     ReplyTarget {
     override val platform: Platform = Platform.IOS
@@ -53,6 +59,7 @@ class AppStoreConnector(
 
     override suspend fun fetchReviews(context: StoreContext): List<ObservedReview> {
         val key = AscApiKey.parse(context.credential)
+        val versionByReviewId = versionsByReviewId(key, context.appIdentifier)
         val collected = mutableListOf<ObservedReview>()
         var url: String? = "$baseUrl/v1/apps/${context.appIdentifier}/customerReviews"
         var page = 0
@@ -79,7 +86,10 @@ class AppStoreConnector(
                     .filter { it.type == "customerReviewResponses" }
                     .associateBy { it.id }
 
-            collected += body.data.mapNotNull { it.toObservedReview(responsesById) }
+            collected +=
+                body.data.mapNotNull { review ->
+                    review.toObservedReview(responsesById)?.copy(appVersion = versionByReviewId[review.id])
+                }
             url = body.links?.next
             page++
         }
@@ -130,6 +140,78 @@ class AppStoreConnector(
             publishedAt = created?.attributes?.lastModifiedDate?.toInstantOrNull() ?: clock.now(),
         )
     }
+
+    /**
+     * Mapa recenze → verze. Projde nejnovější iOS verze a u každé si vytáhne ID recenzí,
+     * které pod ni spadají. Recenze na starších verzích, než sahá okno, přijdou bez verze —
+     * pořád je to lepší než je kvůli tomu vůbec neposlat.
+     */
+    private suspend fun versionsByReviewId(
+        key: AscApiKey,
+        appId: String,
+    ): Map<String, String> =
+        try {
+            val versions = listIosVersions(key, appId)
+            buildMap {
+                versions.forEach { version ->
+                    reviewIdsOfVersion(key, version.id).forEach { reviewId -> put(reviewId, version.versionString) }
+                }
+            }
+        } catch (error: StoreConnectorException) {
+            logger.info {
+                "Verze iOS recenzí pro $appId se nepodařilo zjistit (${error.kind}); " +
+                    "recenze dorazí bez verze. Klíč nejspíš nemá přístup k App Store Versions."
+            }
+            emptyMap()
+        }
+
+    private suspend fun listIosVersions(
+        key: AscApiKey,
+        appId: String,
+    ): List<IosVersion> {
+        val response =
+            request(key) {
+                httpClient.get("$baseUrl/v1/apps/$appId/appStoreVersions") {
+                    bearerAuth(tokens.bearerToken(key))
+                    parameter("fields[appStoreVersions]", "versionString,appStoreState,platform,createdDate")
+                    parameter("limit", VERSIONS_PAGE_SIZE)
+                }
+            }
+        return response
+            .body<AppStoreVersionsResponse>()
+            .data
+            .mapNotNull { version ->
+                val attributes = version.attributes ?: return@mapNotNull null
+                // macOS a tvOS verze téže appky do iOS recenzí nepatří.
+                if (attributes.platform != "IOS") return@mapNotNull null
+                val versionString = attributes.versionString ?: return@mapNotNull null
+                IosVersion(version.id, versionString, attributes.createdDate?.toInstantOrNull())
+            }.sortedByDescending { it.createdAt }
+            .take(versionWindow)
+    }
+
+    private suspend fun reviewIdsOfVersion(
+        key: AscApiKey,
+        versionId: String,
+    ): List<String> {
+        val response =
+            request(key) {
+                httpClient.get("$baseUrl/v1/appStoreVersions/$versionId/customerReviews") {
+                    bearerAuth(tokens.bearerToken(key))
+                    // Zajímají nás jen ID; menší pole = menší odpověď.
+                    parameter("fields[customerReviews]", "createdDate")
+                    parameter("limit", PAGE_SIZE)
+                    parameter("sort", "-createdDate")
+                }
+            }
+        return response.body<CustomerReviewsResponse>().data.map { it.id }
+    }
+
+    private data class IosVersion(
+        val id: String,
+        val versionString: String,
+        val createdAt: Instant?,
+    )
 
     private suspend fun request(
         key: AscApiKey,
@@ -184,6 +266,8 @@ class AppStoreConnector(
         const val APP_STORE_CONNECT_BASE_URL = "https://api.appstoreconnect.apple.com"
 
         private const val PAGE_SIZE = 200
+        private const val VERSIONS_PAGE_SIZE = 200
+        private const val DEFAULT_VERSION_WINDOW = 15
         private const val MAX_PAGES = 10
         private const val ERROR_DETAIL_LIMIT = 500
     }
@@ -216,7 +300,7 @@ internal fun CustomerReviewDto.toObservedReview(responses: Map<String, IncludedR
         body = attributes.body,
         locale = null,
         territory = attributes.territory,
-        // ASC u recenze verzi aplikace nevrací a domýšlet ji z aktuální verze by lhalo.
+        // Doplní volající z mapy verzí — atributy recenze verzi nenesou.
         appVersion = null,
         device = null,
         submittedAt = createdAt,
