@@ -11,23 +11,33 @@ import cz.matee.appreviewzz.core.model.MessageStatus
 import cz.matee.appreviewzz.core.model.ObservedReview
 import cz.matee.appreviewzz.core.model.OrganizationId
 import cz.matee.appreviewzz.core.model.Platform
+import cz.matee.appreviewzz.core.model.Reply
+import cz.matee.appreviewzz.core.model.ReplyId
+import cz.matee.appreviewzz.core.model.ReplyStatus
 import cz.matee.appreviewzz.core.model.Review
 import cz.matee.appreviewzz.core.model.ReviewId
 import cz.matee.appreviewzz.core.model.ReviewMessage
 import cz.matee.appreviewzz.core.model.ReviewMessageId
 import cz.matee.appreviewzz.core.model.ReviewState
+import cz.matee.appreviewzz.core.model.sha256Hex
 import cz.matee.appreviewzz.core.port.ChannelException
 import cz.matee.appreviewzz.core.port.ChannelRepository
 import cz.matee.appreviewzz.core.port.ChannelTarget
 import cz.matee.appreviewzz.core.port.NewChannel
+import cz.matee.appreviewzz.core.port.NewReply
 import cz.matee.appreviewzz.core.port.NotificationChannel
 import cz.matee.appreviewzz.core.port.PostedMessage
+import cz.matee.appreviewzz.core.port.PublishedReply
 import cz.matee.appreviewzz.core.port.ReplyRendering
+import cz.matee.appreviewzz.core.port.ReplyRepository
 import cz.matee.appreviewzz.core.port.ReplySuggestion
 import cz.matee.appreviewzz.core.port.ReplySuggestionRequest
+import cz.matee.appreviewzz.core.port.ReplyTarget
 import cz.matee.appreviewzz.core.port.ReviewMessageRepository
 import cz.matee.appreviewzz.core.port.ReviewRepository
 import cz.matee.appreviewzz.core.port.ReviewUpsertResult
+import cz.matee.appreviewzz.core.port.StoreConnectorException
+import cz.matee.appreviewzz.core.port.StoreContext
 import cz.matee.appreviewzz.core.port.SuggestReplyProvider
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
@@ -289,3 +299,88 @@ internal class FakeSuggestProvider(
 }
 
 private fun unused(): Nothing = error("Metoda se v testu doručení nepoužívá")
+
+/** Odpovědi v paměti se stejnou unikátností jako databáze: (recenze, otisk textu). */
+internal class FakeReplyRepository : ReplyRepository {
+    private val replies = mutableMapOf<Pair<ReviewId, String>, Reply>()
+
+    val all get() = replies.values.toList()
+
+    override fun create(
+        orgId: OrganizationId,
+        reply: NewReply,
+    ): Reply =
+        replies.getOrPut(reply.reviewId to sha256Hex(reply.body)) {
+            Reply(
+                id = ReplyId(Uuid.random()),
+                orgId = orgId,
+                reviewId = reply.reviewId,
+                body = reply.body,
+                bodyHash = sha256Hex(reply.body),
+                authorUserId = reply.authorUserId,
+                authorExternalId = reply.authorExternalId,
+                authorDisplayName = reply.authorDisplayName,
+                source = reply.source,
+                status = ReplyStatus.PENDING,
+                error = null,
+                publishedAt = null,
+                createdAt = Delivery.now,
+            )
+        }
+
+    override fun markPublished(
+        orgId: OrganizationId,
+        id: ReplyId,
+        publishedAt: Instant,
+    ): Boolean = update(id) { it.copy(status = ReplyStatus.PUBLISHED, publishedAt = publishedAt) }
+
+    override fun markFailed(
+        orgId: OrganizationId,
+        id: ReplyId,
+        error: String,
+    ): Boolean = update(id) { it.copy(status = ReplyStatus.FAILED, error = error) }
+
+    override fun findById(
+        orgId: OrganizationId,
+        id: ReplyId,
+    ): Reply? = replies.values.firstOrNull { it.id == id }
+
+    override fun listByReview(
+        orgId: OrganizationId,
+        reviewId: ReviewId,
+    ): List<Reply> = replies.values.filter { it.reviewId == reviewId }
+
+    override fun listByStatus(
+        orgId: OrganizationId,
+        status: ReplyStatus,
+        limit: Int,
+    ): List<Reply> = replies.values.filter { it.status == status }
+
+    private fun update(
+        id: ReplyId,
+        change: (Reply) -> Reply,
+    ): Boolean {
+        val key = replies.entries.firstOrNull { it.value.id == id }?.key ?: return false
+        replies[key] = change(replies.getValue(key))
+        return true
+    }
+}
+
+/** Store, který místo publikace zapisuje, co dostal — nebo předvede připravené selhání. */
+internal class FakeReplyTarget(
+    override val platform: Platform = Platform.ANDROID,
+    override val replyMaxLength: Int = 350,
+    private val failWith: StoreConnectorException? = null,
+) : ReplyTarget {
+    val published = mutableListOf<Triple<String, String, String>>()
+
+    override suspend fun publishReply(
+        context: StoreContext,
+        storeReviewId: String,
+        body: String,
+    ): PublishedReply {
+        failWith?.let { throw it }
+        published += Triple(context.appIdentifier, storeReviewId, body)
+        return PublishedReply(body, Delivery.now)
+    }
+}

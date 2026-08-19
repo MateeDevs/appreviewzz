@@ -44,6 +44,7 @@ fun runWorker(
             dataSource = database.asDataSource(),
             jobs = components.ingestJobs(),
             deliveryJobs = components.deliveryJobs,
+            replyJobs = components.replyJobs,
             backupJobs = backupJobs,
             config =
                 SchedulerConfig(

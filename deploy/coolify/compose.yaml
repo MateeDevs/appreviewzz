@@ -26,6 +26,8 @@ services:
       # Zálohy plánuje worker; API je zná jen proto, aby se přes něj dalo pustit
       # `backup list` a `backup restore` (obnova se dělá z běžícího kontejneru).
       BACKUP_TARGET: ${BACKUP_TARGET}
+      # Slack interactivity endpoint běží v API roli; publikaci pak převezme worker.
+      SLACK_SIGNING_SECRET: ${SLACK_SIGNING_SECRET}
     depends_on:
       postgres:
         condition: service_healthy

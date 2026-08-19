@@ -1,9 +1,11 @@
 package cz.matee.appreviewzz.app.cli
 
+import cz.matee.appreviewzz.app.AiConfig
 import cz.matee.appreviewzz.app.AppConfig
 import cz.matee.appreviewzz.app.BackupConfig
 import cz.matee.appreviewzz.app.Role
 import cz.matee.appreviewzz.app.ServerConfig
+import cz.matee.appreviewzz.app.SlackConfig
 import cz.matee.appreviewzz.app.WorkerConfig
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
@@ -41,6 +43,9 @@ class SeedCliTest :
                         pgRestorePath = "pg_restore",
                         timeoutMinutes = 30,
                     ),
+                // Seed CLI nesahá ani na AI, ani na Slack.
+                ai = AiConfig(provider = "none", apiKey = null, model = null),
+                slack = SlackConfig(signingSecret = null),
             )
 
         /** Příkaz se píše tak, jak se zadává v terminálu; hodnoty s mezerami se dávají do apostrofů. */

@@ -25,8 +25,9 @@ fun main(args: Array<String>) {
         database.migrate()
     }
 
+    val components = Components(config, database)
     when (config.role) {
-        Role.API -> runApi(config, database)
-        Role.WORKER -> runWorker(config, database, Components(config, database))
+        Role.API -> runApi(config, database, components)
+        Role.WORKER -> runWorker(config, database, components)
     }
 }

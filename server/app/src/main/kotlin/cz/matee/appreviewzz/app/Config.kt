@@ -67,6 +67,17 @@ data class AiConfig(
     val model: String?,
 )
 
+/**
+ * Naše Slack App. Signing secret je app-level (jeden pro všechny klienty) — tím padá dnešní
+ * per-klient HMAC chaos v n8n. Bez něj se interactivity endpoint vůbec nezaregistruje:
+ * webhook bez ověření podpisu by byl otevřený vstup do publikace odpovědí.
+ */
+data class SlackConfig(
+    val signingSecret: String?,
+) {
+    val enabled: Boolean get() = signingSecret != null
+}
+
 data class AppConfig(
     val role: Role,
     val environment: String,
@@ -80,6 +91,7 @@ data class AppConfig(
     val worker: WorkerConfig,
     val backup: BackupConfig,
     val ai: AiConfig,
+    val slack: SlackConfig,
 ) {
     companion object {
         fun fromEnv(env: (String) -> String? = System::getenv): AppConfig =
@@ -124,6 +136,7 @@ data class AppConfig(
                         apiKey = env("AI_API_KEY")?.takeIf { it.isNotBlank() },
                         model = env("AI_MODEL")?.takeIf { it.isNotBlank() },
                     ),
+                slack = SlackConfig(signingSecret = env("SLACK_SIGNING_SECRET")?.takeIf { it.isNotBlank() }),
             )
     }
 }

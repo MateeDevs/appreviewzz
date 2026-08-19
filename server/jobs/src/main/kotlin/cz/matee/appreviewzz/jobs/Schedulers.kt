@@ -1,6 +1,7 @@
 package cz.matee.appreviewzz.jobs
 
 import com.github.kagkarlsson.scheduler.Scheduler
+import com.github.kagkarlsson.scheduler.SchedulerClient
 import com.github.kagkarlsson.scheduler.logging.LogLevel
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.time.Duration
@@ -30,13 +31,14 @@ fun buildScheduler(
     dataSource: DataSource,
     jobs: IngestJobs,
     deliveryJobs: DeliveryJobs? = null,
+    replyJobs: ReplyJobs? = null,
     backupJobs: BackupJobs? = null,
     config: SchedulerConfig = SchedulerConfig(),
 ): Scheduler {
     logger.info { "Scheduler: ${config.threads} vláken, polling po ${config.pollingInterval}" }
     // Sweep i záloha se plánují samy; ostatní úlohy zakládá až sweep podle stavu databáze.
     val selfScheduling = listOfNotNull(jobs.sweepTask, backupJobs?.backupTask)
-    val knownTasks = listOfNotNull(jobs.ingestTask, deliveryJobs?.deliverTask)
+    val knownTasks = listOfNotNull(jobs.ingestTask, deliveryJobs?.deliverTask, replyJobs?.publishTask)
     return Scheduler
         .create(dataSource, knownTasks)
         .threads(config.threads)
@@ -48,3 +50,17 @@ fun buildScheduler(
         .failureLogging(LogLevel.WARN, true)
         .build()
 }
+
+/**
+ * Klient fronty bez plánovače. Používá ho role `api`: webhook potřebuje **jen zařadit úlohu**
+ * a hned odpovědět (Slack čeká na potvrzení do tří sekund), zpracování patří workeru.
+ * Fronta je tabulka v Postgresu, takže si obě role vystačí bez brokera i bez volání mezi sebou.
+ */
+fun buildSchedulerClient(
+    dataSource: DataSource,
+    replyJobs: ReplyJobs,
+): SchedulerClient =
+    SchedulerClient.Builder
+        .create(dataSource, listOf(replyJobs.publishTask))
+        .serializer(JsonTaskSerializer)
+        .build()
