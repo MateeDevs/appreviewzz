@@ -1,6 +1,5 @@
 package cz.matee.appreviewzz.channels.slack
 
-import cz.matee.appreviewzz.core.model.SecretPayload
 import cz.matee.appreviewzz.core.port.ChannelErrorKind
 import cz.matee.appreviewzz.core.port.ChannelException
 import cz.matee.appreviewzz.core.port.ChannelTarget
@@ -20,7 +19,9 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlin.time.Instant
 
-private val TOKEN = SecretPayload("xoxb-testovaci-token")
+private const val BOT_TOKEN = "xoxb-testovaci-token"
+private val TOKEN =
+    SlackInstall(botToken = BOT_TOKEN, teamId = "T0123", teamName = "Matee").payload()
 
 class SlackApiTest :
     FunSpec({
@@ -40,7 +41,7 @@ class SlackApiTest :
             posted shouldBe PostedMessage("C123", "1755600000.000100")
             val request = engine.requests.single()
             request.url.toString() shouldContain "/chat.postMessage"
-            request.headers["Authorization"] shouldBe "Bearer ${TOKEN.value}"
+            request.headers["Authorization"] shouldBe "Bearer $BOT_TOKEN"
 
             val body = Json.parseToJsonElement(String(request.body.toByteArray())).jsonObject
             body.text("channel") shouldBe "C123"

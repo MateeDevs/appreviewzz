@@ -74,8 +74,16 @@ data class AiConfig(
  */
 data class SlackConfig(
     val signingSecret: String?,
+    val clientId: String?,
+    val clientSecret: String?,
+    /** Veřejná adresa API (`https://api.appreviewzz.com`) — z ní se skládá OAuth redirect URL. */
+    val publicBaseUrl: String?,
 ) {
     val enabled: Boolean get() = signingSecret != null
+
+    /** Install flow potřebuje navíc OAuth údaje a adresu, na kterou se Slack vrací. */
+    val installEnabled: Boolean
+        get() = enabled && clientId != null && clientSecret != null && publicBaseUrl != null
 }
 
 data class AppConfig(
@@ -136,7 +144,13 @@ data class AppConfig(
                         apiKey = env("AI_API_KEY")?.takeIf { it.isNotBlank() },
                         model = env("AI_MODEL")?.takeIf { it.isNotBlank() },
                     ),
-                slack = SlackConfig(signingSecret = env("SLACK_SIGNING_SECRET")?.takeIf { it.isNotBlank() }),
+                slack =
+                    SlackConfig(
+                        signingSecret = env("SLACK_SIGNING_SECRET")?.takeIf { it.isNotBlank() },
+                        clientId = env("SLACK_CLIENT_ID")?.takeIf { it.isNotBlank() },
+                        clientSecret = env("SLACK_CLIENT_SECRET")?.takeIf { it.isNotBlank() },
+                        publicBaseUrl = env("PUBLIC_BASE_URL")?.takeIf { it.isNotBlank() },
+                    ),
             )
     }
 }

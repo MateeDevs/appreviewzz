@@ -3,6 +3,7 @@ package cz.matee.appreviewzz.channels.slack
 import cz.matee.appreviewzz.core.message.MessageKey
 import cz.matee.appreviewzz.core.message.ReviewNotification
 import cz.matee.appreviewzz.core.model.ChannelType
+import cz.matee.appreviewzz.core.model.SecretPayload
 import cz.matee.appreviewzz.core.port.ChannelTarget
 import cz.matee.appreviewzz.core.port.NotificationChannel
 import cz.matee.appreviewzz.core.port.PostedMessage
@@ -26,7 +27,7 @@ class SlackNotificationChannel(
         notification: ReviewNotification,
     ): PostedMessage =
         api.postMessage(
-            token = target.credential,
+            token = botToken(target),
             channel = target.conversationId,
             blocks = SlackBlocks.review(notification),
             fallbackText = fallbackText(notification),
@@ -39,7 +40,7 @@ class SlackNotificationChannel(
         rendering: ReplyRendering,
     ) {
         api.updateMessage(
-            token = target.credential,
+            token = botToken(target),
             channel = message.conversationId,
             ts = message.messageId,
             blocks = SlackBlocks.replied(rendering),
@@ -54,7 +55,7 @@ class SlackNotificationChannel(
         error: String,
     ) {
         api.postMessage(
-            token = target.credential,
+            token = botToken(target),
             channel = message.conversationId,
             blocks = SlackBlocks.failure(notification, error),
             fallbackText = ":warning: ${notification.catalog[MessageKey.REPLY_FAILED_TITLE]}: $error",
@@ -62,6 +63,13 @@ class SlackNotificationChannel(
             threadTs = message.messageId,
         )
     }
+
+    /**
+     * Token workspace z uložené instalace. Credential není holý token, ale payload instalace
+     * (workspace, scopes) — díky tomu je v consoli vidět, kam je appka nainstalovaná, aniž by
+     * se sahalo na tajemství.
+     */
+    private fun botToken(target: ChannelTarget): SecretPayload = SecretPayload(SlackInstall.parse(target.credential).botToken)
 
     /** Text do notifikace na mobilu a do náhledu kanálu — bloky se tam nevykreslí. */
     private fun fallbackText(notification: ReviewNotification): String =

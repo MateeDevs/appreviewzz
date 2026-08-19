@@ -8,7 +8,9 @@ import cz.matee.appreviewzz.backup.BackupStores
 import cz.matee.appreviewzz.backup.PostgresCommands
 import cz.matee.appreviewzz.backup.PostgresTarget
 import cz.matee.appreviewzz.channels.slack.SlackApi
+import cz.matee.appreviewzz.channels.slack.SlackInstallStates
 import cz.matee.appreviewzz.channels.slack.SlackNotificationChannel
+import cz.matee.appreviewzz.channels.slack.SlackOAuth
 import cz.matee.appreviewzz.channels.slack.SlackSignatureVerifier
 import cz.matee.appreviewzz.channels.slack.slackHttpClient
 import cz.matee.appreviewzz.connectors.appstore.AppStoreConnector
@@ -237,6 +239,28 @@ class Components(
     val slackSignatureVerifier: SlackSignatureVerifier? by lazy {
         config.slack.signingSecret?.let { SlackSignatureVerifier(SecretPayload(it)) }
     }
+
+    /**
+     * Podpis instalačních odkazů. Používá tentýž app-level secret jako ověření webhooku —
+     * je to jediné tajemství, které Slack App má, a obojí je „důkaz, že je to od nás".
+     */
+    val slackInstallStates: SlackInstallStates? by lazy {
+        config.slack.signingSecret?.let { SlackInstallStates(SecretPayload(it)) }
+    }
+
+    val slackOAuth: SlackOAuth? by lazy {
+        val clientId = config.slack.clientId ?: return@lazy null
+        val clientSecret = config.slack.clientSecret ?: return@lazy null
+        SlackOAuth(slackClientDelegate.value, clientId, SecretPayload(clientSecret))
+    }
+
+    /** Veřejná adresa API; potřebuje ji instalační odkaz i OAuth redirect. */
+    val publicBaseUrl: String? get() = config.slack.publicBaseUrl
+
+    /** Adresa, kterou musí mít Slack App nastavenou jako Redirect URL. */
+    val slackRedirectUri: String? get() = config.slack.publicBaseUrl?.let { SlackOAuth.redirectUri(it) }
+
+    val slackInstallStore: SlackInstallStore by lazy { SlackInstallStore(vault, credentials, audit) }
 
     /** Pustí HTTP klienty storů. Volá jen CLI — servery drží klienty po celou dobu běhu. */
     override fun close() {

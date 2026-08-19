@@ -1,9 +1,11 @@
 package cz.matee.appreviewzz.app.cli
 
 import cz.matee.appreviewzz.app.Components
+import cz.matee.appreviewzz.app.SLACK_INSTALL_PATH
 import cz.matee.appreviewzz.backup.BackupStoreException
 import cz.matee.appreviewzz.backup.BackupToolException
 import cz.matee.appreviewzz.backup.StoredBackup
+import cz.matee.appreviewzz.channels.slack.SlackInstallStates
 import cz.matee.appreviewzz.connectors.appstore.AscApiKey
 import cz.matee.appreviewzz.connectors.googleplay.GoogleServiceAccount
 import cz.matee.appreviewzz.core.model.ActorType
@@ -11,6 +13,7 @@ import cz.matee.appreviewzz.core.model.App
 import cz.matee.appreviewzz.core.model.AppId
 import cz.matee.appreviewzz.core.model.BackupRun
 import cz.matee.appreviewzz.core.model.BackupStatus
+import cz.matee.appreviewzz.core.model.ChannelType
 import cz.matee.appreviewzz.core.model.CredentialId
 import cz.matee.appreviewzz.core.model.CredentialMeta
 import cz.matee.appreviewzz.core.model.CredentialPurpose
@@ -25,6 +28,7 @@ import cz.matee.appreviewzz.core.model.ReviewState
 import cz.matee.appreviewzz.core.model.SecretPayload
 import cz.matee.appreviewzz.core.model.ValidationStatus
 import cz.matee.appreviewzz.core.port.NewApp
+import cz.matee.appreviewzz.core.port.NewChannel
 import cz.matee.appreviewzz.core.port.StoreConnectorException
 import cz.matee.appreviewzz.core.port.StoreContext
 import cz.matee.appreviewzz.core.port.ValidationOutcome
@@ -299,6 +303,87 @@ class SeedCommands(
 
         report.failures.firstOrNull()?.let { failure ->
             throw CommandException("Ingest ${failure.platform} selhal (${failure.kind}): ${failure.message}")
+        }
+    }
+
+    /**
+     * Instalační odkaz pro klienta („Add to Slack"). Odkaz nese podepsaný `state`, který váže
+     * instalaci na organizaci — proto se generuje tady a ne ručním sestavením URL.
+     */
+    fun slackInstallUrl(args: Arguments) {
+        val organization = organization(args)
+        val states =
+            components.slackInstallStates
+                ?: throw CommandException("Chybí SLACK_SIGNING_SECRET — bez něj se instalační odkaz nedá podepsat")
+        val baseUrl =
+            components.publicBaseUrl
+                ?: throw CommandException("Chybí PUBLIC_BASE_URL — z ní se skládá adresa, na kterou se Slack vrací")
+
+        val state = states.issue(organization.id.toString())
+        out("Instalační odkaz pro ${organization.name} (platí ${SlackInstallStates.DEFAULT_VALIDITY}):")
+        out("${baseUrl.trimEnd('/')}$SLACK_INSTALL_PATH?state=$state")
+    }
+
+    /**
+     * Kanál, do kterého mají recenze chodit. Credential je instalace Slacku, `--slack-channel`
+     * je ID kanálu (`C…`) — jméno se mění, ID ne.
+     */
+    fun channelAdd(args: Arguments) {
+        val organization = organization(args)
+        val app = app(organization.id, args)
+        val meta = credential(organization.id, args)
+        if (meta.type != CredentialType.SLACK_INSTALL) {
+            throw CommandException("Kanál potřebuje instalaci Slacku, ne credential typu ${meta.type.name}")
+        }
+        val targetRef = args.required("slack-channel")
+        if (!targetRef.startsWith("C") && !targetRef.startsWith("G")) {
+            throw UsageException("--slack-channel čeká ID kanálu ze Slacku (začíná C nebo G), ne jeho jméno")
+        }
+
+        val channel =
+            components.channels.create(
+                organization.id,
+                NewChannel(
+                    appId = app.id,
+                    type = ChannelType.SLACK,
+                    targetRef = targetRef,
+                    targetLabel = args.optional("label"),
+                    credentialId = meta.id,
+                    locale = args.optional("locale")?.let(::locale) ?: app.locale,
+                ),
+            )
+        audit(
+            organization.id,
+            "channel.created",
+            "channel",
+            channel.id.toString(),
+            mapOf("app" to app.id.toString(), "type" to channel.type.name),
+        )
+        out("Kanál připojený k aplikaci ${app.name}")
+        out(
+            details(
+                "ID" to channel.id.toString(),
+                "kanál" to channel.targetRef,
+                "jazyk" to channel.locale.code,
+                "instalace" to (meta.hint ?: meta.label),
+            ),
+        )
+    }
+
+    fun channelList(args: Arguments) {
+        val organization = organization(args)
+        val app = app(organization.id, args)
+        val channels = components.channels.listByApp(organization.id, app.id)
+        if (channels.isEmpty()) {
+            out("Aplikace ${app.name} zatím nemá kanál — přidej ho příkazem `channel add`")
+            return
+        }
+        channels.forEach { channel ->
+            val state = if (channel.enabled) "zapnutý" else "vypnutý"
+            out(
+                "${channel.id}  ${channel.type.name.padEnd(TYPE_COLUMN)}  ${channel.targetRef.padEnd(TYPE_COLUMN)}  " +
+                    "${channel.locale.code}  $state",
+            )
         }
     }
 

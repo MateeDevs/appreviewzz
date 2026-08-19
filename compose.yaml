@@ -23,6 +23,9 @@ x-app-env: &app-env
   AI_MODEL: ${AI_MODEL:-}
   # Slack App (F2) — bez signing secretu API interactivity endpoint nevystaví.
   SLACK_SIGNING_SECRET: ${SLACK_SIGNING_SECRET:-}
+  SLACK_CLIENT_ID: ${SLACK_CLIENT_ID:-}
+  SLACK_CLIENT_SECRET: ${SLACK_CLIENT_SECRET:-}
+  PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
 
 services:
   postgres:

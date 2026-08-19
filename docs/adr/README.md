@@ -15,5 +15,6 @@ Krátké záznamy o rozhodnutích, která se těžko vracejí. Formát: kontext 
 | [0009](0009-domenove-schema-tenancy.md) | Doménové schéma: `org_id` všude, enumy jako text s CHECK | Přijato |
 | [0010](0010-zalohy-pg-dump.md) | Logické zálohy `pg_dump` do object storage, obnova vedle | Přijato |
 | [0011](0011-audit-vault-klice.md) | Použití vault klíče hlídá CloudTrail alarm | Přijato |
+| [0012](0012-slack-jedna-app-oauth-install.md) | Jedna Slack App s OAuth installem | Přijato |
 
 Nové ADR: zkopíruj strukturu z 0001, další číslo v pořadí, přidej řádek do tabulky.

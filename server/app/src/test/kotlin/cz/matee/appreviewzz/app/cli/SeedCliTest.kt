@@ -45,7 +45,13 @@ class SeedCliTest :
                     ),
                 // Seed CLI nesahá ani na AI, ani na Slack.
                 ai = AiConfig(provider = "none", apiKey = null, model = null),
-                slack = SlackConfig(signingSecret = null),
+                slack =
+                    SlackConfig(
+                        signingSecret = "test-signing-secret",
+                        clientId = null,
+                        clientSecret = null,
+                        publicBaseUrl = "https://appreviewzz.test",
+                    ),
             )
 
         /** Příkaz se píše tak, jak se zadává v terminálu; hodnoty s mezerami se dávají do apostrofů. */

@@ -160,6 +160,26 @@ private val COMMANDS =
             run = { args -> credentialValidate(args) },
         ),
         Command(
+            name = "slack install-url",
+            options = setOf("org"),
+            usage = "slack install-url --org <slug|ID>",
+            run = { args -> slackInstallUrl(args) },
+        ),
+        Command(
+            name = "channel add",
+            options = setOf("org", "app", "credential", "slack-channel", "label", "locale"),
+            usage =
+                "channel add --org <slug|ID> --app <ID> --credential <ID instalace> --slack-channel <C…> " +
+                    "[--label <popis>] [--locale cs|en]",
+            run = { args -> channelAdd(args) },
+        ),
+        Command(
+            name = "channel list",
+            options = setOf("org", "app"),
+            usage = "channel list --org <slug|ID> --app <ID>",
+            run = { args -> channelList(args) },
+        ),
+        Command(
             name = "ingest run",
             options = setOf("org", "app"),
             usage = "ingest run --org <slug|ID> --app <ID>",
