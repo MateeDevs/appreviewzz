@@ -1,5 +1,7 @@
 package cz.matee.appreviewzz.app
 
+import cz.matee.appreviewzz.ai.SuggestReplyProviders
+import cz.matee.appreviewzz.ai.aiHttpClient
 import cz.matee.appreviewzz.backup.BackupRetention
 import cz.matee.appreviewzz.backup.BackupService
 import cz.matee.appreviewzz.backup.BackupStores
@@ -10,6 +12,7 @@ import cz.matee.appreviewzz.connectors.appstore.appStoreHttpClient
 import cz.matee.appreviewzz.connectors.googleplay.GooglePlayConnector
 import cz.matee.appreviewzz.connectors.googleplay.googleHttpClient
 import cz.matee.appreviewzz.core.port.ReviewSource
+import cz.matee.appreviewzz.core.port.SuggestReplyProvider
 import cz.matee.appreviewzz.core.usecase.IngestReviewsUseCase
 import cz.matee.appreviewzz.crypto.CredentialVault
 import cz.matee.appreviewzz.crypto.KekProviders
@@ -61,6 +64,8 @@ class Components(
     private val storeClientsDelegate = lazy { StoreClients() }
     private val storeClients by storeClientsDelegate
 
+    private val aiClientDelegate = lazy { aiHttpClient() }
+
     /**
      * Počítadla volání KEK. Vznikají hned, i když se vault nikdy nepoužije — worker nad nimi
      * registruje metriku při startu a ta nesmí záviset na tom, jestli už někdo sáhl na klíč.
@@ -80,6 +85,19 @@ class Components(
         listOf(
             GooglePlayConnector(storeClients.googlePlay),
             AppStoreConnector(storeClients.appStore),
+        )
+    }
+
+    /**
+     * Návrhy odpovědí. Provider vzniká líně i s vlastním HTTP klientem — bez AI se aplikace
+     * chová stejně, jen do Slacku chodí prázdný vstup.
+     */
+    val suggestions: SuggestReplyProvider by lazy {
+        SuggestReplyProviders.fromConfig(
+            provider = config.ai.provider,
+            apiKey = config.ai.apiKey,
+            model = config.ai.model,
+            httpClient = { aiClientDelegate.value },
         )
     }
 
@@ -151,6 +169,7 @@ class Components(
     /** Pustí HTTP klienty storů. Volá jen CLI — servery drží klienty po celou dobu běhu. */
     override fun close() {
         if (storeClientsDelegate.isInitialized()) storeClients.close()
+        if (aiClientDelegate.isInitialized()) aiClientDelegate.value.close()
     }
 
     private class StoreClients : AutoCloseable {

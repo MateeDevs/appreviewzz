@@ -50,6 +50,10 @@ services:
       BACKUP_TARGET: ${BACKUP_TARGET}
       BACKUP_AT: ${BACKUP_AT:-02:30}
       BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
+      # AI návrhy odpovědí (F2) — vyrábí je worker při doručování recenzí.
+      AI_PROVIDER: ${AI_PROVIDER:-gemini}
+      AI_API_KEY: ${AI_API_KEY}
+      AI_MODEL: ${AI_MODEL:-}
     depends_on:
       postgres:
         condition: service_healthy

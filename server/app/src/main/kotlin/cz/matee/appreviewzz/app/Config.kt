@@ -57,6 +57,16 @@ data class BackupConfig(
     val enabled: Boolean get() = target != null
 }
 
+/**
+ * AI návrhy odpovědí. Volba je per deployment (plán §5.5) — cloud jede na Gemini kvůli paritě
+ * s n8n, self-host si zapne, co chce, nebo `none` a odpovědi píše rovnou člověk.
+ */
+data class AiConfig(
+    val provider: String,
+    val apiKey: String?,
+    val model: String?,
+)
+
 data class AppConfig(
     val role: Role,
     val environment: String,
@@ -69,6 +79,7 @@ data class AppConfig(
     val vaultKekUri: String?,
     val worker: WorkerConfig,
     val backup: BackupConfig,
+    val ai: AiConfig,
 ) {
     companion object {
         fun fromEnv(env: (String) -> String? = System::getenv): AppConfig =
@@ -106,6 +117,12 @@ data class AppConfig(
                         pgDumpPath = env.optional("PG_DUMP_PATH", "pg_dump"),
                         pgRestorePath = env.optional("PG_RESTORE_PATH", "pg_restore"),
                         timeoutMinutes = env.optional("BACKUP_TIMEOUT_MINUTES", "30").toLong(),
+                    ),
+                ai =
+                    AiConfig(
+                        provider = env.optional("AI_PROVIDER", "none"),
+                        apiKey = env("AI_API_KEY")?.takeIf { it.isNotBlank() },
+                        model = env("AI_MODEL")?.takeIf { it.isNotBlank() },
                     ),
             )
     }

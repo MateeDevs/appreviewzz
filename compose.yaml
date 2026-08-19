@@ -17,6 +17,10 @@ x-app-env: &app-env
   BACKUP_TARGET: ${BACKUP_TARGET:-file:///var/backups/appreviewzz}
   BACKUP_AT: ${BACKUP_AT:-02:30}
   BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
+  # AI návrhy odpovědí (F2). Bez klíče se nic nerozbije — do kanálu jde prázdný vstup.
+  AI_PROVIDER: ${AI_PROVIDER:-none}
+  AI_API_KEY: ${AI_API_KEY:-}
+  AI_MODEL: ${AI_MODEL:-}
 
 services:
   postgres:

@@ -7,4 +7,8 @@ dependencies {
     implementation(libs.bundles.ktor.client)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlin.logging)
+
+    testImplementation(libs.ktor.client.mock)
+    testImplementation(libs.kotlinx.coroutines.core)
+    testRuntimeOnly(libs.logback.classic)
 }
