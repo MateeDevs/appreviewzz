@@ -350,10 +350,17 @@ data class ReviewUpsertResult(
     /**
      * Recenze, kterou má smysl poslat do kanálu: buď je nová, nebo ji autor přepsal.
      * Potlačené (pod watermarkem) se nedoručují nikdy.
+     *
+     * Samotná změna odpovědi vývojáře notifikace není — to, že někdo odpověděl v Play Console,
+     * se ve stávající zprávě projeví jako „✅ odpovězeno", ne jako nová zpráva v kanálu.
      */
     fun isNotifiable(): Boolean =
         review.state != ReviewState.SUPPRESSED &&
-            outcome != ReviewUpsertOutcome.UNCHANGED
+            when (outcome) {
+                ReviewUpsertOutcome.CREATED -> true
+                ReviewUpsertOutcome.UPDATED -> changes.any { it != ReviewChange.DEVELOPER_RESPONSE }
+                ReviewUpsertOutcome.UNCHANGED -> false
+            }
 }
 
 interface ReviewRepository {

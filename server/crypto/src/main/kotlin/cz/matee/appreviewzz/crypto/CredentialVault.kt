@@ -10,6 +10,7 @@ import cz.matee.appreviewzz.core.model.SecretPayload
 import cz.matee.appreviewzz.core.port.CredentialRepository
 import cz.matee.appreviewzz.core.port.DataKeyRepository
 import cz.matee.appreviewzz.core.port.NewCredential
+import cz.matee.appreviewzz.core.port.SecretResolver
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.security.GeneralSecurityException
 import java.util.concurrent.ConcurrentHashMap
@@ -44,7 +45,7 @@ class CredentialVault(
     private val kek: KekProvider,
     private val clock: Clock = Clock.System,
     private val dekCacheTtl: Duration = 5.minutes,
-) {
+) : SecretResolver {
     private val cache = ConcurrentHashMap<DataKeyId, CachedDataKey>()
 
     /** Zašifruje a uloží nový credential. Vrací jen metadata — payload už z vaultu nevyjde. */
@@ -137,6 +138,12 @@ class CredentialVault(
             }
         return SecretPayload(plaintext.toString(Charsets.UTF_8))
     }
+
+    /** Port pro jádro: use-casy vidí jen „dej mi obsah credentialu", ne vault ani KMS. */
+    override fun resolve(
+        orgId: OrganizationId,
+        credentialId: CredentialId,
+    ): SecretPayload = load(orgId, credentialId)
 
     /**
      * Rotace datového klíče organizace: vyrobí nový DEK a přešifruje pod něj všechny

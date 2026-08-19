@@ -56,6 +56,13 @@ data class App(
             if (gpPackageName != null) add(Platform.ANDROID)
             if (ascAppId != null) add(Platform.IOS)
         }
+
+    /** Čím se appka jmenuje v daném storu — vstup do konektoru. */
+    fun storeIdentifier(platform: Platform): String? =
+        when (platform) {
+            Platform.ANDROID -> gpPackageName
+            Platform.IOS -> ascAppId
+        }
 }
 
 /** Co se o credentialu smí říct nahlas. Payload je jen ve vaultu, nikdy tady. */
