@@ -10,6 +10,8 @@ flyway = "13.3.0"
 postgresql = "42.7.13"
 hikari = "7.1.0"
 dbScheduler = "16.12.0"
+tink = "1.18.0"
+awsSdk = "2.46.7"
 logback = "1.6.3"
 logstashEncoder = "9.0"
 kotlinLogging = "8.0.4"
@@ -59,6 +61,10 @@ hikari = { module = "com.zaxxer:HikariCP", version.ref = "hikari" }
 
 # Scheduler
 db-scheduler = { module = "com.github.kagkarlsson:db-scheduler", version.ref = "dbScheduler" }
+
+# Krypto (vault)
+tink = { module = "com.google.crypto.tink:tink", version.ref = "tink" }
+aws-kms = { module = "software.amazon.awssdk:kms", version.ref = "awsSdk" }
 
 # Observabilita
 logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
