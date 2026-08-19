@@ -1,4 +1,4 @@
-package cz.matee.appreviewzz.connectors.googleplay
+package cz.matee.appreviewzz.connectors.appstore
 
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.HttpClientEngine
@@ -9,18 +9,20 @@ import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
 
 /**
- * HTTP klient pro Google API. `expectSuccess = false` je záměr: chybové odpovědi si
+ * HTTP klient pro App Store Connect API. `expectSuccess = false` je záměr: chybové odpovědi si
  * překládáme na [cz.matee.appreviewzz.core.port.StoreConnectorException] sami, protože
  * na rozlišení „retry" versus „zavolej klienta" potřebujeme tělo odpovědi.
  */
-fun googleHttpClient(engine: HttpClientEngine = CIO.create()): HttpClient =
+fun appStoreHttpClient(engine: HttpClientEngine = CIO.create()): HttpClient =
     HttpClient(engine) {
         expectSuccess = false
         install(ContentNegotiation) {
             json(
                 Json {
                     ignoreUnknownKeys = true
-                    // Pole s výchozí hodnotou musí jít do těla požadavku, ne se tiše vynechat.
+                    // JSON:API požadavek nese konstantní pole "type", které je v DTO výchozí
+                    // hodnotou — bez encodeDefaults by se do těla vůbec nedostalo a Apple
+                    // by požadavek odmítl.
                     encodeDefaults = true
                 },
             )

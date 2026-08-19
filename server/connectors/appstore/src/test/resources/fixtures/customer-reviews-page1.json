@@ -1,0 +1,52 @@
+{
+  "data": [
+    {
+      "type": "customerReviews",
+      "id": "00000000-1111-2222-3333-444444444444",
+      "attributes": {
+        "rating": 2,
+        "title": "Pády po aktualizaci",
+        "body": "Od verze z minulého týdne mi appka padá při otevření detailu.",
+        "reviewerNickname": "Honza",
+        "createdDate": "2026-08-19T07:12:44-07:00",
+        "territory": "CZE"
+      },
+      "relationships": {
+        "response": { "data": null }
+      }
+    },
+    {
+      "type": "customerReviews",
+      "id": "55555555-6666-7777-8888-999999999999",
+      "attributes": {
+        "rating": 5,
+        "title": "Paráda",
+        "body": "Přesně tohle jsem hledal.",
+        "reviewerNickname": "Klára",
+        "createdDate": "2026-08-18T22:04:10-07:00",
+        "territory": "CZE"
+      },
+      "relationships": {
+        "response": {
+          "data": { "type": "customerReviewResponses", "id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" }
+        }
+      }
+    }
+  ],
+  "included": [
+    {
+      "type": "customerReviewResponses",
+      "id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+      "attributes": {
+        "responseBody": "Díky! Rádi to slyšíme.",
+        "lastModifiedDate": "2026-08-19T06:00:00-07:00",
+        "state": "PUBLISHED"
+      }
+    }
+  ],
+  "links": {
+    "self": "https://api.appstoreconnect.apple.com/v1/apps/1234567890/customerReviews",
+    "next": "https://api.appstoreconnect.apple.com/v1/apps/1234567890/customerReviews?cursor=DALEJ"
+  },
+  "meta": { "paging": { "total": 3, "limit": 200 } }
+}

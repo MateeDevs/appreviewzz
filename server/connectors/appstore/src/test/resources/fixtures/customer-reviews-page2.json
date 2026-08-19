@@ -1,0 +1,21 @@
+{
+  "data": [
+    {
+      "type": "customerReviews",
+      "id": "cccccccc-dddd-eeee-ffff-000000000000",
+      "attributes": {
+        "rating": 4,
+        "title": "Dobré, ale",
+        "body": "Chybí widget na plochu.",
+        "reviewerNickname": "Míra",
+        "createdDate": "2026-08-17T11:30:00-07:00",
+        "territory": "SVK"
+      },
+      "relationships": { "response": { "data": null } }
+    }
+  ],
+  "included": [],
+  "links": {
+    "self": "https://api.appstoreconnect.apple.com/v1/apps/1234567890/customerReviews?cursor=DALEJ"
+  }
+}

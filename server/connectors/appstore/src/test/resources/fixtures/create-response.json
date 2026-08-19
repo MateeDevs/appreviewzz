@@ -1,0 +1,11 @@
+{
+  "data": {
+    "type": "customerReviewResponses",
+    "id": "11111111-2222-3333-4444-555555555555",
+    "attributes": {
+      "responseBody": "Mrzí nás to, oprava je už v testování.",
+      "lastModifiedDate": "2026-08-19T09:15:00-07:00",
+      "state": "PENDING_PUBLISH"
+    }
+  }
+}
