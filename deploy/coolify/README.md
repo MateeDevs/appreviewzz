@@ -6,6 +6,9 @@ Aplikace běží mimo AWS, z AWS se používá jen KMS klíč — viz
 Image staví GitHub Actions a publikuje do `ghcr.io/mateedevs/appreviewzz`. Coolify ho jen
 stahuje; na hostiteli se nic nekompiluje.
 
+Staví se pro **linux/amd64 i linux/arm64**, každá architektura na svém nativním runneru —
+ARM hostitelé (Hetzner) jsou běžní a build pod QEMU emulací by trval násobně dýl.
+
 ## Proměnné prostředí
 
 Vyplňují se v Coolify UI, nikdy do repozitáře.
