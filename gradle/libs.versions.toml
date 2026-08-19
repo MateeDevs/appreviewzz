@@ -12,6 +12,8 @@ hikari = "7.1.0"
 dbScheduler = "16.12.0"
 tink = "1.18.0"
 awsSdk = "2.46.7"
+# Vynucená verze tranzitivní závislosti AWS SDK, viz constraints v build.gradle.kts
+httpcore5 = "5.4.3"
 logback = "1.6.3"
 logstashEncoder = "9.0"
 kotlinLogging = "8.0.4"

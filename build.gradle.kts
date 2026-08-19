@@ -39,5 +39,14 @@ subprojects {
 
     dependencies {
         add("testImplementation", versionCatalog.findBundle("testing").get())
+
+        // AWS SDK (apache5-client) si přitáhne httpcore5 5.4.2 se dvěma HIGH CVE (DoS přes
+        // hlavičky a HPACK). Apache opravu vydal dřív, než ji SDK zvedlo, a Trivy sken v CI
+        // na tom shazuje build — po upgradu SDK se tenhle constraint dá zase smazat.
+        constraints {
+            val httpcore5 = versionCatalog.findVersion("httpcore5").get().requiredVersion
+            add("implementation", "org.apache.httpcomponents.core5:httpcore5:$httpcore5")
+            add("implementation", "org.apache.httpcomponents.core5:httpcore5-h2:$httpcore5")
+        }
     }
 }

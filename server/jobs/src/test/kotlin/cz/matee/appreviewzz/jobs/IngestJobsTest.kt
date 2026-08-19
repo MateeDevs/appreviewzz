@@ -154,7 +154,11 @@ class IngestJobsTest :
                 eventually(30.seconds) {
                     reviews.listByApp(app.orgId, app.id) shouldHaveSize 1
                 }
-                scheduler.getScheduledExecutionsForTask(IngestJobs.INGEST_TASK, IngestJobData::class.java) shouldHaveSize 1
+                // Výpis nevrací rozpracované úlohy, takže se čeká, až běh doběhne a instance
+                // se přeplánuje — jinak by tvrzení záviselo na tom, jak rychlý je zrovna stroj.
+                eventually(30.seconds) {
+                    scheduler.getScheduledExecutionsForTask(IngestJobs.INGEST_TASK, IngestJobData::class.java) shouldHaveSize 1
+                }
 
                 disable(app)
 
@@ -186,7 +190,9 @@ class IngestJobsTest :
                     open.single().taskInstance shouldBe app.id.toString()
                 }
                 // Retry by jen tloukl do storu, ale ingest se nesmí zastavit natrvalo.
-                scheduler.getScheduledExecutionsForTask(IngestJobs.INGEST_TASK, IngestJobData::class.java) shouldHaveSize 1
+                eventually(30.seconds) {
+                    scheduler.getScheduledExecutionsForTask(IngestJobs.INGEST_TASK, IngestJobData::class.java) shouldHaveSize 1
+                }
             } finally {
                 scheduler.stop()
             }
