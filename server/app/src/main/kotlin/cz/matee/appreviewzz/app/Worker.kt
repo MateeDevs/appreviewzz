@@ -32,9 +32,15 @@ fun runWorker(
     registerVaultMetrics(metrics, components.kekUsage)
 
     // Provider návrhů se jinak vyrábí až u prvního doručení: špatně nastavená AI by pak
-    // nespadla při startu, ale jako řada nedoručených recenzí v DLQ. Radši hned tady.
-    logger.info { "Návrhy odpovědí: ${describeAi(config.ai)}" }
-    components.suggestions
+    // nespadla při startu, ale jako řada nedoručených recenzí v DLQ. Radši hned tady —
+    // a jednou větou, ne stack tracem, protože tohle je chyba prostředí, ne kódu.
+    try {
+        components.suggestions
+        logger.info { "Návrhy odpovědí: ${describeAi(config.ai)}" }
+    } catch (error: IllegalStateException) {
+        logger.error { "Worker se nespustí: ${error.message}" }
+        throw error
+    }
 
     val backupJobs = components.backupJobs()
     if (backupJobs == null) {

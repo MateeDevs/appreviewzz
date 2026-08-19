@@ -17,6 +17,9 @@ jobs:
   build:
     name: Build & test
     runs-on: ubuntu-latest
+    # Bez limitu visí zaseknutý krok (naposledy `apt-get` na pgdg mirroru) až do šestihodinového
+    # stropu GitHubu a člověk se o tom doví, až když čeká na deploy.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
 
@@ -61,6 +64,7 @@ jobs:
   docker:
     name: Docker image & scan
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
 
