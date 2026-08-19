@@ -1,0 +1,19 @@
+{
+  "reviews": [
+    {
+      "reviewId": "gp:AOqpTOFakeReviewIdentifier3",
+      "authorName": "Anonymní uživatel",
+      "comments": [
+        {
+          "userComment": {
+            "text": "Chybí tmavý režim.",
+            "lastModified": { "seconds": "1755500000", "nanos": 0 },
+            "starRating": 4,
+            "reviewerLanguage": "sk",
+            "appVersionName": "3.1.9"
+          }
+        }
+      ]
+    }
+  ]
+}

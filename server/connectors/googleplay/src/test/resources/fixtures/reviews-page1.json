@@ -1,0 +1,57 @@
+{
+  "reviews": [
+    {
+      "reviewId": "gp:AOqpTOFakeReviewIdentifier1",
+      "authorName": "Jana N.",
+      "comments": [
+        {
+          "userComment": {
+            "text": "Po poslední aktualizaci se aplikace při startu zasekne na načítání.",
+            "lastModified": { "seconds": "1755594000", "nanos": 0 },
+            "starRating": 2,
+            "reviewerLanguage": "cs",
+            "device": "cheetah",
+            "androidOsVersion": 34,
+            "appVersionCode": 1420,
+            "appVersionName": "3.2.1",
+            "thumbsUpCount": 3,
+            "thumbsDownCount": 0,
+            "deviceMetadata": {
+              "productName": "Google Pixel 8 Pro",
+              "manufacturer": "Google",
+              "screenWidthPx": 1344,
+              "screenHeightPx": 2992
+            }
+          }
+        }
+      ]
+    },
+    {
+      "reviewId": "gp:AOqpTOFakeReviewIdentifier2",
+      "authorName": "Petr K.",
+      "comments": [
+        {
+          "userComment": {
+            "text": "Skvělé, používám denně.",
+            "lastModified": { "seconds": "1755590400", "nanos": 0 },
+            "starRating": 5,
+            "reviewerLanguage": "cs",
+            "appVersionCode": 1418,
+            "appVersionName": "3.2.0"
+          }
+        },
+        {
+          "developerComment": {
+            "text": "Díky moc! Rádi to slyšíme.",
+            "lastModified": { "seconds": "1755593000", "nanos": 0 }
+          }
+        }
+      ]
+    },
+    {
+      "reviewId": "gp:AOqpTOSmazanaRecenze",
+      "comments": []
+    }
+  ],
+  "tokenPagination": { "nextPageToken": "stranka-2" }
+}
