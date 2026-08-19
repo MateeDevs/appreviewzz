@@ -13,6 +13,7 @@ import cz.matee.appreviewzz.core.model.SecretPayload
 import cz.matee.appreviewzz.core.port.ChannelErrorKind
 import cz.matee.appreviewzz.core.port.ChannelException
 import cz.matee.appreviewzz.core.port.ChannelTarget
+import cz.matee.appreviewzz.core.port.ConnectivityNotice
 import cz.matee.appreviewzz.core.port.NewChannel
 import cz.matee.appreviewzz.core.port.NewCredential
 import cz.matee.appreviewzz.core.port.NotificationChannel
@@ -98,6 +99,11 @@ class DeliveryJobsTest :
                     message: PostedMessage,
                     rendering: ReplyRendering,
                 ) = Unit
+
+                override suspend fun postConnectivityCheck(
+                    target: ChannelTarget,
+                    notice: ConnectivityNotice,
+                ): PostedMessage = PostedMessage(target.conversationId, "1755600000.check")
 
                 override suspend fun reportFailure(
                     target: ChannelTarget,

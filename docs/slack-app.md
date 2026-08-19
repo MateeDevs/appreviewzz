@@ -86,7 +86,12 @@ docker compose exec api appreviewzz credential list --org islegrow      # najdi 
 docker compose exec api appreviewzz channel add --org islegrow --app <APP_ID> \
     --credential <ID_INSTALACE> --slack-channel C0123456789 --locale cs
 docker compose exec api appreviewzz channel list --org islegrow --app <APP_ID>
+docker compose exec api appreviewzz channel test --org islegrow --app <APP_ID>
 ```
+
+`channel test` pošle do kanálu krátké „✅ Kanál je připojený". Když nedorazí, řekne rovnou proč
+— odvolaný token, chybějící scope, nebo bot, kterého nikdo nepozval do privátního kanálu. Tohle
+je jediný způsob, jak to ověřit dřív, než přijde první recenze.
 
 Od téhle chvíle chodí nové recenze do kanálu s předvyplněným návrhem odpovědi; kliknutí na
 **Odeslat** publikuje odpověď do storu a zprávu přepíše na „✅ Recenze byla zpracována".
@@ -96,13 +101,14 @@ Od téhle chvíle chodí nové recenze do kanálu s předvyplněným návrhem od
 ```bash
 docker compose exec api appreviewzz ingest run --org islegrow --app <APP_ID>
 docker compose exec api appreviewzz review list --org islegrow --app <APP_ID> --limit 5
+docker compose exec api appreviewzz jobs failed          # co se nepovedlo ani po opakování
 ```
 
 Když zpráva nedorazí, nejčastější příčiny v pořadí, v jakém je hledat:
 
 | Projev | Příčina |
 |---|---|
-| V DLQ je `deliver-review` s `not_in_channel` | kanál je privátní — pozvi do něj bota (`/invite @appreviewzz`) |
-| V DLQ je `deliver-review` s `invalid_auth` | instalace byla ve Slacku odvolaná, projdi krok 3 znovu |
+| `jobs failed` hlásí `deliver-review` s `not_in_channel` | kanál je privátní — pozvi do něj bota (`/invite @appreviewzz`) |
+| `jobs failed` hlásí `deliver-review` s `invalid_auth` | instalace byla ve Slacku odvolaná, projdi krok 3 znovu |
 | Klik na Odeslat nic neudělá | Request URL v kroku 4 nesedí, nebo API neběží na HTTPS bez portu |
 | Zpráva dorazí bez návrhu odpovědi | `AI_PROVIDER`/`AI_API_KEY` nejsou nastavené (nebo AI selhala — je to v logu) |

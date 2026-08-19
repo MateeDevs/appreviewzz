@@ -31,6 +31,11 @@ fun runWorker(
     startManagementServer(config, metrics)
     registerVaultMetrics(metrics, components.kekUsage)
 
+    // Provider návrhů se jinak vyrábí až u prvního doručení: špatně nastavená AI by pak
+    // nespadla při startu, ale jako řada nedoručených recenzí v DLQ. Radši hned tady.
+    logger.info { "Návrhy odpovědí: ${describeAi(config.ai)}" }
+    components.suggestions
+
     val backupJobs = components.backupJobs()
     if (backupJobs == null) {
         logger.warn { "BACKUP_TARGET není nastavený — databáze se nezálohuje" }
@@ -67,6 +72,12 @@ fun runWorker(
         },
     ).start(wait = true)
 }
+
+private fun describeAi(ai: AiConfig): String =
+    when {
+        ai.provider.equals("none", ignoreCase = true) -> "vypnuté (AI_PROVIDER=none) — do Slacku jde prázdný vstup"
+        else -> "${ai.provider}${ai.model?.let { " ($it)" }.orEmpty()}"
+    }
 
 /**
  * Stáří poslední úspěšné zálohy. Je to metrika, ze které se dá postavit jediný alarm, který

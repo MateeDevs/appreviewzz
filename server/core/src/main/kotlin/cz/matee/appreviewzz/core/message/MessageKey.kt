@@ -57,6 +57,13 @@ enum class MessageKey(
     REVIEW_UPDATED("Aktualizovaná recenze", "Updated review"),
     REPLY_FAILED_TITLE("Odpověď se nepodařilo odeslat", "Your reply could not be posted"),
     ERROR_LABEL("Chyba", "Error"),
+
+    /** Ověřovací zpráva po nastavení kanálu — v n8n nic takového nebylo, ověřovalo se čekáním. */
+    CONNECTION_OK_TITLE("Kanál je připojený", "Channel is connected"),
+    CONNECTION_OK_DETAIL(
+        "Nové recenze aplikace {app} teď chodí sem. Odpovědět půjde rovnou z téhle zprávy.",
+        "New reviews for {app} will arrive here. You will be able to reply straight from the message.",
+    ),
     ;
 
     internal fun text(locale: MessageLocale): String =

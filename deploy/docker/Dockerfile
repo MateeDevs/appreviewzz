@@ -43,7 +43,10 @@ COPY --from=build /workspace/server/app/build/install/appreviewzz ./
 USER appreviewzz
 EXPOSE 8080
 
-ENV APPREVIEWZZ_ROLE=api \
+# CLI se v provozu pouští přes `docker compose exec api appreviewzz …` (README, docs/slack-app.md),
+# takže spouštěč musí být na PATH — jinak si ho člověk musí pamatovat celou cestou.
+ENV PATH="/opt/appreviewzz/bin:${PATH}" \
+    APPREVIEWZZ_ROLE=api \
     SERVER_PORT=8080 \
     JAVA_OPTS="-Dlogback.configurationFile=logback-json.xml -XX:MaxRAMPercentage=75.0"
 

@@ -1,5 +1,6 @@
 package cz.matee.appreviewzz.channels.slack
 
+import cz.matee.appreviewzz.core.message.MessageCatalog
 import cz.matee.appreviewzz.core.message.MessageKey
 import cz.matee.appreviewzz.core.message.ReviewNotification
 import cz.matee.appreviewzz.core.model.Platform
@@ -58,6 +59,18 @@ internal object SlackBlocks {
                 ),
         )
     }
+
+    /** Ověřovací zpráva po `channel test`: krátká, bez formuláře, ať se nepřehlédne s recenzí. */
+    fun connectivityCheck(
+        catalog: MessageCatalog,
+        appName: String,
+    ): JsonArray =
+        JsonArray(
+            listOf(
+                section(":white_check_mark: *${escape(catalog[MessageKey.CONNECTION_OK_TITLE])}*"),
+                context(escape(catalog.format(MessageKey.CONNECTION_OK_DETAIL, "app" to appName))),
+            ),
+        )
 
     /** Hlášení do vlákna, když store odpověď odmítl. */
     fun failure(

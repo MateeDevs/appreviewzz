@@ -1,10 +1,12 @@
 package cz.matee.appreviewzz.channels.slack
 
+import cz.matee.appreviewzz.core.message.MessageCatalog
 import cz.matee.appreviewzz.core.message.MessageKey
 import cz.matee.appreviewzz.core.message.ReviewNotification
 import cz.matee.appreviewzz.core.model.ChannelType
 import cz.matee.appreviewzz.core.model.SecretPayload
 import cz.matee.appreviewzz.core.port.ChannelTarget
+import cz.matee.appreviewzz.core.port.ConnectivityNotice
 import cz.matee.appreviewzz.core.port.NotificationChannel
 import cz.matee.appreviewzz.core.port.PostedMessage
 import cz.matee.appreviewzz.core.port.ReplyRendering
@@ -45,6 +47,19 @@ class SlackNotificationChannel(
             ts = message.messageId,
             blocks = SlackBlocks.replied(rendering),
             fallbackText = fallbackText(rendering.notification),
+        )
+    }
+
+    override suspend fun postConnectivityCheck(
+        target: ChannelTarget,
+        notice: ConnectivityNotice,
+    ): PostedMessage {
+        val catalog = MessageCatalog.of(notice.locale)
+        return api.postMessage(
+            token = botToken(target),
+            channel = target.conversationId,
+            blocks = SlackBlocks.connectivityCheck(catalog, notice.appName),
+            fallbackText = catalog[MessageKey.CONNECTION_OK_TITLE],
         )
     }
 

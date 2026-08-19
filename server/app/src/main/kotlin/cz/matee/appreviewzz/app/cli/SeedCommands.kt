@@ -18,6 +18,7 @@ import cz.matee.appreviewzz.core.model.CredentialId
 import cz.matee.appreviewzz.core.model.CredentialMeta
 import cz.matee.appreviewzz.core.model.CredentialPurpose
 import cz.matee.appreviewzz.core.model.CredentialType
+import cz.matee.appreviewzz.core.model.FailedJob
 import cz.matee.appreviewzz.core.model.MessageLocale
 import cz.matee.appreviewzz.core.model.OrgRole
 import cz.matee.appreviewzz.core.model.Organization
@@ -27,7 +28,10 @@ import cz.matee.appreviewzz.core.model.Review
 import cz.matee.appreviewzz.core.model.ReviewState
 import cz.matee.appreviewzz.core.model.SecretPayload
 import cz.matee.appreviewzz.core.model.ValidationStatus
+import cz.matee.appreviewzz.core.port.ChannelErrorKind
 import cz.matee.appreviewzz.core.port.ChannelException
+import cz.matee.appreviewzz.core.port.ChannelTarget
+import cz.matee.appreviewzz.core.port.ConnectivityNotice
 import cz.matee.appreviewzz.core.port.NewApp
 import cz.matee.appreviewzz.core.port.NewChannel
 import cz.matee.appreviewzz.core.port.StoreConnectorException
@@ -446,6 +450,85 @@ class SeedCommands(
         }
     }
 
+    /**
+     * Ověření kanálu bez čekání na recenzi: pošle do něj krátkou zprávu „připojeno".
+     *
+     * Tohle je jediný způsob, jak po nastavení hned poznat tři nejčastější chyby — odvolaný
+     * token, chybějící scope a bota, kterého nikdo nepozval do privátního kanálu. Bez něj se
+     * na ně přijde až tím, že první recenze nikam nedorazí, a to je ta nejdražší chvíle.
+     */
+    suspend fun channelTest(args: Arguments) {
+        val organization = organization(args)
+        val app = app(organization.id, args)
+        val all = components.channels.listByApp(organization.id, app.id)
+        val wanted = args.optional("channel")
+        val targets =
+            when {
+                wanted == null -> all
+                else ->
+                    all.filter { it.id.toString() == wanted || it.targetRef == wanted }.ifEmpty {
+                        throw CommandException("Kanál '$wanted' u aplikace ${app.name} není — vypiš je příkazem `channel list`")
+                    }
+            }
+        if (targets.isEmpty()) {
+            throw CommandException("Aplikace ${app.name} zatím nemá kanál — přidej ho příkazem `channel add`")
+        }
+
+        var failed = 0
+        targets.forEach { channel ->
+            val implementation = components.notificationChannels.firstOrNull { it.type == channel.type }
+            val credentialId = channel.credentialId
+            when {
+                implementation == null -> {
+                    failed++
+                    out("${channel.targetRef}  ✗ kanál typu ${channel.type.name} tenhle proces neumí")
+                }
+
+                credentialId == null -> {
+                    failed++
+                    out("${channel.targetRef}  ✗ chybí připojená instalace — projdi `slack connect` a `channel add`")
+                }
+
+                else ->
+                    try {
+                        val posted =
+                            implementation.postConnectivityCheck(
+                                ChannelTarget(channel.targetRef, components.vault.resolve(organization.id, credentialId)),
+                                ConnectivityNotice(appName = app.name, locale = channel.locale),
+                            )
+                        out("${channel.targetRef}  ✓ zpráva odeslaná (ts ${posted.messageId})")
+                    } catch (error: ChannelException) {
+                        failed++
+                        out("${channel.targetRef}  ✗ ${error.kind}: ${error.message} — ${hintFor(error)}")
+                    }
+            }
+        }
+        audit(organization.id, "channel.tested", "app", app.id.toString(), mapOf("kanálů" to targets.size.toString()))
+        if (failed > 0) throw CommandException("Kanálů se nepodařilo ověřit: $failed z ${targets.size}")
+    }
+
+    /**
+     * Úlohy, které se nepovedly ani po opakování. Runbooky i návod ke Slack Appce na DLQ
+     * odkazují — dokud není console (F3), je tohle jediný způsob, jak se do ní podívat.
+     */
+    fun jobsFailed(args: Arguments) {
+        val limit = args.int("limit") ?: DEFAULT_JOB_LIMIT
+        val orgSlug = args.optional("org")
+        val jobs =
+            if (orgSlug == null) {
+                components.failedJobs.listOpen(limit)
+            } else {
+                components.failedJobs.listOpenByOrg(organization(args).id, limit)
+            }
+        if (jobs.isEmpty()) {
+            out("Fronta nemá žádnou neuzavřenou chybu")
+            return
+        }
+        out("Neuzavřené chyby fronty (${jobs.size})")
+        jobs.forEach { out("  " + it.summarize()) }
+        out("Úloha z výpisu zmizí, jakmile stejná instance projde — u doručení ji rozjede další ingest.")
+    }
+
     fun reviewList(args: Arguments) {
         val organization = organization(args)
         val app = app(organization.id, args)
@@ -646,6 +729,7 @@ class SeedCommands(
         val REQUIRED_SLACK_SCOPES = listOf("chat:write")
 
         const val DEFAULT_REVIEW_LIMIT = 20
+        const val DEFAULT_JOB_LIMIT = 50
         const val HISTORY_LIMIT = 5
         const val SLUG_COLUMN = 24
         const val STORES_COLUMN = 15
@@ -789,6 +873,20 @@ private fun reviewState(raw: String): ReviewState =
     ReviewState.entries.firstOrNull { it.name.equals(raw, ignoreCase = true) }
         ?: throw UsageException("--state zná ${ReviewState.entries.joinToString { it.name.lowercase() }}")
 
+/** Nejčastější příčiny podle druhu chyby — ať člověk nemusí hledat, co Slack tím slovem myslí. */
+private fun hintFor(error: ChannelException): String =
+    when (error.kind) {
+        ChannelErrorKind.AUTH -> "token je odvolaný nebo appce chybí scope, projdi `slack connect` znovu"
+        ChannelErrorKind.NOT_FOUND -> "kanál neexistuje, nebo v něm bot není — pozvi ho přes /invite @appreviewzz"
+        ChannelErrorKind.INVALID_REQUEST -> "Slack zprávu odmítl kvůli obsahu; tohle patří do issue, ne do nastavení"
+        ChannelErrorKind.RATE_LIMITED -> "Slack teď omezuje volání, zkus to za chvíli"
+        ChannelErrorKind.TRANSIENT -> "výpadek sítě nebo Slacku, zkus to znovu"
+    }
+
+private fun FailedJob.summarize(): String =
+    "${lastFailedAt.toString().take(TIMESTAMP_LENGTH)}  ${taskName.padEnd(TASK_COLUMN)} pokusů $attempts  " +
+        "${payload ?: taskInstance}  ${errorMessage ?: errorClass ?: "—"}"
+
 private fun details(vararg rows: Pair<String, String>): String =
     rows.joinToString(System.lineSeparator()) { (label, value) -> "  ${label.padEnd(DETAIL_LABEL_COLUMN)}$value" }
 
@@ -821,6 +919,7 @@ private const val AUTHOR_COLUMN = 18
 private const val SNIPPET_LENGTH = 60
 private const val TIMESTAMP_LENGTH = 16
 private const val MAX_STARS = 5
+private const val TASK_COLUMN = 16
 
 private fun StoredBackup.summarize(): String = "${key.padEnd(BACKUP_KEY_COLUMN)} ${formatSize(sizeBytes).padStart(SIZE_COLUMN)}  $createdAt"
 

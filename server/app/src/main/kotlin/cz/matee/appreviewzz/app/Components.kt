@@ -78,7 +78,9 @@ class Components(
     val backupRuns = ExposedBackupRunRepository(exposed)
 
     private val dataKeys = ExposedDataKeyRepository(exposed)
-    private val failedJobs = ExposedFailedJobRepository(exposed)
+
+    /** DLQ. Čte z ní jak scheduler, tak `jobs failed` v CLI — dokud není console (F3). */
+    val failedJobs = ExposedFailedJobRepository(exposed)
 
     private val storeClientsDelegate = lazy { StoreClients() }
     private val storeClients by storeClientsDelegate

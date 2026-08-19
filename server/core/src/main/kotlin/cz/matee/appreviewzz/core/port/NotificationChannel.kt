@@ -2,6 +2,7 @@ package cz.matee.appreviewzz.core.port
 
 import cz.matee.appreviewzz.core.message.ReviewNotification
 import cz.matee.appreviewzz.core.model.ChannelType
+import cz.matee.appreviewzz.core.model.MessageLocale
 import cz.matee.appreviewzz.core.model.SecretPayload
 import kotlin.time.Instant
 
@@ -23,6 +24,12 @@ data class PostedMessage(
     val conversationId: String,
     /** Slack `ts`, resp. Teams activity ID. */
     val messageId: String,
+)
+
+/** Obsah ověřovací zprávy. Jazyk se bere z kanálu, ne z organizace — stejně jako u recenzí. */
+data class ConnectivityNotice(
+    val appName: String,
+    val locale: MessageLocale,
 )
 
 /** Co se dopisuje do zprávy poté, co odpověď odešla do storu. */
@@ -80,6 +87,16 @@ interface NotificationChannel {
         message: PostedMessage,
         rendering: ReplyRendering,
     )
+
+    /**
+     * Pošle do kanálu zprávu „propojení funguje". Slouží k ověření hned po nastavení: token,
+     * scopes i členství bota se jinak poznají až tím, že první recenze nedorazí — a to je ta
+     * nejhorší chvíle, kdy to zjišťovat.
+     */
+    suspend fun postConnectivityCheck(
+        target: ChannelTarget,
+        notice: ConnectivityNotice,
+    ): PostedMessage
 
     /**
      * Nahlásí selhání publikace **do vlákna pod zprávou**. Původní zpráva zůstává i s formulářem,

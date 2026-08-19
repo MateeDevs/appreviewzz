@@ -68,6 +68,7 @@ appreviewzz credential validate --org isle-grow --app <APP_ID> --credential <CRE
 appreviewzz slack connect --org isle-grow --token xoxb-…   # nebo `slack install-url` pro cizí workspace
 appreviewzz channel add --org isle-grow --app <APP_ID> \
   --credential <ID_INSTALACE> --slack-channel C0123456789
+appreviewzz channel test --org isle-grow --app <APP_ID>     # do kanálu přistane „✅ Kanál je připojený"
 appreviewzz ingest run --org isle-grow --app <APP_ID>
 ```
 
@@ -88,6 +89,11 @@ Několik věcí, které stojí za zmínku:
 - Nová appka se rozjede sama, worker si ji vyzvedne při nejbližším sweepu.
 - Návratové kódy: `0` hotovo, `1` příkaz neprošel (neexistující organizace, klíč odmítnutý
   storem), `2` špatně zadaný příkaz. Skript nad tím pozná překlep od odmítnutí storu.
+- `channel test` je jediný způsob, jak hned po nastavení poznat odvolaný token, chybějící
+  scope a bota nepozvaného do privátního kanálu — jinak se na ně přijde až tím, že první
+  recenze nikam nedorazí.
+- `jobs failed` vypíše úlohy, které se nepovedly ani po opakování (DLQ). Dokud není konzole,
+  je to jediný pohled na to, co se v provozu nedoručilo a proč.
 
 Lokálně bez Dockeru vyrobí spustitelný `appreviewzz` příkaz `./gradlew :server:app:installDist`;
 najdeš ho v `server/app/build/install/appreviewzz/bin/`.

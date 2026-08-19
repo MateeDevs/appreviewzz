@@ -14,6 +14,7 @@ import cz.matee.appreviewzz.core.model.Review
 import cz.matee.appreviewzz.core.model.ReviewState
 import cz.matee.appreviewzz.core.model.SecretPayload
 import cz.matee.appreviewzz.core.port.ChannelTarget
+import cz.matee.appreviewzz.core.port.ConnectivityNotice
 import cz.matee.appreviewzz.core.port.NewApp
 import cz.matee.appreviewzz.core.port.NewChannel
 import cz.matee.appreviewzz.core.port.NewCredential
@@ -144,6 +145,11 @@ class ReplyJobsTest :
                 ) {
                     repliedInSlack += rendering
                 }
+
+                override suspend fun postConnectivityCheck(
+                    target: ChannelTarget,
+                    notice: ConnectivityNotice,
+                ): PostedMessage = PostedMessage(target.conversationId, "1755600000.check")
 
                 override suspend fun reportFailure(
                     target: ChannelTarget,

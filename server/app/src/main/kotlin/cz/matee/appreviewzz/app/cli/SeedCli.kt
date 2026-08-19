@@ -186,6 +186,18 @@ private val COMMANDS =
             run = { args -> channelList(args) },
         ),
         Command(
+            name = "channel test",
+            options = setOf("org", "app", "channel"),
+            usage = "channel test --org <slug|ID> --app <ID> [--channel <ID kanálu|C…>]",
+            run = { args -> channelTest(args) },
+        ),
+        Command(
+            name = "jobs failed",
+            options = setOf("org", "limit"),
+            usage = "jobs failed [--org <slug|ID>] [--limit <počet>]",
+            run = { args -> jobsFailed(args) },
+        ),
+        Command(
             name = "ingest run",
             options = setOf("org", "app"),
             usage = "ingest run --org <slug|ID> --app <ID>",

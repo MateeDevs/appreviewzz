@@ -23,6 +23,7 @@ import cz.matee.appreviewzz.core.model.sha256Hex
 import cz.matee.appreviewzz.core.port.ChannelException
 import cz.matee.appreviewzz.core.port.ChannelRepository
 import cz.matee.appreviewzz.core.port.ChannelTarget
+import cz.matee.appreviewzz.core.port.ConnectivityNotice
 import cz.matee.appreviewzz.core.port.NewChannel
 import cz.matee.appreviewzz.core.port.NewReply
 import cz.matee.appreviewzz.core.port.NotificationChannel
@@ -258,6 +259,7 @@ internal class FakeNotificationChannel(
     val posted = mutableListOf<Pair<ChannelTarget, ReviewNotification>>()
     val replied = mutableListOf<ReplyRendering>()
     val failures = mutableListOf<String>()
+    val checks = mutableListOf<ConnectivityNotice>()
 
     override suspend fun postReview(
         target: ChannelTarget,
@@ -274,6 +276,15 @@ internal class FakeNotificationChannel(
         rendering: ReplyRendering,
     ) {
         replied += rendering
+    }
+
+    override suspend fun postConnectivityCheck(
+        target: ChannelTarget,
+        notice: ConnectivityNotice,
+    ): PostedMessage {
+        failWith?.let { throw it }
+        checks += notice
+        return PostedMessage(target.conversationId, "1755600000.check${checks.size}")
     }
 
     override suspend fun reportFailure(

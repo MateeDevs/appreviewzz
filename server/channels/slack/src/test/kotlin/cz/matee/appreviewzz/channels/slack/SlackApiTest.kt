@@ -1,8 +1,10 @@
 package cz.matee.appreviewzz.channels.slack
 
+import cz.matee.appreviewzz.core.model.MessageLocale
 import cz.matee.appreviewzz.core.port.ChannelErrorKind
 import cz.matee.appreviewzz.core.port.ChannelException
 import cz.matee.appreviewzz.core.port.ChannelTarget
+import cz.matee.appreviewzz.core.port.ConnectivityNotice
 import cz.matee.appreviewzz.core.port.PostedMessage
 import cz.matee.appreviewzz.core.port.ReplyRendering
 import io.kotest.assertions.throwables.shouldThrow
@@ -10,6 +12,7 @@ import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 import io.ktor.client.engine.mock.respond
 import io.ktor.client.engine.mock.respondError
 import io.ktor.client.engine.mock.toByteArray
@@ -52,6 +55,45 @@ class SlackApiTest :
             body.at("metadata", "event_payload", "review_id")?.jsonPrimitive?.content shouldBe
                 "11111111-1111-1111-1111-111111111111"
             body.at("metadata", "event_payload", "platform")?.jsonPrimitive?.content shouldBe "ANDROID"
+        }
+
+        test("ověření kanálu pošle krátké potvrzení bez formuláře") {
+            val engine =
+                RecordingEngine {
+                    respond("""{"ok":true,"channel":"C123","ts":"1755600000.000900"}""", headers = jsonHeaders)
+                }
+            val channel = SlackNotificationChannel(SlackApi(engine.client()))
+
+            val posted =
+                channel.postConnectivityCheck(
+                    target = ChannelTarget(conversationId = "C123", credential = TOKEN),
+                    notice = ConnectivityNotice(appName = "IsleGrow", locale = MessageLocale.CS),
+                )
+
+            posted shouldBe PostedMessage("C123", "1755600000.000900")
+            val request = engine.requests.single()
+            val body = Json.parseToJsonElement(String(request.body.toByteArray())).jsonObject
+            val rendered = body.blocks().render()
+            rendered shouldContain "Kanál je připojený"
+            rendered shouldContain "IsleGrow"
+            // Formulář ani tlačítko sem nepatří: ověřovací zpráva se nesmí dát „odeslat" do storu.
+            rendered shouldNotContain SlackBlocks.REPLY_BLOCK_ID
+            rendered shouldNotContain SlackBlocks.SUBMIT_ACTION_ID
+        }
+
+        test("ověření kanálu mluví jazykem kanálu") {
+            val engine =
+                RecordingEngine {
+                    respond("""{"ok":true,"channel":"C123","ts":"1755600000.000901"}""", headers = jsonHeaders)
+                }
+            SlackNotificationChannel(SlackApi(engine.client())).postConnectivityCheck(
+                target = ChannelTarget(conversationId = "C123", credential = TOKEN),
+                notice = ConnectivityNotice(appName = "IsleGrow", locale = MessageLocale.EN),
+            )
+
+            val request = engine.requests.single()
+            val body = Json.parseToJsonElement(String(request.body.toByteArray())).jsonObject
+            body.blocks().render() shouldContain "Channel is connected"
         }
 
         test("chyba v těle s HTTP 200 je chyba, ne úspěch") {

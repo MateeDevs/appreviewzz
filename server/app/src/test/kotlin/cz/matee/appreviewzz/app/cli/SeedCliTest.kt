@@ -270,6 +270,26 @@ class SeedCliTest :
             result.err shouldContain "IOS"
         }
 
+        "channel test nad aplikací bez kanálu poradí, co udělat" {
+            val app = seedApp()
+            val result = cli("channel test --org isle-grow --app $app")
+            result.code shouldBe 1
+            result.err shouldContain "channel add"
+        }
+
+        "channel test odmítne kanál, který u aplikace není" {
+            val app = seedApp()
+            val result = cli("channel test --org isle-grow --app $app --channel C0NEEXISTUJE")
+            result.code shouldBe 1
+            result.err shouldContain "channel list"
+        }
+
+        "jobs failed nad prázdnou frontou nic nepředstírá" {
+            val result = cli("jobs failed")
+            result.code shouldBe 0
+            result.out shouldContain "žádnou neuzavřenou chybu"
+        }
+
         "review list nad prázdnou aplikací nic nepředstírá" {
             val appId = seedApp()
             val result = cli("review list --org isle-grow --app $appId")
