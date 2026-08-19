@@ -8,6 +8,10 @@ x-app-env: &app-env
   DATABASE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-appreviewzz}
   DATABASE_USER: ${POSTGRES_USER:-appreviewzz}
   DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD musí být nastaveno v .env}
+  # Self-host: KEK je lokální keyset na disku (vyrobí se při prvním startu, žije ve volume
+  # keyset-data). Kdo chce KMS, přepíše na aws-kms://arn:… Zálohovat spolu s databází —
+  # bez keysetu jsou credentials v DB nečitelné.
+  VAULT_KEK_URI: ${VAULT_KEK_URI:-local:///var/lib/appreviewzz/keyset}
 
 services:
   postgres:
@@ -36,6 +40,8 @@ services:
     environment:
       <<: *app-env
       APPREVIEWZZ_ROLE: api
+    volumes:
+      - keyset-data:/var/lib/appreviewzz
     ports:
       - "${API_PORT:-8080}:8080"
       # Metriky jen na loopback — ven nemají co dělat.
@@ -52,6 +58,9 @@ services:
       APPREVIEWZZ_ROLE: worker
       # Migrace pouští API; worker jen čeká, až je schéma hotové.
       DATABASE_MIGRATE_ON_START: "false"
+    volumes:
+      # Stejný keyset jako API — jinak by worker credentials uložené přes API nerozbalil.
+      - keyset-data:/var/lib/appreviewzz
     depends_on:
       postgres:
         condition: service_healthy
@@ -61,3 +70,4 @@ services:
 
 volumes:
   postgres-data:
+  keyset-data:

@@ -92,7 +92,10 @@ Vše přes proměnné prostředí (12-factor), žádný konfigurační soubor v 
 | `DATABASE_PASSWORD` | — | povinné |
 | `DATABASE_MAX_POOL_SIZE` | `10` | |
 | `DATABASE_MIGRATE_ON_START` | `true` | pouští Flyway; u role `worker` nastavit `false` |
-| `VAULT_KEK_URI` | — | KEK provider: `aws-kms://arn:…`, `local://cesta` nebo `vault://transit/klíč` (F1) |
+| `VAULT_KEK_URI` | — | KEK provider: `aws-kms://arn:…`, `local://cesta` nebo `vault://transit/klíč`; povinné pro roli `worker` |
+| `SCHEDULER_THREADS` | `5` | souběžně běžící joby jednoho workeru |
+| `SCHEDULER_POLLING_SECONDS` | `10` | jak často se worker ptá na úlohy, které jsou na řadě |
+| `INGEST_SWEEP_SECONDS` | `60` | jak často se fronta ingestu sesouhlasí se seznamem aplikací |
 
 Chybějící povinná proměnná shodí start s konkrétní hláškou — žádný tichý fallback.
 

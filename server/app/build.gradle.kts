@@ -15,6 +15,8 @@ dependencies {
     implementation(project(":server:ai"))
 
     implementation(libs.bundles.ktor.server)
+    // Konektory berou HttpClient jako parametr — app ho musí umět pojmenovat, aby je složil.
+    implementation(libs.ktor.client.core)
     implementation(libs.koin.ktor)
     implementation(libs.koin.logger.slf4j)
     implementation(libs.micrometer.prometheus)

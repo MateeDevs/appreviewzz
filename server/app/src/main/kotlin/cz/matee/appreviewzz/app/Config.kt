@@ -24,11 +24,28 @@ data class ServerConfig(
     val managementPort: Int,
 )
 
+/**
+ * Nastavení plánovače (jen role `worker`). Výchozí hodnoty odpovídají provozu jednotek klientů —
+ * polling po deseti sekundách znamená deset dotazů za minutu do prázdné tabulky, což Postgres
+ * nepozná, a přitom se jednorázová úloha (publikace odpovědi) rozjede prakticky hned.
+ */
+data class WorkerConfig(
+    val schedulerThreads: Int,
+    val pollingIntervalSeconds: Long,
+    val sweepIntervalSeconds: Long,
+)
+
 data class AppConfig(
     val role: Role,
     val environment: String,
     val server: ServerConfig,
     val database: DatabaseConfig,
+    /**
+     * URI správce klíčů credential vaultu (`aws-kms://…`, `local://…`). Povinné pro roli
+     * `worker`, která credentials rozbaluje; API ho začne potřebovat s onboardingem ve F3.
+     */
+    val vaultKekUri: String?,
+    val worker: WorkerConfig,
 ) {
     companion object {
         fun fromEnv(env: (String) -> String? = System::getenv): AppConfig =
@@ -48,6 +65,13 @@ data class AppConfig(
                         password = env.required("DATABASE_PASSWORD"),
                         maxPoolSize = env.optional("DATABASE_MAX_POOL_SIZE", "10").toInt(),
                         migrateOnStart = env.optional("DATABASE_MIGRATE_ON_START", "true").toBooleanStrict(),
+                    ),
+                vaultKekUri = env("VAULT_KEK_URI")?.takeIf { it.isNotBlank() },
+                worker =
+                    WorkerConfig(
+                        schedulerThreads = env.optional("SCHEDULER_THREADS", "5").toInt(),
+                        pollingIntervalSeconds = env.optional("SCHEDULER_POLLING_SECONDS", "10").toLong(),
+                        sweepIntervalSeconds = env.optional("INGEST_SWEEP_SECONDS", "60").toLong(),
                     ),
             )
     }
