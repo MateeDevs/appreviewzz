@@ -101,7 +101,7 @@ při ní nepovedlo, protože to je jediné číslo použitelné při skutečné 
 
 | Datum | Kdo | Velikost zálohy | Doba obnovy | Poznámka |
 |---|---|---|---|---|
-| | | | | |
+| 2026-08-19 | Tadeáš | 51,5 KiB | ~4 s | první drill po nasazení F1.8; databáze byla ještě prázdná, ověřený je tedy mechanismus, ne objem — opakovat, až budou v systému klienti |
 
 Automatizovaná verze téhož běží v CI při každém buildu (`BackupDrillTest`): dump → úložiště →
 obnova do prázdné databáze → porovnání dat. Drill na produkci ověřuje navíc objem dat
