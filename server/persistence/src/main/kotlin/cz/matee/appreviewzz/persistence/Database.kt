@@ -5,6 +5,7 @@ import com.zaxxer.hikari.HikariDataSource
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.flywaydb.core.Flyway
 import javax.sql.DataSource
+import org.jetbrains.exposed.v1.jdbc.Database as ExposedDatabase
 
 private val logger = KotlinLogging.logger {}
 
@@ -17,13 +18,14 @@ data class DatabaseConfig(
 )
 
 /**
- * Připojení k Postgresu (HikariCP) + Flyway migrace.
- *
- * Doménové tabulky přicházejí ve F1; F0 zavádí jen baseline schéma a health probe.
+ * Připojení k Postgresu (HikariCP) + Flyway migrace + Exposed nad tímtéž poolem.
  */
 class Database private constructor(
     val dataSource: HikariDataSource,
 ) : AutoCloseable {
+    /** Exposed pracuje nad stejným poolem; repozitáře dostávají tuhle instanci. */
+    val exposed: ExposedDatabase by lazy { ExposedDatabase.connect(dataSource) }
+
     companion object {
         fun connect(config: DatabaseConfig): Database {
             val hikari =
