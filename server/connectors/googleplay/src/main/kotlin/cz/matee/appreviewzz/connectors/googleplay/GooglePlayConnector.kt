@@ -2,6 +2,7 @@ package cz.matee.appreviewzz.connectors.googleplay
 
 import cz.matee.appreviewzz.core.model.ObservedReview
 import cz.matee.appreviewzz.core.model.Platform
+import cz.matee.appreviewzz.core.model.storeReplyMaxLength
 import cz.matee.appreviewzz.core.port.PublishedReply
 import cz.matee.appreviewzz.core.port.ReplyTarget
 import cz.matee.appreviewzz.core.port.ReviewSource
@@ -46,8 +47,8 @@ class GooglePlayConnector(
     ReplyTarget {
     override val platform: Platform = Platform.ANDROID
 
-    /** Google odpověď nad 350 znaků odmítne; ořezáváme dřív, než se zeptáme. */
-    override val replyMaxLength: Int = 350
+    /** Google odpověď nad limit odmítne; ořezáváme dřív, než se zeptáme. */
+    override val replyMaxLength: Int = platform.storeReplyMaxLength
 
     override suspend fun fetchReviews(context: StoreContext): List<ObservedReview> {
         val account = GoogleServiceAccount.parse(context.credential)

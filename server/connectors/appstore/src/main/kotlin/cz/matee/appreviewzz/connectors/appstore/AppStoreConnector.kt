@@ -2,6 +2,7 @@ package cz.matee.appreviewzz.connectors.appstore
 
 import cz.matee.appreviewzz.core.model.ObservedReview
 import cz.matee.appreviewzz.core.model.Platform
+import cz.matee.appreviewzz.core.model.storeReplyMaxLength
 import cz.matee.appreviewzz.core.port.PublishedReply
 import cz.matee.appreviewzz.core.port.ReplyTarget
 import cz.matee.appreviewzz.core.port.ReviewSource
@@ -55,7 +56,7 @@ class AppStoreConnector(
     override val platform: Platform = Platform.IOS
 
     /** Apple přijme odpověď do 5 970 znaků; delší vrací jako chybu požadavku. */
-    override val replyMaxLength: Int = 5_970
+    override val replyMaxLength: Int = platform.storeReplyMaxLength
 
     override suspend fun fetchReviews(context: StoreContext): List<ObservedReview> {
         val key = AscApiKey.parse(context.credential)
