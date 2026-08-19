@@ -63,6 +63,15 @@ do GHCR a zavolá deploy webhook Coolify. Potřebuje repozitářové secrets:
 
 Když nejsou nastavené, workflow se přeskočí a image se jen publikuje.
 
+## Verze, která běží
+
+Compose sahá po tagu `latest` a služby mají `pull_policy: always`, takže každé nasazení
+stáhne aktuální image. Bez toho by Docker u pohyblivého tagu použil lokální kopii
+a nasazení by tiše zůstalo na první stažené verzi.
+
+Co reálně běží, řekne `/health/live` — vrací verzi i git SHA. Když se neshoduje
+s `HEAD` na `epic/v2`, nasazení neproběhlo.
+
 ## Zálohy
 
 Postgres v kontejneru nemá PITR. Zálohovací job (`pg_dump` do object storage) a vyzkoušená

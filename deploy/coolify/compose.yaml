@@ -4,6 +4,9 @@
 services:
   api:
     image: ghcr.io/mateedevs/appreviewzz:${APP_VERSION:-latest}
+    # Bez tohohle by hostitel u pohyblivého tagu 'latest' sáhl po lokální kopii
+    # a nasazení by tiše zůstalo viset na první stažené verzi.
+    pull_policy: always
     # Deklaruje port pro reverzní proxy, ale nepublikuje ho na hostitele —
     # ven se aplikace dostane výhradně přes Traefik.
     expose:
@@ -27,6 +30,7 @@ services:
 
   worker:
     image: ghcr.io/mateedevs/appreviewzz:${APP_VERSION:-latest}
+    pull_policy: always
     environment:
       APPREVIEWZZ_ROLE: worker
       APPREVIEWZZ_ENV: ${APPREVIEWZZ_ENV:-dev}
