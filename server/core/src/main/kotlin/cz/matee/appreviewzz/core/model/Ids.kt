@@ -61,6 +61,10 @@ value class ReviewId(
     val value: Uuid,
 ) {
     override fun toString(): String = value.toString()
+
+    companion object {
+        fun parse(raw: String): ReviewId = ReviewId(Uuid.parse(raw))
+    }
 }
 
 @JvmInline

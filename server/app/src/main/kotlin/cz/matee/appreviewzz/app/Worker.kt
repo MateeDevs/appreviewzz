@@ -43,6 +43,7 @@ fun runWorker(
         buildScheduler(
             dataSource = database.asDataSource(),
             jobs = components.ingestJobs(),
+            deliveryJobs = components.deliveryJobs,
             backupJobs = backupJobs,
             config =
                 SchedulerConfig(
@@ -53,7 +54,7 @@ fun runWorker(
     // Zastavit scheduler dřív než pool: běžící úloha musí stihnout dopsat výsledek do databáze.
     Runtime.getRuntime().addShutdownHook(Thread(scheduler::stop, "scheduler-shutdown"))
     scheduler.start()
-    logger.info { "Worker started — ingest tasks registered" }
+    logger.info { "Worker started — ingest a doručování registrované" }
 
     embeddedServer(
         Netty,

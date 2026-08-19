@@ -7,28 +7,36 @@ import cz.matee.appreviewzz.backup.BackupService
 import cz.matee.appreviewzz.backup.BackupStores
 import cz.matee.appreviewzz.backup.PostgresCommands
 import cz.matee.appreviewzz.backup.PostgresTarget
+import cz.matee.appreviewzz.channels.slack.SlackApi
+import cz.matee.appreviewzz.channels.slack.SlackNotificationChannel
+import cz.matee.appreviewzz.channels.slack.slackHttpClient
 import cz.matee.appreviewzz.connectors.appstore.AppStoreConnector
 import cz.matee.appreviewzz.connectors.appstore.appStoreHttpClient
 import cz.matee.appreviewzz.connectors.googleplay.GooglePlayConnector
 import cz.matee.appreviewzz.connectors.googleplay.googleHttpClient
+import cz.matee.appreviewzz.core.port.NotificationChannel
 import cz.matee.appreviewzz.core.port.ReviewSource
 import cz.matee.appreviewzz.core.port.SuggestReplyProvider
+import cz.matee.appreviewzz.core.usecase.DeliverReviewUseCase
 import cz.matee.appreviewzz.core.usecase.IngestReviewsUseCase
 import cz.matee.appreviewzz.crypto.CredentialVault
 import cz.matee.appreviewzz.crypto.KekProviders
 import cz.matee.appreviewzz.crypto.KekUsage
 import cz.matee.appreviewzz.crypto.MeteredKekProvider
 import cz.matee.appreviewzz.jobs.BackupJobs
+import cz.matee.appreviewzz.jobs.DeliveryJobs
 import cz.matee.appreviewzz.jobs.IngestJobs
 import cz.matee.appreviewzz.persistence.Database
 import cz.matee.appreviewzz.persistence.repository.ExposedAppRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedAuditLogRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedBackupRunRepository
+import cz.matee.appreviewzz.persistence.repository.ExposedChannelRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedCredentialRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedDataKeyRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedFailedJobRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedMembershipRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedOrganizationRepository
+import cz.matee.appreviewzz.persistence.repository.ExposedReviewMessageRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedReviewRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedUserRepository
 import io.ktor.client.HttpClient
@@ -55,6 +63,8 @@ class Components(
     val apps = ExposedAppRepository(exposed)
     val credentials = ExposedCredentialRepository(exposed)
     val reviews = ExposedReviewRepository(exposed)
+    val reviewMessages = ExposedReviewMessageRepository(exposed)
+    val channels = ExposedChannelRepository(exposed)
     val audit = ExposedAuditLogRepository(exposed)
     val backupRuns = ExposedBackupRunRepository(exposed)
 
@@ -65,6 +75,7 @@ class Components(
     private val storeClients by storeClientsDelegate
 
     private val aiClientDelegate = lazy { aiHttpClient() }
+    private val slackClientDelegate = lazy { slackHttpClient() }
 
     /**
      * Počítadla volání KEK. Vznikají hned, i když se vault nikdy nepoužije — worker nad nimi
@@ -98,6 +109,26 @@ class Components(
             apiKey = config.ai.apiKey,
             model = config.ai.model,
             httpClient = { aiClientDelegate.value },
+        )
+    }
+
+    /**
+     * Kanály, do kterých se doručuje. Teams přibude ve F4 stejným způsobem — doručovací
+     * use-case o konkrétních kanálech neví nic.
+     */
+    val notificationChannels: List<NotificationChannel> by lazy {
+        listOf(SlackNotificationChannel(SlackApi(slackClientDelegate.value)))
+    }
+
+    val delivery: DeliverReviewUseCase by lazy {
+        DeliverReviewUseCase(
+            apps = apps,
+            reviews = reviews,
+            channels = channels,
+            messages = reviewMessages,
+            secrets = vault,
+            suggestions = suggestions,
+            notificationChannels = notificationChannels,
         )
     }
 
@@ -163,13 +194,18 @@ class Components(
             ingest = ingest,
             apps = apps,
             failedJobs = failedJobs,
+            delivery = deliveryJobs,
             sweepInterval = Duration.ofSeconds(config.worker.sweepIntervalSeconds),
         )
+
+    /** Jedna instance: scheduler ji potřebuje znát jako registrovanou úlohu i jako plánovače. */
+    val deliveryJobs: DeliveryJobs by lazy { DeliveryJobs(deliver = delivery, failedJobs = failedJobs) }
 
     /** Pustí HTTP klienty storů. Volá jen CLI — servery drží klienty po celou dobu běhu. */
     override fun close() {
         if (storeClientsDelegate.isInitialized()) storeClients.close()
         if (aiClientDelegate.isInitialized()) aiClientDelegate.value.close()
+        if (slackClientDelegate.isInitialized()) slackClientDelegate.value.close()
     }
 
     private class StoreClients : AutoCloseable {

@@ -74,6 +74,8 @@ class IngestJobs(
     private val ingest: IngestReviewsUseCase,
     private val apps: AppRepository,
     private val failedJobs: FailedJobRepository,
+    /** Doručení do kanálů; `null` znamená běh bez kanálů (testy, samotný ingest). */
+    private val delivery: DeliveryJobs? = null,
     private val clock: Clock = Clock.System,
     private val sweepInterval: Duration = DEFAULT_SWEEP_INTERVAL,
     private val retries: Int = DEFAULT_RETRIES,
@@ -87,7 +89,7 @@ class IngestJobs(
                     .maxRetries<IngestJobData>(retries)
                     .withBackoff(firstRetryDelay, BACKOFF_RATE)
                     .then(::giveUpAndKeepCadence),
-            ).execute { instance, _ -> runIngest(instance) }
+            ).execute { instance, context -> runIngest(instance, context.schedulerClient) }
 
     /** Sweep běží i na prázdné databázi — je to jediná úloha, která se plánuje sama při startu. */
     val sweepTask: RecurringTask<Void> =
@@ -132,12 +134,20 @@ class IngestJobs(
             }
     }
 
-    private fun runIngest(instance: TaskInstance<IngestJobData>) {
+    private fun runIngest(
+        instance: TaskInstance<IngestJobData>,
+        client: SchedulerClient,
+    ) {
         val data = instance.data
+        val orgId = OrganizationId.parse(data.orgId)
         val report =
             runBlocking {
-                ingest.ingest(OrganizationId.parse(data.orgId), AppId.parse(data.appId))
+                ingest.ingest(orgId, AppId.parse(data.appId))
             }
+
+        // Doručuje se i z běhu, ve kterém jedna platforma selhala: recenze z té druhé už máme
+        // a čekat s nimi na opravu cizího storu nedává smysl.
+        delivery?.schedule(client, orgId, report.notifiable)
 
         when {
             report.appSkipped != null ->
