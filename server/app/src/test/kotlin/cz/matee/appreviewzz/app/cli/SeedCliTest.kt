@@ -1,6 +1,7 @@
 package cz.matee.appreviewzz.app.cli
 
 import cz.matee.appreviewzz.app.AppConfig
+import cz.matee.appreviewzz.app.BackupConfig
 import cz.matee.appreviewzz.app.Role
 import cz.matee.appreviewzz.app.ServerConfig
 import cz.matee.appreviewzz.app.WorkerConfig
@@ -28,6 +29,18 @@ class SeedCliTest :
                 database = TestDatabase.config,
                 vaultKekUri = "local://${workDirectory.resolve("keyset")}",
                 worker = WorkerConfig(schedulerThreads = 1, pollingIntervalSeconds = 10, sweepIntervalSeconds = 60),
+                // Zálohy jsou vypnuté: `backup run` by chtěl pg_dump, a ten se testuje v modulu backup.
+                backup =
+                    BackupConfig(
+                        target = null,
+                        at = "02:30",
+                        retentionDays = 30,
+                        keepAtLeast = 7,
+                        s3Endpoint = null,
+                        pgDumpPath = "pg_dump",
+                        pgRestorePath = "pg_restore",
+                        timeoutMinutes = 30,
+                    ),
             )
 
         /** Příkaz se píše tak, jak se zadává v terminálu; hodnoty s mezerami se dávají do apostrofů. */

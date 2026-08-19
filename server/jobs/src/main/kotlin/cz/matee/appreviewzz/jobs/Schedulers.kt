@@ -23,23 +23,26 @@ data class SchedulerConfig(
  *
  * - **`commitWhenAutocommitDisabled(true)`** — Hikari máme s vypnutým autocommitem kvůli Exposedu,
  *   bez tohohle by db-scheduler své zápisy nikdy nepotvrdil a fronta by se tvářila jako prázdná.
- * - **`startTasks(sweep)`** — sweep je jediná úloha, která se plánuje sama; všechno ostatní
- *   zakládá až ona podle stavu databáze.
+ * - **`startTasks(…)`** — sweep a noční záloha se plánují samy; všechno ostatní
+ *   zakládá až sweep podle stavu databáze.
  */
 fun buildScheduler(
     dataSource: DataSource,
     jobs: IngestJobs,
+    backupJobs: BackupJobs? = null,
     config: SchedulerConfig = SchedulerConfig(),
 ): Scheduler {
     logger.info { "Scheduler: ${config.threads} vláken, polling po ${config.pollingInterval}" }
+    // Sweep i záloha se plánují samy; ostatní úlohy zakládá až sweep podle stavu databáze.
+    val selfScheduling = listOfNotNull(jobs.sweepTask, backupJobs?.backupTask)
     return Scheduler
         .create(dataSource, listOf(jobs.ingestTask))
         .threads(config.threads)
         .pollingInterval(config.pollingInterval)
         .serializer(JsonTaskSerializer)
         .commitWhenAutocommitDisabled(true)
-        // startTasks registruje sweep i jako známý task — do create() proto nepatří podruhé.
-        .startTasks(listOf(jobs.sweepTask))
+        // startTasks registruje úlohy i jako známé tasky — do create() proto nepatří podruhé.
+        .startTasks(selfScheduling)
         .failureLogging(LogLevel.WARN, true)
         .build()
 }

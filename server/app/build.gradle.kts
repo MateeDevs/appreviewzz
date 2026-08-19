@@ -7,6 +7,7 @@ dependencies {
     implementation(project(":server:core"))
     implementation(project(":server:persistence"))
     implementation(project(":server:crypto"))
+    implementation(project(":server:backup"))
     implementation(project(":server:jobs"))
     implementation(project(":server:connectors:googleplay"))
     implementation(project(":server:connectors:appstore"))

@@ -12,6 +12,11 @@ x-app-env: &app-env
   # keyset-data). Kdo chce KMS, přepíše na aws-kms://arn:… Zálohovat spolu s databází —
   # bez keysetu jsou credentials v DB nečitelné.
   VAULT_KEK_URI: ${VAULT_KEK_URI:-local:///var/lib/appreviewzz/keyset}
+  # Zálohy (F1.8). Výchozí cíl je volume vedle databáze — to je záloha proti smazané tabulce,
+  # ne proti shoření stroje. Runbook říká, jak ji dostat pryč z hostitele nebo rovnou do S3.
+  BACKUP_TARGET: ${BACKUP_TARGET:-file:///var/backups/appreviewzz}
+  BACKUP_AT: ${BACKUP_AT:-02:30}
+  BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
 
 services:
   postgres:
@@ -42,6 +47,8 @@ services:
       APPREVIEWZZ_ROLE: api
     volumes:
       - keyset-data:/var/lib/appreviewzz
+      # Zálohy jsou tu i u API, protože přes něj se pouští CLI (`backup run`, `backup restore`).
+      - backup-data:/var/backups/appreviewzz
     ports:
       - "${API_PORT:-8080}:8080"
       # Metriky jen na loopback — ven nemají co dělat.
@@ -61,6 +68,7 @@ services:
     volumes:
       # Stejný keyset jako API — jinak by worker credentials uložené přes API nerozbalil.
       - keyset-data:/var/lib/appreviewzz
+      - backup-data:/var/backups/appreviewzz
     depends_on:
       postgres:
         condition: service_healthy
@@ -71,3 +79,4 @@ services:
 volumes:
   postgres-data:
   keyset-data:
+  backup-data:

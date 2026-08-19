@@ -19,6 +19,7 @@ Vyplňují se v Coolify UI, nikdy do repozitáře.
 | `VAULT_KEK_URI` | výstup `vault_kek_uri` z `deploy/terraform/envs/dev` |
 | `AWS_REGION` | `eu-north-1` |
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | access key IAM uživatele `appreviewzz-dev-app` |
+| `BACKUP_TARGET` | výstup `backup_target` z `deploy/terraform/envs/dev` (`s3://…`) |
 | `APP_VERSION` | tag image, default `latest` |
 | `APPREVIEWZZ_ENV` | `dev` |
 
@@ -74,5 +75,16 @@ s `HEAD` na `epic/v2`, nasazení neproběhlo.
 
 ## Zálohy
 
-Postgres v kontejneru nemá PITR. Zálohovací job (`pg_dump` do object storage) a vyzkoušená
-obnova jsou součástí F1 — do té doby v databázi nejsou žádná data, o která by šlo přijít.
+Postgres v kontejneru nemá PITR, zálohuje se proto logicky: worker každou noc udělá
+`pg_dump -Fc` a nahraje ho do S3 bucketu z `BACKUP_TARGET`. Retence je 30 dní
+(`BACKUP_RETENTION_DAYS`), posledních sedm záloh zůstává vždycky.
+
+Postup obnovy, drill a co dělat, když zálohy přestanou chodit, je v
+[runbooku](../../docs/runbooks/zalohy-a-obnova.md). Rychlá kontrola:
+
+```bash
+docker exec -it <kontejner-api> /opt/appreviewzz/bin/appreviewzz backup list
+```
+
+Alarm si postav nad metrikou `appreviewzz_backup_last_success_age_seconds` (port 8081) —
+prahem je zhruba 30 hodin, tedy jedna zmeškaná noční záloha.

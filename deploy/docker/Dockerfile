@@ -13,10 +13,26 @@ RUN --mount=type=cache,target=/root/.gradle \
     ./gradlew --no-daemon --no-configuration-cache :server:app:installDist -x test -x ktlintCheck
 
 FROM eclipse-temurin:21-jre AS runtime
+# postgresql-client-17 kvůli zálohám (F1.8): pg_dump musí být stejně starý nebo novější než
+# server, jinak zálohu odmítne udělat. Klient téhle verze v distribuci ještě není, proto
+# oficiální repozitář PostgreSQL — klíč se ukládá rovnou jako signed-by, bez gnupg v image.
+ARG PG_MAJOR=17
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl \
+    && apt-get install -y --no-install-recommends curl ca-certificates \
+    && install -d /usr/share/postgresql-common/pgdg \
+    && curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+        -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+    && codename="$(. /etc/os-release && echo "$VERSION_CODENAME")" \
+    && printf '%s\n' \
+        "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] http://apt.postgresql.org/pub/repos/apt ${codename}-pgdg main" \
+        > /etc/apt/sources.list.d/pgdg.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends "postgresql-client-${PG_MAJOR}" \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --system --uid 10001 --create-home --shell /usr/sbin/nologin appreviewzz \
+    # Adresáře pro keyset a zálohy musí existovat už v image a patřit aplikaci — jinak je
+    # Docker při prvním připojení volume založí rootovi a proces pod uid 10001 do nich nezapíše.
+    && install -d -o appreviewzz -g appreviewzz /var/lib/appreviewzz /var/backups/appreviewzz \
     # Pebble je service manager zděděný z Ubuntu base image; nic ho tu nespouští
     # a tahá s sebou zranitelnosti Go runtime. Pryč s ním.
     && rm -rf /usr/bin/pebble /var/lib/pebble

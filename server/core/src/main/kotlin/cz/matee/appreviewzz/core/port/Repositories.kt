@@ -4,6 +4,7 @@ import cz.matee.appreviewzz.core.model.ActorType
 import cz.matee.appreviewzz.core.model.App
 import cz.matee.appreviewzz.core.model.AppId
 import cz.matee.appreviewzz.core.model.AuditEntry
+import cz.matee.appreviewzz.core.model.BackupRun
 import cz.matee.appreviewzz.core.model.Channel
 import cz.matee.appreviewzz.core.model.ChannelId
 import cz.matee.appreviewzz.core.model.ChannelType
@@ -569,6 +570,15 @@ interface FailedJobRepository {
         orgId: OrganizationId,
         limit: Int = 100,
     ): List<FailedJob>
+}
+
+interface BackupRunRepository {
+    fun record(run: BackupRun): BackupRun
+
+    /** Podklad pro metriku stáří zálohy — když je `null` nebo starý, zálohy nechodí. */
+    fun lastSuccessful(): BackupRun?
+
+    fun listRecent(limit: Int = 20): List<BackupRun>
 }
 
 /** Zkratka pro logování/audit bez nutnosti tahat `Instant` přes půlku aplikace. */

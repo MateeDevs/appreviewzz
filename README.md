@@ -97,12 +97,14 @@ server/
   connectors/      googleplay, appstore — fetch recenzí, publikace odpovědí, ratingy
   channels/        slack, teams — doručení, interaktivita, aktualizace zpráv
   ai/              pluggable návrhy odpovědí (Gemini / Anthropic / OpenAI / none)
-  jobs/            db-scheduler tasky (ingest, ratingy, health)
+  backup/          zálohy databáze: pg_dump, úložiště (S3 / soubor), obnova
+  jobs/            db-scheduler tasky (ingest, zálohy, ratingy, health)
   app/             Ktor: REST, webhooky, DI, konfigurace, entrypoint
 console/           React SPA (F3)
 deploy/docker/     Dockerfile
 deploy/terraform/  AWS prostředí
 docs/adr/          architektonická rozhodnutí
+docs/runbooks/     provozní postupy
 ```
 
 Jeden image běží ve dvou rolích podle `APPREVIEWZZ_ROLE` (`api` | `worker`) —
@@ -139,6 +141,12 @@ Vše přes proměnné prostředí (12-factor), žádný konfigurační soubor v 
 | `SCHEDULER_THREADS` | `5` | souběžně běžící joby jednoho workeru |
 | `SCHEDULER_POLLING_SECONDS` | `10` | jak často se worker ptá na úlohy, které jsou na řadě |
 | `INGEST_SWEEP_SECONDS` | `60` | jak často se fronta ingestu sesouhlasí se seznamem aplikací |
+| `BACKUP_TARGET` | — | kam se ukládají zálohy: `s3://bucket/prefix` nebo `file:///cesta`; prázdné = zálohy vypnuté |
+| `BACKUP_AT` | `02:30` | denní čas zálohy v UTC |
+| `BACKUP_RETENTION_DAYS` | `30` | po kolika dnech se stará záloha maže |
+| `BACKUP_KEEP_AT_LEAST` | `7` | kolik posledních záloh zůstává bez ohledu na stáří |
+| `BACKUP_S3_ENDPOINT` | — | jiné S3 než AWS (MinIO, Backblaze); zapíná path-style adresaci |
+| `PG_DUMP_PATH` / `PG_RESTORE_PATH` | `pg_dump` / `pg_restore` | cesty ke klientským nástrojům Postgresu |
 
 Chybějící povinná proměnná shodí start s konkrétní hláškou — žádný tichý fallback.
 
@@ -148,21 +156,32 @@ Klientské klíče ke storům se ukládají šifrovaně (envelope encryption, DE
 KEK v KMS nebo lokálním keysetu) — detaily v [ADR 0005](docs/adr/0005-envelope-encryption.md).
 Zranitelnosti hlaste podle [SECURITY.md](SECURITY.md).
 
+## Zálohy
+
+Worker každou noc udělá `pg_dump` a nahraje ho do `BACKUP_TARGET`; obnova se dělá příkazem
+`backup restore` do vedlejší databáze. Postup, drill a řešení potíží jsou v
+[runbooku](docs/runbooks/zalohy-a-obnova.md), rozhodnutí v
+[ADR 0010](docs/adr/0010-zalohy-pg-dump.md).
+
+Kdo self-hostuje s lokálním keysetem: **keyset zálohuj zvlášť**, bez něj jsou credentials
+v obnovené databázi nečitelné.
+
 ## Roadmapa
 
 | Fáze | Obsah | Stav |
 |---|---|---|
 | **F0** | Repo, CI, Docker, Ktor + Flyway + healthcheck, ADR, Terraform dev | hotovo |
-| **F1** | Datový model, credential vault, konektory Google Play a App Store, ingest pipeline, scheduler, seed CLI | |
+| **F1** | Datový model, credential vault, konektory Google Play a App Store, ingest pipeline, scheduler, seed CLI, zálohy s vyzkoušenou obnovou | |
 | **F2** | Slack end-to-end: OAuth install, Block Kit s AI návrhem, publikace odpovědi | |
 | **F3** | Konzole: auth, organizace, onboarding wizard, review inbox, delivery health | |
 | **F4** | Teams bot, ratings pipeline, denní digesty a trendy | |
-| **F5** | Hardening, rate limity, zálohy, dokumentace, OSS launch | |
+| **F5** | Hardening, rate limity, dokumentace, OSS launch | |
 | **F6** | Migrace ze staršího n8n řešení a jeho vypnutí | |
 
 ## Dokumentace
 
 - [ADR](docs/adr/) — architektonická rozhodnutí a jejich důvody
+- [Runbooky](docs/runbooks/) — provozní postupy (zálohy a obnova)
 - [SECURITY.md](SECURITY.md) — hlášení zranitelností a jak zacházíme s klíči
 
 ## Licence

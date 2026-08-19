@@ -1,6 +1,7 @@
 package cz.matee.appreviewzz.persistence.schema
 
 import cz.matee.appreviewzz.core.model.AppId
+import cz.matee.appreviewzz.core.model.BackupRunId
 import cz.matee.appreviewzz.core.model.ChannelId
 import cz.matee.appreviewzz.core.model.CredentialId
 import cz.matee.appreviewzz.core.model.DataKeyId
@@ -56,3 +57,5 @@ internal fun Table.replyId(name: String): Column<ReplyId> = uuid(name).transform
 internal fun Table.ratingSnapshotId(name: String): Column<RatingSnapshotId> = uuid(name).transform({ RatingSnapshotId(it) }, { it.value })
 
 internal fun Table.failedJobId(name: String): Column<FailedJobId> = uuid(name).transform({ FailedJobId(it) }, { it.value })
+
+internal fun Table.backupRunId(name: String): Column<BackupRunId> = uuid(name).transform({ BackupRunId(it) }, { it.value })

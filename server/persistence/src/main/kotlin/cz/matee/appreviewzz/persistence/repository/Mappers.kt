@@ -2,6 +2,7 @@ package cz.matee.appreviewzz.persistence.repository
 
 import cz.matee.appreviewzz.core.model.App
 import cz.matee.appreviewzz.core.model.AuditEntry
+import cz.matee.appreviewzz.core.model.BackupRun
 import cz.matee.appreviewzz.core.model.Channel
 import cz.matee.appreviewzz.core.model.CredentialMeta
 import cz.matee.appreviewzz.core.model.FailedJob
@@ -17,6 +18,7 @@ import cz.matee.appreviewzz.core.model.User
 import cz.matee.appreviewzz.persistence.schema.AppCredentials
 import cz.matee.appreviewzz.persistence.schema.Apps
 import cz.matee.appreviewzz.persistence.schema.AuditLogs
+import cz.matee.appreviewzz.persistence.schema.BackupRuns
 import cz.matee.appreviewzz.persistence.schema.Channels
 import cz.matee.appreviewzz.persistence.schema.Credentials
 import cz.matee.appreviewzz.persistence.schema.FailedJobs
@@ -209,6 +211,18 @@ internal fun ResultRow.toFailedJob(): FailedJob =
         firstFailedAt = this[FailedJobs.firstFailedAt],
         lastFailedAt = this[FailedJobs.lastFailedAt],
         resolvedAt = this[FailedJobs.resolvedAt],
+    )
+
+internal fun ResultRow.toBackupRun(): BackupRun =
+    BackupRun(
+        id = this[BackupRuns.id],
+        startedAt = this[BackupRuns.startedAt],
+        finishedAt = this[BackupRuns.finishedAt],
+        status = this[BackupRuns.status],
+        location = this[BackupRuns.location],
+        sizeBytes = this[BackupRuns.sizeBytes],
+        checksum = this[BackupRuns.checksum],
+        error = this[BackupRuns.error],
     )
 
 /** Vazba credentialu na appku se čte často spolu s appkou, proto malý pomocník. */

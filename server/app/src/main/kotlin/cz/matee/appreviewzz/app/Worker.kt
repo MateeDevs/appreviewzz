@@ -1,5 +1,6 @@
 package cz.matee.appreviewzz.app
 
+import cz.matee.appreviewzz.jobs.BackupJobs
 import cz.matee.appreviewzz.jobs.SchedulerConfig
 import cz.matee.appreviewzz.jobs.buildScheduler
 import cz.matee.appreviewzz.persistence.Database
@@ -8,6 +9,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.server.application.Application
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
+import io.micrometer.core.instrument.Gauge
 import io.micrometer.prometheusmetrics.PrometheusConfig
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
 import java.time.Duration
@@ -26,10 +28,19 @@ fun runWorker(
     val metrics = PrometheusMeterRegistry(PrometheusConfig.DEFAULT)
     startManagementServer(config, metrics)
 
+    val backupJobs = components.backupJobs()
+    if (backupJobs == null) {
+        logger.warn { "BACKUP_TARGET není nastavený — databáze se nezálohuje" }
+    } else {
+        logger.info { "Záloha databáze naplánovaná na ${config.backup.at} UTC" }
+        registerBackupMetrics(metrics, backupJobs)
+    }
+
     val scheduler =
         buildScheduler(
             dataSource = database.asDataSource(),
             jobs = components.ingestJobs(),
+            backupJobs = backupJobs,
             config =
                 SchedulerConfig(
                     threads = config.worker.schedulerThreads,
@@ -50,6 +61,23 @@ fun runWorker(
             workerModule(metrics) { database.isHealthy() && scheduler.schedulerState.isStarted }
         },
     ).start(wait = true)
+}
+
+/**
+ * Stáří poslední úspěšné zálohy. Je to metrika, ze které se dá postavit jediný alarm, který
+ * u záloh opravdu dává smysl: „poslední záloha je starší než den". Bez záznamu vrací NaN,
+ * což Prometheus nezobrazí jako nulu — vypnuté zálohy se nesmí tvářit jako čerstvé.
+ */
+private fun registerBackupMetrics(
+    metrics: PrometheusMeterRegistry,
+    backupJobs: BackupJobs,
+) {
+    Gauge
+        .builder("appreviewzz.backup.last_success.age") { backupJobs.lastSuccessAgeSeconds() ?: Double.NaN }
+        .description("Stáří poslední úspěšné zálohy databáze")
+        .baseUnit("seconds")
+        .strongReference(true)
+        .register(metrics)
 }
 
 fun Application.workerModule(

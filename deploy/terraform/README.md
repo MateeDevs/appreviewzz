@@ -5,6 +5,7 @@ AWS zdroje pro appreviewzz. Rozdělené podle toho, co je nasazené a co čeká.
 | Modul | Stav |
 |---|---|
 | `modules/vault-kms` | **nasazené** — KMS klíč pro credential vault a IAM uživatel aplikace |
+| `modules/backups` | **připravené** — S3 bucket na dumpy databáze a práva pro aplikaci (F1.8); čeká na `apply` |
 | `modules/appreviewzz` | **zaparkované** — kompletní ECS Fargate + RDS + ALB stack, zatím se nepoužívá |
 
 Aplikace běží na Coolify a z AWS potřebuje jen správu klíčů — viz

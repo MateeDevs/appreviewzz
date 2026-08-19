@@ -1,5 +1,10 @@
 package cz.matee.appreviewzz.app
 
+import cz.matee.appreviewzz.backup.BackupRetention
+import cz.matee.appreviewzz.backup.BackupService
+import cz.matee.appreviewzz.backup.BackupStores
+import cz.matee.appreviewzz.backup.PostgresCommands
+import cz.matee.appreviewzz.backup.PostgresTarget
 import cz.matee.appreviewzz.connectors.appstore.AppStoreConnector
 import cz.matee.appreviewzz.connectors.appstore.appStoreHttpClient
 import cz.matee.appreviewzz.connectors.googleplay.GooglePlayConnector
@@ -8,10 +13,12 @@ import cz.matee.appreviewzz.core.port.ReviewSource
 import cz.matee.appreviewzz.core.usecase.IngestReviewsUseCase
 import cz.matee.appreviewzz.crypto.CredentialVault
 import cz.matee.appreviewzz.crypto.KekProviders
+import cz.matee.appreviewzz.jobs.BackupJobs
 import cz.matee.appreviewzz.jobs.IngestJobs
 import cz.matee.appreviewzz.persistence.Database
 import cz.matee.appreviewzz.persistence.repository.ExposedAppRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedAuditLogRepository
+import cz.matee.appreviewzz.persistence.repository.ExposedBackupRunRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedCredentialRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedDataKeyRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedFailedJobRepository
@@ -21,6 +28,8 @@ import cz.matee.appreviewzz.persistence.repository.ExposedReviewRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedUserRepository
 import io.ktor.client.HttpClient
 import java.time.Duration
+import java.time.ZoneId
+import kotlin.time.Duration.Companion.minutes
 
 /**
  * Ruční wiring — dokud se komponenty vejdou na obrazovku, je čitelnější než DI kontejner
@@ -42,6 +51,7 @@ class Components(
     val credentials = ExposedCredentialRepository(exposed)
     val reviews = ExposedReviewRepository(exposed)
     val audit = ExposedAuditLogRepository(exposed)
+    val backupRuns = ExposedBackupRunRepository(exposed)
 
     private val dataKeys = ExposedDataKeyRepository(exposed)
     private val failedJobs = ExposedFailedJobRepository(exposed)
@@ -75,6 +85,52 @@ class Components(
             sources = reviewSources,
         )
     }
+
+    /**
+     * Zálohovací služba. Vzniká líně stejně jako vault — `org list` ze seed CLI nemá důvod
+     * otevírat spojení do S3 ani se ptát po `pg_dump`.
+     */
+    val backup: BackupService by lazy {
+        val target =
+            config.backup.target
+                ?: throw IllegalStateException(
+                    "Zálohy nejsou nastavené — chybí BACKUP_TARGET (s3://bucket/prefix nebo file:///cesta)",
+                )
+        BackupService(
+            target =
+                PostgresTarget.fromJdbcUrl(
+                    jdbcUrl = config.database.jdbcUrl,
+                    user = config.database.user,
+                    password = config.database.password,
+                ),
+            store = BackupStores.fromUri(target, config.backup.s3Endpoint),
+            runs = backupRuns,
+            commands =
+                PostgresCommands(
+                    pgDumpPath = config.backup.pgDumpPath,
+                    pgRestorePath = config.backup.pgRestorePath,
+                    timeout = config.backup.timeoutMinutes.minutes,
+                ),
+            retention =
+                BackupRetention(
+                    days = config.backup.retentionDays,
+                    keepAtLeast = config.backup.keepAtLeast,
+                ),
+        )
+    }
+
+    /** `null` = zálohy nejsou nastavené; worker to zahlásí a úlohu nezaregistruje. */
+    fun backupJobs(): BackupJobs? =
+        if (!config.backup.enabled) {
+            null
+        } else {
+            BackupJobs(
+                backup = backup,
+                backupRuns = backupRuns,
+                failedJobs = failedJobs,
+                schedule = BackupJobs.dailyAt(BackupJobs.parseTime(config.backup.at), ZoneId.of("UTC")),
+            )
+        }
 
     fun ingestJobs(): IngestJobs =
         IngestJobs(

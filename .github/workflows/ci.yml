@@ -27,6 +27,21 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v6
 
+      # Drill obnovy ze zálohy (F1.8) potřebuje klienta Postgresu stejné nebo vyšší verze,
+      # než má testovaný server. Runner má ve výchozím stavu starší — bez tohohle kroku by se
+      # nejdůležitější test celé zálohovací cesty tiše přeskočil.
+      - name: Klient Postgresu 17
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+            | sudo tee /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc > /dev/null
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql-client-17
+          echo "PG_DUMP_PATH=/usr/lib/postgresql/17/bin/pg_dump" >> "$GITHUB_ENV"
+          echo "PG_RESTORE_PATH=/usr/lib/postgresql/17/bin/pg_restore" >> "$GITHUB_ENV"
+
       - name: Build, lint, test
         run: ./gradlew build --no-daemon --stacktrace
         env:

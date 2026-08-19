@@ -1,11 +1,16 @@
 package cz.matee.appreviewzz.app.cli
 
 import cz.matee.appreviewzz.app.Components
+import cz.matee.appreviewzz.backup.BackupStoreException
+import cz.matee.appreviewzz.backup.BackupToolException
+import cz.matee.appreviewzz.backup.StoredBackup
 import cz.matee.appreviewzz.connectors.appstore.AscApiKey
 import cz.matee.appreviewzz.connectors.googleplay.GoogleServiceAccount
 import cz.matee.appreviewzz.core.model.ActorType
 import cz.matee.appreviewzz.core.model.App
 import cz.matee.appreviewzz.core.model.AppId
+import cz.matee.appreviewzz.core.model.BackupRun
+import cz.matee.appreviewzz.core.model.BackupStatus
 import cz.matee.appreviewzz.core.model.CredentialId
 import cz.matee.appreviewzz.core.model.CredentialMeta
 import cz.matee.appreviewzz.core.model.CredentialPurpose
@@ -317,6 +322,83 @@ class SeedCommands(
         reviews.forEach { out(it.summarize()) }
     }
 
+    /**
+     * Ruční záloha — tímhle příkazem se dělá i drill: zálohuj, obnov vedle, porovnej.
+     * Selhání končí nenulovým kódem, takže se to dá pověsit i do skriptu.
+     */
+    fun backupRun() {
+        val run = components.backup.backupNow()
+        if (run.status == BackupStatus.FAILED) {
+            throw CommandException("Záloha selhala: ${run.error ?: "neznámá chyba"}")
+        }
+        out("Záloha hotová")
+        out(
+            details(
+                "umístění" to (run.location ?: "—"),
+                "velikost" to formatSize(run.sizeBytes),
+                "sha-256" to (run.checksum ?: "—"),
+                "trvání" to "${(run.finishedAt - run.startedAt).inWholeSeconds} s",
+            ),
+        )
+    }
+
+    fun backupList() {
+        val stored = components.backup.list()
+        out("Zálohy v úložišti (${stored.size})")
+        if (stored.isEmpty()) {
+            out("  žádné — spusť `backup run`")
+        } else {
+            stored.forEach { out("  " + it.summarize()) }
+        }
+
+        val history = components.backupRuns.listRecent(HISTORY_LIMIT)
+        if (history.isNotEmpty()) {
+            out("Poslední běhy")
+            history.forEach { out("  " + it.summarize()) }
+        }
+    }
+
+    /**
+     * Obnova do vedlejší databáze. Do provozní se přes CLI obnovit nedá schválně — ostrá
+     * obnova znamená obnovit vedle, podívat se na počty řádků a teprve pak přepnout aplikaci.
+     */
+    fun backupRestore(args: Arguments) {
+        val key = args.required("key")
+        val database = args.required("database")
+
+        val report =
+            try {
+                components.backup.restore(
+                    key = key,
+                    databaseName = database,
+                    dropExisting = args.boolean("drop-existing") ?: false,
+                )
+            } catch (error: BackupToolException) {
+                throw CommandException("Obnova selhala: ${error.message}", error)
+            } catch (error: BackupStoreException) {
+                throw CommandException("Obnova selhala: ${error.message}", error)
+            } catch (error: IllegalArgumentException) {
+                // Pojistky služby (obnova do provozní databáze, nebezpečné jméno) — chyba obsluhy,
+                // ne kódu, takže z ní musí být věta, ne stack trace.
+                throw CommandException(error.message ?: "neplatné parametry obnovy", error)
+            }
+
+        out("Obnoveno do databáze ${report.database}")
+        out(
+            details(
+                "záloha" to report.key,
+                "velikost" to formatSize(report.sizeBytes),
+                "otisk" to
+                    when (report.checksumVerified) {
+                        true -> "sedí na historii"
+                        else -> "nemám s čím porovnat (záloha není v historii běhů)"
+                    },
+                "schéma" to (report.schemaVersion ?: "—"),
+            ),
+        )
+        report.rowCounts.forEach { (table, count) -> out("  ${table.padEnd(DETAIL_LABEL_COLUMN)}$count") }
+    }
+
     private fun payload(
         kind: StoreCredentialKind,
         args: Arguments,
@@ -417,6 +499,7 @@ class SeedCommands(
 
     private companion object {
         const val DEFAULT_REVIEW_LIMIT = 20
+        const val HISTORY_LIMIT = 5
         const val SLUG_COLUMN = 24
         const val STORES_COLUMN = 15
         const val ENABLED_COLUMN = 8
@@ -591,3 +674,17 @@ private const val AUTHOR_COLUMN = 18
 private const val SNIPPET_LENGTH = 60
 private const val TIMESTAMP_LENGTH = 16
 private const val MAX_STARS = 5
+
+private fun StoredBackup.summarize(): String = "${key.padEnd(BACKUP_KEY_COLUMN)} ${formatSize(sizeBytes).padStart(SIZE_COLUMN)}  $createdAt"
+
+private fun BackupRun.summarize(): String =
+    "${finishedAt.toString().take(TIMESTAMP_LENGTH)}  ${status.name.padEnd(STATE_COLUMN)} " +
+        "${formatSize(sizeBytes).padStart(SIZE_COLUMN)}  ${location ?: error ?: "—"}"
+
+/** Velikosti se čtou v MB — zálohy pod megabajt jsou samy o sobě podezřelé. */
+private fun formatSize(bytes: Long?): String =
+    bytes?.let { String.format(java.util.Locale.US, "%.1f MB", it.toDouble() / BYTES_IN_MB) } ?: "—"
+
+private const val BYTES_IN_MB = 1024.0 * 1024.0
+private const val BACKUP_KEY_COLUMN = 44
+private const val SIZE_COLUMN = 10

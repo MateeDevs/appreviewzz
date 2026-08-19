@@ -166,6 +166,24 @@ private val COMMANDS =
             run = { args -> ingestRun(args) },
         ),
         Command(
+            name = "backup run",
+            options = emptySet(),
+            usage = "backup run",
+            run = { _ -> backupRun() },
+        ),
+        Command(
+            name = "backup list",
+            options = emptySet(),
+            usage = "backup list",
+            run = { _ -> backupList() },
+        ),
+        Command(
+            name = "backup restore",
+            options = setOf("key", "database", "drop-existing"),
+            usage = "backup restore --key <klíč zálohy> --database <nová databáze> [--drop-existing true]",
+            run = { args -> backupRestore(args) },
+        ),
+        Command(
             name = "review list",
             options = setOf("org", "app", "limit", "state"),
             usage = "review list --org <slug|ID> --app <ID> [--limit <počet>] [--state new,notified]",
@@ -189,8 +207,8 @@ private fun usage(): String =
         appendLine()
         COMMANDS.forEach { appendLine("  ${it.usage}") }
         appendLine()
-        appendLine("Připojení k databázi a KEK se berou ze stejných proměnných prostředí jako server")
-        appendLine("(DATABASE_URL, DATABASE_USER, DATABASE_PASSWORD, VAULT_KEK_URI).")
+        appendLine("Připojení k databázi, KEK a úložiště záloh se berou ze stejných proměnných prostředí")
+        appendLine("jako server (DATABASE_URL, DATABASE_USER, DATABASE_PASSWORD, VAULT_KEK_URI, BACKUP_TARGET).")
         append("Bez příkazu se spustí server v roli podle APPREVIEWZZ_ROLE.")
     }
 

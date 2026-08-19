@@ -37,7 +37,7 @@ object TestDatabase {
                 statement.execute(
                     """
                     TRUNCATE TABLE
-                        audit_log, failed_job, rating_snapshot, reply, review_message,
+                        backup_run, audit_log, failed_job, rating_snapshot, reply, review_message,
                         review_revision, review, channel, app_credential, app,
                         credential, org_data_key, org_member, app_user, organization
                     RESTART IDENTITY CASCADE

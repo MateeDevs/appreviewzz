@@ -35,6 +35,28 @@ data class WorkerConfig(
     val sweepIntervalSeconds: Long,
 )
 
+/**
+ * Zálohy databáze (F1.8). Bez `BACKUP_TARGET` se úloha vůbec nezaregistruje a worker to při
+ * startu hlásí varováním — vypnuté zálohy mají být vidět, ne se tvářit jako výchozí stav.
+ *
+ * Čas je v UTC schválně: server může kdykoli změnit zónu a záloha nemá důvod se řídit létem.
+ */
+data class BackupConfig(
+    /** `s3://bucket/prefix` nebo `file:///cesta`; `null` = zálohy vypnuté. */
+    val target: String?,
+    /** Denní čas spuštění ve tvaru `HH:MM` (UTC). */
+    val at: String,
+    val retentionDays: Int,
+    val keepAtLeast: Int,
+    /** Vlastní S3 endpoint (MinIO, Backblaze) — prázdné znamená AWS. */
+    val s3Endpoint: String?,
+    val pgDumpPath: String,
+    val pgRestorePath: String,
+    val timeoutMinutes: Long,
+) {
+    val enabled: Boolean get() = target != null
+}
+
 data class AppConfig(
     val role: Role,
     val environment: String,
@@ -46,6 +68,7 @@ data class AppConfig(
      */
     val vaultKekUri: String?,
     val worker: WorkerConfig,
+    val backup: BackupConfig,
 ) {
     companion object {
         fun fromEnv(env: (String) -> String? = System::getenv): AppConfig =
@@ -72,6 +95,17 @@ data class AppConfig(
                         schedulerThreads = env.optional("SCHEDULER_THREADS", "5").toInt(),
                         pollingIntervalSeconds = env.optional("SCHEDULER_POLLING_SECONDS", "10").toLong(),
                         sweepIntervalSeconds = env.optional("INGEST_SWEEP_SECONDS", "60").toLong(),
+                    ),
+                backup =
+                    BackupConfig(
+                        target = env("BACKUP_TARGET")?.takeIf { it.isNotBlank() },
+                        at = env.optional("BACKUP_AT", "02:30"),
+                        retentionDays = env.optional("BACKUP_RETENTION_DAYS", "30").toInt(),
+                        keepAtLeast = env.optional("BACKUP_KEEP_AT_LEAST", "7").toInt(),
+                        s3Endpoint = env("BACKUP_S3_ENDPOINT")?.takeIf { it.isNotBlank() },
+                        pgDumpPath = env.optional("PG_DUMP_PATH", "pg_dump"),
+                        pgRestorePath = env.optional("PG_RESTORE_PATH", "pg_restore"),
+                        timeoutMinutes = env.optional("BACKUP_TIMEOUT_MINUTES", "30").toLong(),
                     ),
             )
     }

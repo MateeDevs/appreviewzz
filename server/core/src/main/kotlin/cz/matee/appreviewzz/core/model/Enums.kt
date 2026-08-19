@@ -124,3 +124,9 @@ enum class ReviewChange {
     APP_VERSION,
     DEVELOPER_RESPONSE,
 }
+
+/** Výsledek jednoho běhu zálohy. Záznam vzniká až po doběhnutí, běžící záloha řádek nemá. */
+enum class BackupStatus {
+    SUCCEEDED,
+    FAILED,
+}

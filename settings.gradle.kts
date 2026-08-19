@@ -23,6 +23,7 @@ include(
     ":server:channels:slack",
     ":server:channels:teams",
     ":server:ai",
+    ":server:backup",
     ":server:jobs",
     ":server:app",
 )

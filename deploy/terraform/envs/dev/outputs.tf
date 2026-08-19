@@ -11,3 +11,8 @@ output "app_iam_user_name" {
   description = "Pro tohoto uživatele se v konzoli vygeneruje access key."
   value       = module.vault.app_iam_user_name
 }
+
+output "backup_target" {
+  description = "Do konfigurace aplikace jako BACKUP_TARGET."
+  value       = module.backups.backup_target
+}

@@ -26,6 +26,16 @@ class Arguments private constructor(
 
     fun optional(name: String): String? = values[name]?.takeIf { it.isNotBlank() }
 
+    /** `--volba true|false` (taky `ano|ne`); přepínač bez hodnoty by se pral s `--volba hodnota`. */
+    fun boolean(name: String): Boolean? =
+        optional(name)?.let { raw ->
+            when (raw.lowercase()) {
+                "true", "ano", "yes", "1" -> true
+                "false", "ne", "no", "0" -> false
+                else -> throw UsageException("Volba --$name čeká true nebo false, dostala '$raw'")
+            }
+        }
+
     fun int(name: String): Int? =
         optional(name)?.let { raw ->
             raw.toIntOrNull() ?: throw UsageException("Volba --$name čeká celé číslo, dostala '$raw'")

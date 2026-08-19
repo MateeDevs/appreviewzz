@@ -1,6 +1,7 @@
 package cz.matee.appreviewzz.persistence.schema
 
 import cz.matee.appreviewzz.core.model.ActorType
+import cz.matee.appreviewzz.core.model.BackupStatus
 import cz.matee.appreviewzz.core.model.ChannelType
 import cz.matee.appreviewzz.core.model.CredentialPurpose
 import cz.matee.appreviewzz.core.model.CredentialType
@@ -256,6 +257,19 @@ internal object FailedJobs : Table("failed_job") {
     val firstFailedAt = instant("first_failed_at")
     val lastFailedAt = instant("last_failed_at")
     val resolvedAt = instant("resolved_at").nullable()
+
+    override val primaryKey = PrimaryKey(id)
+}
+
+internal object BackupRuns : Table("backup_run") {
+    val id = backupRunId("id")
+    val startedAt = instant("started_at")
+    val finishedAt = instant("finished_at")
+    val status = enumerationByName<BackupStatus>("status", ENUM_LENGTH)
+    val location = text("location").nullable()
+    val sizeBytes = long("size_bytes").nullable()
+    val checksum = text("checksum").nullable()
+    val error = text("error").nullable()
 
     override val primaryKey = PrimaryKey(id)
 }

@@ -28,3 +28,11 @@ module "vault" {
 
   environment = "dev"
 }
+
+# Zálohy databáze (F1.8) — bucket a práva pro tentýž IAM uživatel, který sahá na KMS.
+module "backups" {
+  source = "../../modules/backups"
+
+  environment       = "dev"
+  app_iam_user_name = module.vault.app_iam_user_name
+}

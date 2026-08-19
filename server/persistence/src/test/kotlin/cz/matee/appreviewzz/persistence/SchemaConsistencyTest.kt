@@ -3,6 +3,7 @@ package cz.matee.appreviewzz.persistence
 import cz.matee.appreviewzz.persistence.schema.AppCredentials
 import cz.matee.appreviewzz.persistence.schema.Apps
 import cz.matee.appreviewzz.persistence.schema.AuditLogs
+import cz.matee.appreviewzz.persistence.schema.BackupRuns
 import cz.matee.appreviewzz.persistence.schema.Channels
 import cz.matee.appreviewzz.persistence.schema.Credentials
 import cz.matee.appreviewzz.persistence.schema.FailedJobs
@@ -43,6 +44,7 @@ class SchemaConsistencyTest :
                 RatingSnapshots,
                 AuditLogs,
                 FailedJobs,
+                BackupRuns,
             )
 
         test("každý sloupec z Exposed definic existuje v databázi") {

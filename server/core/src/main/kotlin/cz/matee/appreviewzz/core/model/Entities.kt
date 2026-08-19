@@ -194,3 +194,21 @@ data class FailedJob(
     val lastFailedAt: Instant,
     val resolvedAt: Instant?,
 )
+
+/**
+ * Historie záloh databáze. Je to jediná stopa, ze které se dá poznat, že zálohy **přestaly
+ * chodit** — proto se zapisuje i neúspěšný běh a proto se z ní počítá stáří poslední úspěšné
+ * zálohy do metrik.
+ */
+data class BackupRun(
+    val id: BackupRunId,
+    val startedAt: Instant,
+    val finishedAt: Instant,
+    val status: BackupStatus,
+    /** Kam se dump uložil (`s3://bucket/klíč`, `file:///cesta`); u selhání `null`. */
+    val location: String?,
+    val sizeBytes: Long?,
+    /** SHA-256 dumpu — při obnově se ověřuje, že se soubor cestou nezměnil. */
+    val checksum: String?,
+    val error: String?,
+)

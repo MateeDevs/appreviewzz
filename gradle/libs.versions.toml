@@ -67,6 +67,9 @@ db-scheduler = { module = "com.github.kagkarlsson:db-scheduler", version.ref = "
 tink = { module = "com.google.crypto.tink:tink", version.ref = "tink" }
 aws-kms = { module = "software.amazon.awssdk:kms", version.ref = "awsSdk" }
 
+# Object storage pro zálohy
+aws-s3 = { module = "software.amazon.awssdk:s3", version.ref = "awsSdk" }
+
 # Observabilita
 logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
 logstash-encoder = { module = "net.logstash.logback:logstash-logback-encoder", version.ref = "logstashEncoder" }

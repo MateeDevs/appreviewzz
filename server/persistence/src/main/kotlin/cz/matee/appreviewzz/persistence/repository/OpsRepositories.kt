@@ -2,6 +2,8 @@ package cz.matee.appreviewzz.persistence.repository
 
 import cz.matee.appreviewzz.core.model.AppId
 import cz.matee.appreviewzz.core.model.AuditEntry
+import cz.matee.appreviewzz.core.model.BackupRun
+import cz.matee.appreviewzz.core.model.BackupStatus
 import cz.matee.appreviewzz.core.model.FailedJob
 import cz.matee.appreviewzz.core.model.FailedJobId
 import cz.matee.appreviewzz.core.model.OrganizationId
@@ -9,10 +11,12 @@ import cz.matee.appreviewzz.core.model.Platform
 import cz.matee.appreviewzz.core.model.RatingSnapshot
 import cz.matee.appreviewzz.core.model.RatingSnapshotId
 import cz.matee.appreviewzz.core.port.AuditLogRepository
+import cz.matee.appreviewzz.core.port.BackupRunRepository
 import cz.matee.appreviewzz.core.port.FailedJobRepository
 import cz.matee.appreviewzz.core.port.NewRatingSnapshot
 import cz.matee.appreviewzz.core.port.RatingSnapshotRepository
 import cz.matee.appreviewzz.persistence.schema.AuditLogs
+import cz.matee.appreviewzz.persistence.schema.BackupRuns
 import cz.matee.appreviewzz.persistence.schema.FailedJobs
 import cz.matee.appreviewzz.persistence.schema.RatingSnapshots
 import kotlinx.datetime.LocalDate
@@ -275,4 +279,47 @@ class ExposedFailedJobRepository(
     ) = (FailedJobs.taskName eq taskName) and
         (FailedJobs.taskInstance eq taskInstance) and
         FailedJobs.resolvedAt.isNull()
+}
+
+class ExposedBackupRunRepository(
+    private val database: ExposedDatabase,
+) : BackupRunRepository {
+    override fun record(run: BackupRun): BackupRun =
+        transaction(database) {
+            BackupRuns.insert {
+                it[id] = run.id
+                it[startedAt] = run.startedAt
+                it[finishedAt] = run.finishedAt
+                it[status] = run.status
+                it[location] = run.location
+                it[sizeBytes] = run.sizeBytes
+                it[checksum] = run.checksum
+                // Chyba se ukazuje člověku v konzoli; dlouhý stack trace by tabulku jen zaplevelil.
+                it[error] = run.error?.take(ERROR_LIMIT)
+            }
+            run
+        }
+
+    override fun lastSuccessful(): BackupRun? =
+        transaction(database) {
+            BackupRuns
+                .selectAll()
+                .where { BackupRuns.status eq BackupStatus.SUCCEEDED }
+                .orderBy(BackupRuns.finishedAt to SortOrder.DESC)
+                .firstOrNull()
+                ?.toBackupRun()
+        }
+
+    override fun listRecent(limit: Int): List<BackupRun> =
+        transaction(database) {
+            BackupRuns
+                .selectAll()
+                .orderBy(BackupRuns.finishedAt to SortOrder.DESC)
+                .limit(limit)
+                .map { it.toBackupRun() }
+        }
+
+    private companion object {
+        const val ERROR_LIMIT = 2000
+    }
 }

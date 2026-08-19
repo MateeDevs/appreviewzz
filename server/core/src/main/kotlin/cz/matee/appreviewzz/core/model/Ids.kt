@@ -90,3 +90,10 @@ value class FailedJobId(
 ) {
     override fun toString(): String = value.toString()
 }
+
+@JvmInline
+value class BackupRunId(
+    val value: Uuid,
+) {
+    override fun toString(): String = value.toString()
+}
