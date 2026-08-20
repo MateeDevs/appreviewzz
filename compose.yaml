@@ -26,6 +26,14 @@ x-app-env: &app-env
   SLACK_CLIENT_ID: ${SLACK_CLIENT_ID:-}
   SLACK_CLIENT_SECRET: ${SLACK_CLIENT_SECRET:-}
   PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
+  # Console (F3). Bez SMTP se e-maily (potvrzení adresy, obnova hesla, pozvánky) jen vypisují
+  # do logu — pro první rozkoukání to stačí, odkaz si vyzobeš z `docker compose logs api`.
+  CONSOLE_BASE_URL: ${CONSOLE_BASE_URL:-http://localhost:8080}
+  MAIL_FROM: ${MAIL_FROM:-appreviewzz@localhost}
+  MAIL_SMTP_HOST: ${MAIL_SMTP_HOST:-}
+  MAIL_SMTP_PORT: ${MAIL_SMTP_PORT:-587}
+  MAIL_SMTP_USER: ${MAIL_SMTP_USER:-}
+  MAIL_SMTP_PASSWORD: ${MAIL_SMTP_PASSWORD:-}
 
 services:
   postgres:

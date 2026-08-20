@@ -55,13 +55,21 @@ fun Application.consoleStaticRoutes() {
             }
 
             val asset = path.takeIf { it.isNotEmpty() && !it.contains("..") }?.let { loadResource(it) }
-            if (asset != null) {
-                // Vite dává do jména souboru otisk obsahu, takže nová verze = nová adresa.
-                call.response.header(HttpHeaders.CacheControl, IMMUTABLE_CACHE)
-                call.respondBytes(asset, contentTypeOf(path))
-            } else {
-                call.response.header(HttpHeaders.CacheControl, CacheControl.NoCache(null).toString())
-                call.respondBytes(loadResource(INDEX)!!, ContentType.Text.Html)
+            when {
+                asset != null -> {
+                    // Vite dává do jména souboru otisk obsahu, takže nová verze = nová adresa.
+                    call.response.header(HttpHeaders.CacheControl, IMMUTABLE_CACHE)
+                    call.respondBytes(asset, contentTypeOf(path))
+                }
+
+                // Chybějící soubor (`/favicon.ico`, starý `.map`) je 404, ne HTML stránka:
+                // cesty routeru nikdy nemají příponu, tak si je nepleťme s assety.
+                path.substringAfterLast('/').contains('.') -> call.respond(HttpStatusCode.NotFound)
+
+                else -> {
+                    call.response.header(HttpHeaders.CacheControl, CacheControl.NoCache(null).toString())
+                    call.respondBytes(loadResource(INDEX)!!, ContentType.Text.Html)
+                }
             }
         }
     }

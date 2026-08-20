@@ -43,6 +43,16 @@ class AuthRoutesTest :
             mailer = RecordingMailer()
         }
 
+        "registrace rovnou přihlašuje — bez druhého kroku na formuláři" {
+            testApplication {
+                consoleModule(mailer)
+                val client = browser()
+                client.register().status shouldBe HttpStatusCode.Created
+                // Žádné volání /login mezitím.
+                client.get("/api/auth/me").status shouldBe HttpStatusCode.OK
+            }
+        }
+
         "registrace, přihlášení a profil projdou celou smyčkou" {
             testApplication {
                 consoleModule(mailer)

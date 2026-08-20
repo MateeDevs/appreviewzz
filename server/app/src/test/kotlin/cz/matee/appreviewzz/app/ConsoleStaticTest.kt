@@ -3,6 +3,7 @@ package cz.matee.appreviewzz.app
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
@@ -73,12 +74,24 @@ class ConsoleStaticTest :
             }
         }
 
+        "chybějící soubor je 404, ne HTML" {
+            testApplication {
+                staticModule()
+                // Cesty routeru nemají příponu; co ji má, je asset — a ten prostě chybí.
+                client.get("/favicon.ico").status shouldBe HttpStatusCode.NotFound
+                client.get("/assets/neexistuje.js").status shouldBe HttpStatusCode.NotFound
+            }
+        }
+
         "cesta ven z adresáře console se nedá vylákat" {
             testApplication {
                 staticModule()
-                // Průchod nahoru nesmí vydat nic z jaru; fallback vrátí index.
-                val response = client.get("/../application.conf")
-                response.bodyAsText() shouldContain "<div id=\"root\">"
+                // Průchod nahoru nesmí vydat nic z jaru — ani obsah, ani náznak, že tam něco je.
+                listOf("/../application.conf", "/..%2Flogback.xml", "/assets/../../logback.xml").forEach { path ->
+                    val response = client.get(path)
+                    response.status shouldBe HttpStatusCode.NotFound
+                    response.bodyAsText() shouldNotContain "appender"
+                }
             }
         }
     })

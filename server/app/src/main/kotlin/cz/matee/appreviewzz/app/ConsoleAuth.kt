@@ -4,7 +4,6 @@ import cz.matee.appreviewzz.core.model.OpaqueTokens
 import cz.matee.appreviewzz.core.model.SecretPayload
 import cz.matee.appreviewzz.core.usecase.AuthenticatedUser
 import cz.matee.appreviewzz.core.usecase.AuthenticationService
-import io.ktor.http.CookieEncoding
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
@@ -50,8 +49,6 @@ class SessionCookies(
             path = "/",
             maxAge = lifetime.inWholeSeconds,
             extensions = mapOf("SameSite" to "Lax"),
-            // Token je base64url, kódování by ho jen rozbilo na cestě zpátky.
-            encoding = CookieEncoding.RAW,
         )
     }
 
@@ -68,7 +65,6 @@ class SessionCookies(
             path = "/",
             maxAge = lifetime.inWholeSeconds,
             extensions = mapOf("SameSite" to "Lax"),
-            encoding = CookieEncoding.RAW,
         )
     }
 
@@ -82,7 +78,6 @@ class SessionCookies(
                 path = "/",
                 maxAge = 0,
                 extensions = mapOf("SameSite" to "Lax"),
-                encoding = CookieEncoding.RAW,
             )
         }
     }

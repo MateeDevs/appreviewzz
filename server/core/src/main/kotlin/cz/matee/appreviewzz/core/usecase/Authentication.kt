@@ -63,6 +63,16 @@ data class AuthenticatedUser(
     val session: UserSession,
 )
 
+/**
+ * Výsledek registrace. Součástí je rovnou přihlášení: nechat člověka po založení účtu
+ * na přihlašovacím formuláři je zbytečný krok navíc a vypadá to jako chyba.
+ */
+data class Registration(
+    val user: User,
+    val token: SecretPayload,
+    val session: UserSession,
+)
+
 sealed interface LoginResult {
     data class Success(
         /** Plaintext do cookie. Podruhé už ho nikdo nezjistí — v databázi je jen otisk. */
@@ -111,7 +121,9 @@ class AuthenticationService(
         displayName: String?,
         password: SecretPayload,
         locale: MessageLocale = MessageLocale.CS,
-    ): User {
+        userAgent: String? = null,
+        clientIp: String? = null,
+    ): Registration {
         val normalized = normalizeEmail(email)
         requireStrongPassword(password)
         val now = clock.now()
@@ -130,7 +142,18 @@ class AuthenticationService(
 
         sendVerification(user, locale, now)
         logger.info { "Registrace uživatele ${user.id}" }
-        return user
+
+        val token = OpaqueTokens.generate()
+        val session =
+            sessions.create(
+                userId = user.id,
+                tokenHash = OpaqueTokens.hash(token),
+                createdAt = now,
+                expiresAt = now + policy.sessionLifetime,
+                userAgent = userAgent,
+                clientIp = clientIp,
+            )
+        return Registration(user, token, session)
     }
 
     fun login(

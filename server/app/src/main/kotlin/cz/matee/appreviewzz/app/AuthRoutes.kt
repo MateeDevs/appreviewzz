@@ -100,15 +100,24 @@ fun Route.authRoutes(console: ConsoleWiring) {
 
         post("/register") {
             val request = call.receive<RegisterRequest>()
-            val user =
+            val registration =
                 io {
                     auth.register(
                         email = request.email,
                         displayName = request.displayName,
                         password = SecretPayload(request.password),
+                        userAgent = call.request.header("User-Agent"),
+                        clientIp = call.clientIp(),
                     )
                 }
-            call.respond(HttpStatusCode.Created, me(user, emailVerified = false, organizations, memberships))
+            // Registrace rovnou přihlašuje; potvrzení e-mailu si console vyžádá až u kroku,
+            // který ho opravdu potřebuje (založení organizace).
+            cookies.issue(call, registration.token)
+            cookies.issueCsrf(call, newCsrfToken())
+            call.respond(
+                HttpStatusCode.Created,
+                me(registration.user, emailVerified = false, organizations, memberships),
+            )
         }
 
         post("/login") {
