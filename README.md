@@ -3,9 +3,10 @@
 Recenze z Google Play a App Store do Slacku a Teams — s AI návrhem odpovědi, kterou pošlete
 zpátky do storu jedním kliknutím. Plus denní přehled ratingů a trendů.
 
-> **Stav: F2 — Slack end-to-end.** Recenze se stahují z Google Play i App Store, chodí do
-> Slacku s AI návrhem odpovědi a kliknutí na *Odeslat* publikuje odpověď zpátky do storu.
-> Konzole (F3) a Teams s ratingy (F4) teprve přijdou (viz [roadmapa](#roadmapa)).
+> **Stav: F3 — konzole.** Recenze se stahují z Google Play i App Store, chodí do Slacku
+> s AI návrhem odpovědi a kliknutí na *Odeslat* publikuje odpověď zpátky do storu.
+> Klient si celé nastavení projde sám ve webové konzoli — od účtu přes klíče ke storu
+> až po kanál. Teams a ratingy (F4) teprve přijdou (viz [roadmapa](#roadmapa)).
 
 ## Rychlý start (self-host / lokální vývoj)
 
@@ -23,6 +24,17 @@ Aplikace poslouchá na `http://localhost:8080`:
 | `GET /metrics` | Prometheus scrape — na portu 8081, ne na veřejném |
 | `POST /webhooks/slack/interactivity` | odpovědi ze Slacku; existuje jen se `SLACK_SIGNING_SECRET` |
 | `GET /slack/install` | „Add to Slack" — odkaz vydává `slack install-url` |
+| `GET /` | konzole (React SPA ze stejného image; v lokálním buildu bez `npm run build` chybí) |
+| `/api/**` | API konzole — přihlášení, organizace, appky, klíče, kanály, recenze |
+
+## Konzole
+
+Klient si v ní projde onboarding sám: účet → organizace → appka → klíč ke storu (s okamžitým
+ověřením proti API storu) → připojení Slacku → kanál se zkušební zprávou. Pak už jen vidí
+recenze, odpovídá na ně a na *Přehledu* pozná, proč něco nedorazilo.
+
+Buildí se do statických souborů, které **servíruje Ktor ze stejného image** — žádný CDN,
+žádný druhý deploy. Vývoj konzole: [console/README.md](console/README.md).
 
 ## Vývoj bez Dockeru
 
@@ -48,8 +60,9 @@ Automatické doformátování Kotlinu:
 
 ## Seed CLI
 
-Dokud není konzole (F3), zakládá organizace, aplikace a klíče ke storům stejný binárek jako
-server — jen dostane příkaz místo role:
+Totéž, co konzole, umí i příkazová řádka — stejný binárek jako server, jen dostane příkaz
+místo role. Hodí se na provozní zásahy přes `docker compose exec` a na první organizaci
+v čerstvé instalaci:
 
 ```bash
 docker compose run --rm api org create --name "Isle Grow"
@@ -127,7 +140,7 @@ server/
   backup/          zálohy databáze: pg_dump, úložiště (S3 / soubor), obnova
   jobs/            db-scheduler tasky (ingest, zálohy, ratingy, health)
   app/             Ktor: REST, webhooky, DI, konfigurace, entrypoint
-console/           React SPA (F3)
+console/           React SPA konzole (Vite + TypeScript + TanStack Query)
 deploy/docker/     Dockerfile
 deploy/terraform/  AWS prostředí
 docs/adr/          architektonická rozhodnutí
@@ -213,7 +226,7 @@ v obnovené databázi nečitelné.
 | **F0** | Repo, CI, Docker, Ktor + Flyway + healthcheck, ADR, Terraform dev | hotovo |
 | **F1** | Datový model, credential vault, konektory Google Play a App Store, ingest pipeline, scheduler, seed CLI, zálohy s vyzkoušenou obnovou, audit použití klíče | hotovo |
 | **F2** | Slack end-to-end: OAuth install, Block Kit s AI návrhem, publikace odpovědi | hotovo |
-| **F3** | Konzole: auth, organizace, onboarding wizard, review inbox, delivery health | |
+| **F3** | Konzole: auth, organizace a role, onboarding wizard, správa klíčů a kanálů, review inbox, delivery health, audit | hotovo |
 | **F4** | Teams bot, ratings pipeline, denní digesty a trendy | |
 | **F5** | Hardening, rate limity, dokumentace, OSS launch | |
 | **F6** | Migrace ze staršího n8n řešení a jeho vypnutí | |

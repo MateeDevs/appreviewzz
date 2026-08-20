@@ -1,12 +1,24 @@
 # syntax=docker/dockerfile:1.7
 # Build kontext = kořen repa: docker build -f deploy/docker/Dockerfile .
 
+# Console (F3) se buildí do statických souborů, které servíruje Ktor ze stejného image —
+# odpadá tím CloudFront, S3 i certifikát v us-east-1 (ADR 0008). Vlastní stage kvůli cache:
+# změna v Kotlinu nepřestaví node_modules a naopak.
+FROM node:22-alpine AS console
+WORKDIR /console
+COPY console/package.json console/package-lock.json ./
+RUN npm ci --no-audit --no-fund
+COPY console/ ./
+RUN npm run build
+
 FROM eclipse-temurin:21-jdk AS build
 WORKDIR /workspace
 
 COPY gradlew gradle.properties settings.gradle.kts build.gradle.kts ./
 COPY gradle gradle
 COPY server server
+# Zbuilděná console jde do resources, odkud si ji Ktor bere z classpath.
+COPY --from=console /console/dist server/app/src/main/resources/console
 ARG GIT_SHA=unknown
 ENV GIT_SHA=${GIT_SHA}
 RUN --mount=type=cache,target=/root/.gradle \

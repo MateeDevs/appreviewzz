@@ -116,4 +116,6 @@ fun Application.apiModule(
     if (slackVerifier != null && slackIntake != null) slackWebhookRoutes(slackVerifier, slackIntake)
     slackInstall?.let { slackInstallRoutes(it.oauth, it.states, it.store, it.redirectUri) }
     console?.let { consoleRoutes(it) }
+    // Až po API: fallback bere všechno, co si nikdo jiný nevzal.
+    consoleStaticRoutes()
 }
