@@ -3,10 +3,6 @@ package cz.matee.appreviewzz.app
 import cz.matee.appreviewzz.channels.slack.SlackInstallStates
 import cz.matee.appreviewzz.channels.slack.SlackOAuth
 import cz.matee.appreviewzz.channels.slack.SlackSignatureVerifier
-import cz.matee.appreviewzz.core.port.MembershipRepository
-import cz.matee.appreviewzz.core.port.OrganizationRepository
-import cz.matee.appreviewzz.core.usecase.AuthenticationService
-import cz.matee.appreviewzz.core.usecase.OrganizationService
 import cz.matee.appreviewzz.jobs.buildSchedulerClient
 import cz.matee.appreviewzz.persistence.Database
 import cz.matee.appreviewzz.persistence.asDataSource
@@ -44,6 +40,7 @@ fun runApi(
         ConsoleWiring(
             auth = components.authentication,
             orgs = components.organizationService,
+            apps = components.appService,
             cookies = components.sessionCookies,
             organizations = components.organizations,
             memberships = components.memberships,
@@ -77,15 +74,6 @@ class SlackInstallRoutes(
     val redirectUri: String,
 )
 
-/** Co potřebuje console. Pohromadě, ať `apiModule` nemá deset volitelných parametrů. */
-class ConsoleWiring(
-    val auth: AuthenticationService,
-    val orgs: OrganizationService,
-    val cookies: SessionCookies,
-    val organizations: OrganizationRepository,
-    val memberships: MembershipRepository,
-)
-
 fun Application.apiModule(
     database: Database,
     metrics: PrometheusMeterRegistry,
@@ -102,8 +90,5 @@ fun Application.apiModule(
     // jménem klienta.
     if (slackVerifier != null && slackIntake != null) slackWebhookRoutes(slackVerifier, slackIntake)
     slackInstall?.let { slackInstallRoutes(it.oauth, it.states, it.store, it.redirectUri) }
-    console?.let {
-        authRoutes(it.auth, it.cookies, it.organizations, it.memberships)
-        orgRoutes(it.auth, it.orgs, it.organizations, it.memberships)
-    }
+    console?.let { consoleRoutes(it) }
 }

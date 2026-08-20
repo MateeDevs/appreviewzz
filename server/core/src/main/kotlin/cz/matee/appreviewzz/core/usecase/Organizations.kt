@@ -296,18 +296,6 @@ class OrganizationService(
         )
     }
 
-    private fun requireRole(
-        actor: OrgActor,
-        required: OrgRole,
-    ) {
-        if (!actor.role.atLeast(required)) {
-            throw ConsoleException(
-                ConsoleFailure.FORBIDDEN,
-                "Na tohle potřebuješ roli ${required.name.lowercase()} a vyšší",
-            )
-        }
-    }
-
     private fun requireAnotherOwner(
         orgId: OrganizationId,
         except: UserId,

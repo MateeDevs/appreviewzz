@@ -3,11 +3,13 @@ package cz.matee.appreviewzz.app
 import cz.matee.appreviewzz.app.cli.TestDatabase
 import cz.matee.appreviewzz.core.port.Mailer
 import cz.matee.appreviewzz.core.port.OutgoingMail
+import cz.matee.appreviewzz.core.usecase.AppService
 import cz.matee.appreviewzz.core.usecase.AuthPolicy
 import cz.matee.appreviewzz.core.usecase.AuthenticationService
 import cz.matee.appreviewzz.core.usecase.ConsoleLinks
 import cz.matee.appreviewzz.core.usecase.OrganizationService
 import cz.matee.appreviewzz.crypto.Argon2PasswordHasher
+import cz.matee.appreviewzz.persistence.repository.ExposedAppRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedAuditLogRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedInvitationRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedMembershipRepository
@@ -74,6 +76,7 @@ fun ApplicationTestBuilder.consoleModule(
             links = ConsoleLinks(CONSOLE_URL),
             policy = policy,
         )
+    val appService = AppService(apps = ExposedAppRepository(exposed), audit = ExposedAuditLogRepository(exposed))
     val orgs =
         OrganizationService(
             organizations = organizations,
@@ -93,6 +96,7 @@ fun ApplicationTestBuilder.consoleModule(
                 ConsoleWiring(
                     auth = auth,
                     orgs = orgs,
+                    apps = appService,
                     cookies = SessionCookies(secure = false, lifetime = policy.sessionLifetime),
                     organizations = organizations,
                     memberships = memberships,

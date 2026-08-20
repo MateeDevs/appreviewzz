@@ -24,6 +24,7 @@ import cz.matee.appreviewzz.core.port.PasswordHasher
 import cz.matee.appreviewzz.core.port.ReplyTarget
 import cz.matee.appreviewzz.core.port.ReviewSource
 import cz.matee.appreviewzz.core.port.SuggestReplyProvider
+import cz.matee.appreviewzz.core.usecase.AppService
 import cz.matee.appreviewzz.core.usecase.AuthPolicy
 import cz.matee.appreviewzz.core.usecase.AuthenticationService
 import cz.matee.appreviewzz.core.usecase.ConsoleLinks
@@ -331,6 +332,9 @@ class Components(
             links = consoleLinks,
         )
     }
+
+    /** Sledované aplikace (F3.3). */
+    val appService: AppService by lazy { AppService(apps = apps, audit = audit) }
 
     val sessionCookies: SessionCookies by lazy {
         SessionCookies(

@@ -39,6 +39,8 @@ import cz.matee.appreviewzz.core.port.StoreConnectorException
 import cz.matee.appreviewzz.core.port.StoreContext
 import cz.matee.appreviewzz.core.port.ValidationOutcome
 import cz.matee.appreviewzz.core.port.auditEntry
+import cz.matee.appreviewzz.core.usecase.AppInputs
+import cz.matee.appreviewzz.core.usecase.ConsoleException
 import cz.matee.appreviewzz.core.usecase.PlatformIngest
 import cz.matee.appreviewzz.crypto.CredentialNotFoundException
 import cz.matee.appreviewzz.crypto.KeyManagementException
@@ -47,8 +49,6 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.io.IOException
 import java.nio.file.Path
-import java.time.DateTimeException
-import java.time.ZoneId
 import kotlin.io.path.exists
 import kotlin.io.path.readText
 import kotlin.time.Clock
@@ -809,27 +809,11 @@ private fun requireValidSlug(slug: String) {
     }
 }
 
-private fun locale(raw: String): MessageLocale =
-    runCatching { MessageLocale.ofCode(raw) }.getOrElse { _ ->
-        throw UsageException("--locale zná ${MessageLocale.entries.joinToString { locale -> locale.code }}")
-    }
+private fun locale(raw: String): MessageLocale = usage { AppInputs.locale(raw, "--locale") }
 
-private fun timezone(raw: String): String {
-    try {
-        ZoneId.of(raw)
-    } catch (error: DateTimeException) {
-        throw UsageException("--timezone '$raw' není známá zóna (čekám např. Europe/Prague)", error)
-    }
-    return raw
-}
+private fun timezone(raw: String): String = usage { AppInputs.timezone(raw, "--timezone") }
 
-/** Rozsah drží i databáze; tady jde jen o to, aby uživatel dostal větu místo constraint violation. */
-private fun ingestInterval(minutes: Int): Int {
-    if (minutes !in MIN_INGEST_INTERVAL..MAX_INGEST_INTERVAL) {
-        throw UsageException("--ingest-interval musí být mezi $MIN_INGEST_INTERVAL a $MAX_INGEST_INTERVAL minutami")
-    }
-    return minutes
-}
+private fun ingestInterval(minutes: Int): Int = usage { AppInputs.ingestInterval(minutes, "--ingest-interval") }
 
 /**
  * Watermark, od kterého se recenze notifikují. `now` je to, co se použije při onboardingu
@@ -838,19 +822,19 @@ private fun ingestInterval(minutes: Int): Int {
 private fun notifyFrom(
     raw: String?,
     clock: Clock,
-): Instant? =
-    when {
-        raw == null -> null
-        raw.equals("now", ignoreCase = true) -> clock.now()
-        else ->
-            runCatching { Instant.parse(raw) }.getOrElse {
-                throw UsageException("--notify-from čeká 'now' nebo čas v ISO-8601 (2026-08-19T00:00:00Z), dostalo '$raw'")
-            }
-    }
+): Instant? = usage { AppInputs.notifyFrom(raw, "--notify-from", clock) }
 
-private fun digestAt(raw: String): LocalTime =
-    runCatching { LocalTime.parse(raw) }.getOrElse { _ ->
-        throw UsageException("--digest-at čeká čas ve tvaru HH:MM, dostalo '$raw'")
+private fun digestAt(raw: String): LocalTime = usage { AppInputs.digestAt(raw, "--digest-at") }
+
+/**
+ * Pravidla pro hodnoty appky drží doména ([AppInputs]) — stejná pro console i CLI.
+ * Tady se jen její chyba přeloží na chybu použití, kterou CLI umí vypsat jako větu.
+ */
+private fun <T> usage(block: () -> T): T =
+    try {
+        block()
+    } catch (error: ConsoleException) {
+        throw UsageException(error.message.orEmpty(), error)
     }
 
 private fun orgRole(raw: String): OrgRole =
