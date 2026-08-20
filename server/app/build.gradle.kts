@@ -21,6 +21,7 @@ dependencies {
     implementation(libs.koin.ktor)
     implementation(libs.koin.logger.slf4j)
     implementation(libs.micrometer.prometheus)
+    implementation(libs.angus.mail)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.bundles.logging)
     runtimeOnly(libs.postgresql)

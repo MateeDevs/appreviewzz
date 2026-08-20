@@ -27,6 +27,7 @@ import cz.matee.appreviewzz.core.model.Platform
 import cz.matee.appreviewzz.core.model.Review
 import cz.matee.appreviewzz.core.model.ReviewState
 import cz.matee.appreviewzz.core.model.SecretPayload
+import cz.matee.appreviewzz.core.model.Slugs
 import cz.matee.appreviewzz.core.model.ValidationStatus
 import cz.matee.appreviewzz.core.port.ChannelErrorKind
 import cz.matee.appreviewzz.core.port.ChannelException
@@ -800,20 +801,11 @@ private data class AscKeyFile(
     val privateKey: String,
 )
 
-private fun slugify(name: String): String =
-    name
-        .lowercase()
-        .map { if (it.isLetterOrDigit() && it.code < ASCII_LIMIT) it else '-' }
-        .joinToString("")
-        .trim('-')
-        .replace(Regex("-+"), "-")
+private fun slugify(name: String): String = Slugs.of(name)
 
 private fun requireValidSlug(slug: String) {
-    if (!SLUG_PATTERN.matches(slug)) {
-        throw UsageException(
-            "Slug '$slug' neprojde: 2–63 znaků, jen malá písmena bez diakritiky, číslice a pomlčky, " +
-                "a musí začínat písmenem nebo číslicí. Zadej vlastní přes --slug.",
-        )
+    if (!Slugs.isValid(slug)) {
+        throw UsageException("Slug '$slug' neprojde: ${Slugs.RULE}. Zadej vlastní přes --slug.")
     }
 }
 
@@ -908,10 +900,8 @@ private fun Review.summarize(): String {
         "${state.name.padEnd(STATE_COLUMN)} ${(authorName ?: "anonym").take(AUTHOR_COLUMN).padEnd(AUTHOR_COLUMN)}  $snippet"
 }
 
-private val SLUG_PATTERN = Regex("^[a-z0-9][a-z0-9-]{1,62}$")
 private const val MIN_INGEST_INTERVAL = 5
 private const val MAX_INGEST_INTERVAL = 1440
-private const val ASCII_LIMIT = 128
 private const val DETAIL_LABEL_COLUMN = 16
 private const val PLATFORM_COLUMN = 8
 private const val STATE_COLUMN = 10

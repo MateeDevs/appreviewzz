@@ -2,6 +2,8 @@ package cz.matee.appreviewzz.app
 
 import cz.matee.appreviewzz.core.usecase.AuthException
 import cz.matee.appreviewzz.core.usecase.AuthFailure
+import cz.matee.appreviewzz.core.usecase.ConsoleException
+import cz.matee.appreviewzz.core.usecase.ConsoleFailure
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.Application
@@ -47,6 +49,16 @@ fun Application.installErrorHandling() {
                 ),
             )
         }
+        exception<ConsoleException> { call, cause ->
+            call.respond(
+                cause.failure.status(),
+                ErrorResponse(
+                    error = cause.failure.name.lowercase(),
+                    requestId = call.callId,
+                    message = cause.message,
+                ),
+            )
+        }
         status(HttpStatusCode.NotFound) { call, status ->
             call.respond(status, ErrorResponse(error = "not_found", requestId = call.callId))
         }
@@ -63,4 +75,14 @@ private fun AuthFailure.status(): HttpStatusCode =
         AuthFailure.EMAIL_TAKEN -> HttpStatusCode.Conflict
         AuthFailure.INVALID_CREDENTIALS -> HttpStatusCode.Unauthorized
         AuthFailure.ACCOUNT_LOCKED -> HttpStatusCode.Locked
+    }
+
+private fun ConsoleFailure.status(): HttpStatusCode =
+    when (this) {
+        ConsoleFailure.INVALID_INPUT -> HttpStatusCode.BadRequest
+        // Ověření e-mailu chybí, ne oprávnění: 403 s vlastním kódem, ať console ví, co nabídnout.
+        ConsoleFailure.EMAIL_NOT_VERIFIED, ConsoleFailure.FORBIDDEN -> HttpStatusCode.Forbidden
+        ConsoleFailure.SLUG_TAKEN, ConsoleFailure.LAST_OWNER -> HttpStatusCode.Conflict
+        ConsoleFailure.NOT_FOUND -> HttpStatusCode.NotFound
+        ConsoleFailure.INVITATION_INVALID -> HttpStatusCode.BadRequest
     }

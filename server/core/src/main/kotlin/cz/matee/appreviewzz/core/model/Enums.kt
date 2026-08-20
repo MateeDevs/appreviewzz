@@ -15,6 +15,13 @@ enum class OrgRole {
 
     /** Vidí recenze a odpovídá na ně. */
     MEMBER,
+    ;
+
+    /**
+     * Vyšší role umí všechno, co nižší — pořadí v enumu je pořadí oprávnění.
+     * `OWNER.atLeast(ADMIN)` je `true`, `MEMBER.atLeast(ADMIN)` není.
+     */
+    fun atLeast(required: OrgRole): Boolean = ordinal <= required.ordinal
 }
 
 enum class CredentialType {

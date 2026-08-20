@@ -6,6 +6,7 @@ import cz.matee.appreviewzz.core.model.ChannelId
 import cz.matee.appreviewzz.core.model.CredentialId
 import cz.matee.appreviewzz.core.model.DataKeyId
 import cz.matee.appreviewzz.core.model.FailedJobId
+import cz.matee.appreviewzz.core.model.InvitationId
 import cz.matee.appreviewzz.core.model.OrganizationId
 import cz.matee.appreviewzz.core.model.RatingSnapshotId
 import cz.matee.appreviewzz.core.model.ReplyId
@@ -37,6 +38,8 @@ internal fun Table.instant(name: String): Column<Instant> =
 
 internal fun Table.organizationId(name: String = "org_id"): Column<OrganizationId> =
     uuid(name).transform({ OrganizationId(it) }, { it.value })
+
+internal fun Table.invitationId(name: String): Column<InvitationId> = uuid(name).transform({ InvitationId(it) }, { it.value })
 
 internal fun Table.userId(name: String): Column<UserId> = uuid(name).transform({ UserId(it) }, { it.value })
 

@@ -9,7 +9,9 @@ import cz.matee.appreviewzz.core.model.UserAccount
 import cz.matee.appreviewzz.core.model.UserId
 import cz.matee.appreviewzz.core.model.UserSession
 import cz.matee.appreviewzz.core.model.UserTokenPurpose
+import cz.matee.appreviewzz.core.port.MailException
 import cz.matee.appreviewzz.core.port.Mailer
+import cz.matee.appreviewzz.core.port.OutgoingMail
 import cz.matee.appreviewzz.core.port.PasswordHasher
 import cz.matee.appreviewzz.core.port.SessionRepository
 import cz.matee.appreviewzz.core.port.UserRepository
@@ -225,7 +227,7 @@ class AuthenticationService(
             expiresAt = now + policy.resetLifetime,
             at = now,
         )
-        mailer.send(AuthMails.passwordReset(account.user, links.passwordReset(token), policy.resetLifetime, locale))
+        deliver(AuthMails.passwordReset(account.user, links.passwordReset(token), policy.resetLifetime, locale))
     }
 
     /** Reset hesla z odkazu. Ruší všechny relace — nevíme, kdo se mezitím přihlásil. */
@@ -282,7 +284,19 @@ class AuthenticationService(
             expiresAt = now + policy.verificationLifetime,
             at = now,
         )
-        mailer.send(AuthMails.emailVerification(user, links.emailVerification(token), locale))
+        deliver(AuthMails.emailVerification(user, links.emailVerification(token), locale))
+    }
+
+    /**
+     * Nefunkční pošta nesmí zabít registraci — účet platí a odkaz jde poslat znovu.
+     * Kdyby to spadlo, člověk by měl založený účet a zároveň chybovou hlášku.
+     */
+    private fun deliver(mail: OutgoingMail) {
+        try {
+            mailer.send(mail)
+        } catch (error: MailException) {
+            logger.error(error) { "E-mail '${mail.subject}' se nepodařilo odeslat" }
+        }
     }
 
     private fun requireStrongPassword(password: SecretPayload) {

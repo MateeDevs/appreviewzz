@@ -4,6 +4,7 @@ import cz.matee.appreviewzz.app.AiConfig
 import cz.matee.appreviewzz.app.AppConfig
 import cz.matee.appreviewzz.app.BackupConfig
 import cz.matee.appreviewzz.app.ConsoleConfig
+import cz.matee.appreviewzz.app.MailConfig
 import cz.matee.appreviewzz.app.Role
 import cz.matee.appreviewzz.app.ServerConfig
 import cz.matee.appreviewzz.app.SlackConfig
@@ -53,7 +54,19 @@ class SeedCliTest :
                         clientSecret = null,
                         publicBaseUrl = "https://appreviewzz.test",
                     ),
-                console = ConsoleConfig(baseUrl = "https://console.appreviewzz.test", mailFrom = "test@appreviewzz.test"),
+                console =
+                    ConsoleConfig(
+                        baseUrl = "https://console.appreviewzz.test",
+                        mail =
+                            MailConfig(
+                                from = "test@appreviewzz.test",
+                                smtpHost = null,
+                                smtpPort = 587,
+                                smtpUser = null,
+                                smtpPassword = null,
+                                startTls = true,
+                            ),
+                    ),
             )
 
         /** Příkaz se píše tak, jak se zadává v terminálu; hodnoty s mezerami se dávají do apostrofů. */

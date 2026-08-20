@@ -91,6 +91,21 @@ internal object OrgMembers : Table("org_member") {
     override val primaryKey = PrimaryKey(orgId, userId)
 }
 
+internal object OrgInvitations : Table("org_invitation") {
+    val id = invitationId("id")
+    val orgId = organizationId()
+    val email = text("email")
+    val role = enumerationByName<OrgRole>("role", ENUM_LENGTH)
+    val invitedBy = userId("invited_by").nullable()
+    val tokenHash = binary("token_hash")
+    val expiresAt = instant("expires_at")
+    val acceptedAt = instant("accepted_at").nullable()
+    val revokedAt = instant("revoked_at").nullable()
+    val createdAt = instant("created_at")
+
+    override val primaryKey = PrimaryKey(id)
+}
+
 internal object OrgDataKeys : Table("org_data_key") {
     val id = dataKeyId("id")
     val orgId = organizationId()

@@ -6,6 +6,7 @@ import cz.matee.appreviewzz.core.model.BackupRun
 import cz.matee.appreviewzz.core.model.Channel
 import cz.matee.appreviewzz.core.model.CredentialMeta
 import cz.matee.appreviewzz.core.model.FailedJob
+import cz.matee.appreviewzz.core.model.Invitation
 import cz.matee.appreviewzz.core.model.MessageLocale
 import cz.matee.appreviewzz.core.model.OrgDataKey
 import cz.matee.appreviewzz.core.model.OrgMembership
@@ -25,6 +26,7 @@ import cz.matee.appreviewzz.persistence.schema.Channels
 import cz.matee.appreviewzz.persistence.schema.Credentials
 import cz.matee.appreviewzz.persistence.schema.FailedJobs
 import cz.matee.appreviewzz.persistence.schema.OrgDataKeys
+import cz.matee.appreviewzz.persistence.schema.OrgInvitations
 import cz.matee.appreviewzz.persistence.schema.OrgMembers
 import cz.matee.appreviewzz.persistence.schema.Organizations
 import cz.matee.appreviewzz.persistence.schema.RatingSnapshots
@@ -77,6 +79,19 @@ internal fun ResultRow.toMembership(): OrgMembership =
         userId = this[OrgMembers.userId],
         role = this[OrgMembers.role],
         createdAt = this[OrgMembers.createdAt],
+    )
+
+internal fun ResultRow.toInvitation(): Invitation =
+    Invitation(
+        id = this[OrgInvitations.id],
+        orgId = this[OrgInvitations.orgId],
+        email = this[OrgInvitations.email],
+        role = this[OrgInvitations.role],
+        invitedBy = this[OrgInvitations.invitedBy],
+        expiresAt = this[OrgInvitations.expiresAt],
+        acceptedAt = this[OrgInvitations.acceptedAt],
+        revokedAt = this[OrgInvitations.revokedAt],
+        createdAt = this[OrgInvitations.createdAt],
     )
 
 internal fun ResultRow.toDataKey(): OrgDataKey =

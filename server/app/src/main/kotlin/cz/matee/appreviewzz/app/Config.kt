@@ -87,12 +87,27 @@ data class SlackConfig(
 }
 
 /**
+ * Odchozí pošta. Bez `MAIL_SMTP_HOST` se e-maily jen vypisují do logu — vypnutá pošta má být
+ * vidět, ne se tvářit jako výchozí stav (stejná úvaha jako u záloh).
+ */
+data class MailConfig(
+    val from: String,
+    val smtpHost: String?,
+    val smtpPort: Int,
+    val smtpUser: String?,
+    val smtpPassword: String?,
+    val startTls: Boolean,
+) {
+    val enabled: Boolean get() = smtpHost != null
+}
+
+/**
  * Console (F3). `baseUrl` je adresa, na které ji vidí klient — skládají se z ní odkazy
  * v e-mailech, takže nesmí být localhost, jakmile chodí pošta ven.
  */
 data class ConsoleConfig(
     val baseUrl: String?,
-    val mailFrom: String,
+    val mail: MailConfig,
 ) {
     /**
      * Session cookie se `Secure` posílá všude, kde běžíme na https. Lokální vývoj na http
@@ -165,7 +180,15 @@ data class AppConfig(
                         baseUrl =
                             env("CONSOLE_BASE_URL")?.takeIf { it.isNotBlank() }
                                 ?: env("PUBLIC_BASE_URL")?.takeIf { it.isNotBlank() },
-                        mailFrom = env.optional("MAIL_FROM", "appreviewzz@localhost"),
+                        mail =
+                            MailConfig(
+                                from = env.optional("MAIL_FROM", "appreviewzz@localhost"),
+                                smtpHost = env("MAIL_SMTP_HOST")?.takeIf { it.isNotBlank() },
+                                smtpPort = env.optional("MAIL_SMTP_PORT", "587").toInt(),
+                                smtpUser = env("MAIL_SMTP_USER")?.takeIf { it.isNotBlank() },
+                                smtpPassword = env("MAIL_SMTP_PASSWORD")?.takeIf { it.isNotBlank() },
+                                startTls = env.optional("MAIL_SMTP_STARTTLS", "true").toBooleanStrict(),
+                            ),
                     ),
                 slack =
                     SlackConfig(

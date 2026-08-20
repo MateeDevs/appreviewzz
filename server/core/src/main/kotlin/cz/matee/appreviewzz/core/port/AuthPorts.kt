@@ -107,5 +107,15 @@ data class OutgoingMail(
 )
 
 interface Mailer {
+    /**
+     * Odešle e-mail, nebo vyhodí [MailException]. Selhání pošty **nesmí shodit operaci**,
+     * kvůli které e-mail vzniká — pozvánka i registrace platí, i když pošta zrovna nejede,
+     * a odkaz se dá poslat znovu.
+     */
     fun send(mail: OutgoingMail)
 }
+
+class MailException(
+    message: String,
+    cause: Throwable? = null,
+) : RuntimeException(message, cause)

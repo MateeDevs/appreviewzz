@@ -8,6 +8,7 @@ import cz.matee.appreviewzz.persistence.schema.Channels
 import cz.matee.appreviewzz.persistence.schema.Credentials
 import cz.matee.appreviewzz.persistence.schema.FailedJobs
 import cz.matee.appreviewzz.persistence.schema.OrgDataKeys
+import cz.matee.appreviewzz.persistence.schema.OrgInvitations
 import cz.matee.appreviewzz.persistence.schema.OrgMembers
 import cz.matee.appreviewzz.persistence.schema.Organizations
 import cz.matee.appreviewzz.persistence.schema.RatingSnapshots
@@ -36,6 +37,7 @@ class SchemaConsistencyTest :
                 UserSessions,
                 UserTokens,
                 OrgMembers,
+                OrgInvitations,
                 OrgDataKeys,
                 Credentials,
                 Apps,

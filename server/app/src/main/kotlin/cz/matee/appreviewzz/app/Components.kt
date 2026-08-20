@@ -29,6 +29,7 @@ import cz.matee.appreviewzz.core.usecase.AuthenticationService
 import cz.matee.appreviewzz.core.usecase.ConsoleLinks
 import cz.matee.appreviewzz.core.usecase.DeliverReviewUseCase
 import cz.matee.appreviewzz.core.usecase.IngestReviewsUseCase
+import cz.matee.appreviewzz.core.usecase.OrganizationService
 import cz.matee.appreviewzz.core.usecase.PublishReplyUseCase
 import cz.matee.appreviewzz.crypto.Argon2PasswordHasher
 import cz.matee.appreviewzz.crypto.CredentialVault
@@ -47,6 +48,7 @@ import cz.matee.appreviewzz.persistence.repository.ExposedChannelRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedCredentialRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedDataKeyRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedFailedJobRepository
+import cz.matee.appreviewzz.persistence.repository.ExposedInvitationRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedMembershipRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedOrganizationRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedReplyRepository
@@ -83,6 +85,7 @@ class Components(
     val replies = ExposedReplyRepository(exposed)
     val channels = ExposedChannelRepository(exposed)
     val audit = ExposedAuditLogRepository(exposed)
+    val invitations = ExposedInvitationRepository(exposed)
     val backupRuns = ExposedBackupRunRepository(exposed)
 
     val sessions = ExposedSessionRepository(exposed)
@@ -285,7 +288,21 @@ class Components(
      * Dokud není nastavené SMTP, e-maily jdou do logu. Adresa console se bere z konfigurace,
      * a když chybí, z veřejné adresy API — pro lokální běh, kde je to totéž.
      */
-    val mailer: Mailer by lazy { LoggingMailer(config.console.mailFrom) }
+    val mailer: Mailer by lazy {
+        val mail = config.console.mail
+        if (mail.smtpHost == null) {
+            LoggingMailer(mail.from)
+        } else {
+            SmtpMailer(
+                from = mail.from,
+                host = mail.smtpHost,
+                port = mail.smtpPort,
+                user = mail.smtpUser,
+                password = mail.smtpPassword,
+                startTls = mail.startTls,
+            )
+        }
+    }
 
     val consoleLinks: ConsoleLinks by lazy {
         ConsoleLinks(config.console.baseUrl ?: config.slack.publicBaseUrl ?: "http://localhost:8080")
@@ -297,6 +314,19 @@ class Components(
             sessions = sessions,
             tokens = userTokens,
             hasher = passwordHasher,
+            mailer = mailer,
+            links = consoleLinks,
+        )
+    }
+
+    /** Organizace, členové a pozvánky (F3.2). */
+    val organizationService: OrganizationService by lazy {
+        OrganizationService(
+            organizations = organizations,
+            memberships = memberships,
+            users = users,
+            invitations = invitations,
+            audit = audit,
             mailer = mailer,
             links = consoleLinks,
         )
