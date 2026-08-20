@@ -6,6 +6,7 @@ import cz.matee.appreviewzz.core.model.CredentialId
 import cz.matee.appreviewzz.core.model.OrgRole
 import cz.matee.appreviewzz.core.model.Organization
 import cz.matee.appreviewzz.core.model.UserId
+import cz.matee.appreviewzz.core.port.AuditLogRepository
 import cz.matee.appreviewzz.core.port.MembershipRepository
 import cz.matee.appreviewzz.core.port.OrganizationRepository
 import cz.matee.appreviewzz.core.usecase.AppService
@@ -16,6 +17,7 @@ import cz.matee.appreviewzz.core.usecase.ConsoleFailure
 import cz.matee.appreviewzz.core.usecase.CredentialService
 import cz.matee.appreviewzz.core.usecase.OrgActor
 import cz.matee.appreviewzz.core.usecase.OrganizationService
+import cz.matee.appreviewzz.core.usecase.ReviewInbox
 import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.routing.route
@@ -33,11 +35,18 @@ class ConsoleWiring(
     val apps: AppService,
     val credentials: CredentialService,
     val channels: ChannelService,
+    val reviews: ReviewInbox,
+    val audit: AuditLogRepository,
     val cookies: SessionCookies,
     val organizations: OrganizationRepository,
     val memberships: MembershipRepository,
     /** `null` = instalace bez Slacku (self-host, který používá jen Teams). */
     val slack: ConsoleSlack? = null,
+    /**
+     * Zařazení odpovědi z console do fronty. `null` znamená proces bez přístupu k plánovači —
+     * console pak recenze ukazuje, ale odpovídat z ní nejde (a řekne to větou).
+     */
+    val enqueueReply: ((ConsoleReply) -> Boolean)? = null,
 )
 
 /**
@@ -58,6 +67,7 @@ fun Application.consoleRoutes(console: ConsoleWiring) {
                 appRoutes(console)
                 credentialRoutes(console)
                 channelRoutes(console)
+                reviewRoutes(console)
             }
         }
     }

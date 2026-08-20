@@ -11,6 +11,7 @@ import cz.matee.appreviewzz.core.model.ChannelId
 import cz.matee.appreviewzz.core.model.OrganizationId
 import cz.matee.appreviewzz.core.model.ReplySource
 import cz.matee.appreviewzz.core.model.ReviewId
+import cz.matee.appreviewzz.core.model.UserId
 import cz.matee.appreviewzz.core.model.sha256Hex
 import cz.matee.appreviewzz.core.port.FailedJobRepository
 import cz.matee.appreviewzz.core.usecase.PublishReplyUseCase
@@ -44,6 +45,8 @@ data class ReplyJobData(
     val source: String,
     val authorExternalId: String?,
     val authorDisplayName: String?,
+    /** Přihlášený uživatel console. U odpovědí z chatu zůstává prázdné. */
+    val authorUserId: String? = null,
 )
 
 /**
@@ -155,4 +158,5 @@ private fun ReplyJobData.toCommand(): ReplyCommand =
         channelId = channelId?.let { ChannelId(Uuid.parse(it)) },
         authorExternalId = authorExternalId,
         authorDisplayName = authorDisplayName,
+        authorUserId = authorUserId?.let { UserId(Uuid.parse(it)) },
     )

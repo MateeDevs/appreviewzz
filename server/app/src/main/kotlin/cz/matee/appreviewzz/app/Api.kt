@@ -3,6 +3,8 @@ package cz.matee.appreviewzz.app
 import cz.matee.appreviewzz.channels.slack.SlackInstallStates
 import cz.matee.appreviewzz.channels.slack.SlackOAuth
 import cz.matee.appreviewzz.channels.slack.SlackSignatureVerifier
+import cz.matee.appreviewzz.core.model.ReplySource
+import cz.matee.appreviewzz.jobs.ReplyJobData
 import cz.matee.appreviewzz.jobs.buildSchedulerClient
 import cz.matee.appreviewzz.persistence.Database
 import cz.matee.appreviewzz.persistence.asDataSource
@@ -28,11 +30,12 @@ fun runApi(
     if (verifier == null) {
         logger.warn { "SLACK_SIGNING_SECRET není nastavený — odpovědi ze Slacku se nepřijímají" }
     }
-    // Klient fronty, ne plánovač: webhook úlohu jen zařadí, publikuje ji worker.
-    val queue = verifier?.let { buildSchedulerClient(database.asDataSource(), components.replyJobs) }
+    // Klient fronty, ne plánovač: API úlohu jen zařadí, publikuje ji worker. Používá ho
+    // webhook ze Slacku i odpovídání z console — obojí musí přežít nasazení nové verze.
+    val queue = buildSchedulerClient(database.asDataSource(), components.replyJobs)
     val intake =
-        queue?.let { client ->
-            SlackReplyIntake(components.reviewMessages) { data -> components.replyJobs.enqueue(client, data) }
+        verifier?.let {
+            SlackReplyIntake(components.reviewMessages) { data -> components.replyJobs.enqueue(queue, data) }
         }
 
     val install = installRoutes(components)
@@ -47,6 +50,25 @@ fun runApi(
             cookies = components.sessionCookies,
             organizations = components.organizations,
             memberships = components.memberships,
+            reviews = components.reviewInbox,
+            audit = components.audit,
+            enqueueReply = { reply ->
+                components.replyJobs.enqueue(
+                    queue,
+                    ReplyJobData(
+                        orgId = reply.orgId,
+                        reviewId = reply.reviewId,
+                        // Odpověď z console nepatří do žádného kanálu; do Slacku se výsledek
+                        // dopíše k té zprávě, která tam pro recenzi je (řeší publikace).
+                        channelId = null,
+                        body = reply.body,
+                        source = ReplySource.CONSOLE.name,
+                        authorExternalId = null,
+                        authorDisplayName = reply.authorDisplayName,
+                        authorUserId = reply.authorUserId,
+                    ),
+                )
+            },
         )
 
     embeddedServer(

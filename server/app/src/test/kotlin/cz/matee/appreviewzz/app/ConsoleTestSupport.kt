@@ -24,6 +24,7 @@ import cz.matee.appreviewzz.core.usecase.ChannelService
 import cz.matee.appreviewzz.core.usecase.ConsoleLinks
 import cz.matee.appreviewzz.core.usecase.CredentialService
 import cz.matee.appreviewzz.core.usecase.OrganizationService
+import cz.matee.appreviewzz.core.usecase.ReviewInbox
 import cz.matee.appreviewzz.crypto.Argon2PasswordHasher
 import cz.matee.appreviewzz.crypto.CredentialVault
 import cz.matee.appreviewzz.crypto.KekProviders
@@ -32,9 +33,13 @@ import cz.matee.appreviewzz.persistence.repository.ExposedAuditLogRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedChannelRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedCredentialRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedDataKeyRepository
+import cz.matee.appreviewzz.persistence.repository.ExposedFailedJobRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedInvitationRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedMembershipRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedOrganizationRepository
+import cz.matee.appreviewzz.persistence.repository.ExposedReplyRepository
+import cz.matee.appreviewzz.persistence.repository.ExposedReviewMessageRepository
+import cz.matee.appreviewzz.persistence.repository.ExposedReviewRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedSessionRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedUserRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedUserTokenRepository
@@ -145,10 +150,23 @@ class ConsoleFakes(
     val slack: FakeNotificationChannel,
 )
 
+/** Fronta odpovědí bez plánovače: test si přečte, co by se publikovalo. */
+class RecordingReplyQueue : (ConsoleReply) -> Boolean {
+    val queued = mutableListOf<ConsoleReply>()
+
+    override fun invoke(reply: ConsoleReply): Boolean {
+        // Druhá tatáž odpověď se nezařazuje, stejně jako v opravdové frontě.
+        val duplicate = queued.any { it.reviewId == reply.reviewId && it.body == reply.body }
+        queued += reply
+        return !duplicate
+    }
+}
+
 fun ApplicationTestBuilder.consoleModule(
     mailer: RecordingMailer,
     policy: AuthPolicy = AuthPolicy(),
     slack: ConsoleSlack? = null,
+    replyQueue: RecordingReplyQueue? = null,
     fakes: ConsoleFakes =
         ConsoleFakes(FakeReviewSource(Platform.ANDROID), FakeReviewSource(Platform.IOS), FakeNotificationChannel()),
 ) {
@@ -180,6 +198,17 @@ fun ApplicationTestBuilder.consoleModule(
             channels = channelRepository,
             vault = vault,
             sources = listOf(fakes.googlePlay, fakes.appStore),
+            audit = audit,
+        )
+    val reviewInbox =
+        ReviewInbox(
+            reviews = ExposedReviewRepository(exposed),
+            messages = ExposedReviewMessageRepository(exposed),
+            replies = ExposedReplyRepository(exposed),
+            apps = appRepository,
+            channels = channelRepository,
+            credentials = credentialRepository,
+            failedJobs = ExposedFailedJobRepository(exposed),
             audit = audit,
         )
     val channelService =
@@ -217,6 +246,9 @@ fun ApplicationTestBuilder.consoleModule(
                     organizations = organizations,
                     memberships = memberships,
                     slack = slack,
+                    reviews = reviewInbox,
+                    audit = audit,
+                    enqueueReply = replyQueue,
                 ),
         )
     }

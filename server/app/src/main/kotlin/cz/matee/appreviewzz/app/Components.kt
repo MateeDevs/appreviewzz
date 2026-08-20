@@ -34,6 +34,7 @@ import cz.matee.appreviewzz.core.usecase.DeliverReviewUseCase
 import cz.matee.appreviewzz.core.usecase.IngestReviewsUseCase
 import cz.matee.appreviewzz.core.usecase.OrganizationService
 import cz.matee.appreviewzz.core.usecase.PublishReplyUseCase
+import cz.matee.appreviewzz.core.usecase.ReviewInbox
 import cz.matee.appreviewzz.crypto.Argon2PasswordHasher
 import cz.matee.appreviewzz.crypto.CredentialVault
 import cz.matee.appreviewzz.crypto.KekProviders
@@ -372,6 +373,20 @@ class Components(
             audit = audit,
             installStates = slackInstallStates,
             publicBaseUrl = publicBaseUrl,
+        )
+    }
+
+    /** Recenze, delivery health a audit log v consoli (F3.5). */
+    val reviewInbox: ReviewInbox by lazy {
+        ReviewInbox(
+            reviews = reviews,
+            messages = reviewMessages,
+            replies = replies,
+            apps = apps,
+            channels = channels,
+            credentials = credentials,
+            failedJobs = failedJobs,
+            audit = audit,
         )
     }
 
