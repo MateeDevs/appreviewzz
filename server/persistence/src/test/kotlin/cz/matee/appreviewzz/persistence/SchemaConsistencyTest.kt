@@ -15,6 +15,8 @@ import cz.matee.appreviewzz.persistence.schema.Replies
 import cz.matee.appreviewzz.persistence.schema.ReviewMessages
 import cz.matee.appreviewzz.persistence.schema.ReviewRevisions
 import cz.matee.appreviewzz.persistence.schema.Reviews
+import cz.matee.appreviewzz.persistence.schema.UserSessions
+import cz.matee.appreviewzz.persistence.schema.UserTokens
 import cz.matee.appreviewzz.persistence.schema.Users
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
@@ -31,6 +33,8 @@ class SchemaConsistencyTest :
             listOf(
                 Organizations,
                 Users,
+                UserSessions,
+                UserTokens,
                 OrgMembers,
                 OrgDataKeys,
                 Credentials,

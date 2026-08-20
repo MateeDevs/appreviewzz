@@ -35,6 +35,7 @@ import cz.matee.appreviewzz.core.model.ReviewMessage
 import cz.matee.appreviewzz.core.model.ReviewMessageId
 import cz.matee.appreviewzz.core.model.ReviewState
 import cz.matee.appreviewzz.core.model.User
+import cz.matee.appreviewzz.core.model.UserAccount
 import cz.matee.appreviewzz.core.model.UserId
 import cz.matee.appreviewzz.core.model.ValidationStatus
 import kotlinx.datetime.LocalDate
@@ -74,6 +75,36 @@ interface UserRepository {
     fun findById(id: UserId): User?
 
     fun findByEmail(email: String): User?
+
+    /**
+     * Přihlašovací pohled na uživatele — hash hesla, ověření e-mailu, brzda proti hádání.
+     * Volá ho výhradně autentizační use-case; zbytek aplikace si vystačí s [findById].
+     */
+    fun findAccountByEmail(email: String): UserAccount?
+
+    fun findAccountById(id: UserId): UserAccount?
+
+    fun setPassword(
+        id: UserId,
+        passwordHash: String,
+        at: Instant,
+    ): Boolean
+
+    fun markEmailVerified(
+        id: UserId,
+        at: Instant,
+    ): Boolean
+
+    /**
+     * Zápis výsledku pokusu o přihlášení. Kdy se účet zamkne, rozhoduje use-case —
+     * repozitář jen uloží, na čem se dohodl.
+     */
+    fun recordLoginAttempt(
+        id: UserId,
+        failedLoginCount: Int,
+        lockedUntil: Instant?,
+        lastLoginAt: Instant?,
+    )
 }
 
 interface MembershipRepository {
@@ -84,6 +115,9 @@ interface MembershipRepository {
     ): OrgMembership
 
     fun listByOrg(orgId: OrganizationId): List<OrgMembership>
+
+    /** Bez org-scope záměrně: tohle je pohled uživatele na to, do kterých organizací patří. */
+    fun listByUser(userId: UserId): List<OrgMembership>
 
     fun roleOf(
         orgId: OrganizationId,

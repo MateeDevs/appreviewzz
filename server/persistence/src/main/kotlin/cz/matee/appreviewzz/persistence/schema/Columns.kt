@@ -11,6 +11,7 @@ import cz.matee.appreviewzz.core.model.RatingSnapshotId
 import cz.matee.appreviewzz.core.model.ReplyId
 import cz.matee.appreviewzz.core.model.ReviewId
 import cz.matee.appreviewzz.core.model.ReviewMessageId
+import cz.matee.appreviewzz.core.model.SessionId
 import cz.matee.appreviewzz.core.model.UserId
 import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.Table
@@ -38,6 +39,8 @@ internal fun Table.organizationId(name: String = "org_id"): Column<OrganizationI
     uuid(name).transform({ OrganizationId(it) }, { it.value })
 
 internal fun Table.userId(name: String): Column<UserId> = uuid(name).transform({ UserId(it) }, { it.value })
+
+internal fun Table.sessionId(name: String): Column<SessionId> = uuid(name).transform({ SessionId(it) }, { it.value })
 
 internal fun Table.appId(name: String = "app_id"): Column<AppId> = uuid(name).transform({ AppId(it) }, { it.value })
 

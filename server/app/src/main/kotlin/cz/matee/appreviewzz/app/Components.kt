@@ -18,13 +18,19 @@ import cz.matee.appreviewzz.connectors.appstore.appStoreHttpClient
 import cz.matee.appreviewzz.connectors.googleplay.GooglePlayConnector
 import cz.matee.appreviewzz.connectors.googleplay.googleHttpClient
 import cz.matee.appreviewzz.core.model.SecretPayload
+import cz.matee.appreviewzz.core.port.Mailer
 import cz.matee.appreviewzz.core.port.NotificationChannel
+import cz.matee.appreviewzz.core.port.PasswordHasher
 import cz.matee.appreviewzz.core.port.ReplyTarget
 import cz.matee.appreviewzz.core.port.ReviewSource
 import cz.matee.appreviewzz.core.port.SuggestReplyProvider
+import cz.matee.appreviewzz.core.usecase.AuthPolicy
+import cz.matee.appreviewzz.core.usecase.AuthenticationService
+import cz.matee.appreviewzz.core.usecase.ConsoleLinks
 import cz.matee.appreviewzz.core.usecase.DeliverReviewUseCase
 import cz.matee.appreviewzz.core.usecase.IngestReviewsUseCase
 import cz.matee.appreviewzz.core.usecase.PublishReplyUseCase
+import cz.matee.appreviewzz.crypto.Argon2PasswordHasher
 import cz.matee.appreviewzz.crypto.CredentialVault
 import cz.matee.appreviewzz.crypto.KekProviders
 import cz.matee.appreviewzz.crypto.KekUsage
@@ -46,7 +52,9 @@ import cz.matee.appreviewzz.persistence.repository.ExposedOrganizationRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedReplyRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedReviewMessageRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedReviewRepository
+import cz.matee.appreviewzz.persistence.repository.ExposedSessionRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedUserRepository
+import cz.matee.appreviewzz.persistence.repository.ExposedUserTokenRepository
 import io.ktor.client.HttpClient
 import java.time.Duration
 import java.time.ZoneId
@@ -76,6 +84,9 @@ class Components(
     val channels = ExposedChannelRepository(exposed)
     val audit = ExposedAuditLogRepository(exposed)
     val backupRuns = ExposedBackupRunRepository(exposed)
+
+    val sessions = ExposedSessionRepository(exposed)
+    val userTokens = ExposedUserTokenRepository(exposed)
 
     private val dataKeys = ExposedDataKeyRepository(exposed)
 
@@ -263,6 +274,40 @@ class Components(
     val slackRedirectUri: String? get() = config.slack.publicBaseUrl?.let { SlackOAuth.redirectUri(it) }
 
     val slackInstallStore: SlackInstallStore by lazy { SlackInstallStore(vault, credentials, audit) }
+
+    /**
+     * Přihlášení do console (F3.1). Hasher vzniká líně: seed CLI ani worker nemají důvod
+     * držet v paměti nic z autentizace.
+     */
+    val passwordHasher: PasswordHasher by lazy { Argon2PasswordHasher() }
+
+    /**
+     * Dokud není nastavené SMTP, e-maily jdou do logu. Adresa console se bere z konfigurace,
+     * a když chybí, z veřejné adresy API — pro lokální běh, kde je to totéž.
+     */
+    val mailer: Mailer by lazy { LoggingMailer(config.console.mailFrom) }
+
+    val consoleLinks: ConsoleLinks by lazy {
+        ConsoleLinks(config.console.baseUrl ?: config.slack.publicBaseUrl ?: "http://localhost:8080")
+    }
+
+    val authentication: AuthenticationService by lazy {
+        AuthenticationService(
+            users = users,
+            sessions = sessions,
+            tokens = userTokens,
+            hasher = passwordHasher,
+            mailer = mailer,
+            links = consoleLinks,
+        )
+    }
+
+    val sessionCookies: SessionCookies by lazy {
+        SessionCookies(
+            secure = config.console.secureCookies(config.environment),
+            lifetime = AuthPolicy().sessionLifetime,
+        )
+    }
 
     /** Pustí HTTP klienty storů. Volá jen CLI — servery drží klienty po celou dobu běhu. */
     override fun close() {

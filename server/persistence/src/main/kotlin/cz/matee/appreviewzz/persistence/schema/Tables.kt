@@ -12,6 +12,7 @@ import cz.matee.appreviewzz.core.model.RatingSource
 import cz.matee.appreviewzz.core.model.ReplySource
 import cz.matee.appreviewzz.core.model.ReplyStatus
 import cz.matee.appreviewzz.core.model.ReviewState
+import cz.matee.appreviewzz.core.model.UserTokenPurpose
 import cz.matee.appreviewzz.core.model.ValidationStatus
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
@@ -44,8 +45,39 @@ internal object Users : Table("app_user") {
     val id = userId("id")
     val email = text("email")
     val displayName = text("display_name").nullable()
+    val passwordHash = text("password_hash").nullable()
+    val emailVerifiedAt = instant("email_verified_at").nullable()
+    val lastLoginAt = instant("last_login_at").nullable()
+    val failedLoginCount = integer("failed_login_count")
+    val lockedUntil = instant("locked_until").nullable()
     val createdAt = instant("created_at")
     val updatedAt = instant("updated_at")
+
+    override val primaryKey = PrimaryKey(id)
+}
+
+internal object UserSessions : Table("user_session") {
+    val id = sessionId("id")
+    val userId = userId("user_id")
+    val tokenHash = binary("token_hash")
+    val userAgent = text("user_agent").nullable()
+    val clientIp = text("client_ip").nullable()
+    val createdAt = instant("created_at")
+    val lastSeenAt = instant("last_seen_at")
+    val expiresAt = instant("expires_at")
+    val revokedAt = instant("revoked_at").nullable()
+
+    override val primaryKey = PrimaryKey(id)
+}
+
+internal object UserTokens : Table("user_token") {
+    val id = uuid("id")
+    val userId = userId("user_id")
+    val purpose = enumerationByName<UserTokenPurpose>("purpose", ENUM_LENGTH)
+    val tokenHash = binary("token_hash")
+    val expiresAt = instant("expires_at")
+    val consumedAt = instant("consumed_at").nullable()
+    val createdAt = instant("created_at")
 
     override val primaryKey = PrimaryKey(id)
 }

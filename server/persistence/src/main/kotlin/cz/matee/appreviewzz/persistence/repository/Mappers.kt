@@ -15,6 +15,8 @@ import cz.matee.appreviewzz.core.model.Reply
 import cz.matee.appreviewzz.core.model.Review
 import cz.matee.appreviewzz.core.model.ReviewMessage
 import cz.matee.appreviewzz.core.model.User
+import cz.matee.appreviewzz.core.model.UserAccount
+import cz.matee.appreviewzz.core.model.UserSession
 import cz.matee.appreviewzz.persistence.schema.AppCredentials
 import cz.matee.appreviewzz.persistence.schema.Apps
 import cz.matee.appreviewzz.persistence.schema.AuditLogs
@@ -29,6 +31,7 @@ import cz.matee.appreviewzz.persistence.schema.RatingSnapshots
 import cz.matee.appreviewzz.persistence.schema.Replies
 import cz.matee.appreviewzz.persistence.schema.ReviewMessages
 import cz.matee.appreviewzz.persistence.schema.Reviews
+import cz.matee.appreviewzz.persistence.schema.UserSessions
 import cz.matee.appreviewzz.persistence.schema.Users
 import org.jetbrains.exposed.v1.core.ResultRow
 
@@ -46,6 +49,26 @@ internal fun ResultRow.toUser(): User =
         email = this[Users.email],
         displayName = this[Users.displayName],
         createdAt = this[Users.createdAt],
+    )
+
+/** Přihlašovací pohled na uživatele. Hash hesla jde ven jen sem, dál ho nikdo nedostane. */
+internal fun ResultRow.toUserAccount(): UserAccount =
+    UserAccount(
+        user = toUser(),
+        passwordHash = this[Users.passwordHash],
+        emailVerifiedAt = this[Users.emailVerifiedAt],
+        lastLoginAt = this[Users.lastLoginAt],
+        failedLoginCount = this[Users.failedLoginCount],
+        lockedUntil = this[Users.lockedUntil],
+    )
+
+internal fun ResultRow.toUserSession(): UserSession =
+    UserSession(
+        id = this[UserSessions.id],
+        userId = this[UserSessions.userId],
+        createdAt = this[UserSessions.createdAt],
+        lastSeenAt = this[UserSessions.lastSeenAt],
+        expiresAt = this[UserSessions.expiresAt],
     )
 
 internal fun ResultRow.toMembership(): OrgMembership =

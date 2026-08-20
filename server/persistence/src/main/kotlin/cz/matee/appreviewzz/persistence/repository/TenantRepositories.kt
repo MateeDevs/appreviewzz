@@ -7,6 +7,7 @@ import cz.matee.appreviewzz.core.model.OrgRole
 import cz.matee.appreviewzz.core.model.Organization
 import cz.matee.appreviewzz.core.model.OrganizationId
 import cz.matee.appreviewzz.core.model.User
+import cz.matee.appreviewzz.core.model.UserAccount
 import cz.matee.appreviewzz.core.model.UserId
 import cz.matee.appreviewzz.core.port.DataKeyRepository
 import cz.matee.appreviewzz.core.port.MembershipRepository
@@ -123,6 +124,66 @@ class ExposedUserRepository(
                 .firstOrNull()
                 ?.toUser()
         }
+
+    override fun findAccountByEmail(email: String): UserAccount? =
+        transaction(database) {
+            Users
+                .selectAll()
+                .where { Users.email eq email.trim().lowercase() }
+                .firstOrNull()
+                ?.toUserAccount()
+        }
+
+    override fun findAccountById(id: UserId): UserAccount? =
+        transaction(database) {
+            Users
+                .selectAll()
+                .where { Users.id eq id }
+                .firstOrNull()
+                ?.toUserAccount()
+        }
+
+    override fun setPassword(
+        id: UserId,
+        passwordHash: String,
+        at: Instant,
+    ): Boolean =
+        transaction(database) {
+            // Nastavení hesla je zároveň konec zamčení: kdo prošel resetem, prokázal se e-mailem.
+            Users.update({ Users.id eq id }) {
+                it[Users.passwordHash] = passwordHash
+                it[failedLoginCount] = 0
+                it[lockedUntil] = null
+                it[updatedAt] = at
+            } > 0
+        }
+
+    override fun markEmailVerified(
+        id: UserId,
+        at: Instant,
+    ): Boolean =
+        transaction(database) {
+            Users.update({ (Users.id eq id) and (Users.emailVerifiedAt eq null) }) {
+                it[emailVerifiedAt] = at
+                it[updatedAt] = at
+            } > 0
+        }
+
+    override fun recordLoginAttempt(
+        id: UserId,
+        failedLoginCount: Int,
+        lockedUntil: Instant?,
+        lastLoginAt: Instant?,
+    ) {
+        transaction(database) {
+            Users.update({ Users.id eq id }) {
+                it[Users.failedLoginCount] = failedLoginCount
+                it[Users.lockedUntil] = lockedUntil
+                // `null` = neúspěšný pokus; poslední úspěšné přihlášení se nepřepisuje.
+                if (lastLoginAt != null) it[Users.lastLoginAt] = lastLoginAt
+            }
+        }
+    }
 }
 
 class ExposedMembershipRepository(
@@ -161,6 +222,15 @@ class ExposedMembershipRepository(
     override fun listByOrg(orgId: OrganizationId): List<OrgMembership> =
         transaction(database) {
             OrgMembers.selectAll().where { OrgMembers.orgId eq orgId }.map { it.toMembership() }
+        }
+
+    override fun listByUser(userId: UserId): List<OrgMembership> =
+        transaction(database) {
+            OrgMembers
+                .selectAll()
+                .where { OrgMembers.userId eq userId }
+                .orderBy(OrgMembers.createdAt to SortOrder.ASC)
+                .map { it.toMembership() }
         }
 
     override fun roleOf(

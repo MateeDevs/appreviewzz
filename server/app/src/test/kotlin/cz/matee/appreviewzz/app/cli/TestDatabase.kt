@@ -6,7 +6,10 @@ import cz.matee.appreviewzz.persistence.asDataSource
 import org.testcontainers.containers.PostgreSQLContainer
 import java.sql.Statement
 
-/** Postgres pro testy seed CLI — CLI si otevírá vlastní pool, my držíme jen kontejner a úklid. */
+/**
+ * Postgres pro testy nad databází (seed CLI, console API). CLI si otevírá vlastní pool,
+ * testy routes si berou [database]; my držíme jen kontejner a úklid mezi testy.
+ */
 object TestDatabase {
     private val container: PostgreSQLContainer<*> by lazy {
         PostgreSQLContainer("postgres:17-alpine")
@@ -25,7 +28,7 @@ object TestDatabase {
                 maxPoolSize = 2,
             )
 
-    private val database: Database by lazy { Database.connect(config).also { it.migrate() } }
+    val database: Database by lazy { Database.connect(config).also { it.migrate() } }
 
     fun reset() {
         database.asDataSource().connection.use { connection ->

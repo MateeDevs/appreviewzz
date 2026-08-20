@@ -86,6 +86,21 @@ data class SlackConfig(
         get() = enabled && clientId != null && clientSecret != null && publicBaseUrl != null
 }
 
+/**
+ * Console (F3). `baseUrl` je adresa, na které ji vidí klient — skládají se z ní odkazy
+ * v e-mailech, takže nesmí být localhost, jakmile chodí pošta ven.
+ */
+data class ConsoleConfig(
+    val baseUrl: String?,
+    val mailFrom: String,
+) {
+    /**
+     * Session cookie se `Secure` posílá všude, kde běžíme na https. Lokální vývoj na http
+     * je jediná výjimka — s `Secure` by se cookie vůbec nenastavila a nikdo by se nepřihlásil.
+     */
+    fun secureCookies(environment: String): Boolean = baseUrl?.startsWith("https://") == true || environment != "local"
+}
+
 data class AppConfig(
     val role: Role,
     val environment: String,
@@ -100,6 +115,7 @@ data class AppConfig(
     val backup: BackupConfig,
     val ai: AiConfig,
     val slack: SlackConfig,
+    val console: ConsoleConfig,
 ) {
     companion object {
         fun fromEnv(env: (String) -> String? = System::getenv): AppConfig =
@@ -143,6 +159,13 @@ data class AppConfig(
                         provider = env.optional("AI_PROVIDER", "none"),
                         apiKey = env("AI_API_KEY")?.takeIf { it.isNotBlank() },
                         model = env("AI_MODEL")?.takeIf { it.isNotBlank() },
+                    ),
+                console =
+                    ConsoleConfig(
+                        baseUrl =
+                            env("CONSOLE_BASE_URL")?.takeIf { it.isNotBlank() }
+                                ?: env("PUBLIC_BASE_URL")?.takeIf { it.isNotBlank() },
+                        mailFrom = env.optional("MAIL_FROM", "appreviewzz@localhost"),
                     ),
                 slack =
                     SlackConfig(
