@@ -1,16 +1,37 @@
 package cz.matee.appreviewzz.app
 
 import cz.matee.appreviewzz.app.cli.TestDatabase
+import cz.matee.appreviewzz.core.message.ReviewNotification
+import cz.matee.appreviewzz.core.model.ChannelType
+import cz.matee.appreviewzz.core.model.ObservedReview
+import cz.matee.appreviewzz.core.model.Platform
+import cz.matee.appreviewzz.core.port.ChannelException
+import cz.matee.appreviewzz.core.port.ChannelTarget
+import cz.matee.appreviewzz.core.port.ConnectivityNotice
 import cz.matee.appreviewzz.core.port.Mailer
+import cz.matee.appreviewzz.core.port.NotificationChannel
 import cz.matee.appreviewzz.core.port.OutgoingMail
+import cz.matee.appreviewzz.core.port.PostedMessage
+import cz.matee.appreviewzz.core.port.ReplyRendering
+import cz.matee.appreviewzz.core.port.ReviewSource
+import cz.matee.appreviewzz.core.port.StoreConnectorException
+import cz.matee.appreviewzz.core.port.StoreContext
+import cz.matee.appreviewzz.core.port.ValidationOutcome
 import cz.matee.appreviewzz.core.usecase.AppService
 import cz.matee.appreviewzz.core.usecase.AuthPolicy
 import cz.matee.appreviewzz.core.usecase.AuthenticationService
+import cz.matee.appreviewzz.core.usecase.ChannelService
 import cz.matee.appreviewzz.core.usecase.ConsoleLinks
+import cz.matee.appreviewzz.core.usecase.CredentialService
 import cz.matee.appreviewzz.core.usecase.OrganizationService
 import cz.matee.appreviewzz.crypto.Argon2PasswordHasher
+import cz.matee.appreviewzz.crypto.CredentialVault
+import cz.matee.appreviewzz.crypto.KekProviders
 import cz.matee.appreviewzz.persistence.repository.ExposedAppRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedAuditLogRepository
+import cz.matee.appreviewzz.persistence.repository.ExposedChannelRepository
+import cz.matee.appreviewzz.persistence.repository.ExposedCredentialRepository
+import cz.matee.appreviewzz.persistence.repository.ExposedDataKeyRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedInvitationRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedMembershipRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedOrganizationRepository
@@ -24,6 +45,7 @@ import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.patch
 import io.ktor.client.request.post
+import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
@@ -33,6 +55,7 @@ import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.micrometer.prometheusmetrics.PrometheusConfig
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
+import java.nio.file.Files
 
 /**
  * Console nad opravdovým Postgresem. Session, role i pozvánky stojí na tom, co se doopravdy
@@ -57,9 +80,77 @@ class RecordingMailer : Mailer {
     fun lastTo(email: String): OutgoingMail = sent.last { it.to == email }
 }
 
+/**
+ * Konektory a kanály, které v testu nesahají na síť. Chování se přepíná zvenčí, takže
+ * jde ověřit i to, co se v reálném storu vyrábí špatně — odvolaný token, chybějící scope.
+ */
+class FakeReviewSource(
+    override val platform: Platform,
+) : ReviewSource {
+    var outcome: ValidationOutcome = ValidationOutcome(valid = true)
+    var failWith: StoreConnectorException? = null
+    val validated = mutableListOf<StoreContext>()
+
+    override suspend fun fetchReviews(context: StoreContext): List<ObservedReview> = emptyList()
+
+    override suspend fun validate(context: StoreContext): ValidationOutcome {
+        validated += context
+        failWith?.let { throw it }
+        return outcome
+    }
+}
+
+class FakeNotificationChannel(
+    override val type: ChannelType = ChannelType.SLACK,
+) : NotificationChannel {
+    var failWith: ChannelException? = null
+    val notices = mutableListOf<ConnectivityNotice>()
+
+    override suspend fun postReview(
+        target: ChannelTarget,
+        notification: ReviewNotification,
+    ): PostedMessage = PostedMessage(target.conversationId, "1755600000.000100")
+
+    override suspend fun markReplied(
+        target: ChannelTarget,
+        message: PostedMessage,
+        rendering: ReplyRendering,
+    ) = Unit
+
+    override suspend fun postConnectivityCheck(
+        target: ChannelTarget,
+        notice: ConnectivityNotice,
+    ): PostedMessage {
+        notices += notice
+        failWith?.let { throw it }
+        return PostedMessage(target.conversationId, "1755600000.000200")
+    }
+
+    override suspend fun reportFailure(
+        target: ChannelTarget,
+        message: PostedMessage,
+        notification: ReviewNotification,
+        error: String,
+    ) = Unit
+}
+
+/**
+ * Falešné části světa, na které si test potřebuje sáhnout po sestavení modulu.
+ * Vault je opravdový, jen s lokálním keysetem v dočasném souboru — šifrování se
+ * v testech neobchází, jinak by se AAD binding neověřoval nikdy.
+ */
+class ConsoleFakes(
+    val googlePlay: FakeReviewSource,
+    val appStore: FakeReviewSource,
+    val slack: FakeNotificationChannel,
+)
+
 fun ApplicationTestBuilder.consoleModule(
     mailer: RecordingMailer,
     policy: AuthPolicy = AuthPolicy(),
+    slack: ConsoleSlack? = null,
+    fakes: ConsoleFakes =
+        ConsoleFakes(FakeReviewSource(Platform.ANDROID), FakeReviewSource(Platform.IOS), FakeNotificationChannel()),
 ) {
     val exposed = TestDatabase.database.exposed
     val organizations = ExposedOrganizationRepository(exposed)
@@ -76,14 +167,37 @@ fun ApplicationTestBuilder.consoleModule(
             links = ConsoleLinks(CONSOLE_URL),
             policy = policy,
         )
-    val appService = AppService(apps = ExposedAppRepository(exposed), audit = ExposedAuditLogRepository(exposed))
+    val appRepository = ExposedAppRepository(exposed)
+    val credentialRepository = ExposedCredentialRepository(exposed)
+    val channelRepository = ExposedChannelRepository(exposed)
+    val audit = ExposedAuditLogRepository(exposed)
+    val appService = AppService(apps = appRepository, audit = audit)
+    val vault = consoleVault()
+    val credentialService =
+        CredentialService(
+            credentials = credentialRepository,
+            apps = appRepository,
+            channels = channelRepository,
+            vault = vault,
+            sources = listOf(fakes.googlePlay, fakes.appStore),
+            audit = audit,
+        )
+    val channelService =
+        ChannelService(
+            channels = channelRepository,
+            apps = appRepository,
+            credentials = credentialRepository,
+            secrets = vault,
+            implementations = listOf(fakes.slack),
+            audit = audit,
+        )
     val orgs =
         OrganizationService(
             organizations = organizations,
             memberships = memberships,
             users = users,
             invitations = ExposedInvitationRepository(exposed),
-            audit = ExposedAuditLogRepository(exposed),
+            audit = audit,
             mailer = mailer,
             links = ConsoleLinks(CONSOLE_URL),
         )
@@ -97,13 +211,32 @@ fun ApplicationTestBuilder.consoleModule(
                     auth = auth,
                     orgs = orgs,
                     apps = appService,
+                    credentials = credentialService,
+                    channels = channelService,
                     cookies = SessionCookies(secure = false, lifetime = policy.sessionLifetime),
                     organizations = organizations,
                     memberships = memberships,
+                    slack = slack,
                 ),
         )
     }
 }
+
+/**
+ * Vault nad testovací databází s lokálním keysetem v dočasném souboru. Šifrování se
+ * v testech neobchází — jinak by se AAD binding neověřoval nikdy — a testy si přes něj
+ * umí založit i credential, který jinak vzniká připojením Slacku.
+ */
+private val vault: CredentialVault by lazy {
+    val keyset = Files.createTempDirectory("appreviewzz-keyset").resolve("keyset")
+    CredentialVault(
+        dataKeys = ExposedDataKeyRepository(TestDatabase.database.exposed),
+        credentials = ExposedCredentialRepository(TestDatabase.database.exposed),
+        kek = KekProviders.fromUri("local://$keyset"),
+    )
+}
+
+fun consoleVault(): CredentialVault = vault
 
 /** Klient, který si drží cookies jako prohlížeč — bez toho není co testovat. */
 fun ApplicationTestBuilder.browser(): HttpClient = createClient { install(HttpCookies) }
@@ -122,6 +255,16 @@ suspend fun HttpClient.postJson(
     post(path) {
         contentType(ContentType.Application.Json)
         header(CSRF_HEADER, csrf ?: csrf())
+        setBody(body)
+    }
+
+suspend fun HttpClient.putJson(
+    path: String,
+    body: String,
+): HttpResponse =
+    put(path) {
+        contentType(ContentType.Application.Json)
+        header(CSRF_HEADER, csrf())
         setBody(body)
     }
 

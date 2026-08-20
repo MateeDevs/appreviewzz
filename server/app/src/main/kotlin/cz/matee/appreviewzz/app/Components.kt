@@ -27,7 +27,9 @@ import cz.matee.appreviewzz.core.port.SuggestReplyProvider
 import cz.matee.appreviewzz.core.usecase.AppService
 import cz.matee.appreviewzz.core.usecase.AuthPolicy
 import cz.matee.appreviewzz.core.usecase.AuthenticationService
+import cz.matee.appreviewzz.core.usecase.ChannelService
 import cz.matee.appreviewzz.core.usecase.ConsoleLinks
+import cz.matee.appreviewzz.core.usecase.CredentialService
 import cz.matee.appreviewzz.core.usecase.DeliverReviewUseCase
 import cz.matee.appreviewzz.core.usecase.IngestReviewsUseCase
 import cz.matee.appreviewzz.core.usecase.OrganizationService
@@ -335,6 +337,43 @@ class Components(
 
     /** Sledované aplikace (F3.3). */
     val appService: AppService by lazy { AppService(apps = apps, audit = audit) }
+
+    /**
+     * Klíče ke storům (F3.4). Sahá na vault, takže vzniká líně — bez `VAULT_KEK_URI`
+     * se console rozběhne a spadne až na první práci s klíčem, ne při startu.
+     */
+    val credentialService: CredentialService by lazy {
+        CredentialService(
+            credentials = credentials,
+            apps = apps,
+            channels = channels,
+            vault = vault,
+            sources = reviewSources,
+            audit = audit,
+        )
+    }
+
+    val channelService: ChannelService by lazy {
+        ChannelService(
+            channels = channels,
+            apps = apps,
+            credentials = credentials,
+            secrets = vault,
+            implementations = notificationChannels,
+            audit = audit,
+        )
+    }
+
+    /** Připojení Slacku z console. `null` by znamenalo instalaci úplně bez Slacku. */
+    val consoleSlack: ConsoleSlack by lazy {
+        ConsoleSlack(
+            api = slackApi,
+            vault = vault,
+            audit = audit,
+            installStates = slackInstallStates,
+            publicBaseUrl = publicBaseUrl,
+        )
+    }
 
     val sessionCookies: SessionCookies by lazy {
         SessionCookies(

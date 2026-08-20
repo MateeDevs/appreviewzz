@@ -202,8 +202,11 @@ class AppService(
     }
 }
 
-/** Role se kontroluje na jednom místě pro všechny console use-case. */
-internal fun requireRole(
+/**
+ * Role se kontroluje na jednom místě pro všechny console use-case — včetně těch, které kvůli
+ * závislosti na konektoru sedí až v aplikační vrstvě (připojení Slacku).
+ */
+fun requireRole(
     actor: OrgActor,
     required: OrgRole,
 ) {

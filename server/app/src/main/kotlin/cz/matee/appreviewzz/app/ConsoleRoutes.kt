@@ -1,6 +1,8 @@
 package cz.matee.appreviewzz.app
 
 import cz.matee.appreviewzz.core.model.AppId
+import cz.matee.appreviewzz.core.model.ChannelId
+import cz.matee.appreviewzz.core.model.CredentialId
 import cz.matee.appreviewzz.core.model.OrgRole
 import cz.matee.appreviewzz.core.model.Organization
 import cz.matee.appreviewzz.core.model.UserId
@@ -8,8 +10,10 @@ import cz.matee.appreviewzz.core.port.MembershipRepository
 import cz.matee.appreviewzz.core.port.OrganizationRepository
 import cz.matee.appreviewzz.core.usecase.AppService
 import cz.matee.appreviewzz.core.usecase.AuthenticationService
+import cz.matee.appreviewzz.core.usecase.ChannelService
 import cz.matee.appreviewzz.core.usecase.ConsoleException
 import cz.matee.appreviewzz.core.usecase.ConsoleFailure
+import cz.matee.appreviewzz.core.usecase.CredentialService
 import cz.matee.appreviewzz.core.usecase.OrgActor
 import cz.matee.appreviewzz.core.usecase.OrganizationService
 import io.ktor.server.application.Application
@@ -27,9 +31,13 @@ class ConsoleWiring(
     val auth: AuthenticationService,
     val orgs: OrganizationService,
     val apps: AppService,
+    val credentials: CredentialService,
+    val channels: ChannelService,
     val cookies: SessionCookies,
     val organizations: OrganizationRepository,
     val memberships: MembershipRepository,
+    /** `null` = instalace bez Slacku (self-host, který používá jen Teams). */
+    val slack: ConsoleSlack? = null,
 )
 
 /**
@@ -48,6 +56,8 @@ fun Application.consoleRoutes(console: ConsoleWiring) {
             requireSession(console.auth) {
                 orgRoutes(console)
                 appRoutes(console)
+                credentialRoutes(console)
+                channelRoutes(console)
             }
         }
     }
@@ -86,6 +96,18 @@ suspend fun ApplicationCall.orgContext(
 fun ApplicationCall.userIdParam(): UserId = UserId(uuidParam("userId", "Takový člen tu není"))
 
 fun ApplicationCall.appIdParam(): AppId = AppId(uuidParam("app", "Taková aplikace tu není"))
+
+fun ApplicationCall.credentialIdParam(): CredentialId = credentialIdOf(parameters["credential"].orEmpty())
+
+fun ApplicationCall.channelIdParam(): ChannelId = channelIdOf(parameters["channel"].orEmpty())
+
+fun credentialIdOf(raw: String): CredentialId =
+    runCatching { CredentialId(Uuid.parse(raw)) }
+        .getOrElse { throw ConsoleException(ConsoleFailure.NOT_FOUND, "Takový klíč tu není") }
+
+fun channelIdOf(raw: String): ChannelId =
+    runCatching { ChannelId(Uuid.parse(raw)) }
+        .getOrElse { throw ConsoleException(ConsoleFailure.NOT_FOUND, "Takový kanál tu není") }
 
 private fun ApplicationCall.uuidParam(
     name: String,

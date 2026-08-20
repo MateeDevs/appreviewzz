@@ -2,12 +2,12 @@ package cz.matee.appreviewzz.app.cli
 
 import cz.matee.appreviewzz.app.Components
 import cz.matee.appreviewzz.app.SLACK_INSTALL_PATH
+import cz.matee.appreviewzz.app.StoreCredentialKind
+import cz.matee.appreviewzz.app.StoreCredentialPayloads
 import cz.matee.appreviewzz.backup.BackupStoreException
 import cz.matee.appreviewzz.backup.BackupToolException
 import cz.matee.appreviewzz.backup.StoredBackup
 import cz.matee.appreviewzz.channels.slack.SlackInstallStates
-import cz.matee.appreviewzz.connectors.appstore.AscApiKey
-import cz.matee.appreviewzz.connectors.googleplay.GoogleServiceAccount
 import cz.matee.appreviewzz.core.model.ActorType
 import cz.matee.appreviewzz.core.model.App
 import cz.matee.appreviewzz.core.model.AppId
@@ -23,13 +23,11 @@ import cz.matee.appreviewzz.core.model.MessageLocale
 import cz.matee.appreviewzz.core.model.OrgRole
 import cz.matee.appreviewzz.core.model.Organization
 import cz.matee.appreviewzz.core.model.OrganizationId
-import cz.matee.appreviewzz.core.model.Platform
 import cz.matee.appreviewzz.core.model.Review
 import cz.matee.appreviewzz.core.model.ReviewState
 import cz.matee.appreviewzz.core.model.SecretPayload
 import cz.matee.appreviewzz.core.model.Slugs
 import cz.matee.appreviewzz.core.model.ValidationStatus
-import cz.matee.appreviewzz.core.port.ChannelErrorKind
 import cz.matee.appreviewzz.core.port.ChannelException
 import cz.matee.appreviewzz.core.port.ChannelTarget
 import cz.matee.appreviewzz.core.port.ConnectivityNotice
@@ -42,11 +40,10 @@ import cz.matee.appreviewzz.core.port.auditEntry
 import cz.matee.appreviewzz.core.usecase.AppInputs
 import cz.matee.appreviewzz.core.usecase.ConsoleException
 import cz.matee.appreviewzz.core.usecase.PlatformIngest
+import cz.matee.appreviewzz.core.usecase.hintFor
 import cz.matee.appreviewzz.crypto.CredentialNotFoundException
 import cz.matee.appreviewzz.crypto.KeyManagementException
 import kotlinx.datetime.LocalTime
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 import java.io.IOException
 import java.nio.file.Path
 import kotlin.io.path.exists
@@ -171,7 +168,7 @@ class SeedCommands(
         val organization = organization(args)
         val kind = StoreCredentialKind.of(args.required("type"))
         val payload = payload(kind, args)
-        val hint = kind.describe(payload)
+        val hint = command { kind.describe(payload) }
 
         val meta = components.vault.store(organization.id, kind.type, args.required("label"), payload, hint)
         audit(
@@ -640,17 +637,8 @@ class SeedCommands(
                 throw CommandException("Soubor $file nejde přečíst: ${error.message}", error)
             }
 
-        val keyId = args.optional("key-id")
-        val issuerId = args.optional("issuer-id")
-        if (kind == StoreCredentialKind.GOOGLE_PLAY && (keyId != null || issuerId != null)) {
-            throw UsageException("--key-id a --issuer-id patří ke klíči App Store Connect, ne k service accountu")
-        }
-
-        return when {
-            // .p8 od Applu je jen privátní klíč; Key ID a Issuer ID k němu klient opisuje z ASC.
-            keyId != null -> SecretPayload(credentialJson.encodeToString(AscKeyFile.serializer(), AscKeyFile(keyId, issuerId, content)))
-            issuerId != null -> throw UsageException("K --issuer-id patří i --key-id")
-            else -> SecretPayload(content)
+        return usage {
+            StoreCredentialPayloads.of(kind, content, args.optional("key-id"), args.optional("issuer-id"))
         }
     }
 
@@ -737,69 +725,8 @@ class SeedCommands(
         const val ENABLED_COLUMN = 8
         const val TYPE_COLUMN = 18
         const val STATUS_COLUMN = 7
-
-        val credentialJson = Json { encodeDefaults = false }
     }
 }
-
-/**
- * Store, ke kterému credential patří. Drží pohromadě to, co se jinak rozpadá do tří `when`
- * bloků: jak se typ píše na příkazové řádce, jaká je platforma a co se z klíče smí vypsat.
- */
-private enum class StoreCredentialKind(
-    val aliases: Set<String>,
-    val type: CredentialType,
-    val platform: Platform,
-) {
-    GOOGLE_PLAY(
-        aliases = setOf("gp", "google-play", "gp-service-account"),
-        type = CredentialType.GP_SERVICE_ACCOUNT,
-        platform = Platform.ANDROID,
-    ),
-    APP_STORE(
-        aliases = setOf("asc", "app-store", "asc-api-key"),
-        type = CredentialType.ASC_API_KEY,
-        platform = Platform.IOS,
-    ),
-    ;
-
-    /**
-     * Rozparsuje klíč (tedy ověří, že je to vůbec klíč) a vrátí nápovědu pro člověka.
-     * Chyba tady je levná: klient se to dozví hned při nahrání, ne až prvním ingestem.
-     */
-    fun describe(payload: SecretPayload): String =
-        try {
-            when (this) {
-                GOOGLE_PLAY -> GoogleServiceAccount.parse(payload).clientEmail
-                APP_STORE ->
-                    AscApiKey.parse(payload).let { key ->
-                        "Key ID ${key.keyId}" + if (key.isIndividual) " (individuální klíč)" else ""
-                    }
-            }
-        } catch (error: StoreConnectorException) {
-            throw CommandException("Klíč nejde načíst: ${error.message}", error)
-        }
-
-    companion object {
-        fun of(raw: String): StoreCredentialKind =
-            entries.firstOrNull { raw.lowercase() in it.aliases }
-                ?: throw UsageException(
-                    "--type zná 'gp' (service account Google Play) a 'asc' (klíč App Store Connect); " +
-                        "credentials Slacku a Teams zakládá jejich vlastní instalace (F2/F4)",
-                )
-
-        fun of(type: CredentialType): StoreCredentialKind =
-            entries.firstOrNull { it.type == type }
-                ?: throw CommandException("Credential typu $type nepatří ke storu, ale ke kanálu")
-    }
-}
-
-@Serializable
-private data class AscKeyFile(
-    val keyId: String,
-    val issuerId: String? = null,
-    val privateKey: String,
-)
 
 private fun slugify(name: String): String = Slugs.of(name)
 
@@ -830,6 +757,13 @@ private fun digestAt(raw: String): LocalTime = usage { AppInputs.digestAt(raw, "
  * Pravidla pro hodnoty appky drží doména ([AppInputs]) — stejná pro console i CLI.
  * Tady se jen její chyba přeloží na chybu použití, kterou CLI umí vypsat jako větu.
  */
+private fun <T> command(block: () -> T): T =
+    try {
+        block()
+    } catch (error: ConsoleException) {
+        throw CommandException(error.message.orEmpty(), error)
+    }
+
 private fun <T> usage(block: () -> T): T =
     try {
         block()
@@ -850,15 +784,6 @@ private fun reviewState(raw: String): ReviewState =
         ?: throw UsageException("--state zná ${ReviewState.entries.joinToString { it.name.lowercase() }}")
 
 /** Nejčastější příčiny podle druhu chyby — ať člověk nemusí hledat, co Slack tím slovem myslí. */
-private fun hintFor(error: ChannelException): String =
-    when (error.kind) {
-        ChannelErrorKind.AUTH -> "token je odvolaný nebo appce chybí scope, projdi `slack connect` znovu"
-        ChannelErrorKind.NOT_FOUND -> "kanál neexistuje, nebo v něm bot není — pozvi ho přes /invite @appreviewzz"
-        ChannelErrorKind.INVALID_REQUEST -> "Slack zprávu odmítl kvůli obsahu; tohle patří do issue, ne do nastavení"
-        ChannelErrorKind.RATE_LIMITED -> "Slack teď omezuje volání, zkus to za chvíli"
-        ChannelErrorKind.TRANSIENT -> "výpadek sítě nebo Slacku, zkus to znovu"
-    }
-
 private fun FailedJob.summarize(): String =
     "${lastFailedAt.toString().take(TIMESTAMP_LENGTH)}  ${taskName.padEnd(TASK_COLUMN)} pokusů $attempts  " +
         "${payload ?: taskInstance}  ${errorMessage ?: errorClass ?: "—"}"

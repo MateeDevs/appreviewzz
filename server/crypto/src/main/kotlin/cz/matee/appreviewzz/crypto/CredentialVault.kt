@@ -8,9 +8,9 @@ import cz.matee.appreviewzz.core.model.OrgDataKey
 import cz.matee.appreviewzz.core.model.OrganizationId
 import cz.matee.appreviewzz.core.model.SecretPayload
 import cz.matee.appreviewzz.core.port.CredentialRepository
+import cz.matee.appreviewzz.core.port.CredentialStore
 import cz.matee.appreviewzz.core.port.DataKeyRepository
 import cz.matee.appreviewzz.core.port.NewCredential
-import cz.matee.appreviewzz.core.port.SecretResolver
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.security.GeneralSecurityException
 import java.util.concurrent.ConcurrentHashMap
@@ -45,16 +45,16 @@ class CredentialVault(
     private val kek: KekProvider,
     private val clock: Clock = Clock.System,
     private val dekCacheTtl: Duration = 5.minutes,
-) : SecretResolver {
+) : CredentialStore {
     private val cache = ConcurrentHashMap<DataKeyId, CachedDataKey>()
 
     /** Zašifruje a uloží nový credential. Vrací jen metadata — payload už z vaultu nevyjde. */
-    fun store(
+    override fun store(
         orgId: OrganizationId,
         type: CredentialType,
         label: String,
         payload: SecretPayload,
-        hint: String? = null,
+        hint: String?,
     ): CredentialMeta {
         val credentialId = CredentialId(Uuid.random())
         val dataKey = activeDataKey(orgId)
@@ -79,12 +79,12 @@ class CredentialVault(
     }
 
     /** Rotace obsahu (klient nahrál nový klíč). Vrací `null`, když credential neexistuje. */
-    fun replace(
+    override fun replace(
         orgId: OrganizationId,
         credentialId: CredentialId,
         payload: SecretPayload,
-        label: String? = null,
-        hint: String? = null,
+        label: String?,
+        hint: String?,
     ): CredentialMeta? {
         val current = credentials.findMeta(orgId, credentialId) ?: return null
         val dataKey = activeDataKey(orgId)
@@ -113,7 +113,7 @@ class CredentialVault(
      * Dešifruje credential. Volá se výhradně ve workeru v okamžiku použití — návratovou
      * hodnotu nikam neukládej a nelogguj (proto je [SecretPayload] redigovaný).
      */
-    fun load(
+    override fun load(
         orgId: OrganizationId,
         credentialId: CredentialId,
     ): SecretPayload {
