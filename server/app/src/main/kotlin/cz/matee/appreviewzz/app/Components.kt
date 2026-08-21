@@ -46,6 +46,7 @@ import cz.matee.appreviewzz.core.usecase.DeliverReviewUseCase
 import cz.matee.appreviewzz.core.usecase.IngestReviewsUseCase
 import cz.matee.appreviewzz.core.usecase.OrganizationService
 import cz.matee.appreviewzz.core.usecase.PublishReplyUseCase
+import cz.matee.appreviewzz.core.usecase.RatingsInsights
 import cz.matee.appreviewzz.core.usecase.ReviewInbox
 import cz.matee.appreviewzz.crypto.Argon2PasswordHasher
 import cz.matee.appreviewzz.crypto.CredentialVault
@@ -468,6 +469,9 @@ class Components(
             audit = audit,
         )
     }
+
+    /** Vývoj hodnocení pro graf v consoli (F4.5). */
+    val ratingsInsights: RatingsInsights by lazy { RatingsInsights(apps = apps, snapshots = ratingSnapshots) }
 
     val sessionCookies: SessionCookies by lazy {
         SessionCookies(

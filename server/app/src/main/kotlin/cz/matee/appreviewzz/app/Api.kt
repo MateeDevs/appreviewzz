@@ -62,6 +62,8 @@ fun runApi(
             organizations = components.organizations,
             memberships = components.memberships,
             reviews = components.reviewInbox,
+            ratings = components.ratingsInsights,
+            dailyRatings = components.dailyRatings,
             audit = components.audit,
             enqueueReply = { reply ->
                 components.replyJobs.enqueue(

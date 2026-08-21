@@ -15,8 +15,10 @@ import cz.matee.appreviewzz.core.usecase.ChannelService
 import cz.matee.appreviewzz.core.usecase.ConsoleException
 import cz.matee.appreviewzz.core.usecase.ConsoleFailure
 import cz.matee.appreviewzz.core.usecase.CredentialService
+import cz.matee.appreviewzz.core.usecase.DailyRatingsUseCase
 import cz.matee.appreviewzz.core.usecase.OrgActor
 import cz.matee.appreviewzz.core.usecase.OrganizationService
+import cz.matee.appreviewzz.core.usecase.RatingsInsights
 import cz.matee.appreviewzz.core.usecase.ReviewInbox
 import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationCall
@@ -36,6 +38,8 @@ class ConsoleWiring(
     val credentials: CredentialService,
     val channels: ChannelService,
     val reviews: ReviewInbox,
+    val ratings: RatingsInsights,
+    val dailyRatings: DailyRatingsUseCase,
     val audit: AuditLogRepository,
     val cookies: SessionCookies,
     val organizations: OrganizationRepository,
@@ -70,6 +74,7 @@ fun Application.consoleRoutes(console: ConsoleWiring) {
                 credentialRoutes(console)
                 channelRoutes(console)
                 reviewRoutes(console)
+                ratingsRoutes(console)
             }
         }
     }

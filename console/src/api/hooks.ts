@@ -11,6 +11,8 @@ import type {
   Me,
   Member,
   OrganizationSummary,
+  RatingsRunResult,
+  RatingsSeries,
   Review,
   ReviewDetail,
   ReviewState,
@@ -291,4 +293,25 @@ export function useHealth(org: string) {
 
 export function useAudit(org: string) {
   return useQuery({ queryKey: ['audit', org], queryFn: () => api.get<AuditEntry[]>(`/api/orgs/${org}/audit`) })
+}
+
+/** Vývoj hodnocení pro graf. Prázdná řada je legitimní stav — appka může být čerstvá. */
+export function useRatings(org: string, appId: string, days = 30) {
+  return useQuery({
+    queryKey: ['ratings', org, appId, days],
+    queryFn: () => api.get<RatingsSeries[]>(`/api/orgs/${org}/apps/${appId}/ratings?days=${days}`),
+    enabled: appId !== '',
+  })
+}
+
+/**
+ * Ruční spuštění přehledu. Při onboardingu je potřeba vidět, že chodí a jak vypadá,
+ * ne čekat do zítřejších 8:30.
+ */
+export function useRunRatings(org: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (appId: string) => api.post<RatingsRunResult>(`/api/orgs/${org}/apps/${appId}/ratings/run`),
+    onSuccess: () => client.invalidateQueries({ queryKey: ['ratings', org] }),
+  })
 }

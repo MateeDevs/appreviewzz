@@ -24,7 +24,9 @@ import cz.matee.appreviewzz.core.usecase.AuthenticationService
 import cz.matee.appreviewzz.core.usecase.ChannelService
 import cz.matee.appreviewzz.core.usecase.ConsoleLinks
 import cz.matee.appreviewzz.core.usecase.CredentialService
+import cz.matee.appreviewzz.core.usecase.DailyRatingsUseCase
 import cz.matee.appreviewzz.core.usecase.OrganizationService
+import cz.matee.appreviewzz.core.usecase.RatingsInsights
 import cz.matee.appreviewzz.core.usecase.ReviewInbox
 import cz.matee.appreviewzz.crypto.Argon2PasswordHasher
 import cz.matee.appreviewzz.crypto.CredentialVault
@@ -38,6 +40,8 @@ import cz.matee.appreviewzz.persistence.repository.ExposedFailedJobRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedInvitationRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedMembershipRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedOrganizationRepository
+import cz.matee.appreviewzz.persistence.repository.ExposedRatingSnapshotRepository
+import cz.matee.appreviewzz.persistence.repository.ExposedRatingsDigestRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedReplyRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedReviewMessageRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedReviewRepository
@@ -226,6 +230,19 @@ fun ApplicationTestBuilder.consoleModule(
             implementations = listOf(fakes.slack),
             audit = audit,
         )
+    val ratingSnapshots = ExposedRatingSnapshotRepository(exposed)
+    val ratingsInsights = RatingsInsights(apps = appRepository, snapshots = ratingSnapshots)
+    val dailyRatings =
+        DailyRatingsUseCase(
+            apps = appRepository,
+            channels = channelRepository,
+            credentials = credentialRepository,
+            snapshots = ratingSnapshots,
+            digests = ExposedRatingsDigestRepository(exposed),
+            secrets = vault,
+            ratingsSources = emptyList(),
+            notificationChannels = listOf(fakes.slack),
+        )
     val orgs =
         OrganizationService(
             organizations = organizations,
@@ -253,6 +270,8 @@ fun ApplicationTestBuilder.consoleModule(
                     memberships = memberships,
                     slack = slack,
                     reviews = reviewInbox,
+                    ratings = ratingsInsights,
+                    dailyRatings = dailyRatings,
                     audit = audit,
                     enqueueReply = replyQueue,
                 ),

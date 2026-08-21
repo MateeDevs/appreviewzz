@@ -151,3 +151,28 @@ export interface AuditEntry {
   metadata: Record<string, string>
   at: string | null
 }
+
+export interface RatingsPoint {
+  date: string
+  average: number | null
+  totalCount: number | null
+  /** Přírůstek proti předchozímu bodu; u nejstaršího není co odečíst. */
+  newCount: number | null
+  histogram: Record<string, number>
+  source: string
+}
+
+export interface RatingsSeries {
+  platform: Platform
+  territory: string
+  points: RatingsPoint[]
+  /** Změna průměru za zobrazené období. */
+  change: number | null
+}
+
+export interface RatingsRunResult {
+  platforms: number
+  sent: number
+  alreadySent: number
+  errors: string[]
+}

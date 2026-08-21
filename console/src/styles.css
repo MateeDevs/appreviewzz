@@ -175,3 +175,12 @@ tr:last-child td { border-bottom: none; }
 .step.current { border-color: var(--accent); color: var(--accent); }
 .step.done { border-color: var(--ok); color: var(--ok); }
 code { background: var(--bg); padding: 0.1rem 0.3rem; border-radius: 5px; font-size: 0.85em; }
+
+/* Graf hodnocení. Inline SVG bez knihovny — jedna čára nestojí za 100 kB v bundlu. */
+.chart { width: 100%; height: auto; display: block; }
+.chart-axis { stroke: var(--border); stroke-width: 1; }
+.chart-line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; }
+.chart-area { fill: var(--accent); opacity: 0.08; stroke: none; }
+.chart-dot { fill: var(--accent); }
+.chart-label { fill: var(--muted); font-size: 10px; }
+.chart-value { fill: var(--accent); font-size: 12px; font-weight: 600; }
