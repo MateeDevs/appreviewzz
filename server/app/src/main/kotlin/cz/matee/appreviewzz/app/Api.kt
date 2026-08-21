@@ -3,6 +3,7 @@ package cz.matee.appreviewzz.app
 import cz.matee.appreviewzz.channels.slack.SlackInstallStates
 import cz.matee.appreviewzz.channels.slack.SlackOAuth
 import cz.matee.appreviewzz.channels.slack.SlackSignatureVerifier
+import cz.matee.appreviewzz.channels.teams.BotFrameworkAuthenticator
 import cz.matee.appreviewzz.core.model.ReplySource
 import cz.matee.appreviewzz.jobs.ReplyJobData
 import cz.matee.appreviewzz.jobs.buildSchedulerClient
@@ -38,6 +39,15 @@ fun runApi(
             SlackReplyIntake(components.reviewMessages) { data -> components.replyJobs.enqueue(queue, data) }
         }
 
+    val teamsAuthenticator = components.teamsAuthenticator
+    if (teamsAuthenticator == null) {
+        logger.warn { "TEAMS_BOT_APP_ID/PASSWORD nejsou nastavené — odpovědi z Teams se nepřijímají" }
+    }
+    val teamsIntake =
+        teamsAuthenticator?.let {
+            TeamsReplyIntake(components.reviewMessages) { data -> components.replyJobs.enqueue(queue, data) }
+        }
+
     val install = installRoutes(components)
     val console =
         ConsoleWiring(
@@ -47,6 +57,7 @@ fun runApi(
             credentials = components.credentialService,
             channels = components.channelService,
             slack = components.consoleSlack,
+            teams = components.consoleTeams,
             cookies = components.sessionCookies,
             organizations = components.organizations,
             memberships = components.memberships,
@@ -75,7 +86,9 @@ fun runApi(
         Netty,
         port = config.server.port,
         host = config.server.host,
-        module = { apiModule(database, metrics, verifier, intake, install, console) },
+        module = {
+            apiModule(database, metrics, verifier, intake, teamsAuthenticator, teamsIntake, install, console)
+        },
     ).start(wait = true)
 }
 
@@ -99,11 +112,14 @@ class SlackInstallRoutes(
     val redirectUri: String,
 )
 
+@Suppress("LongParameterList")
 fun Application.apiModule(
     database: Database,
     metrics: PrometheusMeterRegistry,
     slackVerifier: SlackSignatureVerifier? = null,
     slackIntake: SlackReplyIntake? = null,
+    teamsAuthenticator: BotFrameworkAuthenticator? = null,
+    teamsIntake: TeamsReplyIntake? = null,
     slackInstall: SlackInstallRoutes? = null,
     console: ConsoleWiring? = null,
 ) {
@@ -114,6 +130,8 @@ fun Application.apiModule(
     // Bez ověření podpisu endpoint nevzniká: otevřený webhook by uměl publikovat odpovědi
     // jménem klienta.
     if (slackVerifier != null && slackIntake != null) slackWebhookRoutes(slackVerifier, slackIntake)
+    // Totéž pro Teams: bez ověření tokenu od Bot Connectoru endpoint nevzniká.
+    if (teamsAuthenticator != null && teamsIntake != null) teamsWebhookRoutes(teamsAuthenticator, teamsIntake)
     slackInstall?.let { slackInstallRoutes(it.oauth, it.states, it.store, it.redirectUri) }
     console?.let { consoleRoutes(it) }
     // Až po API: fallback bere všechno, co si nikdo jiný nevzal.

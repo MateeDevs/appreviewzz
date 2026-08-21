@@ -13,6 +13,12 @@ import cz.matee.appreviewzz.channels.slack.SlackNotificationChannel
 import cz.matee.appreviewzz.channels.slack.SlackOAuth
 import cz.matee.appreviewzz.channels.slack.SlackSignatureVerifier
 import cz.matee.appreviewzz.channels.slack.slackHttpClient
+import cz.matee.appreviewzz.channels.teams.BotFrameworkAuthenticator
+import cz.matee.appreviewzz.channels.teams.TeamsApi
+import cz.matee.appreviewzz.channels.teams.TeamsBotIdentity
+import cz.matee.appreviewzz.channels.teams.TeamsNotificationChannel
+import cz.matee.appreviewzz.channels.teams.TeamsTokens
+import cz.matee.appreviewzz.channels.teams.teamsHttpClient
 import cz.matee.appreviewzz.connectors.appstore.AppStoreConnector
 import cz.matee.appreviewzz.connectors.appstore.appStoreHttpClient
 import cz.matee.appreviewzz.connectors.googleplay.GooglePlayConnector
@@ -105,6 +111,7 @@ class Components(
 
     private val aiClientDelegate = lazy { aiHttpClient() }
     private val slackClientDelegate = lazy { slackHttpClient() }
+    private val teamsClientDelegate = lazy { teamsHttpClient() }
 
     /**
      * Počítadla volání KEK. Vznikají hned, i když se vault nikdy nepoužije — worker nad nimi
@@ -145,12 +152,40 @@ class Components(
     }
 
     /**
-     * Kanály, do kterých se doručuje. Teams přibude ve F4 stejným způsobem — doručovací
-     * use-case o konkrétních kanálech neví nic.
+     * Kanály, do kterých se doručuje. Doručovací use-case o konkrétních kanálech neví nic —
+     * pozná je jen podle [NotificationChannel.type].
      */
     val slackApi: SlackApi by lazy { SlackApi(slackClientDelegate.value) }
 
-    val notificationChannels: List<NotificationChannel> by lazy { listOf(SlackNotificationChannel(slackApi)) }
+    /**
+     * Registrace Azure Bota. `null` znamená instalaci bez Teams: kanály typu TEAMS pak zůstanou
+     * v databázi, ale doručení je přeskočí a řekne proč — to je poctivější než tvářit se,
+     * že se zpráva odeslala.
+     */
+    val teamsBot: TeamsBotIdentity? by lazy {
+        val appId = config.teams.appId ?: return@lazy null
+        val appPassword = config.teams.appPassword ?: return@lazy null
+        TeamsBotIdentity(appId = appId, appPassword = SecretPayload(appPassword), tenantId = config.teams.tenantId)
+    }
+
+    val teamsApi: TeamsApi by lazy { TeamsApi(teamsClientDelegate.value) }
+
+    val teamsTokens: TeamsTokens by lazy { TeamsTokens(teamsClientDelegate.value) }
+
+    /**
+     * Ověření příchozích aktivit z Bot Connectoru. `null` = bot není nastavený, takže se
+     * messaging endpoint vůbec nezaregistruje (stejně jako u Slacku bez signing secretu).
+     */
+    val teamsAuthenticator: BotFrameworkAuthenticator? by lazy {
+        teamsBot?.let { BotFrameworkAuthenticator(teamsClientDelegate.value, it) }
+    }
+
+    val notificationChannels: List<NotificationChannel> by lazy {
+        listOfNotNull(
+            SlackNotificationChannel(slackApi),
+            teamsBot?.let { TeamsNotificationChannel(teamsApi, teamsTokens, it) },
+        )
+    }
 
     val delivery: DeliverReviewUseCase by lazy {
         DeliverReviewUseCase(
@@ -376,6 +411,9 @@ class Components(
         )
     }
 
+    /** Připojení Teams z console. Bot je app-level, per klient se drží jen tenant (F4.2). */
+    val consoleTeams: ConsoleTeams by lazy { ConsoleTeams(teamsBot, teamsTokens, vault, audit) }
+
     /** Recenze, delivery health a audit log v consoli (F3.5). */
     val reviewInbox: ReviewInbox by lazy {
         ReviewInbox(
@@ -402,6 +440,7 @@ class Components(
         if (storeClientsDelegate.isInitialized()) storeClients.close()
         if (aiClientDelegate.isInitialized()) aiClientDelegate.value.close()
         if (slackClientDelegate.isInitialized()) slackClientDelegate.value.close()
+        if (teamsClientDelegate.isInitialized()) teamsClientDelegate.value.close()
     }
 
     private class StoreClients : AutoCloseable {

@@ -31,6 +31,10 @@ services:
       SLACK_CLIENT_ID: ${SLACK_CLIENT_ID}
       SLACK_CLIENT_SECRET: ${SLACK_CLIENT_SECRET}
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL}
+      # Teams messaging endpoint běží v API roli; publikaci pak převezme worker.
+      TEAMS_BOT_APP_ID: ${TEAMS_BOT_APP_ID:-}
+      TEAMS_BOT_APP_PASSWORD: ${TEAMS_BOT_APP_PASSWORD:-}
+      TEAMS_BOT_TENANT_ID: ${TEAMS_BOT_TENANT_ID:-}
       # Console (F3): odkazy v e-mailech a odchozí pošta. Bez SMTP jdou e-maily do logu.
       CONSOLE_BASE_URL: ${CONSOLE_BASE_URL:-}
       MAIL_FROM: ${MAIL_FROM:-appreviewzz@localhost}

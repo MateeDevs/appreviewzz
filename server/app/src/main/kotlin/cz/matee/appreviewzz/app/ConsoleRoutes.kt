@@ -42,6 +42,8 @@ class ConsoleWiring(
     val memberships: MembershipRepository,
     /** `null` = instalace bez Slacku (self-host, který používá jen Teams). */
     val slack: ConsoleSlack? = null,
+    /** `null` = instalace bez Teams (výchozí stav, dokud provozovatel nezaloží Azure Bota). */
+    val teams: ConsoleTeams? = null,
     /**
      * Zařazení odpovědi z console do fronty. `null` znamená proces bez přístupu k plánovači —
      * console pak recenze ukazuje, ale odpovídat z ní nejde (a řekne to větou).

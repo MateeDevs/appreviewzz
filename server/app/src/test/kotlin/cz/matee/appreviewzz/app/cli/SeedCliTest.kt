@@ -8,6 +8,7 @@ import cz.matee.appreviewzz.app.MailConfig
 import cz.matee.appreviewzz.app.Role
 import cz.matee.appreviewzz.app.ServerConfig
 import cz.matee.appreviewzz.app.SlackConfig
+import cz.matee.appreviewzz.app.TeamsConfig
 import cz.matee.appreviewzz.app.WorkerConfig
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
@@ -54,6 +55,7 @@ class SeedCliTest :
                         clientSecret = null,
                         publicBaseUrl = "https://appreviewzz.test",
                     ),
+                teams = TeamsConfig(appId = null, appPassword = null, tenantId = null),
                 console =
                     ConsoleConfig(
                         baseUrl = "https://console.appreviewzz.test",

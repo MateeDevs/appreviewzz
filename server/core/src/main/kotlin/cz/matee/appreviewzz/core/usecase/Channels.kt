@@ -193,7 +193,7 @@ class ChannelService(
                                 channel.targetRef,
                                 ok = false,
                                 error = error.message,
-                                hint = hintFor(error),
+                                hint = hintFor(error, channel.type),
                             )
                         }
                 }
@@ -221,8 +221,8 @@ class ChannelService(
         }
 
     /**
-     * Slack chce **ID** kanálu, ne jeho jméno. Je to nejčastější překlep při onboardingu
-     * a bez téhle kontroly se projeví až tím, že zpráva nikam nedorazí.
+     * Obě platformy chtějí **ID** kanálu, ne jeho jméno. Je to nejčastější překlep při
+     * onboardingu a bez téhle kontroly se projeví až tím, že zpráva nikam nedorazí.
      */
     private fun requireTargetRef(
         type: ChannelType,
@@ -230,11 +230,24 @@ class ChannelService(
     ) {
         val value = targetRef.trim()
         if (value.isEmpty()) throw ConsoleException(ConsoleFailure.INVALID_INPUT, "Kanál potřebuje cíl")
-        if (type == ChannelType.SLACK && !value.startsWith("C") && !value.startsWith("G")) {
-            throw ConsoleException(
-                ConsoleFailure.INVALID_INPUT,
-                "Čekám ID kanálu ze Slacku (začíná C nebo G), ne jeho jméno — najdeš ho dole ve 'View channel details'",
-            )
+        when (type) {
+            ChannelType.SLACK ->
+                if (!value.startsWith("C") && !value.startsWith("G")) {
+                    throw ConsoleException(
+                        ConsoleFailure.INVALID_INPUT,
+                        "Čekám ID kanálu ze Slacku (začíná C nebo G), ne jeho jméno — najdeš ho dole ve 'View channel details'",
+                    )
+                }
+
+            // `19:…@thread.tacv2` je ID teamsového kanálu; klient ho vyzobne z odkazu na kanál.
+            ChannelType.TEAMS ->
+                if (!value.startsWith("19:")) {
+                    throw ConsoleException(
+                        ConsoleFailure.INVALID_INPUT,
+                        "Čekám ID kanálu v Teams (začíná 19: a končí @thread.tacv2), ne jeho jméno — " +
+                            "je v odkazu na kanál z 'Kopírovat odkaz'",
+                    )
+                }
         }
     }
 
@@ -264,11 +277,24 @@ class ChannelService(
  * Co s chybou kanálu udělat. Tohle je na ověření to cenné — „nepovedlo se" samo o sobě
  * nikomu nepomůže a přesně kvůli tomuhle dnes chodí dotazy na podporu.
  */
-fun hintFor(error: ChannelException): String =
+fun hintFor(
+    error: ChannelException,
+    type: ChannelType = ChannelType.SLACK,
+): String =
     when (error.kind) {
-        ChannelErrorKind.AUTH -> "token je odvolaný nebo appce chybí scope — připoj workspace znovu"
-        ChannelErrorKind.NOT_FOUND -> "kanál neexistuje, nebo v něm bot není — pozvi ho přes /invite @appreviewzz"
-        ChannelErrorKind.INVALID_REQUEST -> "Slack zprávu odmítl kvůli obsahu; tohle patří do issue, ne do nastavení"
-        ChannelErrorKind.RATE_LIMITED -> "Slack teď omezuje volání, zkus to za chvíli"
-        ChannelErrorKind.TRANSIENT -> "výpadek sítě nebo Slacku, zkus to znovu"
+        ChannelErrorKind.AUTH ->
+            when (type) {
+                ChannelType.SLACK -> "token je odvolaný nebo appce chybí scope — připoj workspace znovu"
+                ChannelType.TEAMS -> "bot nemá platné heslo nebo ho tenant odebral — zkontroluj registraci a připoj Teams znovu"
+            }
+
+        ChannelErrorKind.NOT_FOUND ->
+            when (type) {
+                ChannelType.SLACK -> "kanál neexistuje, nebo v něm bot není — pozvi ho přes /invite @appreviewzz"
+                ChannelType.TEAMS -> "kanál neexistuje, nebo v týmu není naše aplikace — přidej ji v Teams přes 'Aplikace'"
+            }
+
+        ChannelErrorKind.INVALID_REQUEST -> "zprávu odmítl kvůli obsahu; tohle patří do issue, ne do nastavení"
+        ChannelErrorKind.RATE_LIMITED -> "protistrana teď omezuje volání, zkus to za chvíli"
+        ChannelErrorKind.TRANSIENT -> "výpadek sítě nebo protistrany, zkus to znovu"
     }

@@ -172,11 +172,19 @@ private val COMMANDS =
             run = { args -> slackConnect(args) },
         ),
         Command(
-            name = "channel add",
-            options = setOf("org", "app", "credential", "slack-channel", "label", "locale"),
+            name = "teams connect",
+            options = setOf("org", "tenant", "service-url", "team", "team-name", "label"),
             usage =
-                "channel add --org <slug|ID> --app <ID> --credential <ID instalace> --slack-channel <C…> " +
-                    "[--label <popis>] [--locale cs|en]",
+                "teams connect --org <slug|ID> --tenant <tenant ID> [--service-url <https://smba…>] " +
+                    "[--team <19:…>] [--team-name <název>] [--label <štítek>]",
+            run = { args -> teamsConnect(args) },
+        ),
+        Command(
+            name = "channel add",
+            options = setOf("org", "app", "credential", "slack-channel", "teams-channel", "label", "locale"),
+            usage =
+                "channel add --org <slug|ID> --app <ID> --credential <ID instalace> " +
+                    "(--slack-channel <C…> | --teams-channel <19:…>) [--label <popis>] [--locale cs|en]",
             run = { args -> channelAdd(args) },
         ),
         Command(

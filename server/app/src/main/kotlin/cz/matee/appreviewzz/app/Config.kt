@@ -116,6 +116,22 @@ data class ConsoleConfig(
     fun secureCookies(environment: String): Boolean = baseUrl?.startsWith("https://") == true || environment != "local"
 }
 
+/**
+ * Náš Azure Bot pro Microsoft Teams. Stejná úvaha jako u Slacku: **jedna registrace na celý
+ * deployment**, klienti se liší jen tenantem uloženým ve vaultu. Bez `TEAMS_BOT_APP_ID`
+ * a hesla se messaging endpoint vůbec nezaregistruje — otevřený webhook bez ověření tokenu
+ * by uměl publikovat odpovědi jménem klienta.
+ */
+data class TeamsConfig(
+    /** `client_id` app registrace; zároveň `aud` v tokenech od Bot Connectoru. */
+    val appId: String?,
+    val appPassword: String?,
+    /** Tenant registrace; prázdné znamená multi-tenant bota (token přes `botframework.com`). */
+    val tenantId: String?,
+) {
+    val enabled: Boolean get() = appId != null && appPassword != null
+}
+
 data class AppConfig(
     val role: Role,
     val environment: String,
@@ -130,6 +146,7 @@ data class AppConfig(
     val backup: BackupConfig,
     val ai: AiConfig,
     val slack: SlackConfig,
+    val teams: TeamsConfig,
     val console: ConsoleConfig,
 ) {
     companion object {
@@ -189,6 +206,12 @@ data class AppConfig(
                                 smtpPassword = env("MAIL_SMTP_PASSWORD")?.takeIf { it.isNotBlank() },
                                 startTls = env.optional("MAIL_SMTP_STARTTLS", "true").toBooleanStrict(),
                             ),
+                    ),
+                teams =
+                    TeamsConfig(
+                        appId = env("TEAMS_BOT_APP_ID")?.takeIf { it.isNotBlank() },
+                        appPassword = env("TEAMS_BOT_APP_PASSWORD")?.takeIf { it.isNotBlank() },
+                        tenantId = env("TEAMS_BOT_TENANT_ID")?.takeIf { it.isNotBlank() },
                     ),
                 slack =
                     SlackConfig(

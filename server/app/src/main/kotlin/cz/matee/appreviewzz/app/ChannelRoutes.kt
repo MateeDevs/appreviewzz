@@ -2,6 +2,9 @@ package cz.matee.appreviewzz.app
 
 import cz.matee.appreviewzz.channels.slack.SlackApi
 import cz.matee.appreviewzz.channels.slack.SlackInstallStates
+import cz.matee.appreviewzz.channels.teams.TeamsBotIdentity
+import cz.matee.appreviewzz.channels.teams.TeamsInstall
+import cz.matee.appreviewzz.channels.teams.TeamsTokens
 import cz.matee.appreviewzz.core.model.ActorType
 import cz.matee.appreviewzz.core.model.Channel
 import cz.matee.appreviewzz.core.model.ChannelType
@@ -90,6 +93,27 @@ data class SlackConnectionResponse(
     val scopes: String?,
     /** Scopes, které Slack App nemá, ale bez kterých doručování nefunguje. */
     val missingScopes: List<String>,
+)
+
+@Serializable
+data class ConnectTeamsRequest(
+    /** Microsoft Entra tenant ID klienta — najde se v Teams admin centru nebo v URL Azure portálu. */
+    val tenantId: String,
+    /** Regionální Bot Connector; prázdné znamená evropský, což je náš výchozí. */
+    val serviceUrl: String? = null,
+    val teamId: String? = null,
+    val teamName: String? = null,
+    val label: String? = null,
+)
+
+@Serializable
+data class TeamsConnectionResponse(
+    val credentialId: String,
+    val tenant: String,
+    val serviceUrl: String,
+    /** Bot registrace odpověděla na žádost o token — bez toho by kanál nešlo ani otestovat. */
+    val botReachable: Boolean,
+    val botError: String? = null,
 )
 
 @Serializable
@@ -196,7 +220,93 @@ class ConsoleSlack(
 }
 
 /**
- * Kanály a připojení Slacku (F3.4) — poslední krok onboardingu.
+ * Připojení Teams z console.
+ *
+ * Na rozdíl od Slacku se tu **neukládá žádné tajemství bota** — ten je app-level a jeho heslo
+ * je v konfiguraci deploymentu. Per klient se drží jen tenant a regionální endpoint, tedy to,
+ * co dnes v n8n leží natvrdo v URL jednotlivých nodů.
+ */
+class ConsoleTeams(
+    private val bot: TeamsBotIdentity?,
+    private val tokens: TeamsTokens,
+    private val vault: CredentialStore,
+    private val audit: AuditLogRepository,
+) {
+    suspend fun connect(
+        organization: Organization,
+        actor: OrgActor,
+        request: ConnectTeamsRequest,
+    ): TeamsConnectionResponse {
+        requireRole(actor, OrgRole.ADMIN)
+        val identity =
+            bot ?: throw ConsoleException(
+                ConsoleFailure.INVALID_INPUT,
+                "Teams bot není v téhle instalaci nastavený (chybí TEAMS_BOT_APP_ID a heslo)",
+            )
+        val tenantId = request.tenantId.trim()
+        if (!TENANT_ID_FORMAT.matches(tenantId)) {
+            throw ConsoleException(
+                ConsoleFailure.INVALID_INPUT,
+                "Čekám tenant ID (UUID), ne název domény — najdeš ho v Teams admin centru",
+            )
+        }
+
+        val install =
+            TeamsInstall(
+                tenantId = tenantId,
+                tenantName = null,
+                serviceUrl = request.serviceUrl?.trim()?.takeIf { it.isNotBlank() } ?: TeamsInstall.DEFAULT_SERVICE_URL,
+                teamId = request.teamId?.trim()?.takeIf { it.isNotBlank() },
+                teamName = request.teamName?.trim()?.takeIf { it.isNotBlank() },
+            )
+
+        // Ověřovací volání je na úrovni deploymentu (funguje vůbec náš bot?), ne tenantu — ten
+        // se pozná až zkušební zprávou do kanálu. I tak je lepší chytit špatné heslo hned tady.
+        val botError =
+            try {
+                tokens.accessToken(identity)
+                null
+            } catch (error: ChannelException) {
+                error.message
+            }
+
+        val meta =
+            vault.store(
+                organization.id,
+                CredentialType.TEAMS_BOT_REF,
+                request.label?.takeIf { it.isNotBlank() } ?: "Teams ${install.hint()}",
+                install.payload(),
+                install.hint(),
+            )
+        audit.append(
+            auditEntry(
+                orgId = organization.id,
+                action = "teams.connected",
+                actorType = ActorType.USER,
+                actorUserId = actor.userId,
+                actorLabel = actor.displayName,
+                targetType = "credential",
+                targetId = meta.id.toString(),
+                metadata = mapOf("tenant" to install.tenantId, "team" to install.teamId.orEmpty()),
+            ),
+        )
+
+        return TeamsConnectionResponse(
+            credentialId = meta.id.toString(),
+            tenant = install.hint(),
+            serviceUrl = install.serviceUrl,
+            botReachable = botError == null,
+            botError = botError,
+        )
+    }
+
+    private companion object {
+        val TENANT_ID_FORMAT = Regex("[0-9a-fA-F-]{36}")
+    }
+}
+
+/**
+ * Kanály a připojení Slacku i Teams (F3.4, F4.2) — poslední krok onboardingu.
  *
  * `POST …/channels/test` je tu ta důležitá cesta: pošle do kanálu zkušební zprávu a rovnou
  * pojmenuje, co je špatně. Bez ní se odvolaný token nebo nepozvaný bot pozná až tím,
@@ -264,6 +374,14 @@ fun Route.channelRoutes(console: ConsoleWiring) {
                     ChannelCheckResponse(it.channelId.toString(), it.targetRef, it.ok, it.error, it.hint)
                 },
             )
+        }
+    }
+
+    route("/orgs/{org}/teams") {
+        post("/connect") {
+            val context = call.orgContext(console.organizations, console.memberships)
+            val teams = console.teams ?: throw ConsoleException(ConsoleFailure.NOT_FOUND, "Teams nejsou v téhle instalaci zapnuté")
+            call.respond(teams.connect(context.organization, context.actor, call.receive<ConnectTeamsRequest>()))
         }
     }
 

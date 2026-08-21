@@ -8,6 +8,7 @@ import cz.matee.appreviewzz.backup.BackupStoreException
 import cz.matee.appreviewzz.backup.BackupToolException
 import cz.matee.appreviewzz.backup.StoredBackup
 import cz.matee.appreviewzz.channels.slack.SlackInstallStates
+import cz.matee.appreviewzz.channels.teams.TeamsInstall
 import cz.matee.appreviewzz.core.model.ActorType
 import cz.matee.appreviewzz.core.model.App
 import cz.matee.appreviewzz.core.model.AppId
@@ -386,19 +387,100 @@ class SeedCommands(
     }
 
     /**
-     * Kanál, do kterého mají recenze chodit. Credential je instalace Slacku, `--slack-channel`
-     * je ID kanálu (`C…`) — jméno se mění, ID ne.
+     * Připojení Teams. Na rozdíl od Slacku se tu **neukládá tajemství bota** — ten je app-level
+     * a jeho heslo je v konfiguraci deploymentu; per klient se drží jen tenant a regionální
+     * endpoint, tedy to, co dnes v n8n leží natvrdo v URL jednotlivých nodů.
+     */
+    suspend fun teamsConnect(args: Arguments) {
+        val organization = organization(args)
+        val bot =
+            components.teamsBot
+                ?: throw CommandException("Chybí TEAMS_BOT_APP_ID a TEAMS_BOT_APP_PASSWORD — bez registrace bota nemá co posílat zprávy")
+        val install =
+            TeamsInstall(
+                tenantId = args.required("tenant"),
+                serviceUrl = args.optional("service-url") ?: TeamsInstall.DEFAULT_SERVICE_URL,
+                teamId = args.optional("team"),
+                teamName = args.optional("team-name"),
+            )
+
+        // Ověřovací volání je na úrovni deploymentu (funguje vůbec náš bot?), ne tenantu — ten
+        // se pozná až zkušební zprávou do kanálu. I tak je lepší chytit špatné heslo hned tady.
+        val botError =
+            try {
+                components.teamsTokens.accessToken(bot)
+                null
+            } catch (error: ChannelException) {
+                error.message
+            }
+
+        val meta =
+            components.vault.store(
+                organization.id,
+                CredentialType.TEAMS_BOT_REF,
+                args.optional("label") ?: "Teams ${install.hint()}",
+                install.payload(),
+                install.hint(),
+            )
+        audit(
+            organization.id,
+            "teams.connected",
+            "credential",
+            meta.id.toString(),
+            mapOf("tenant" to install.tenantId, "team" to install.teamId.orEmpty()),
+        )
+
+        out("Teams připojené")
+        out(
+            details(
+                "ID" to meta.id.toString(),
+                "tenant" to install.tenantId,
+                "endpoint" to install.serviceUrl,
+                "bot" to (botError?.let { "nedostupný: $it" } ?: "odpovídá"),
+            ),
+        )
+        out("Dál: `channel add --org ${organization.slug} --app <APP_ID> --credential ${meta.id} --teams-channel 19:…`")
+    }
+
+    /**
+     * Kanál, do kterého mají recenze chodit. Typ se pozná podle toho, čím je zadaný cíl:
+     * `--slack-channel C…` nebo `--teams-channel 19:…`. Jméno kanálu to není a být nesmí —
+     * jméno se mění, ID ne.
      */
     fun channelAdd(args: Arguments) {
         val organization = organization(args)
         val app = app(organization.id, args)
         val meta = credential(organization.id, args)
-        if (meta.type != CredentialType.SLACK_INSTALL) {
-            throw CommandException("Kanál potřebuje instalaci Slacku, ne credential typu ${meta.type.name}")
+        val slackChannel = args.optional("slack-channel")
+        val teamsChannel = args.optional("teams-channel")
+        val type =
+            when {
+                slackChannel != null && teamsChannel != null ->
+                    throw UsageException("--slack-channel a --teams-channel se navzájem vylučují; kanál je jeden")
+
+                slackChannel != null -> ChannelType.SLACK
+                teamsChannel != null -> ChannelType.TEAMS
+                else -> throw UsageException("Kanál potřebuje cíl: --slack-channel <C…> nebo --teams-channel <19:…>")
+            }
+        val expectedCredential =
+            when (type) {
+                ChannelType.SLACK -> CredentialType.SLACK_INSTALL
+                ChannelType.TEAMS -> CredentialType.TEAMS_BOT_REF
+            }
+        if (meta.type != expectedCredential) {
+            throw CommandException("Kanál typu ${type.name} potřebuje ${expectedCredential.name}, ne credential typu ${meta.type.name}")
         }
-        val targetRef = args.required("slack-channel")
-        if (!targetRef.startsWith("C") && !targetRef.startsWith("G")) {
-            throw UsageException("--slack-channel čeká ID kanálu ze Slacku (začíná C nebo G), ne jeho jméno")
+        val targetRef = slackChannel ?: teamsChannel!!
+        when (type) {
+            ChannelType.SLACK ->
+                if (!targetRef.startsWith("C") && !targetRef.startsWith("G")) {
+                    throw UsageException("--slack-channel čeká ID kanálu ze Slacku (začíná C nebo G), ne jeho jméno")
+                }
+
+            ChannelType.TEAMS ->
+                if (!targetRef.startsWith("19:")) {
+                    throw UsageException("--teams-channel čeká ID kanálu v Teams (začíná 19: a končí @thread.tacv2)")
+                }
         }
 
         val channel =
@@ -406,7 +488,7 @@ class SeedCommands(
                 organization.id,
                 NewChannel(
                     appId = app.id,
-                    type = ChannelType.SLACK,
+                    type = type,
                     targetRef = targetRef,
                     targetLabel = args.optional("label"),
                     credentialId = meta.id,
@@ -484,7 +566,7 @@ class SeedCommands(
 
                 credentialId == null -> {
                     failed++
-                    out("${channel.targetRef}  ✗ chybí připojená instalace — projdi `slack connect` a `channel add`")
+                    out("${channel.targetRef}  ✗ chybí připojená instalace — projdi `slack connect`/`teams connect` a `channel add`")
                 }
 
                 else ->
@@ -497,7 +579,7 @@ class SeedCommands(
                         out("${channel.targetRef}  ✓ zpráva odeslaná (ts ${posted.messageId})")
                     } catch (error: ChannelException) {
                         failed++
-                        out("${channel.targetRef}  ✗ ${error.kind}: ${error.message} — ${hintFor(error)}")
+                        out("${channel.targetRef}  ✗ ${error.kind}: ${error.message} — ${hintFor(error, channel.type)}")
                     }
             }
         }
