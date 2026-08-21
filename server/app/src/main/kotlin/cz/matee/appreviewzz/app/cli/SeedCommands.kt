@@ -118,7 +118,13 @@ class SeedCommands(
         requireStoreIdentifiersFree(organization.id, gpPackage, ascAppId)
 
         // Výchozí hodnoty si drží doména (NewApp), ne CLI — jinak by se obojí rozešlo.
-        val defaults = NewApp(name = args.required("name"), gpPackageName = gpPackage, ascAppId = ascAppId)
+        val defaults =
+            NewApp(
+                name = args.required("name"),
+                gpPackageName = gpPackage,
+                gpReportingBucket = args.optional("gp-bucket")?.let { AppInputs.reportingBucket(it, "--gp-bucket") },
+                ascAppId = ascAppId,
+            )
         val app =
             components.apps.create(
                 organization.id,
@@ -140,6 +146,7 @@ class SeedCommands(
                 "ID" to app.id.toString(),
                 "název" to app.name,
                 "Google Play" to (app.gpPackageName ?: "—"),
+                "reporting bucket" to (app.gpReportingBucket ?: "— (hodnocení ze scrapu)"),
                 "App Store" to (app.ascAppId ?: "—"),
                 "jazyk" to app.locale.code,
                 "časová zóna" to app.timezone,

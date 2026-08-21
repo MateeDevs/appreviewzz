@@ -34,6 +34,11 @@ data class App(
     val orgId: OrganizationId,
     val name: String,
     val gpPackageName: String?,
+    /**
+     * Bucket s reportingem Play Console (`pubsite_prod_…`). Odvodit z balíčku se nedá, klient
+     * ho opisuje z Play Console; bez něj se Android hodnocení berou ze scrapu veřejného listingu.
+     */
+    val gpReportingBucket: String?,
     val ascAppId: String?,
     val locale: MessageLocale,
     val timezone: String,

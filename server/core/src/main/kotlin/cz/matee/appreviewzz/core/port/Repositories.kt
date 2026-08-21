@@ -133,6 +133,7 @@ interface MembershipRepository {
 data class NewApp(
     val name: String,
     val gpPackageName: String? = null,
+    val gpReportingBucket: String? = null,
     val ascAppId: String? = null,
     val locale: MessageLocale = MessageLocale.CS,
     val timezone: String = "Europe/Prague",
@@ -145,6 +146,7 @@ data class NewApp(
 /** Kompletní nastavení appky — update je nahrazení celku, ne patch po polích. */
 data class AppSettings(
     val name: String,
+    val gpReportingBucket: String?,
     val locale: MessageLocale,
     val timezone: String,
     val notifyFrom: Instant?,

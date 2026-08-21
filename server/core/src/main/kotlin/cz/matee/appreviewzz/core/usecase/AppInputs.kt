@@ -54,6 +54,22 @@ object AppInputs {
     ): LocalTime = runCatching { LocalTime.parse(raw) }.getOrElse { invalid(field, "čeká čas ve tvaru HH:MM, dostalo '$raw'") }
 
     /**
+     * Reportingový bucket Play Console. Klient ho kopíruje z Play Console, kde je i s prefixem
+     * `gs://` — přijmeme obojí a uložíme holé jméno, ať se to nemusí řešit u každého volání.
+     */
+    fun reportingBucket(
+        raw: String,
+        field: String,
+    ): String {
+        val value = raw.trim().removePrefix("gs://").trimEnd('/')
+        if (value.isEmpty()) invalid(field, "je prázdný")
+        if (!BUCKET_NAME.matches(value)) {
+            invalid(field, "'$raw' nevypadá jako jméno bucketu (čekám např. pubsite_prod_rev_01234567890123456789)")
+        }
+        return value
+    }
+
+    /**
      * Watermark, od kterého se recenze notifikují. `now` je to, co se použije při onboardingu
      * existující appky: historie se doimportuje, ale kanál nezaplaví.
      */
@@ -70,6 +86,9 @@ object AppInputs {
                     invalid(field, "čeká 'now' nebo čas v ISO-8601 (2026-08-19T00:00:00Z), dostalo '$raw'")
                 }
         }
+
+    /** Pravidla Cloud Storage: malá písmena, číslice, pomlčky, podtržítka a tečky. */
+    private val BUCKET_NAME = Regex("[a-z0-9][a-z0-9._-]{2,221}")
 
     private fun invalid(
         field: String,

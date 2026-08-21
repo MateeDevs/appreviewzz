@@ -125,6 +125,7 @@ internal fun ResultRow.toApp(): App =
         orgId = this[Apps.orgId],
         name = this[Apps.name],
         gpPackageName = this[Apps.gpPackageName],
+        gpReportingBucket = this[Apps.gpReportingBucket],
         ascAppId = this[Apps.ascAppId],
         locale = MessageLocale.ofCode(this[Apps.locale]),
         timezone = this[Apps.timezone],

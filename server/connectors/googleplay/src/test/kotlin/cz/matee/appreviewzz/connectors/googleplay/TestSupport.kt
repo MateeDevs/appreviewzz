@@ -58,6 +58,10 @@ object TestServiceAccount {
 
 fun fixture(name: String): String = requireNotNull(object {}.javaClass.getResource("/fixtures/$name")) { "Fixture $name chybí" }.readText()
 
+/** Play export je UTF-16LE — jako text by se přečetl špatně, testovat se musí syrové bajty. */
+fun fixtureBytes(name: String): ByteArray =
+    requireNotNull(object {}.javaClass.getResourceAsStream("/fixtures/$name")) { "Fixture $name chybí" }.use { it.readBytes() }
+
 /**
  * MockEngine, který odpovídá podle cesty. Token endpoint obslouží vždy, ostatní volání
  * si test definuje sám — a zároveň se zaznamenávají, aby šlo tvrdit něco o requestech.

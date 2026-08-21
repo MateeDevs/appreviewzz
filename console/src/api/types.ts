@@ -44,6 +44,7 @@ export interface App {
   id: string
   name: string
   gpPackageName: string | null
+  gpReportingBucket: string | null
   ascAppId: string | null
   platforms: Platform[]
   locale: 'CS' | 'EN'

@@ -141,6 +141,7 @@ internal object Apps : Table("app") {
     val orgId = organizationId()
     val name = text("name")
     val gpPackageName = text("gp_package_name").nullable()
+    val gpReportingBucket = text("gp_reporting_bucket").nullable()
     val ascAppId = text("asc_app_id").nullable()
     val locale = text("locale")
     val timezone = text("timezone")

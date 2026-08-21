@@ -23,6 +23,8 @@ private val logger = KotlinLogging.logger {}
 data class AppDraft(
     val name: String,
     val gpPackageName: String? = null,
+    /** Bucket s reportingem Play Console; bez něj se Android hodnocení berou z veřejného listingu. */
+    val gpReportingBucket: String? = null,
     val ascAppId: String? = null,
     val locale: String? = null,
     val timezone: String? = null,
@@ -73,7 +75,16 @@ class AppService(
         requireIdentifiersFree(organization.id, gpPackage, ascAppId, except = null)
 
         // Výchozí hodnoty drží doména (NewApp), ne tahle vrstva — jinak by se obojí rozešlo.
-        val defaults = NewApp(name = name, gpPackageName = gpPackage, ascAppId = ascAppId)
+        val defaults =
+            NewApp(
+                name = name,
+                gpPackageName = gpPackage,
+                gpReportingBucket =
+                    draft.gpReportingBucket?.takeIf { it.isNotBlank() }?.let {
+                        AppInputs.reportingBucket(it, "gpReportingBucket")
+                    },
+                ascAppId = ascAppId,
+            )
         val app =
             apps.create(
                 organization.id,
@@ -111,6 +122,9 @@ class AppService(
         val settings =
             AppSettings(
                 name = name,
+                gpReportingBucket =
+                    draft.gpReportingBucket?.takeIf { it.isNotBlank() }?.let { AppInputs.reportingBucket(it, "gpReportingBucket") }
+                        ?: current.gpReportingBucket,
                 locale = draft.locale?.let { AppInputs.locale(it, "locale") } ?: current.locale,
                 timezone = draft.timezone?.let { AppInputs.timezone(it, "timezone") } ?: current.timezone,
                 notifyFrom = AppInputs.notifyFrom(draft.notifyFrom, "notifyFrom", clock) ?: current.notifyFrom,

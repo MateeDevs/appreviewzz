@@ -1,0 +1,12 @@
+{
+  "kind": "storage#objects",
+  "items": [
+    {
+      "kind": "storage#object",
+      "name": "stats/ratings/ratings_com.stonecutters.islegrow_202608_overview.csv",
+      "bucket": "pubsite_prod_8713874562713668954",
+      "mediaLink": "https://storage.googleapis.com/download/storage/v1/b/pubsite_prod_8713874562713668954/o/stats%2Fratings%2Fratings_com.stonecutters.islegrow_202608_overview.csv?generation=1&alt=media",
+      "size": "2048"
+    }
+  ]
+}

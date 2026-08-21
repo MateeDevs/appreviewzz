@@ -39,6 +39,7 @@ class ExposedAppRepository(
                     orgId = orgId,
                     name = app.name,
                     gpPackageName = app.gpPackageName,
+                    gpReportingBucket = app.gpReportingBucket,
                     ascAppId = app.ascAppId,
                     locale = app.locale,
                     timezone = app.timezone,
@@ -54,6 +55,7 @@ class ExposedAppRepository(
                 it[Apps.orgId] = created.orgId
                 it[name] = created.name
                 it[gpPackageName] = created.gpPackageName
+                it[gpReportingBucket] = created.gpReportingBucket
                 it[ascAppId] = created.ascAppId
                 it[locale] = created.locale.code
                 it[timezone] = created.timezone
@@ -103,6 +105,7 @@ class ExposedAppRepository(
             val updated =
                 Apps.update({ (Apps.orgId eq orgId) and (Apps.id eq id) }) {
                     it[name] = settings.name
+                    it[gpReportingBucket] = settings.gpReportingBucket
                     it[locale] = settings.locale.code
                     it[timezone] = settings.timezone
                     it[notifyFrom] = settings.notifyFrom

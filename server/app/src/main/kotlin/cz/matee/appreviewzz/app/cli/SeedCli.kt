@@ -111,6 +111,7 @@ private val COMMANDS =
                     "org",
                     "name",
                     "gp-package",
+                    "gp-bucket",
                     "asc-app-id",
                     "locale",
                     "timezone",
@@ -120,7 +121,8 @@ private val COMMANDS =
                     "digest-at",
                 ),
             usage =
-                "app create --org <slug|ID> --name <název> [--gp-package <balíček>] [--asc-app-id <ID>] " +
+                "app create --org <slug|ID> --name <název> [--gp-package <balíček>] [--gp-bucket <pubsite_prod_…>] " +
+                    "[--asc-app-id <ID>] " +
                     "[--locale cs|en] [--timezone <zóna>] [--notify-from now|<ISO-8601>] " +
                     "[--ingest-interval <minuty>] [--digest-at HH:MM] [--ai-instructions <text>]",
             run = { args -> appCreate(args) },

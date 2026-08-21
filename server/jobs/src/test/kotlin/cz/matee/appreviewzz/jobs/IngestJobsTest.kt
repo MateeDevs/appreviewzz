@@ -122,6 +122,7 @@ class IngestJobsTest :
                 app.id,
                 AppSettings(
                     name = app.name,
+                    gpReportingBucket = app.gpReportingBucket,
                     locale = app.locale,
                     timezone = app.timezone,
                     notifyFrom = app.notifyFrom,

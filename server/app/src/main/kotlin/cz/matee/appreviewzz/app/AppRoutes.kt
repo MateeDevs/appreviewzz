@@ -19,6 +19,8 @@ import kotlinx.serialization.Serializable
 data class CreateAppRequest(
     val name: String,
     val gpPackageName: String? = null,
+    /** Bucket s reportingem Play Console (`pubsite_prod_…`) — bez něj se Android čísla scrapují. */
+    val gpReportingBucket: String? = null,
     val ascAppId: String? = null,
     val locale: String? = null,
     val timezone: String? = null,
@@ -32,6 +34,7 @@ data class CreateAppRequest(
 @Serializable
 data class UpdateAppRequest(
     val name: String,
+    val gpReportingBucket: String? = null,
     val locale: String? = null,
     val timezone: String? = null,
     val notifyFrom: String? = null,
@@ -46,6 +49,7 @@ data class AppResponse(
     val id: String,
     val name: String,
     val gpPackageName: String?,
+    val gpReportingBucket: String?,
     val ascAppId: String?,
     val platforms: List<Platform>,
     val locale: MessageLocale,
@@ -85,6 +89,7 @@ fun Route.appRoutes(console: ConsoleWiring) {
                             AppDraft(
                                 name = request.name,
                                 gpPackageName = request.gpPackageName,
+                                gpReportingBucket = request.gpReportingBucket,
                                 ascAppId = request.ascAppId,
                                 locale = request.locale,
                                 timezone = request.timezone,
@@ -115,6 +120,7 @@ fun Route.appRoutes(console: ConsoleWiring) {
                         draft =
                             AppDraft(
                                 name = request.name,
+                                gpReportingBucket = request.gpReportingBucket,
                                 locale = request.locale,
                                 timezone = request.timezone,
                                 notifyFrom = request.notifyFrom,
@@ -141,6 +147,7 @@ private fun App.toResponse() =
         id = id.toString(),
         name = name,
         gpPackageName = gpPackageName,
+        gpReportingBucket = gpReportingBucket,
         ascAppId = ascAppId,
         platforms = platforms().toList(),
         locale = locale,

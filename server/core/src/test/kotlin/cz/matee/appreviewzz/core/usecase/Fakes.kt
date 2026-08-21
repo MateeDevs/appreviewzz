@@ -55,6 +55,7 @@ internal object Ingest {
             orgId = orgId,
             name = "IsleGrow",
             gpPackageName = gpPackageName,
+            gpReportingBucket = null,
             ascAppId = ascAppId,
             locale = MessageLocale.CS,
             timezone = "Europe/Prague",

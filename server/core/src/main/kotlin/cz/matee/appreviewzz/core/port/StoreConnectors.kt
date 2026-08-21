@@ -1,5 +1,6 @@
 package cz.matee.appreviewzz.core.port
 
+import cz.matee.appreviewzz.core.model.ObservedRatings
 import cz.matee.appreviewzz.core.model.ObservedReview
 import cz.matee.appreviewzz.core.model.Platform
 import cz.matee.appreviewzz.core.model.SecretPayload
@@ -50,6 +51,45 @@ class StoreConnectorException(
 data class ValidationOutcome(
     val valid: Boolean,
     val message: String? = null,
+)
+
+/**
+ * Zdroj hodnocení aplikace (plán §5.4). Oddělený od [ReviewSource] schválně: hodnocení se
+ * čtou jednou denně, z jiných endpointů a někdy úplně bez credentialu (veřejný listing).
+ *
+ * Zdrojů může být pro jednu platformu **víc a mají pořadí**: oficiální data (iTunes lookup,
+ * Play Console export) mají přednost, veřejný scrape je fallback pro klienty, kde na oficiální
+ * data nemáme přístup. Dnešní n8n má obojí taky, ale scrape větev nikdo nevolá a pro klienta
+ * bez Play Console tak digest prostě nechodí.
+ */
+interface RatingsSource {
+    val platform: Platform
+
+    /** Čím vyšší, tím dřív se zkusí. Oficiální data mají přednost před scrapem. */
+    val priority: Int
+
+    /**
+     * Stáhne hodnocení. Prázdný seznam znamená „tenhle zdroj pro tuhle appku nemá data"
+     * (typicky chybějící nastavení) — volající pak zkusí další v pořadí; chyba storu se hlásí
+     * výjimkou, protože ta se má propsat do delivery health, ne tiše přeskočit.
+     */
+    suspend fun fetchRatings(context: RatingsContext): List<ObservedRatings>
+}
+
+/**
+ * Co konektor potřebuje ke stažení hodnocení. Credential je `null` u zdrojů, které čtou
+ * veřejný listing — a je to tak správně: kvůli dennímu průměru nemá smysl rozbalovat klíč.
+ */
+data class RatingsContext(
+    val appIdentifier: String,
+    val credential: SecretPayload? = null,
+    /**
+     * Bucket s reportingem Play Console (`pubsite_prod_…`). Odvodit se nedá, klient ho opisuje
+     * z Play Console; bez něj se na oficiální Android data nedostaneme.
+     */
+    val reportingBucket: String? = null,
+    /** Storefronty, ze kterých se čtou iOS hodnocení. Prázdné = výchozí seznam konektoru. */
+    val territories: List<String> = emptyList(),
 )
 
 /** Zdroj recenzí jednoho storu. Přidání dalšího storu je implementace tohohle rozhraní. */
