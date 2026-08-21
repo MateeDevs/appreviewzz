@@ -1,6 +1,7 @@
 package cz.matee.appreviewzz.channels.teams
 
 import cz.matee.appreviewzz.core.message.MessageCatalog
+import cz.matee.appreviewzz.core.message.RatingsDigest
 import cz.matee.appreviewzz.core.message.ReviewNotification
 import cz.matee.appreviewzz.core.model.ChannelType
 import cz.matee.appreviewzz.core.port.ChannelTarget
@@ -64,6 +65,19 @@ class TeamsNotificationChannel(
             install = install,
             teamsChannelId = target.conversationId,
             card = TeamsCards.connectivityCheck(MessageCatalog.of(notice.locale), notice.appName),
+        )
+    }
+
+    override suspend fun postRatingsDigest(
+        target: ChannelTarget,
+        digest: RatingsDigest,
+    ): PostedMessage {
+        val install = TeamsInstall.parse(target.credential)
+        return api.createChannelConversation(
+            token = tokens.accessToken(bot),
+            install = install,
+            teamsChannelId = target.conversationId,
+            card = TeamsCards.ratingsDigest(digest),
         )
     }
 

@@ -1,6 +1,7 @@
 package cz.matee.appreviewzz.app
 
 import cz.matee.appreviewzz.app.cli.TestDatabase
+import cz.matee.appreviewzz.core.message.RatingsDigest
 import cz.matee.appreviewzz.core.message.ReviewNotification
 import cz.matee.appreviewzz.core.model.ChannelType
 import cz.matee.appreviewzz.core.model.ObservedReview
@@ -130,6 +131,11 @@ class FakeNotificationChannel(
         failWith?.let { throw it }
         return PostedMessage(target.conversationId, "1755600000.000200")
     }
+
+    override suspend fun postRatingsDigest(
+        target: ChannelTarget,
+        digest: RatingsDigest,
+    ): PostedMessage = PostedMessage(target.conversationId, "1755600000.000300")
 
     override suspend fun reportFailure(
         target: ChannelTarget,

@@ -2,6 +2,8 @@ package cz.matee.appreviewzz.channels.slack
 
 import cz.matee.appreviewzz.core.message.MessageCatalog
 import cz.matee.appreviewzz.core.message.MessageKey
+import cz.matee.appreviewzz.core.message.PlatformRatings
+import cz.matee.appreviewzz.core.message.RatingsDigest
 import cz.matee.appreviewzz.core.message.ReviewNotification
 import cz.matee.appreviewzz.core.model.Platform
 import cz.matee.appreviewzz.core.port.ReplyRendering
@@ -85,6 +87,81 @@ internal object SlackBlocks {
                 section("*${escape(catalog[MessageKey.ERROR_LABEL])}:* ```$detail```"),
             ),
         )
+    }
+
+    /**
+     * Denní přehled hodnocení. Šablona je pro obě platformy jedna a stejná jako v Teams —
+     * v n8n se rozešly čtyři varianty (Slack Matee, Slack Improvio, Teams orchestrátor,
+     * Teams jedno-platformový), každá s jinými šipkami a jiným počtem desetinných míst.
+     */
+    fun ratingsDigest(digest: RatingsDigest): JsonArray {
+        val catalog = digest.catalog
+        return JsonArray(
+            buildList {
+                add(
+                    buildJsonObject {
+                        put("type", "header")
+                        putJsonObject("text") {
+                            put("type", "plain_text")
+                            put("text", "📊 ${catalog[MessageKey.RATINGS_SUMMARY_TITLE]} · ${digest.appName}".take(HEADER_LIMIT))
+                            put("emoji", true)
+                        }
+                    },
+                )
+                digest.platforms.forEachIndexed { index, part ->
+                    if (index > 0) add(buildJsonObject { put("type", "divider") })
+                    add(section(platformSection(digest, part)))
+                }
+                add(context(escape("${catalog[MessageKey.DATE_LABEL]}: ${digest.formattedDate(digest.date)}")))
+            },
+        )
+    }
+
+    private fun platformSection(
+        digest: RatingsDigest,
+        part: PlatformRatings,
+    ): String {
+        val catalog = digest.catalog
+        val name = if (part.platform == cz.matee.appreviewzz.core.model.Platform.ANDROID) "Android" else "iOS"
+        val average = part.average?.let { RatingsDigest.formatRating(it) } ?: "—"
+        val change = part.delta
+        val delta =
+            when {
+                part.isFirstRun || change == null -> ""
+                else ->
+                    "${catalog[MessageKey.DELTA_LABEL]}: " +
+                        "${RatingsDigest.trend(change)} ${RatingsDigest.formatDelta(change)}"
+            }
+
+        return buildList {
+            add("${RatingsDigest.platformEmoji(part.platform)} *$name*")
+            add("⭐ *${escape(catalog[MessageKey.TOTAL_LABEL])}*: `$average`   ${escape(delta)}")
+            add(RatingsDigest.bar(part.average))
+            part.totalCount?.let { add("📈 ${escape(catalog[MessageKey.RATINGS_TOTAL_COUNT_LABEL])}: `$it`") }
+            add(newRatingsLine(digest, part))
+            // Datum platformy, ne dnešek: Play export bývá o den dva pozadu a tohle je jediné
+            // místo, kde je to vidět. Dnešní zpráva to zamlčuje.
+            if (part.asOf != digest.date) {
+                add("_${escape(catalog[MessageKey.DATE_LABEL])}: ${escape(digest.formattedDate(part.asOf))}_")
+            }
+        }.joinToString("\n")
+    }
+
+    private fun newRatingsLine(
+        digest: RatingsDigest,
+        part: PlatformRatings,
+    ): String {
+        val catalog = digest.catalog
+        val total = part.newTotal
+        if (total == null || part.isFirstRun) return "_${escape(catalog[MessageKey.RATINGS_FIRST_RUN])}_"
+        if (total == 0L) return ":new: ${escape(catalog[MessageKey.RATINGS_NO_NEW])}"
+
+        val breakdown =
+            part.newRatings
+                .takeIf { it.isNotEmpty() }
+                ?.let { counts -> (1..MAX_STARS).joinToString(" · ") { stars -> "$stars★: ${counts[stars] ?: 0}" } }
+        return listOfNotNull(":new: *${escape(catalog[MessageKey.NEW_RATINGS_TODAY_LABEL])}*: $total", breakdown)
+            .joinToString(" · ")
     }
 
     /** Společná část zprávy: kdo, kolik hvězd, co napsal a k jaké verzi appky. */

@@ -34,12 +34,14 @@ fun buildScheduler(
     deliveryJobs: DeliveryJobs? = null,
     replyJobs: ReplyJobs? = null,
     backupJobs: BackupJobs? = null,
+    ratingsJobs: RatingsJobs? = null,
     config: SchedulerConfig = SchedulerConfig(),
 ): Scheduler {
     logger.info { "Scheduler: ${config.threads} vláken, polling po ${config.pollingInterval}" }
     // Sweep i záloha se plánují samy; ostatní úlohy zakládá až sweep podle stavu databáze.
-    val selfScheduling = listOfNotNull(jobs.sweepTask, backupJobs?.backupTask)
-    val knownTasks = listOfNotNull(jobs.ingestTask, deliveryJobs?.deliverTask, replyJobs?.publishTask)
+    val selfScheduling = listOfNotNull(jobs.sweepTask, backupJobs?.backupTask, ratingsJobs?.sweepTask)
+    val knownTasks =
+        listOfNotNull(jobs.ingestTask, deliveryJobs?.deliverTask, replyJobs?.publishTask, ratingsJobs?.ratingsTask)
     return Scheduler
         .create(dataSource, knownTasks)
         .threads(config.threads)

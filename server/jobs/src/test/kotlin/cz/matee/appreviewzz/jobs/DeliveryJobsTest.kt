@@ -1,5 +1,6 @@
 package cz.matee.appreviewzz.jobs
 
+import cz.matee.appreviewzz.core.message.RatingsDigest
 import cz.matee.appreviewzz.core.message.ReviewNotification
 import cz.matee.appreviewzz.core.model.ChannelType
 import cz.matee.appreviewzz.core.model.CredentialId
@@ -99,6 +100,11 @@ class DeliveryJobsTest :
                     message: PostedMessage,
                     rendering: ReplyRendering,
                 ) = Unit
+
+                override suspend fun postRatingsDigest(
+                    target: ChannelTarget,
+                    digest: RatingsDigest,
+                ): PostedMessage = PostedMessage(target.conversationId, "1755600000.digest")
 
                 override suspend fun postConnectivityCheck(
                     target: ChannelTarget,

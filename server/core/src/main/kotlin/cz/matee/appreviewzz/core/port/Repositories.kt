@@ -564,12 +564,37 @@ interface RatingSnapshotRepository {
         territory: String = "GLOBAL",
     ): RatingSnapshot?
 
+    /** Historie pro graf v consoli i pro srovnání v přehledu; nejnovější první. */
     fun listRecent(
         orgId: OrganizationId,
         appId: AppId,
         platform: Platform,
+        territory: String = "GLOBAL",
         limit: Int = 30,
     ): List<RatingSnapshot>
+}
+
+/**
+ * Které dny už přehled odešel. Bez toho by opakovaný běh jobu poslal digest dvakrát —
+ * a ten druhý by ještě ukazoval nulovou deltu, protože srovnávací snapshot je už z dneška.
+ */
+interface RatingsDigestRepository {
+    /**
+     * Rezervuje odeslání přehledu. Vrátí `true`, když je den pro tenhle kanál volný;
+     * `false` znamená, že už odešel a nic se posílat nemá.
+     */
+    fun claim(
+        orgId: OrganizationId,
+        appId: AppId,
+        channelId: ChannelId,
+        date: LocalDate,
+        sentAt: Instant,
+    ): Boolean
+
+    fun lastSent(
+        orgId: OrganizationId,
+        channelId: ChannelId,
+    ): LocalDate?
 }
 
 interface AuditLogRepository {

@@ -40,8 +40,23 @@ enum class MessageKey(
     DATE_LABEL("Datum", "Date"),
     TODAY_LABEL("Dnes", "Today"),
     TOTAL_LABEL("Celkem", "Total"),
-    DELTA_LABEL("Δ vůči celkem", "Δ vs Total"),
+
+    /**
+     * Δ **oproti minulému přehledu**, ne vůči celkovému průměru jako v n8n. Změna je vědomá
+     * (plán §5.6): dnešní „průměr dnešních nových hodnocení minus celkový průměr" ukazuje
+     * u appky bez nových hodnocení pád o celý průměr, což nic neznamená a děsí to lidi.
+     */
+    DELTA_LABEL("Δ od minule", "Δ since last"),
     NEW_RATINGS_TODAY_LABEL("Nová hodnocení", "New ratings"),
+    RATINGS_TOTAL_COUNT_LABEL("Hodnocení celkem", "Ratings total"),
+    RATINGS_NO_NEW("Žádná nová hodnocení", "No new ratings"),
+
+    /** První přehled nemá s čím srovnávat — dnešní řešení místo toho ukáže nesmyslná čísla. */
+    RATINGS_FIRST_RUN(
+        "První přehled — porovnání přibude zítra.",
+        "First summary — there will be something to compare with tomorrow.",
+    ),
+    RATINGS_NO_DATA("Hodnocení se nepodařilo načíst", "Ratings could not be loaded"),
     APP_HAS_NEW_REVIEW("Nová recenze aplikace {app}!", "New review for {app}!"),
     REVIEW("recenze", "review"),
     NEW("nová", "new"),

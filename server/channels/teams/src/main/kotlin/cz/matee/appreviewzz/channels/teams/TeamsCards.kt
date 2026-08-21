@@ -2,6 +2,8 @@ package cz.matee.appreviewzz.channels.teams
 
 import cz.matee.appreviewzz.core.message.MessageCatalog
 import cz.matee.appreviewzz.core.message.MessageKey
+import cz.matee.appreviewzz.core.message.PlatformRatings
+import cz.matee.appreviewzz.core.message.RatingsDigest
 import cz.matee.appreviewzz.core.message.ReviewNotification
 import cz.matee.appreviewzz.core.model.Platform
 import cz.matee.appreviewzz.core.port.ReplyRendering
@@ -103,6 +105,95 @@ internal object TeamsCards {
                 add(textBlock("*${catalog[MessageKey.ERROR_LABEL]}:* ${error.ifBlank { "?" }.take(ERROR_LIMIT)}"))
             },
         )
+    }
+
+    /**
+     * Denní přehled hodnocení. Obsah je **totožný se Slackem** — obojí se skládá z jednoho
+     * [RatingsDigest]. V n8n se rozešly čtyři varianty téhle zprávy, každá s jinými šipkami
+     * a jiným počtem desetinných míst.
+     */
+    fun ratingsDigest(digest: RatingsDigest): JsonObject {
+        val catalog = digest.catalog
+        return card(
+            buildJsonArray {
+                add(
+                    textBlock(
+                        "📊 ${catalog[MessageKey.RATINGS_SUMMARY_TITLE]} · ${digest.appName}",
+                        size = "Large",
+                        weight = "Bolder",
+                    ),
+                )
+                digest.platforms.forEachIndexed { index, part ->
+                    ratingsSection(digest, part, separator = index > 0).forEach { add(it) }
+                }
+                add(
+                    textBlock(
+                        "${catalog[MessageKey.DATE_LABEL]}: ${digest.formattedDate(digest.date)}",
+                        subtle = true,
+                        size = "Small",
+                        separator = true,
+                    ),
+                )
+            },
+        )
+    }
+
+    private fun ratingsSection(
+        digest: RatingsDigest,
+        part: PlatformRatings,
+        separator: Boolean,
+    ): List<JsonObject> {
+        val catalog = digest.catalog
+        val name = if (part.platform == Platform.ANDROID) "Android" else "iOS"
+        val average = part.average?.let { RatingsDigest.formatRating(it) } ?: "—"
+        val change = part.delta
+        val delta =
+            if (part.isFirstRun || change == null) {
+                ""
+            } else {
+                "   ${catalog[MessageKey.DELTA_LABEL]}: ${RatingsDigest.trend(change)} ${RatingsDigest.formatDelta(change)}"
+            }
+
+        return buildList {
+            add(
+                textBlock(
+                    "${RatingsDigest.platformEmoji(part.platform)} **$name**",
+                    weight = "Bolder",
+                    separator = separator,
+                    spacing = "Medium",
+                ),
+            )
+            add(textBlock("⭐ ${catalog[MessageKey.TOTAL_LABEL]}: **$average**$delta"))
+            // Pruh musí být neproporcionálním písmem, jinak se buňky rozjedou a je z toho čára.
+            add(textBlock(RatingsDigest.bar(part.average), fontType = "Monospace"))
+            part.totalCount?.let { add(textBlock("📈 ${catalog[MessageKey.RATINGS_TOTAL_COUNT_LABEL]}: $it", subtle = true)) }
+            add(textBlock(newRatingsLine(digest, part), subtle = true))
+            if (part.asOf != digest.date) {
+                add(
+                    textBlock(
+                        "${catalog[MessageKey.DATE_LABEL]}: ${digest.formattedDate(part.asOf)}",
+                        subtle = true,
+                        size = "Small",
+                    ),
+                )
+            }
+        }
+    }
+
+    private fun newRatingsLine(
+        digest: RatingsDigest,
+        part: PlatformRatings,
+    ): String {
+        val catalog = digest.catalog
+        val total = part.newTotal
+        if (total == null || part.isFirstRun) return catalog[MessageKey.RATINGS_FIRST_RUN]
+        if (total == 0L) return "🆕 ${catalog[MessageKey.RATINGS_NO_NEW]}"
+
+        val breakdown =
+            part.newRatings
+                .takeIf { it.isNotEmpty() }
+                ?.let { counts -> (1..MAX_STARS).joinToString("  ·  ") { stars -> "$stars★: ${counts[stars] ?: 0}" } }
+        return listOfNotNull("🆕 ${catalog[MessageKey.NEW_RATINGS_TODAY_LABEL]}: $total", breakdown).joinToString("  ·  ")
     }
 
     /** Společná část karty: kdo, kolik hvězd, co napsal a k jaké verzi appky. */
@@ -221,6 +312,7 @@ internal object TeamsCards {
         subtle: Boolean = false,
         separator: Boolean = false,
         spacing: String? = null,
+        fontType: String? = null,
     ): JsonObject =
         buildJsonObject {
             put("type", "TextBlock")
@@ -232,6 +324,7 @@ internal object TeamsCards {
             if (subtle) put("isSubtle", true)
             if (separator) put("separator", true)
             spacing?.let { put("spacing", it) }
+            fontType?.let { put("fontType", it) }
         }
 
     private fun platformEmoji(platform: Platform): String =

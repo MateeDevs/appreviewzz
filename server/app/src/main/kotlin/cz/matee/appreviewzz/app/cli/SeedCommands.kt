@@ -9,6 +9,7 @@ import cz.matee.appreviewzz.backup.BackupToolException
 import cz.matee.appreviewzz.backup.StoredBackup
 import cz.matee.appreviewzz.channels.slack.SlackInstallStates
 import cz.matee.appreviewzz.channels.teams.TeamsInstall
+import cz.matee.appreviewzz.core.message.RatingsDigest
 import cz.matee.appreviewzz.core.model.ActorType
 import cz.matee.appreviewzz.core.model.App
 import cz.matee.appreviewzz.core.model.AppId
@@ -314,6 +315,47 @@ class SeedCommands(
 
         report.failures.firstOrNull()?.let { failure ->
             throw CommandException("Ingest ${failure.platform} selhal (${failure.kind}): ${failure.message}")
+        }
+    }
+
+    /**
+     * Ruční spuštění denního přehledu hodnocení. Užitečné hlavně při onboardingu: první běh
+     * nemá s čím srovnávat a je lepší to vidět hned, než druhý den v kanálu klienta.
+     */
+    suspend fun ratingsRun(args: Arguments) {
+        val organization = organization(args)
+        val app = app(organization.id, args)
+
+        val report = components.dailyRatings.run(organization.id, app.id)
+        audit(organization.id, "ratings.manual", "app", app.id.toString())
+
+        out("Přehled hodnocení ${app.name} (${app.id})")
+        report.skipped?.let {
+            out("  přeskočeno: $it")
+            return
+        }
+        report.platforms.forEach { part ->
+            val average = part.average?.let { RatingsDigest.formatRating(it) } ?: "—"
+            val change =
+                when {
+                    part.isFirstRun -> "první přehled, není s čím srovnat"
+                    part.delta == null -> "—"
+                    else -> "${RatingsDigest.trend(part.delta)} ${RatingsDigest.formatDelta(part.delta!!)}"
+                }
+            out("  ${part.platform}: průměr $average ($change), nových ${part.newTotal ?: "?"}, k ${part.asOf}")
+        }
+        report.deliveries.forEach { delivery ->
+            val state =
+                when {
+                    delivery.sent -> "✓ odesláno"
+                    delivery.alreadySent -> "· dnes už odešlo"
+                    else -> "✗ ${delivery.error}"
+                }
+            out("  kanál ${delivery.channelId}: $state")
+        }
+
+        report.failures.firstOrNull()?.let { failure ->
+            throw CommandException("Hodnocení ${failure.platform} selhala (${failure.kind}): ${failure.message}")
         }
     }
 

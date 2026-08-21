@@ -214,6 +214,12 @@ private val COMMANDS =
             run = { args -> ingestRun(args) },
         ),
         Command(
+            name = "ratings run",
+            options = setOf("org", "app"),
+            usage = "ratings run --org <slug|ID> --app <ID>",
+            run = { args -> ratingsRun(args) },
+        ),
+        Command(
             name = "backup run",
             options = emptySet(),
             usage = "backup run",

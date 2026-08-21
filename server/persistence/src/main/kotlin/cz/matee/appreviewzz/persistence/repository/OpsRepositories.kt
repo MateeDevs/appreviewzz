@@ -4,6 +4,7 @@ import cz.matee.appreviewzz.core.model.AppId
 import cz.matee.appreviewzz.core.model.AuditEntry
 import cz.matee.appreviewzz.core.model.BackupRun
 import cz.matee.appreviewzz.core.model.BackupStatus
+import cz.matee.appreviewzz.core.model.ChannelId
 import cz.matee.appreviewzz.core.model.FailedJob
 import cz.matee.appreviewzz.core.model.FailedJobId
 import cz.matee.appreviewzz.core.model.OrganizationId
@@ -15,10 +16,12 @@ import cz.matee.appreviewzz.core.port.BackupRunRepository
 import cz.matee.appreviewzz.core.port.FailedJobRepository
 import cz.matee.appreviewzz.core.port.NewRatingSnapshot
 import cz.matee.appreviewzz.core.port.RatingSnapshotRepository
+import cz.matee.appreviewzz.core.port.RatingsDigestRepository
 import cz.matee.appreviewzz.persistence.schema.AuditLogs
 import cz.matee.appreviewzz.persistence.schema.BackupRuns
 import cz.matee.appreviewzz.persistence.schema.FailedJobs
 import cz.matee.appreviewzz.persistence.schema.RatingSnapshots
+import cz.matee.appreviewzz.persistence.schema.RatingsDigests
 import kotlinx.datetime.LocalDate
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
@@ -113,6 +116,7 @@ class ExposedRatingSnapshotRepository(
         orgId: OrganizationId,
         appId: AppId,
         platform: Platform,
+        territory: String,
         limit: Int,
     ): List<RatingSnapshot> =
         transaction(database) {
@@ -121,7 +125,10 @@ class ExposedRatingSnapshotRepository(
                 .where {
                     (RatingSnapshots.orgId eq orgId) and
                         (RatingSnapshots.appId eq appId) and
-                        (RatingSnapshots.platform eq platform)
+                        (RatingSnapshots.platform eq platform) and
+                        // Bez filtru storefrontu by se do historie připletlo dvacet iOS řádků
+                        // denně a „předchozí snapshot" by byl jiná země, ne jiný den.
+                        (RatingSnapshots.territory eq territory)
                 }.orderBy(RatingSnapshots.snapshotDate to SortOrder.DESC)
                 .limit(limit)
                 .map { it.toRatingSnapshot() }
@@ -138,6 +145,56 @@ class ExposedRatingSnapshotRepository(
         (RatingSnapshots.platform eq platform) and
         (RatingSnapshots.snapshotDate eq date) and
         (RatingSnapshots.territory eq territory)
+}
+
+/**
+ * Evidence odeslaných přehledů. Zápis je rezervace, ne stopa po odeslání: kdyby se zapisovalo
+ * až potom, pád mezi odesláním a zápisem by druhý den (nebo hned při retry) poslal digest
+ * podruhé — a ten druhý by ukázal nulovou deltu, protože srovnávací snapshot už je z dneška.
+ */
+class ExposedRatingsDigestRepository(
+    private val database: ExposedDatabase,
+) : RatingsDigestRepository {
+    override fun claim(
+        orgId: OrganizationId,
+        appId: AppId,
+        channelId: ChannelId,
+        date: LocalDate,
+        sentAt: Instant,
+    ): Boolean =
+        transaction(database) {
+            val existing =
+                RatingsDigests
+                    .selectAll()
+                    .where { (RatingsDigests.channelId eq channelId) and (RatingsDigests.digestDate eq date) }
+                    .any()
+            if (existing) {
+                false
+            } else {
+                RatingsDigests.insert {
+                    it[RatingsDigests.orgId] = orgId
+                    it[RatingsDigests.appId] = appId
+                    it[RatingsDigests.channelId] = channelId
+                    it[digestDate] = date
+                    it[RatingsDigests.sentAt] = sentAt
+                }
+                true
+            }
+        }
+
+    override fun lastSent(
+        orgId: OrganizationId,
+        channelId: ChannelId,
+    ): LocalDate? =
+        transaction(database) {
+            RatingsDigests
+                .selectAll()
+                .where { (RatingsDigests.orgId eq orgId) and (RatingsDigests.channelId eq channelId) }
+                .orderBy(RatingsDigests.digestDate to SortOrder.DESC)
+                .limit(1)
+                .firstOrNull()
+                ?.get(RatingsDigests.digestDate)
+        }
 }
 
 class ExposedAuditLogRepository(

@@ -20,13 +20,18 @@ import cz.matee.appreviewzz.channels.teams.TeamsNotificationChannel
 import cz.matee.appreviewzz.channels.teams.TeamsTokens
 import cz.matee.appreviewzz.channels.teams.teamsHttpClient
 import cz.matee.appreviewzz.connectors.appstore.AppStoreConnector
+import cz.matee.appreviewzz.connectors.appstore.AppStoreListingRatingsSource
+import cz.matee.appreviewzz.connectors.appstore.ITunesRatingsSource
 import cz.matee.appreviewzz.connectors.appstore.appStoreHttpClient
 import cz.matee.appreviewzz.connectors.googleplay.GooglePlayConnector
+import cz.matee.appreviewzz.connectors.googleplay.PlayReportingRatingsSource
+import cz.matee.appreviewzz.connectors.googleplay.PlayStoreScrapeRatingsSource
 import cz.matee.appreviewzz.connectors.googleplay.googleHttpClient
 import cz.matee.appreviewzz.core.model.SecretPayload
 import cz.matee.appreviewzz.core.port.Mailer
 import cz.matee.appreviewzz.core.port.NotificationChannel
 import cz.matee.appreviewzz.core.port.PasswordHasher
+import cz.matee.appreviewzz.core.port.RatingsSource
 import cz.matee.appreviewzz.core.port.ReplyTarget
 import cz.matee.appreviewzz.core.port.ReviewSource
 import cz.matee.appreviewzz.core.port.SuggestReplyProvider
@@ -36,6 +41,7 @@ import cz.matee.appreviewzz.core.usecase.AuthenticationService
 import cz.matee.appreviewzz.core.usecase.ChannelService
 import cz.matee.appreviewzz.core.usecase.ConsoleLinks
 import cz.matee.appreviewzz.core.usecase.CredentialService
+import cz.matee.appreviewzz.core.usecase.DailyRatingsUseCase
 import cz.matee.appreviewzz.core.usecase.DeliverReviewUseCase
 import cz.matee.appreviewzz.core.usecase.IngestReviewsUseCase
 import cz.matee.appreviewzz.core.usecase.OrganizationService
@@ -49,6 +55,7 @@ import cz.matee.appreviewzz.crypto.MeteredKekProvider
 import cz.matee.appreviewzz.jobs.BackupJobs
 import cz.matee.appreviewzz.jobs.DeliveryJobs
 import cz.matee.appreviewzz.jobs.IngestJobs
+import cz.matee.appreviewzz.jobs.RatingsJobs
 import cz.matee.appreviewzz.jobs.ReplyJobs
 import cz.matee.appreviewzz.persistence.Database
 import cz.matee.appreviewzz.persistence.repository.ExposedAppRepository
@@ -61,6 +68,8 @@ import cz.matee.appreviewzz.persistence.repository.ExposedFailedJobRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedInvitationRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedMembershipRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedOrganizationRepository
+import cz.matee.appreviewzz.persistence.repository.ExposedRatingSnapshotRepository
+import cz.matee.appreviewzz.persistence.repository.ExposedRatingsDigestRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedReplyRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedReviewMessageRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedReviewRepository
@@ -97,6 +106,8 @@ class Components(
     val audit = ExposedAuditLogRepository(exposed)
     val invitations = ExposedInvitationRepository(exposed)
     val backupRuns = ExposedBackupRunRepository(exposed)
+    val ratingSnapshots = ExposedRatingSnapshotRepository(exposed)
+    val ratingsDigests = ExposedRatingsDigestRepository(exposed)
 
     val sessions = ExposedSessionRepository(exposed)
     val userTokens = ExposedUserTokenRepository(exposed)
@@ -137,6 +148,20 @@ class Components(
     private val appStore: AppStoreConnector by lazy { AppStoreConnector(storeClients.appStore) }
 
     val reviewSources: List<ReviewSource> by lazy { listOf(googlePlay, appStore) }
+
+    /**
+     * Zdroje hodnocení. Pro každou platformu dva: oficiální data a veřejný listing. Neslouží
+     * jako alternativy — slučují se, protože každý dává něco jiného (průměr vs. rozpad po
+     * hvězdách) a klient bez přístupu do Play Console jinak nemá odkud brát nic.
+     */
+    val ratingsSources: List<RatingsSource> by lazy {
+        listOf(
+            PlayReportingRatingsSource(storeClients.googlePlay),
+            PlayStoreScrapeRatingsSource(storeClients.googlePlay),
+            ITunesRatingsSource(storeClients.appStore),
+            AppStoreListingRatingsSource(storeClients.appStore),
+        )
+    }
 
     /**
      * Návrhy odpovědí. Provider vzniká líně i s vlastním HTTP klientem — bez AI se aplikace
@@ -198,6 +223,22 @@ class Components(
             notificationChannels = notificationChannels,
         )
     }
+
+    /** Denní přehledy hodnocení (F4.4). */
+    val dailyRatings: DailyRatingsUseCase by lazy {
+        DailyRatingsUseCase(
+            apps = apps,
+            channels = channels,
+            credentials = credentials,
+            snapshots = ratingSnapshots,
+            digests = ratingsDigests,
+            secrets = vault,
+            ratingsSources = ratingsSources,
+            notificationChannels = notificationChannels,
+        )
+    }
+
+    fun ratingsJobs(): RatingsJobs = RatingsJobs(ratings = dailyRatings, apps = apps, failedJobs = failedJobs)
 
     val replyTargets: List<ReplyTarget> by lazy { listOf(googlePlay, appStore) }
 

@@ -2,6 +2,7 @@ package cz.matee.appreviewzz.channels.slack
 
 import cz.matee.appreviewzz.core.message.MessageCatalog
 import cz.matee.appreviewzz.core.message.MessageKey
+import cz.matee.appreviewzz.core.message.RatingsDigest
 import cz.matee.appreviewzz.core.message.ReviewNotification
 import cz.matee.appreviewzz.core.model.ChannelType
 import cz.matee.appreviewzz.core.model.SecretPayload
@@ -62,6 +63,17 @@ class SlackNotificationChannel(
             fallbackText = catalog[MessageKey.CONNECTION_OK_TITLE],
         )
     }
+
+    override suspend fun postRatingsDigest(
+        target: ChannelTarget,
+        digest: RatingsDigest,
+    ): PostedMessage =
+        api.postMessage(
+            token = botToken(target),
+            channel = target.conversationId,
+            blocks = SlackBlocks.ratingsDigest(digest),
+            fallbackText = digest.fallbackText(),
+        )
 
     override suspend fun reportFailure(
         target: ChannelTarget,

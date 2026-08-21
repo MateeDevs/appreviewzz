@@ -27,6 +27,7 @@ import cz.matee.appreviewzz.persistence.repository.ExposedFailedJobRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedMembershipRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedOrganizationRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedRatingSnapshotRepository
+import cz.matee.appreviewzz.persistence.repository.ExposedRatingsDigestRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedReplyRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedReviewMessageRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedReviewRepository
@@ -56,6 +57,7 @@ class RepositoryTest :
         val channels = ExposedChannelRepository(exposed)
         val messages = ExposedReviewMessageRepository(exposed)
         val ratings = ExposedRatingSnapshotRepository(exposed)
+        val ratingsDigests = ExposedRatingsDigestRepository(exposed)
         val auditLog = ExposedAuditLogRepository(exposed)
         val failedJobs = ExposedFailedJobRepository(exposed)
 
@@ -299,6 +301,46 @@ class RepositoryTest :
             stored.id shouldBe second.id
             stored.totalCount shouldBe 1210
             stored.histogram[5] shouldBe 810L
+        }
+
+        test("historie hodnocení je vidět po storefrontech i globálně, ale nemíchá se") {
+            val org = organizations.create("Matee", "matee")
+            val app = apps.create(org.id, NewApp(name = "IsleGrow", ascAppId = "id1490577875"))
+
+            listOf("GLOBAL" to 4.5, "CZ" to 4.9, "US" to 4.4).forEach { (territory, average) ->
+                ratings.upsert(
+                    org.id,
+                    NewRatingSnapshot(
+                        appId = app.id,
+                        platform = Platform.IOS,
+                        date = LocalDate(2026, 8, 20),
+                        territory = territory,
+                        average = average,
+                        totalCount = 100,
+                        source = RatingSource.ITUNES_LOOKUP,
+                    ),
+                    Fixtures.seenAt,
+                )
+            }
+
+            // Bez filtru storefrontu by „předchozí snapshot" byl jiná země, ne jiný den.
+            val global = ratings.listRecent(org.id, app.id, Platform.IOS)
+            global shouldHaveSize 1
+            global.single().territory shouldBe "GLOBAL"
+            ratings.listRecent(org.id, app.id, Platform.IOS, territory = "CZ").single().average shouldBe 4.9
+        }
+
+        test("přehled hodnocení se pro jeden den a kanál rezervuje jen jednou") {
+            val org = organizations.create("Matee", "matee")
+            val app = apps.create(org.id, NewApp(name = "IsleGrow", ascAppId = "id1490577875"))
+            val channel = channels.create(org.id, NewChannel(appId = app.id, type = ChannelType.SLACK, targetRef = "C0123"))
+            val date = LocalDate(2026, 8, 21)
+
+            ratingsDigests.claim(org.id, app.id, channel.id, date, Fixtures.seenAt) shouldBe true
+            // Opakovaný běh jobu nesmí poslat druhý přehled — ten by navíc ukázal nulovou deltu.
+            ratingsDigests.claim(org.id, app.id, channel.id, date, Fixtures.seenAt) shouldBe false
+            ratingsDigests.claim(org.id, app.id, channel.id, LocalDate(2026, 8, 22), Fixtures.seenAt) shouldBe true
+            ratingsDigests.lastSent(org.id, channel.id) shouldBe LocalDate(2026, 8, 22)
         }
 
         test("audit log a DLQ") {

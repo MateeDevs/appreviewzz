@@ -1,5 +1,6 @@
 package cz.matee.appreviewzz.jobs
 
+import cz.matee.appreviewzz.core.message.RatingsDigest
 import cz.matee.appreviewzz.core.message.ReviewNotification
 import cz.matee.appreviewzz.core.model.App
 import cz.matee.appreviewzz.core.model.ChannelType
@@ -145,6 +146,11 @@ class ReplyJobsTest :
                 ) {
                     repliedInSlack += rendering
                 }
+
+                override suspend fun postRatingsDigest(
+                    target: ChannelTarget,
+                    digest: RatingsDigest,
+                ): PostedMessage = PostedMessage(target.conversationId, "1755600000.digest")
 
                 override suspend fun postConnectivityCheck(
                     target: ChannelTarget,

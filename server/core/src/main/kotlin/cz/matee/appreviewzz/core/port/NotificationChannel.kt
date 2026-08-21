@@ -1,5 +1,6 @@
 package cz.matee.appreviewzz.core.port
 
+import cz.matee.appreviewzz.core.message.RatingsDigest
 import cz.matee.appreviewzz.core.message.ReviewNotification
 import cz.matee.appreviewzz.core.model.ChannelType
 import cz.matee.appreviewzz.core.model.MessageLocale
@@ -96,6 +97,15 @@ interface NotificationChannel {
     suspend fun postConnectivityCheck(
         target: ChannelTarget,
         notice: ConnectivityNotice,
+    ): PostedMessage
+
+    /**
+     * Denní přehled hodnocení (F4). Je to jediná zpráva, kterou kanál posílá sám od sebe —
+     * proto nemá formulář ani tlačítko a nic se k ní později nedopisuje.
+     */
+    suspend fun postRatingsDigest(
+        target: ChannelTarget,
+        digest: RatingsDigest,
     ): PostedMessage
 
     /**

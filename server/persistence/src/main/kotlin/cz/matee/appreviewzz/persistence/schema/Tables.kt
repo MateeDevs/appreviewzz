@@ -259,6 +259,16 @@ internal object Replies : Table("reply") {
     override val primaryKey = PrimaryKey(id)
 }
 
+internal object RatingsDigests : Table("ratings_digest") {
+    val orgId = organizationId()
+    val appId = appId()
+    val channelId = channelId()
+    val digestDate = date("digest_date")
+    val sentAt = instant("sent_at")
+
+    override val primaryKey = PrimaryKey(channelId, digestDate)
+}
+
 internal object RatingSnapshots : Table("rating_snapshot") {
     val id = ratingSnapshotId("id")
     val orgId = organizationId()
