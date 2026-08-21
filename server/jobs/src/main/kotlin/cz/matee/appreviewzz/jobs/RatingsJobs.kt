@@ -49,7 +49,8 @@ data class RatingsJobData(
 ) : ScheduleAndData {
     override fun getSchedule(): Schedule {
         val (hour, minute) = at.split(':').let { it[0].toInt() to it[1].toInt() }
-        return Schedules.cron("$minute $hour * * *", zoneId())
+        // db-scheduler používá šestidílný cron se sekundami; pětidílný odmítne za běhu.
+        return Schedules.cron("0 $minute $hour * * *", zoneId())
     }
 
     override fun getData(): Any = this

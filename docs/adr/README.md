@@ -16,5 +16,7 @@ Krátké záznamy o rozhodnutích, která se těžko vracejí. Formát: kontext 
 | [0010](0010-zalohy-pg-dump.md) | Logické zálohy `pg_dump` do object storage, obnova vedle | Přijato |
 | [0011](0011-audit-vault-klice.md) | Použití vault klíče hlídá CloudTrail alarm | Přijato |
 | [0012](0012-slack-jedna-app-oauth-install.md) | Jedna Slack App s OAuth installem | Přijato |
+| [0013](0013-teams-tenka-vrstva-app-level-bot.md) | Teams: vlastní tenká vrstva, bot app-level | Přijato |
+| [0014](0014-ratings-delta-proti-minulemu-prehledu.md) | Delta hodnocení proti minulému přehledu | Přijato |
 
 Nové ADR: zkopíruj strukturu z 0001, další číslo v pořadí, přidej řádek do tabulky.

@@ -3,10 +3,11 @@
 Recenze z Google Play a App Store do Slacku a Teams — s AI návrhem odpovědi, kterou pošlete
 zpátky do storu jedním kliknutím. Plus denní přehled ratingů a trendů.
 
-> **Stav: F3 — konzole.** Recenze se stahují z Google Play i App Store, chodí do Slacku
-> s AI návrhem odpovědi a kliknutí na *Odeslat* publikuje odpověď zpátky do storu.
-> Klient si celé nastavení projde sám ve webové konzoli — od účtu přes klíče ke storu
-> až po kanál. Teams a ratingy (F4) teprve přijdou (viz [roadmapa](#roadmapa)).
+> **Stav: F4 — Teams a hodnocení.** Recenze se stahují z Google Play i App Store, chodí do
+> Slacku i do Microsoft Teams s AI návrhem odpovědi a kliknutí na *Odeslat* publikuje odpověď
+> zpátky do storu. Každé ráno přijde do stejného kanálu přehled hodnocení s vývojem proti
+> minulému dni. Klient si celé nastavení projde sám ve webové konzoli — od účtu přes klíče
+> ke storu až po kanál (viz [roadmapa](#roadmapa)).
 
 ## Rychlý start (self-host / lokální vývoj)
 
@@ -83,6 +84,15 @@ appreviewzz channel add --org isle-grow --app <APP_ID> \
   --credential <ID_INSTALACE> --slack-channel C0123456789
 appreviewzz channel test --org isle-grow --app <APP_ID>     # do kanálu přistane „✅ Kanál je připojený"
 appreviewzz ingest run --org isle-grow --app <APP_ID>
+appreviewzz ratings run --org isle-grow --app <APP_ID>      # denní přehled hned, ne až zítra ráno
+```
+
+Do Microsoft Teams to vypadá stejně, jen se místo workspace připojuje tenant:
+
+```bash
+appreviewzz teams connect --org isle-grow --tenant <TENANT_ID> --team-name "Isle Grow"
+appreviewzz channel add --org isle-grow --app <APP_ID> \
+  --credential <ID_PRIPOJENI> --teams-channel 19:…@thread.tacv2
 ```
 
 Klíč do App Store Connect se poskládá ze staženého `.p8` a údajů opsaných z ASC
@@ -126,6 +136,42 @@ odpověď publikuje do storu a zpráva se přepíše na „✅ Recenze byla zpra
 odmítne, přistane důvod ve vlákně a formulář zůstane, takže jde odpověď opravit a poslat znovu.
 
 Založení vlastní Slack Appky (self-host) a řešení potíží: [docs/slack-app.md](docs/slack-app.md).
+
+## Teams
+
+Jeden Azure Bot na celý deployment ([ADR 0013](docs/adr/0013-teams-tenka-vrstva-app-level-bot.md)),
+bez jediného oprávnění do Graphu — bot posílá a upravuje zprávy přes Bot Connector, což
+autorizuje jeho vlastní registrace.
+
+Klient přidá aplikaci do týmu a připojí se jeho tenant (`teams connect`, nebo tlačítko
+v konzoli). Ve vaultu se ukládá **jen tenant a regionální endpoint**; heslo bota je proměnná
+prostředí deploymentu, ne per klient.
+
+Každá recenze zakládá v kanálu **vlastní vlákno** s Adaptive Card. Po kliknutí na *🚀 Odeslat*
+se karta přepíše na odeslanou odpověď; když ji store odmítne, přistane důvod ve vlákně a karta
+i s formulářem zůstane.
+
+Založení bota, instalace do týmu a řešení potíží: [docs/teams-bot.md](docs/teams-bot.md).
+
+## Hodnocení
+
+Každý den v čase nastaveném u aplikace (a v její zóně) přijde do kanálu přehled: celkový průměr
+obou platforem, změna proti minulému přehledu, počet nových hodnocení po hvězdách. Vývoj je
+vidět i v konzoli jako graf.
+
+Odkud se čísla berou:
+
+| Platforma | Primárně | Doplněk / záloha |
+|---|---|---|
+| iOS | iTunes lookup (oficiální, bez klíče) — průměr a počet | listing App Storu — rozpad po hvězdách |
+| Android | reporting Play Console (`--gp-bucket`) — oficiální průměr | listing Play Storu — průměr i rozpad, když do Play Console nevidíme |
+
+Zdroje se **slučují, ne vylučují**: oficiální data vyhrávají u průměru, veřejný listing dodá
+to, co oficiální cesta nedává. Klient bez přístupu do Play Console tak přehled dostane taky,
+jen s číslem zaokrouhleným tak, jak ho ukazuje store.
+
+Sémantika delty je vědomě jiná než ve starším n8n řešení —
+[ADR 0014](docs/adr/0014-ratings-delta-proti-minulemu-prehledu.md) říká proč.
 
 ## Struktura repa
 
@@ -193,6 +239,9 @@ Vše přes proměnné prostředí (12-factor), žádný konfigurační soubor v 
 | `SLACK_SIGNING_SECRET` | — | bez něj se interactivity endpoint nezaregistruje a ze Slacku nejde odpovídat |
 | `SLACK_CLIENT_ID` / `SLACK_CLIENT_SECRET` | — | zapínají „Add to Slack" do cizích workspaců; do vlastního stačí `slack connect` |
 | `PUBLIC_BASE_URL` | — | veřejná adresa API; z ní se skládá OAuth redirect a instalační odkaz |
+| `TEAMS_BOT_APP_ID` | — | `client_id` Azure Bota; bez něj se messaging endpoint nezaregistruje a z Teams nejde odpovídat |
+| `TEAMS_BOT_APP_PASSWORD` | — | client secret téže registrace |
+| `TEAMS_BOT_TENANT_ID` | — | jen u single-tenant registrace; multi-tenant bot si o token říká přes `botframework.com` |
 
 Chybějící povinná proměnná shodí start s konkrétní hláškou — žádný tichý fallback.
 
@@ -227,7 +276,7 @@ v obnovené databázi nečitelné.
 | **F1** | Datový model, credential vault, konektory Google Play a App Store, ingest pipeline, scheduler, seed CLI, zálohy s vyzkoušenou obnovou, audit použití klíče | hotovo |
 | **F2** | Slack end-to-end: OAuth install, Block Kit s AI návrhem, publikace odpovědi | hotovo |
 | **F3** | Konzole: auth, organizace a role, onboarding wizard, správa klíčů a kanálů, review inbox, delivery health, audit | hotovo |
-| **F4** | Teams bot, ratings pipeline, denní digesty a trendy | |
+| **F4** | Teams bot, ratings pipeline, denní digesty a trendy | hotovo |
 | **F5** | Hardening, rate limity, dokumentace, OSS launch | |
 | **F6** | Migrace ze staršího n8n řešení a jeho vypnutí | |
 
@@ -236,6 +285,7 @@ v obnovené databázi nečitelné.
 - [ADR](docs/adr/) — architektonická rozhodnutí a jejich důvody
 - [Runbooky](docs/runbooks/) — provozní postupy (zálohy a obnova, alarm na vault klíč)
 - [Slack App](docs/slack-app.md) — založení appky, oprávnění, připojení kanálu, řešení potíží
+- [Teams bot](docs/teams-bot.md) — založení Azure Bota, instalace do týmu, připojení kanálu
 - [SECURITY.md](SECURITY.md) — hlášení zranitelností a jak zacházíme s klíči
 
 ## Licence
