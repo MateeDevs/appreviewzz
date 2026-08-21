@@ -68,6 +68,27 @@ class AppStoreRatingsSourceTest :
                     .url.parameters["country"] shouldBe "cz"
             }
 
+            test("odpověď s hlavičkou text/javascript se přečte") {
+                // Apple lookup posílá `text/javascript` (dědictví po JSONP). Content negotiation
+                // takovou odpověď odmítne, zdroj by tiše nevracel nic a zastupoval by ho scrape.
+                val engine =
+                    RecordingEngine { request ->
+                        if (request.url.encodedPath.endsWith("/lookup")) {
+                            respond(
+                                fixture("itunes-lookup.json"),
+                                headers = headersOf(HttpHeaders.ContentType, "text/javascript; charset=utf-8"),
+                            )
+                        } else {
+                            null
+                        }
+                    }
+
+                ITunesRatingsSource(engine.client())
+                    .fetchRatings(context(territories = listOf("CZ")))
+                    .single()
+                    .totalCount shouldBe 2465
+            }
+
             test("nesmyslné ID se pozná dřív, než se někam zavolá") {
                 val engine = engine()
 
@@ -161,6 +182,19 @@ class AppStoreRatingsSourceTest :
                         "</script>"
 
                 AppStoreHistogramParser.parse(ascending) shouldBe mapOf(1 to 600L, 2 to 300L, 3 to 50L, 4 to 30L, 5 to 20L)
+            }
+
+            test("desetinné počty z reálného listingu se zaokrouhlí, ne zahodí") {
+                // Apple počty občas pošle jako 887628.0000000001; jako celé číslo je nepřečteš
+                // a histogram tiše zmizí, přestože na stránce je.
+                val real =
+                    """<script id="serialized-server-data" type="application/json">""" +
+                        """[{"data":{"productRatings":{"items":[{"ratingAverage":4.72,""" +
+                        """"ratingCounts":[36581538,2914914,912603,349251,887628.0000000001]}]}}}]""" +
+                        "</script>"
+
+                AppStoreHistogramParser.parse(real) shouldBe
+                    mapOf(1 to 887628L, 2 to 349251L, 3 to 912603L, 4 to 2914914L, 5 to 36581538L)
             }
 
             test("bez blobu sáhne po regexu v HTML") {

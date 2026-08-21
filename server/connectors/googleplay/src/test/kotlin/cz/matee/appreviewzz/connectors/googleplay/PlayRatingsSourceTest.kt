@@ -178,6 +178,22 @@ class PlayRatingsSourceTest :
                 request.url.parameters["gl"] shouldBe "US"
             }
 
+            test("umí i starší tvar popisků, který Google používal dřív") {
+                // Google popisek už jednou přeházel („5 stars 12,345" → „12,345 reviews for star
+                // rating 5"). Změna tvaru nesmí znamenat tiše chybějící rozpad.
+                val engine =
+                    RecordingEngine { request ->
+                        if (request.url.encodedPath.contains("/store/apps/details")) {
+                            respond(fixture("play-listing-legacy.html"), headers = htmlHeaders)
+                        } else {
+                            null
+                        }
+                    }
+
+                PlayStoreScrapeRatingsSource(engine.client()).fetchRatings(context()).single().histogram shouldBe
+                    mapOf(1 to 600L, 2 to 622L, 3 to 1200L, 4 to 3100L, 5 to 12900L)
+            }
+
             test("neexistující aplikace je chyba pro člověka, ne k opakování") {
                 val engine =
                     RecordingEngine { request ->

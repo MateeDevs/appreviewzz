@@ -42,6 +42,7 @@ import cz.matee.appreviewzz.core.port.auditEntry
 import cz.matee.appreviewzz.core.usecase.AppInputs
 import cz.matee.appreviewzz.core.usecase.ConsoleException
 import cz.matee.appreviewzz.core.usecase.PlatformIngest
+import cz.matee.appreviewzz.core.usecase.RatingsSkipReason
 import cz.matee.appreviewzz.core.usecase.hintFor
 import cz.matee.appreviewzz.crypto.CredentialNotFoundException
 import cz.matee.appreviewzz.crypto.KeyManagementException
@@ -147,7 +148,7 @@ class SeedCommands(
                 "ID" to app.id.toString(),
                 "název" to app.name,
                 "Google Play" to (app.gpPackageName ?: "—"),
-                "reporting bucket" to (app.gpReportingBucket ?: "— (hodnocení ze scrapu)"),
+                "Play reporting" to (app.gpReportingBucket ?: "— (hodnocení z veřejného listingu)"),
                 "App Store" to (app.ascAppId ?: "—"),
                 "jazyk" to app.locale.code,
                 "časová zóna" to app.timezone,
@@ -330,10 +331,8 @@ class SeedCommands(
         audit(organization.id, "ratings.manual", "app", app.id.toString())
 
         out("Přehled hodnocení ${app.name} (${app.id})")
-        report.skipped?.let {
-            out("  přeskočeno: $it")
-            return
-        }
+        // Čísla se vypisují i tehdy, když se přehled nikam neposlal: snapshoty jsou uložené
+        // a při onboardingu je to jediný způsob, jak si je prohlédnout ještě před kanálem.
         report.platforms.forEach { part ->
             val average = part.average?.let { RatingsDigest.formatRating(it) } ?: "—"
             val change =
@@ -343,6 +342,10 @@ class SeedCommands(
                     else -> "${RatingsDigest.trend(part.delta)} ${RatingsDigest.formatDelta(part.delta!!)}"
                 }
             out("  ${part.platform}: průměr $average ($change), nových ${part.newTotal ?: "?"}, k ${part.asOf}")
+        }
+        report.skipped?.let {
+            out("  neodesláno: ${describeSkip(it)}")
+            return
         }
         report.deliveries.forEach { delivery ->
             val state =
@@ -919,8 +922,20 @@ private fun FailedJob.summarize(): String =
     "${lastFailedAt.toString().take(TIMESTAMP_LENGTH)}  ${taskName.padEnd(TASK_COLUMN)} pokusů $attempts  " +
         "${payload ?: taskInstance}  ${errorMessage ?: errorClass ?: "—"}"
 
-private fun details(vararg rows: Pair<String, String>): String =
-    rows.joinToString(System.lineSeparator()) { (label, value) -> "  ${label.padEnd(DETAIL_LABEL_COLUMN)}$value" }
+/** Důvod, proč přehled nikam nešel. Enum konstanta nikomu nic neřekne, věta ano. */
+private fun describeSkip(reason: RatingsSkipReason): String =
+    when (reason) {
+        RatingsSkipReason.APP_NOT_FOUND -> "aplikace neexistuje"
+        RatingsSkipReason.APP_DISABLED -> "aplikace je vypnutá"
+        RatingsSkipReason.NO_CHANNEL -> "aplikace nemá kanál, do kterého by přehled chodil"
+        RatingsSkipReason.NO_DATA -> "ze storů se nepodařilo načíst žádná hodnocení"
+    }
+
+/** Popisek se zarovnává na nejdelší v bloku, ne na pevnou šířku — jinak se delší slepí s hodnotou. */
+private fun details(vararg rows: Pair<String, String>): String {
+    val width = maxOf(DETAIL_LABEL_COLUMN, rows.maxOfOrNull { it.first.length + 1 } ?: 0)
+    return rows.joinToString(System.lineSeparator()) { (label, value) -> "  ${label.padEnd(width)}$value" }
+}
 
 private fun PlatformIngest.describe(): String =
     when (this) {

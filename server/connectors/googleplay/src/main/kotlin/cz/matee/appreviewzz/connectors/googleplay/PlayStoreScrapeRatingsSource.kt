@@ -130,27 +130,45 @@ internal object PlayListingParser {
     }
 
     /**
-     * Histogram z `aria-label`ů („5 stars 12,345"). Je to jediné místo na stránce, kde jsou
-     * počty po hvězdách čitelné bez rozbalování interního JS blobu — a zároveň nejkřehčí věc
-     * celé pipeline, takže je celý modul best-effort.
+     * Histogram z `aria-label`ů. Je to jediné místo na stránce, kde jsou počty po hvězdách
+     * čitelné bez rozbalování interního JS blobu — a zároveň nejkřehčí věc celé pipeline,
+     * takže je celý modul best-effort.
+     *
+     * Google popisek už jednou přeházel: dřív byl `"5 stars 12,345"`, dnes
+     * `"12,345 reviews for star rating 5"`. Umíme oba, protože změna tvaru nesmí znamenat
+     * tiše chybějící rozpad — a protože až ho přehází potřetí, bude to vidět na testu.
      */
     fun histogram(html: String): Map<Int, Long>? {
         val counts =
-            STAR_LABEL
-                .findAll(html)
-                .mapNotNull { match ->
-                    val stars = match.groupValues[1].toIntOrNull()?.takeIf { it in 1..STARS } ?: return@mapNotNull null
-                    val votes = match.groupValues[2].filter(Char::isDigit).toLongOrNull() ?: return@mapNotNull null
-                    stars to votes
-                }.groupingBy { it.first }
+            (parse(html, CURRENT_STAR_LABEL, starsGroup = 2, votesGroup = 1) + parse(html, LEGACY_STAR_LABEL, 1, 2))
+                .groupingBy { it.first }
                 .fold(0L) { sum, (_, votes) -> sum + votes }
         return counts.takeIf { it.size == STARS && it.values.sum() > 0 }
     }
+
+    private fun parse(
+        html: String,
+        pattern: Regex,
+        starsGroup: Int,
+        votesGroup: Int,
+    ): List<Pair<Int, Long>> =
+        pattern
+            .findAll(html)
+            .mapNotNull { match ->
+                val stars = match.groupValues[starsGroup].toIntOrNull()?.takeIf { it in 1..STARS } ?: return@mapNotNull null
+                // Čísla nesou oddělovače tisíců podle locale, včetně pevných a úzkých mezer.
+                val votes = match.groupValues[votesGroup].filter(Char::isDigit).toLongOrNull() ?: return@mapNotNull null
+                stars to votes
+            }.toList()
 
     private const val STARS = 5
     private val LD_JSON =
         Regex("""<script[^>]*type="application/ld\+json"[^>]*>(.*?)</script>""", RegexOption.DOT_MATCHES_ALL)
 
-    /** Čísla obsahují mezery i pevné mezery podle locale — nečíslice se stejně zahazují. */
-    private val STAR_LABEL = Regex("""aria-label="(\d) stars? ([\d\s  .,]+)"""")
+    /** Dnešní tvar: „12,345 reviews for star rating 5". */
+    private val CURRENT_STAR_LABEL =
+        Regex("""aria-label="([\d\s  .,]+) reviews? for star rating (\d)"""")
+
+    /** Starší tvar: „5 stars 12,345". Čísla nesou oddělovače tisíců podle locale. */
+    private val LEGACY_STAR_LABEL = Regex("""aria-label="(\d) stars? ([\d\s  .,]+)"""")
 }

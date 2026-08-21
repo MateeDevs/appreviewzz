@@ -9,15 +9,23 @@ import cz.matee.appreviewzz.core.port.StoreConnectorException
 import cz.matee.appreviewzz.core.port.StoreErrorKind
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.HttpClient
-import io.ktor.client.call.body
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.isSuccess
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 
 private val logger = KotlinLogging.logger {}
+
+/**
+ * Odpověď se parsuje ručně, ne přes content negotiation: Apple ji posílá s hlavičkou
+ * `text/javascript` (dědictví po JSONP), takže by ji klient odmítl deserializovat — a zdroj
+ * by tiše nevracel nic, zatímco by ho zastupoval scrape.
+ */
+private val lookupJson = Json { ignoreUnknownKeys = true }
 
 @Serializable
 internal data class LookupResponse(
@@ -104,7 +112,7 @@ class ITunesRatingsSource(
 
         val body =
             try {
-                response.body<LookupResponse>()
+                lookupJson.decodeFromString(LookupResponse.serializer(), response.bodyAsText())
             } catch (error: Exception) {
                 logger.info { "iTunes lookup pro $appId/$territory vrátil nečitelnou odpověď, přeskakuji" }
                 return null

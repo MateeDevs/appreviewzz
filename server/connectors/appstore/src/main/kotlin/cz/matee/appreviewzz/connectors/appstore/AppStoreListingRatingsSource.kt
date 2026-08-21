@@ -20,7 +20,6 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.longOrNull
 
 private val logger = KotlinLogging.logger {}
 private val json = Json { ignoreUnknownKeys = true }
@@ -152,12 +151,20 @@ internal object AppStoreHistogramParser {
 
     private fun regexFallback(html: String): Map<Int, Long>? {
         val raw = RATING_COUNTS.find(html)?.groupValues?.get(1) ?: return null
-        val counts = raw.split(',').mapNotNull { it.trim().toLongOrNull() }.takeIf { it.size == STARS } ?: return null
+        val counts = raw.split(',').mapNotNull { it.trim().toDoubleOrNull()?.let(::round) }.takeIf { it.size == STARS } ?: return null
         // Bez sousedního průměru se orientace neověří; nový blob je 5★→1★, takže se otáčí.
         return Candidate(counts, null).toHistogram()
     }
 
-    private fun numbers(element: JsonElement): List<Long>? = (element as? JsonArray)?.map { it.jsonPrimitive.longOrNull ?: return null }
+    /**
+     * Počty se čtou jako desetinná čísla a zaokrouhlují. Apple je občas pošle takhle
+     * (`887628.0000000001`) — jako celé číslo je nepřečteš a histogram tiše zmizí, přestože
+     * na stránce je. Zjištěno až na reálném listingu, ne na fixture.
+     */
+    private fun numbers(element: JsonElement): List<Long>? =
+        (element as? JsonArray)?.map { round(it.jsonPrimitive.doubleOrNull ?: return null) }
+
+    private fun round(value: Double): Long = Math.round(value)
 
     /**
      * Počty tak, jak přišly, plus průměr od Applu, když je po ruce.
@@ -206,5 +213,5 @@ internal object AppStoreHistogramParser {
     private const val STARS = 5
     private val SERIALIZED_SERVER_DATA =
         Regex("""<script[^>]*id="serialized-server-data"[^>]*>(.*?)</script>""", RegexOption.DOT_MATCHES_ALL)
-    private val RATING_COUNTS = Regex(""""ratingCounts"\s*:\s*\[\s*([\d\s,]+?)\s*]""")
+    private val RATING_COUNTS = Regex(""""ratingCounts"\s*:\s*\[\s*([\d\s,.]+?)\s*]""")
 }
