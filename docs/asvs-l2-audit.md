@@ -6,7 +6,7 @@
 
 Legenda: **✅** splněno · **◐** částečně (napsáno, co chybí) · **❌** nesplněno · **—** netýká se
 
-Souhrn: **z 92 posuzovaných požadavků 70 splněno, 13 částečně, 5 nesplněno, 4 se netýkají.**
+Souhrn: **z 92 posuzovaných požadavků 72 splněno, 11 částečně, 5 nesplněno, 4 se netýkají.**
 Nesplněné a částečné jsou vypsané v [§15](#15-co-z-toho-plyne).
 
 ---
@@ -60,7 +60,7 @@ Nesplněné a částečné jsou vypsané v [§15](#15-co-z-toho-plyne).
 | 3.2.2 | Aspoň 64 bitů entropie | ✅ | 256 bitů ze `SecureRandom` |
 | 3.2.3 | Token jen v cookie, ne v localStorage | ✅ | `httpOnly` — JavaScript ho nevidí |
 | 3.3.1 | Odhlášení ukončí relaci | ✅ | `revoke` na serveru, ne jen smazání cookie |
-| 3.3.2 | Časový limit relace | ◐ | absolutní 14 dní ano, **idle timeout ne** — `last_seen_at` se zapisuje, ale nikdo ho nevyhodnocuje |
+| 3.3.2 | Časový limit relace | ✅ | absolutní 14 dní a nečinnost 7 dní; nepoužitá relace se **ruší**, ne jen odmítá |
 | 3.3.3 | Možnost zrušit relace po změně hesla | ✅ | reset ruší všechny, změna všechny ostatní |
 | 3.4.1–3 | `Secure`, `httpOnly`, `SameSite` | ✅ | `SameSite=Lax`, `Secure` mimo lokální běh |
 | 3.4.4 | Cookie s prefixem `__Host-` | ❌ | vědomě: rozbilo by lokální běh na http |
@@ -105,7 +105,7 @@ Nesplněné a částečné jsou vypsané v [§15](#15-co-z-toho-plyne).
 | 6.2.8 | Porovnávání v konstantním čase | ✅ | `MessageDigest.isEqual` u CSRF, podpisu Slacku i TOTP |
 | 6.3.1–2 | Náhoda z kryptografického zdroje | ✅ | `SecureRandom` všude, kde vzniká tajemství |
 | 6.4.1 | Správa klíčů | ✅ | KEK v KMS/keysetu, DEK zabalený v databázi |
-| 6.4.2 | Rotace klíčů | ◐ | `rotateDataKey` umí organizace; pro `app_data_key` (TOTP) chybí |
+| 6.4.2 | Rotace klíčů | ✅ | `vault rotate` v CLI — organizace i klíč uživatelských tajemství |
 
 ## V7 Chyby a logování
 
@@ -127,6 +127,7 @@ Nesplněné a částečné jsou vypsané v [§15](#15-co-z-toho-plyne).
 | 8.2.1–3 | Klient necachuje a needosílá dál | ✅ | `no-store`, `Referrer-Policy: no-referrer` |
 | 8.3.1 | Citlivá data nejdou v URL | ✅ | tokeny z e-mailu jsou výjimka daná tím, že jde o odkaz |
 | 8.3.4 | Přehled o tom, kde citlivá data jsou | ✅ | [threat-model.md](threat-model.md) §1 |
+| 8.3.8 | Data se mažou, když už neslouží | ✅ | noční úklid prošlých relací a uplatněných tokenů, s měsíčním odkladem |
 | 8.3.7 | Silné šifrování citlivých dat | ✅ | viz V6 |
 
 ## V9 Komunikace
@@ -195,14 +196,12 @@ Nesplněné a částečné jsou vypsané v [§15](#15-co-z-toho-plyne).
 
 ## 15. Co z toho plyne
 
-**Nesplněno nebo jen zčásti, s dopadem (6):**
+**Nesplněno nebo jen zčásti, s dopadem (4):**
 
 1. **2.1.7** kontrola hesla proti známým únikům — backlog, k-anonymita přes HIBP je pár desítek řádků
-2. **3.3.2 (část)** idle timeout relace — `last_seen_at` se zapisuje, ale platnost se řídí jen absolutními 14 dny
-3. **3.4.4** cookie s prefixem `__Host-` — rozbilo by lokální běh; řešitelné podle prostředí
-4. **6.4.2 (část)** rotace `app_data_key` — chybí protějšek `rotateDataKey` pro uživatelská tajemství
-5. **7.3.1 (část)** append-only kopie audit logu mimo hlavní databázi
-6. **10.3.2 (část)** Gradle bez zamykání závislostí — `libs.versions.toml` drží verze, ale ne otisky
+2. **3.4.4** cookie s prefixem `__Host-` — rozbilo by lokální běh; řešitelné podle prostředí
+3. **7.3.1 (část)** append-only kopie audit logu mimo hlavní databázi
+4. **10.3.2 (část)** Gradle bez zamykání závislostí — `libs.versions.toml` drží verze, ale ne otisky
 
 **Zbylé částečné položky** — nejdůležitější tři:
 

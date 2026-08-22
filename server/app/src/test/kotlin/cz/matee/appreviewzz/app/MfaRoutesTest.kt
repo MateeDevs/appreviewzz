@@ -252,6 +252,25 @@ class MfaRoutesTest :
             }
         }
 
+        "rotace datového klíče druhý faktor nezneplatní" {
+            testApplication {
+                consoleModule(RecordingMailer(), clock = clock)
+                val secret = enableTotp(browser())
+
+                // Nový DEK a přešifrování; tajemství se nemění, jen klíč, pod kterým leží.
+                consoleUserSecrets().rotateDataKey() shouldBe 1
+
+                val client = browser()
+                val challenge =
+                    client.postJson("/api/auth/login", """{"email":"$EMAIL","password":"$PASSWORD"}""").field("challenge")
+                val code = Totp.code(secret, Totp.stepAt(clock.current))
+
+                client
+                    .postJson("/api/auth/mfa/verify", """{"challenge":"$challenge","code":"$code"}""")
+                    .status shouldBe HttpStatusCode.OK
+            }
+        }
+
         "zapnutý druhý faktor se nedá přepsat novým nastavením" {
             testApplication {
                 consoleModule(RecordingMailer(), clock = clock)

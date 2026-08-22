@@ -69,7 +69,7 @@ dodavatelským řetězcem, cílený útok na zaměstnance mimo pracovní zaříz
 |---|---|
 | Hádání hesla | argon2id, zamčení účtu po 8 pokusech na 15 minut ([Authentication.kt]), limit požadavků per adresa **i per účet** (F5.1) |
 | Uniklé heslo použité napoprvé | druhý faktor TOTP ([ADR 0015]) — dobrovolný, viz zbytková rizika |
-| Krádež session cookie | `httpOnly`, `Secure` mimo lokální běh, `SameSite=Lax`; v databázi jen otisk; změna hesla ruší ostatní relace |
+| Krádež session cookie | `httpOnly`, `Secure` mimo lokální běh, `SameSite=Lax`; v databázi jen otisk; změna hesla ruší ostatní relace; nepoužitá relace se po týdnu ruší |
 | CSRF | double-submit token v hlavičce, nasazený **na stromě cest**, ne v handlerech — nová sekce API ho nemůže vynechat |
 | Zjištění, které e-maily u nás jsou | stejná odpověď i stejná doba běhu pro známý i neznámý účet (počítá se dummy hash) |
 | Přehrání kódu z autentizační appky | uplatněný časový krok se ukládá; kód platný ještě 25 sekund už podruhé neprojde |
@@ -104,6 +104,8 @@ dodavatelským řetězcem, cílený útok na zaměstnance mimo pracovní zaříz
 | Dump databáze | credentials i TOTP seed zašifrované; KEK není v databázi ani v obrazu kontejneru |
 | Ukradená záloha | tentýž ciphertext; keyset se zálohuje **zvlášť** ([runbook]) |
 | Tiché rozbalování klíčů | metrika `appreviewzz_vault_kek_unwrap_total` + CloudTrail alarm ([ADR 0011]) |
+| Kompromitovaný datový klíč | `vault rotate` v CLI: nový DEK a přešifrování, per organizaci i pro uživatelská tajemství |
+| Hromadění mrtvých dat (prošlé relace, uplatněné tokeny) | noční úklid s měsíčním odkladem — nejlevnější ochrana dat je ta, která je nemá |
 | Tajemství v logu | typový obal `SecretPayload` s redigovaným `toString()` **a** redakční filtr na výstupu (F5.4) |
 | Jednorázové odkazy v logu | tělo e-mailu se bez SMTP vypisuje jen s `MAIL_LOG_LINKS=true` (F5.4) |
 

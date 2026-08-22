@@ -54,6 +54,12 @@ data class AuthPolicy(
     /** Strop kvůli argon2: bez něj by megabajtové „heslo" bylo levné DoS. */
     val maxPasswordLength: Int = 200,
     val sessionLifetime: Duration = 14.days,
+    /**
+     * Jak dlouho smí relace ležet nepoužitá. Absolutní platnost sama nestačí: cookie vytažená
+     * ze starší zálohy prohlížeče nebo z odloženého notebooku by jinak fungovala celé dva týdny
+     * bez ohledu na to, že se s ní nikdo nepřihlásil.
+     */
+    val sessionIdleTimeout: Duration = 7.days,
     val verificationLifetime: Duration = 3.days,
     val resetLifetime: Duration = 1.hours,
     val maxFailedLogins: Int = 8,
@@ -269,6 +275,13 @@ class AuthenticationService(
     fun authenticate(token: SecretPayload): AuthenticatedUser? {
         val now = clock.now()
         val session = sessions.findValid(OpaqueTokens.hash(token), now) ?: return null
+        // Dlouho nepoužitá relace se **ruší**, ne jen odmítá: kdyby zůstala v databázi
+        // platná, stačilo by ji použít o vteřinu dřív a zase by ožila na dalších sedm dní.
+        if (session.lastSeenAt + policy.sessionIdleTimeout <= now) {
+            sessions.revoke(session.id, now)
+            logger.info { "Relace ${session.id} zrušená pro nečinnost" }
+            return null
+        }
         val account = users.findAccountById(session.userId) ?: return null
         sessions.touch(session.id, now)
         return AuthenticatedUser(account, session)

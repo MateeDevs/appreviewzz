@@ -23,6 +23,7 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greater
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.neq
+import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -235,6 +236,13 @@ class ExposedUserTokenRepository(
                 it[consumedAt] = at
             }
         }
+
+    override fun deleteSpent(before: Instant): Int =
+        transaction(database) {
+            UserTokens.deleteWhere {
+                ((consumedAt neq null) and (consumedAt less before)) or (expiresAt less before)
+            }
+        }
 }
 
 /**
@@ -306,6 +314,25 @@ class ExposedUserMfaRepository(
         transaction(database) {
             UserRecoveryCodes.deleteWhere { UserRecoveryCodes.userId eq userId }
             UserTotps.deleteWhere { UserTotps.userId eq userId }
+        }
+    }
+
+    override fun listSealed(): List<Pair<UserId, SealedSecret>> =
+        transaction(database) {
+            UserTotps.selectAll().map { row ->
+                row[UserTotps.userId] to SealedSecret(row[UserTotps.dataKeyId], row[UserTotps.ciphertext])
+            }
+        }
+
+    override fun reseal(
+        userId: UserId,
+        secret: SealedSecret,
+    ) {
+        transaction(database) {
+            UserTotps.update({ UserTotps.userId eq userId }) {
+                it[dataKeyId] = secret.dataKeyId
+                it[ciphertext] = secret.ciphertext
+            }
         }
     }
 

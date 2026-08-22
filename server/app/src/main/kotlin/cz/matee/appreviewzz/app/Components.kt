@@ -58,6 +58,7 @@ import cz.matee.appreviewzz.crypto.UserSecretBox
 import cz.matee.appreviewzz.jobs.BackupJobs
 import cz.matee.appreviewzz.jobs.DeliveryJobs
 import cz.matee.appreviewzz.jobs.IngestJobs
+import cz.matee.appreviewzz.jobs.MaintenanceJobs
 import cz.matee.appreviewzz.jobs.RatingsJobs
 import cz.matee.appreviewzz.jobs.ReplyJobs
 import cz.matee.appreviewzz.persistence.Database
@@ -151,13 +152,17 @@ class Components(
      * credential a bez správce klíčů ho nemáme kam bezpečně uložit. Zapnout druhý faktor
      * tam pak nejde a console to řekne větou — to je poctivější než ho ukládat otevřeně.
      */
-    val mfaService: MfaService? by lazy {
+    val userSecrets: UserSecretBox? by lazy {
         val kekUri = config.vaultKekUri ?: return@lazy null
-        MfaService(
-            mfa = userMfa,
-            vault = UserSecretBox(appDataKeys, MeteredKekProvider(KekProviders.fromUri(kekUri), kekUsage)),
-            users = users,
+        UserSecretBox(
+            keys = appDataKeys,
+            kek = MeteredKekProvider(KekProviders.fromUri(kekUri), kekUsage),
+            secrets = userMfa,
         )
+    }
+
+    val mfaService: MfaService? by lazy {
+        MfaService(mfa = userMfa, vault = userSecrets ?: return@lazy null, users = users)
     }
 
     /**
@@ -244,6 +249,9 @@ class Components(
             notificationChannels = notificationChannels,
         )
     }
+
+    /** Noční úklid prošlých relací a uplatněných tokenů (F5.6). */
+    val maintenanceJobs: MaintenanceJobs by lazy { MaintenanceJobs(sessions = sessions, tokens = userTokens) }
 
     /** Denní přehledy hodnocení (F4.4). */
     val dailyRatings: DailyRatingsUseCase by lazy {

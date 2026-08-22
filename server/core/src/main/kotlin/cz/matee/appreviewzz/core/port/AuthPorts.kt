@@ -110,6 +110,14 @@ interface UserTokenRepository {
         purpose: UserTokenPurpose,
         at: Instant,
     ): Int
+
+    /**
+     * Úklid uplatněných a prošlých tokenů. Volá ho plánovaná úloha, ne request.
+     *
+     * Není to jen kosmetika: otisk uplatněného tokenu už k ničemu neslouží, ale pořád je to
+     * řádek navázaný na uživatele, který by v dumpu databáze ukazoval, kdy si kdo měnil heslo.
+     */
+    fun deleteSpent(before: Instant): Int
 }
 
 /**
@@ -162,6 +170,18 @@ interface UserMfaRepository {
 
     /** Vypnutí druhého faktoru: mizí tajemství i všechny záchranné kódy. */
     fun delete(userId: UserId)
+
+    /**
+     * Všechna uložená tajemství. Bez org-scope záměrně — používá to **rotace datového klíče**,
+     * která se ze své podstaty dívá přes celý deployment.
+     */
+    fun listSealed(): List<Pair<UserId, SealedSecret>>
+
+    /** Přešifrování pod nový datový klíč. Obsah tajemství se nemění, jen klíč, pod kterým leží. */
+    fun reseal(
+        userId: UserId,
+        secret: SealedSecret,
+    )
 
     fun replaceRecoveryCodes(
         userId: UserId,

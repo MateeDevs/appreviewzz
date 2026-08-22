@@ -196,7 +196,7 @@ fun ApplicationTestBuilder.consoleModule(
     val mfaService =
         MfaService(
             mfa = ExposedUserMfaRepository(exposed),
-            vault = UserSecretBox(ExposedAppDataKeyRepository(exposed), consoleKek()),
+            vault = consoleUserSecrets(),
             users = users,
             clock = clock,
         )
@@ -317,6 +317,14 @@ private val vault: CredentialVault by lazy {
 }
 
 fun consoleKek(): KekProvider = kek
+
+/** Trezor uživatelských tajemství nad testovací databází — testy si přes něj sáhnou na rotaci. */
+fun consoleUserSecrets(): UserSecretBox =
+    UserSecretBox(
+        keys = ExposedAppDataKeyRepository(TestDatabase.database.exposed),
+        kek = kek,
+        secrets = ExposedUserMfaRepository(TestDatabase.database.exposed),
+    )
 
 fun consoleVault(): CredentialVault = vault
 

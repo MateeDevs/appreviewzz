@@ -56,8 +56,8 @@ akorát zamčené účty a telefonáty; povinnost pro role OWNER/ADMIN je kandid
 ## Důsledky
 
 - Přibývá tabulka `app_data_key` a s ní druhé místo, které se musí objevit v postupu rotace
-  klíčů. Rotace DEK dneska umí jen organizace — pro uživatelská tajemství se bude muset
-  dopsat (nový klíč + přešifrování `user_totp`).
+  klíčů. Kryje to `vault rotate` v CLI (F5.6), které bez `--org` projde organizace i klíč
+  uživatelských tajemství.
 - **Záloha databáze bez keysetu je po ztrátě KEK nepoužitelná i pro druhý faktor.** Runbook
   obnovy to musí zmiňovat vedle credentials.
 - Console dostala závislost `qrcode.react` (MIT). QR se vykresluje v prohlížeči, takže obrázek

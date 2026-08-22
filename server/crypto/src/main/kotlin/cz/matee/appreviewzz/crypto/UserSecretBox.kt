@@ -5,7 +5,9 @@ import cz.matee.appreviewzz.core.model.SealedSecret
 import cz.matee.appreviewzz.core.model.SecretPayload
 import cz.matee.appreviewzz.core.model.UserId
 import cz.matee.appreviewzz.core.port.AppDataKeyRepository
+import cz.matee.appreviewzz.core.port.UserMfaRepository
 import cz.matee.appreviewzz.core.port.UserSecretVault
+import cz.matee.appreviewzz.core.usecase.TOTP_SECRET_PURPOSE
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.security.GeneralSecurityException
 import java.util.concurrent.ConcurrentHashMap
@@ -31,6 +33,11 @@ private val logger = KotlinLogging.logger {}
 class UserSecretBox(
     private val keys: AppDataKeyRepository,
     private val kek: KekProvider,
+    /**
+     * Potřebné jen kvůli rotaci — bez uložených tajemství se přešifrovat nedá nic.
+     * `null` znamená instalaci, která rotaci neumí (a nepotřebuje: nikdo si ji nezapnul).
+     */
+    private val secrets: UserMfaRepository? = null,
     private val clock: Clock = Clock.System,
     private val dekCacheTtl: Duration = 5.minutes,
 ) : UserSecretVault {
@@ -72,6 +79,36 @@ class UserSecretBox(
                 throw KeyManagementException("Tajemství uživatele $userId nejde dešifrovat", error)
             }
         return SecretPayload(plaintext.toString(Charsets.UTF_8))
+    }
+
+    /**
+     * Rotace datového klíče: nový DEK a přešifrování všech uložených tajemství pod něj.
+     * Protějšek [CredentialVault.rotateDataKey] — bez něj by TOTP tajemství zůstala navěky
+     * pod prvním klíčem, který kdy vznikl.
+     *
+     * @return počet přešifrovaných tajemství
+     */
+    fun rotateDataKey(): Int {
+        val repository =
+            secrets ?: throw KeyManagementException("Rotace uživatelských tajemství potřebuje přístup k jejich úložišti")
+        // Otevřít se musí **před** výrobou nového klíče: potom už by starý nebyl aktivní.
+        val opened = repository.listSealed().map { (userId, sealed) -> userId to open(userId, TOTP_SECRET_PURPOSE, sealed) }
+
+        val material = kek.generateDataKey()
+        val created = keys.create(kek.uri, material.wrapped, clock.now())
+        cache[created.id] = CachedKey(material.plaintext, clock.now() + dekCacheTtl)
+
+        opened.forEach { (userId, secret) ->
+            val ciphertext =
+                Aead.encrypt(
+                    key = material.plaintext,
+                    plaintext = secret.value.toByteArray(Charsets.UTF_8),
+                    associatedData = associatedData(userId, TOTP_SECRET_PURPOSE),
+                )
+            repository.reseal(userId, SealedSecret(created.id, ciphertext))
+        }
+        logger.info { "Rotace klíče uživatelských tajemství: přešifrováno ${opened.size} položek" }
+        return opened.size
     }
 
     fun clearCache() = cache.clear()

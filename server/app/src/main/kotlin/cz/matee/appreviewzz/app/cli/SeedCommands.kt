@@ -682,6 +682,48 @@ class SeedCommands(
     }
 
     /**
+     * Rotace datových klíčů (F5.6). Bez `--org` projde všechny organizace i klíč uživatelských
+     * tajemství — to je varianta, kterou člověk chce po podezření na kompromitaci; s `--org`
+     * jen jednu, což se hodí po odchodu člověka, který k jejím klíčům měl přístup.
+     *
+     * KEK se **nemění**, mění se datové klíče pod ním. Rotace KEK je operace ve správci klíčů,
+     * ne tady; po ní se nic přešifrovávat nemusí, protože zabalený DEK umí rozbalit i nová verze.
+     */
+    fun vaultRotate(args: Arguments) {
+        val slug = args.optional("org")
+        val organizations = if (slug == null) components.organizations.list() else listOf(organization(args))
+
+        var total = 0
+        organizations.forEach { organization ->
+            val count = components.vault.rotateDataKey(organization.id)
+            total += count
+            out("  ${organization.slug}: přešifrováno $count klíčů ke storům")
+            components.audit.append(
+                auditEntry(
+                    orgId = organization.id,
+                    action = "vault.rotated",
+                    actorType = ActorType.SYSTEM,
+                    actorLabel = "cli",
+                    targetType = "org_data_key",
+                    targetId = organization.id.toString(),
+                    metadata = mapOf("credentials" to count.toString()),
+                ),
+            )
+        }
+
+        // Uživatelská tajemství visí na deploymentu, ne na organizaci — proto jen u plné rotace.
+        if (slug == null) {
+            val secrets = components.userSecrets
+            if (secrets == null) {
+                out("  druhý faktor: přeskočeno (bez VAULT_KEK_URI se nešifruje)")
+            } else {
+                out("  druhý faktor: přešifrováno ${secrets.rotateDataKey()} tajemství")
+            }
+        }
+        out("Hotovo, celkem $total klíčů v ${organizations.size} organizacích")
+    }
+
+    /**
      * Ruční záloha — tímhle příkazem se dělá i drill: zálohuj, obnov vedle, porovnej.
      * Selhání končí nenulovým kódem, takže se to dá pověsit i do skriptu.
      */

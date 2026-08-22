@@ -205,6 +205,32 @@ class SeedCliTest :
             result.err shouldContain "neexistuje"
         }
 
+        "vault rotate přešifruje klíče a obsah zůstane čitelný" {
+            val organization = seedOrganization()
+            val file = StoreKeyFixtures.serviceAccountFile(workDirectory)
+            cli("credential add --org $organization --type gp --label 'IsleGrow Play' --file '$file'").code shouldBe 0
+            val before = cli("credential list --org $organization").out
+
+            val result = cli("vault rotate")
+
+            result.code shouldBe 0
+            result.out shouldContain "přešifrováno 1 klíčů"
+            // Otisk je z obsahu, ne z ciphertextu — rotace ho měnit nesmí, jinak by konzole
+            // po ní hlásila, že se klientovi změnil klíč.
+            cli("credential list --org $organization").out shouldBe before
+        }
+
+        "vault rotate nad jednou organizací nechá ostatní být" {
+            seedOrganization()
+            cli("org create --name Druha").code shouldBe 0
+
+            val result = cli("vault rotate --org isle-grow")
+
+            result.code shouldBe 0
+            result.out shouldContain "isle-grow"
+            result.out shouldNotContain "druha"
+        }
+
         "credential add uloží service account a nevypíše z něj nic tajného" {
             val organization = seedOrganization()
             val file = StoreKeyFixtures.serviceAccountFile(workDirectory)

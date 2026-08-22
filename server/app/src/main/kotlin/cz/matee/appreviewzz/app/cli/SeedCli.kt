@@ -220,6 +220,12 @@ private val COMMANDS =
             run = { args -> ratingsRun(args) },
         ),
         Command(
+            name = "vault rotate",
+            options = setOf("org"),
+            usage = "vault rotate [--org <slug|ID>]",
+            run = { args -> vaultRotate(args) },
+        ),
+        Command(
             name = "backup run",
             options = emptySet(),
             usage = "backup run",
