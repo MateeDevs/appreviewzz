@@ -1,0 +1,25 @@
+name: Nápad na vylepšení
+description: Něco, co by systém měl umět.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Jaký problém to řeší
+      description: |
+        Popiš situaci, ne rovnou řešení — často se ukáže, že jde vyřešit jinak a levněji.
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: Jak by to mohlo fungovat
+    validations:
+      required: false
+
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Jak si dneska pomáháš
+      description: Když existuje objížďka, řekni jakou — pomůže to odhadnout, jak moc to pálí.

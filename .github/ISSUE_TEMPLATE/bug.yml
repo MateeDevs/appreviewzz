@@ -1,0 +1,57 @@
+name: Chyba
+description: Něco nefunguje, jak má.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Bezpečnostní chybu sem nepiš.** Pošli ji na security@matee.cz — postup je
+        v [SECURITY.md](../../SECURITY.md).
+
+  - type: textarea
+    id: what
+    attributes:
+      label: Co se stalo
+      description: Co jsi čekal a co se místo toho stalo.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Jak to zopakovat
+      placeholder: |
+        1. …
+        2. …
+        3. místo přehledu přijde chyba
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Verze
+      description: "Vrací ji `GET /health/live` — stačí zkopírovat `version` a `gitSha`."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: Kde to běží
+      options:
+        - self-host (docker compose)
+        - self-host (vlastní orchestrace)
+        - appreviewzz cloud
+        - lokální vývoj
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log
+      description: |
+        Řádky kolem chyby. Aplikace si tajemství redaguje sama, ale mrkni se na to —
+        adresy, e-maily a názvy balíčků v logu být můžou.
+      render: text

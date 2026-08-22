@@ -7,6 +7,11 @@ a budeme vás informovat o postupu opravy. Pokud chcete, uvedeme vás v changelo
 
 Do hlášení pomáhá: verze / commit, kroky k reprodukci, dopad a případný PoC.
 
+Model hrozeb, hranice důvěry a **zbytková rizika, o kterých víme**, jsou v
+[docs/threat-model.md](docs/threat-model.md). Sebe-audit podle OWASP ASVS 4.0.3 úrovně 2
+včetně nesplněných bodů je v [docs/asvs-l2-audit.md](docs/asvs-l2-audit.md) — než něco
+nahlásíte, mrkněte se tam, jestli o tom už nevíme.
+
 ## Rozsah
 
 Zajímá nás cokoli, co vede k:
@@ -18,7 +23,8 @@ Zajímá nás cokoli, co vede k:
 - vzdálenému spuštění kódu, SQL injection, eskalaci oprávnění v konzoli.
 
 Mimo rozsah: zjištění ze skenerů bez doložitelného dopadu, chybějící hlavičky bez exploitu,
-DoS hrubou silou, social engineering.
+DoS hrubou silou, social engineering. Stejně tak zbytková rizika, která máme sepsaná
+v [threat modelu](docs/threat-model.md) §5 — víme o nich a je to vědomé rozhodnutí.
 
 ## Jak s klíči zacházíme
 

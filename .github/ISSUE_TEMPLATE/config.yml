@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Bezpečnostní zranitelnost
+    url: https://github.com/MateeDevs/appreviewzz/security/policy
+    about: Nálezy posílej na security@matee.cz, ne přes veřejné issue.
+  - name: Otázka na provoz nebo self-host
+    url: https://github.com/MateeDevs/appreviewzz/discussions
+    about: Na „jak to nastavit" je lepší diskuse než issue.

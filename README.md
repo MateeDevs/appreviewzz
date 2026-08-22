@@ -3,11 +3,11 @@
 Recenze z Google Play a App Store do Slacku a Teams — s AI návrhem odpovědi, kterou pošlete
 zpátky do storu jedním kliknutím. Plus denní přehled ratingů a trendů.
 
-> **Stav: F4 — Teams a hodnocení.** Recenze se stahují z Google Play i App Store, chodí do
-> Slacku i do Microsoft Teams s AI návrhem odpovědi a kliknutí na *Odeslat* publikuje odpověď
-> zpátky do storu. Každé ráno přijde do stejného kanálu přehled hodnocení s vývojem proti
-> minulému dni. Klient si celé nastavení projde sám ve webové konzoli — od účtu přes klíče
-> ke storu až po kanál (viz [roadmapa](#roadmapa)).
+> **Stav: F5 — hardening a příprava na veřejné repo.** Recenze se stahují z Google Play
+> i App Store, chodí do Slacku i do Microsoft Teams s AI návrhem odpovědi a kliknutí na
+> *Odeslat* publikuje odpověď zpátky do storu. Každé ráno přijde do stejného kanálu přehled
+> hodnocení s vývojem proti minulému dni. Klient si celé nastavení projde sám ve webové
+> konzoli — od účtu přes klíče ke storu až po kanál (viz [roadmapa](#roadmapa)).
 
 ## Rychlý start (self-host / lokální vývoj)
 
@@ -33,6 +33,10 @@ Aplikace poslouchá na `http://localhost:8080`:
 Klient si v ní projde onboarding sám: účet → organizace → appka → klíč ke storu (s okamžitým
 ověřením proti API storu) → připojení Slacku → kanál se zkušební zprávou. Pak už jen vidí
 recenze, odpovídá na ně a na *Přehledu* pozná, proč něco nedorazilo.
+
+V *Zabezpečení účtu* si každý může zapnout **druhý faktor** — kód z autentizační appky
+(Google Authenticator, 1Password, Aegis). Součástí zapnutí je deset záchranných kódů pro
+případ ztraceného telefonu ([ADR 0015](docs/adr/0015-druhy-faktor-totp.md)).
 
 Buildí se do statických souborů, které **servíruje Ktor ze stejného image** — žádný CDN,
 žádný druhý deploy. Vývoj konzole: [console/README.md](console/README.md).
@@ -242,6 +246,13 @@ Vše přes proměnné prostředí (12-factor), žádný konfigurační soubor v 
 | `TEAMS_BOT_APP_ID` | — | `client_id` Azure Bota; bez něj se messaging endpoint nezaregistruje a z Teams nejde odpovídat |
 | `TEAMS_BOT_APP_PASSWORD` | — | client secret téže registrace |
 | `TEAMS_BOT_TENANT_ID` | — | jen u single-tenant registrace; multi-tenant bot si o token říká přes `botframework.com` |
+| `TRUSTED_PROXY_HOPS` | `1` | kolik reverzních proxy stojí před aplikací; podle toho se z `X-Forwarded-For` bere adresa klienta. `0` = aplikace visí na internetu přímo |
+| `RATE_LIMIT_ENABLED` | `true` | vypni jen tam, kde limity řeší proxy |
+| `RATE_LIMIT_API_PER_MINUTE` | `240` | strop na `/api` per adresa |
+| `RATE_LIMIT_AUTH_PER_5M` | `20` | přihlašovací endpointy per adresa |
+| `RATE_LIMIT_AUTH_PER_IDENTITY` | `8` | přihlašovací endpointy per cílový účet |
+| `RATE_LIMIT_WEBHOOK_PER_MINUTE` | `240` | webhooky per adresa; limit sedí před ověřením podpisu |
+| `MAIL_LOG_LINKS` | jen lokálně | smí náhradní odesílatel vypsat do logu i tělo e-mailu (a v něm jednorázový odkaz) |
 
 Chybějící povinná proměnná shodí start s konkrétní hláškou — žádný tichý fallback.
 
@@ -250,6 +261,16 @@ Chybějící povinná proměnná shodí start s konkrétní hláškou — žádn
 Klientské klíče ke storům se ukládají šifrovaně (envelope encryption, DEK per organizaci,
 KEK v KMS nebo lokálním keysetu) — detaily v [ADR 0005](docs/adr/0005-envelope-encryption.md).
 Zranitelnosti hlaste podle [SECURITY.md](SECURITY.md).
+
+Před čím konkrétně se bráníme, kde vedou hranice důvěry a co jsme se rozhodli **nechat být**,
+je v [threat modelu](docs/threat-model.md). Řádek po řádku projitý
+[OWASP ASVS úrovně 2](docs/asvs-l2-audit.md) je vedle něj — včetně toho, co nesplňujeme.
+
+Co drží přihlášení do konzole: argon2id, zamčení účtu po sérii špatných hesel, limity
+požadavků per adresa i per cílový účet, CSRF token nasazený na stromě cest (nová sekce API
+ho nemůže vynechat), volitelný druhý faktor a CSP bez `unsafe-inline` u skriptů. Webhooky mají
+kromě ověření podpisu i **ochranu proti přehrání** — ověřený podpis říká jen to, že požadavek
+někdy poslal ten, kdo zná tajemství, ne že ho poslal teď a poprvé.
 
 Použití KEK se **hlídá**, ne jen povoluje: aplikace vystavuje metriku
 `appreviewzz_vault_kek_unwrap_total` (rozbalení datového klíče) a v našem provozu k ní běží
@@ -277,7 +298,7 @@ v obnovené databázi nečitelné.
 | **F2** | Slack end-to-end: OAuth install, Block Kit s AI návrhem, publikace odpovědi | hotovo |
 | **F3** | Konzole: auth, organizace a role, onboarding wizard, správa klíčů a kanálů, review inbox, delivery health, audit | hotovo |
 | **F4** | Teams bot, ratings pipeline, denní digesty a trendy | hotovo |
-| **F5** | Hardening, rate limity, dokumentace, OSS launch | |
+| **F5** | Hardening: limity požadavků, ochrana proti přehrání, druhý faktor, redakce logů, threat model, sebe-audit ASVS L2 | probíhá |
 | **F6** | Migrace ze staršího n8n řešení a jeho vypnutí | |
 
 ## Dokumentace
@@ -286,7 +307,10 @@ v obnovené databázi nečitelné.
 - [Runbooky](docs/runbooks/) — provozní postupy (zálohy a obnova, alarm na vault klíč)
 - [Slack App](docs/slack-app.md) — založení appky, oprávnění, připojení kanálu, řešení potíží
 - [Teams bot](docs/teams-bot.md) — založení Azure Bota, instalace do týmu, připojení kanálu
+- [Threat model](docs/threat-model.md) — co chráníme, před kým, a jaká zbytková rizika neseme
+- [Sebe-audit ASVS L2](docs/asvs-l2-audit.md) — OWASP ASVS 4.0.3 řádek po řádku, včetně mezer
 - [SECURITY.md](SECURITY.md) — hlášení zranitelností a jak zacházíme s klíči
+- [CONTRIBUTING.md](CONTRIBUTING.md) — jak rozjet vývoj a co se hlídá v review
 
 ## Licence
 
