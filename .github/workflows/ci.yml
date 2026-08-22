@@ -116,3 +116,28 @@ jobs:
           exit-code: '1'
           ignore-unfixed: true
           severity: HIGH,CRITICAL
+
+  # Zaparkovaný ECS/RDS stack ([ADR 0016](../../docs/adr/0016-produkce-zustava-na-coolify.md))
+  # je odložené rozhodnutí, ne mrtvý kód. Bez téhle kontroly by z něj za rok byly moduly,
+  # které se nedají spustit — a tím by odložitelnost toho rozhodnutí tiše zmizela.
+  terraform:
+    name: Terraform validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Formát
+        run: terraform fmt -check -recursive deploy/terraform
+
+      - name: Validace modulů
+        run: |
+          for module in deploy/terraform/modules/*/; do
+            echo "== $module"
+            terraform -chdir="$module" init -backend=false -input=false
+            terraform -chdir="$module" validate
+          done

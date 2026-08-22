@@ -19,5 +19,6 @@ Krátké záznamy o rozhodnutích, která se těžko vracejí. Formát: kontext 
 | [0013](0013-teams-tenka-vrstva-app-level-bot.md) | Teams: vlastní tenká vrstva, bot app-level | Přijato |
 | [0014](0014-ratings-delta-proti-minulemu-prehledu.md) | Delta hodnocení proti minulému přehledu | Přijato |
 | [0015](0015-druhy-faktor-totp.md) | Druhý faktor: TOTP, tajemství pod KEKem | Přijato |
+| [0016](0016-produkce-zustava-na-coolify.md) | Produkce v1 zůstává na Coolify | Přijato |
 
 Nové ADR: zkopíruj strukturu z 0001, další číslo v pořadí, přidej řádek do tabulky.
