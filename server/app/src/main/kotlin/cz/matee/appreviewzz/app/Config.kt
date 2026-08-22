@@ -121,6 +121,12 @@ data class MailConfig(
     val smtpUser: String?,
     val smtpPassword: String?,
     val startTls: Boolean,
+    /**
+     * Smí náhradní odesílatel vypsat do logu i tělo e-mailu? V něm je **jednorázový odkaz**,
+     * takže kdo vidí log, umí změnit cizí heslo. Mimo lokální běh je to proto vypnuté;
+     * self-host, který pošťáka nemá a odkazy z logu opisovat chce, si to zapne vědomě.
+     */
+    val logLinks: Boolean,
 ) {
     val enabled: Boolean get() = smtpHost != null
 }
@@ -175,10 +181,11 @@ data class AppConfig(
     val console: ConsoleConfig,
 ) {
     companion object {
-        fun fromEnv(env: (String) -> String? = System::getenv): AppConfig =
-            AppConfig(
+        fun fromEnv(env: (String) -> String? = System::getenv): AppConfig {
+            val environment = env.optional("APPREVIEWZZ_ENV", "local")
+            return AppConfig(
                 role = Role.parse(env.optional("APPREVIEWZZ_ROLE", "api")),
-                environment = env.optional("APPREVIEWZZ_ENV", "local"),
+                environment = environment,
                 server =
                     ServerConfig(
                         host = env.optional("SERVER_HOST", "0.0.0.0"),
@@ -239,6 +246,10 @@ data class AppConfig(
                                 smtpUser = env("MAIL_SMTP_USER")?.takeIf { it.isNotBlank() },
                                 smtpPassword = env("MAIL_SMTP_PASSWORD")?.takeIf { it.isNotBlank() },
                                 startTls = env.optional("MAIL_SMTP_STARTTLS", "true").toBooleanStrict(),
+                                logLinks =
+                                    env
+                                        .optional("MAIL_LOG_LINKS", (environment == "local").toString())
+                                        .toBooleanStrict(),
                             ),
                     ),
                 teams =
@@ -255,6 +266,7 @@ data class AppConfig(
                         publicBaseUrl = env("PUBLIC_BASE_URL")?.takeIf { it.isNotBlank() },
                     ),
             )
+        }
     }
 }
 

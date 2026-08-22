@@ -1,9 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Lokální vývoj: čitelný text. V kontejneru se přepíná na logback-json.xml. -->
 <configuration>
+    <!-- Redakce (F5.4). Obaluje zprávu i výjimku: text z cizí knihovny bývá upovídanější
+         než ta naše a tajemství se do logu dostane spíš tudy. -->
+    <conversionRule conversionWord="redact" converterClass="cz.matee.appreviewzz.app.logging.RedactingConverter"/>
+
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%d{HH:mm:ss.SSS} %highlight(%-5level) %cyan(%logger{24}) %X{requestId:-} - %msg%n</pattern>
+            <pattern>%d{HH:mm:ss.SSS} %highlight(%-5level) %cyan(%logger{24}) %X{requestId:-} - %redact(%msg%n%ex)</pattern>
         </encoder>
     </appender>
 

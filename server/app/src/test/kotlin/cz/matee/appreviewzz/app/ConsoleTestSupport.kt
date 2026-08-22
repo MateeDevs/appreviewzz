@@ -276,7 +276,7 @@ fun ApplicationTestBuilder.consoleModule(
         apiModule(
             database = TestDatabase.database,
             metrics = PrometheusMeterRegistry(PrometheusConfig.DEFAULT),
-            rateLimits = limits,
+            hardening = ApiHardening(rateLimits = limits),
             console =
                 ConsoleWiring(
                     auth = auth,

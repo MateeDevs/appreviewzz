@@ -392,7 +392,7 @@ class Components(
     val mailer: Mailer by lazy {
         val mail = config.console.mail
         if (mail.smtpHost == null) {
-            LoggingMailer(mail.from)
+            LoggingMailer(mail.from, mail.logLinks)
         } else {
             SmtpMailer(
                 from = mail.from,

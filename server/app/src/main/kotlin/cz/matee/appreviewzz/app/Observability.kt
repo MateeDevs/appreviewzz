@@ -7,7 +7,6 @@ import io.ktor.server.plugins.callid.CallId
 import io.ktor.server.plugins.callid.callIdMdc
 import io.ktor.server.plugins.calllogging.CallLogging
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.server.plugins.defaultheaders.DefaultHeaders
 import io.ktor.server.request.path
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
 import kotlinx.serialization.json.Json
@@ -15,11 +14,6 @@ import org.slf4j.event.Level
 import java.util.UUID
 
 fun Application.installObservability(metrics: PrometheusMeterRegistry) {
-    install(DefaultHeaders) {
-        header("X-Content-Type-Options", "nosniff")
-        header("X-Frame-Options", "DENY")
-        header("Referrer-Policy", "no-referrer")
-    }
     install(CallId) {
         header("X-Request-Id")
         generate { UUID.randomUUID().toString() }

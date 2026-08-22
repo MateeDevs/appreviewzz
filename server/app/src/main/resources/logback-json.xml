@@ -3,6 +3,11 @@
 <configuration>
     <appender name="JSON" class="ch.qos.logback.core.ConsoleAppender">
         <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <!-- Redakce (F5.4). Encoder pouští tudy každou hodnotu — zprávu, stack trace
+                 i vlastní pole — takže se nemusí vyjmenovávat, co všechno hlídat. -->
+            <jsonGeneratorDecorator class="net.logstash.logback.mask.MaskingJsonGeneratorDecorator">
+                <valueMasker class="cz.matee.appreviewzz.app.logging.RedactingValueMasker"/>
+            </jsonGeneratorDecorator>
             <includeMdcKeyName>requestId</includeMdcKeyName>
             <customFields>{"service":"appreviewzz"}</customFields>
             <fieldNames>

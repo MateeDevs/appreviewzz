@@ -69,6 +69,7 @@ class SeedCliTest :
                                 smtpUser = null,
                                 smtpPassword = null,
                                 startTls = true,
+                                logLinks = true,
                             ),
                     ),
             )
