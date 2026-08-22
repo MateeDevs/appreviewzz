@@ -7,7 +7,7 @@ příkazem `teams connect` — žádná registrace na klienta, žádné heslo v 
 
 Dnešní n8n má proti tomu `client_secret` v plaintextu ve čtyřech uzlech a tenant natvrdo
 v URL, takže „přidat klienta" znamená editovat workflow. To je i důvod, proč je secret
-z n8n [na seznamu k rotaci](00-n8n-inventura.md).
+z n8n je na seznamu k rotaci.
 
 ## 1. Založení bota
 

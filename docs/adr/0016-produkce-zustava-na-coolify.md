@@ -8,7 +8,7 @@
 
 [ADR 0008](0008-hosting-coolify-kek-v-kms.md) posunul aplikaci na vlastní server s Coolify
 a nechal kompletní terraform stack pro ECS Fargate, RDS, ALB a ECR zvalidovaný, ale vypnutý.
-Plán ([§7.1](../01-plan-implementace.md)) říká, že **rozhodnutí, jestli se zapne, patří do F5** —
+Plán říká, že **rozhodnutí, jestli se zapne, patří do F5** —
 tedy sem, před zveřejnění repa a před migraci klientů.
 
 Co dnes běží: jeden server, kontejnery `api` a `worker` ze stejného image, Postgres
