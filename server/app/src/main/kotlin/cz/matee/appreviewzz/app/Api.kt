@@ -52,6 +52,7 @@ fun runApi(
     val console =
         ConsoleWiring(
             auth = components.authentication,
+            mfa = components.mfaService,
             orgs = components.organizationService,
             apps = components.appService,
             credentials = components.credentialService,

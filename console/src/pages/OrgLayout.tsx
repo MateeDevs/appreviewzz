@@ -34,6 +34,9 @@ export function OrgLayout() {
         <div className="grow" />
         <div className="small muted">
           <div>{me.data?.displayName ?? me.data?.email}</div>
+          <div style={{ marginTop: '0.25rem' }}>
+            <NavLink to="/zabezpeceni">Zabezpečení účtu</NavLink>
+          </div>
           <button type="button" className="link" onClick={() => logout.mutate()}>
             Odhlásit se
           </button>

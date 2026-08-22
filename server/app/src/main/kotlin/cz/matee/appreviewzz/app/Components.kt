@@ -44,6 +44,7 @@ import cz.matee.appreviewzz.core.usecase.CredentialService
 import cz.matee.appreviewzz.core.usecase.DailyRatingsUseCase
 import cz.matee.appreviewzz.core.usecase.DeliverReviewUseCase
 import cz.matee.appreviewzz.core.usecase.IngestReviewsUseCase
+import cz.matee.appreviewzz.core.usecase.MfaService
 import cz.matee.appreviewzz.core.usecase.OrganizationService
 import cz.matee.appreviewzz.core.usecase.PublishReplyUseCase
 import cz.matee.appreviewzz.core.usecase.RatingsInsights
@@ -53,12 +54,14 @@ import cz.matee.appreviewzz.crypto.CredentialVault
 import cz.matee.appreviewzz.crypto.KekProviders
 import cz.matee.appreviewzz.crypto.KekUsage
 import cz.matee.appreviewzz.crypto.MeteredKekProvider
+import cz.matee.appreviewzz.crypto.UserSecretBox
 import cz.matee.appreviewzz.jobs.BackupJobs
 import cz.matee.appreviewzz.jobs.DeliveryJobs
 import cz.matee.appreviewzz.jobs.IngestJobs
 import cz.matee.appreviewzz.jobs.RatingsJobs
 import cz.matee.appreviewzz.jobs.ReplyJobs
 import cz.matee.appreviewzz.persistence.Database
+import cz.matee.appreviewzz.persistence.repository.ExposedAppDataKeyRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedAppRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedAuditLogRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedBackupRunRepository
@@ -75,6 +78,7 @@ import cz.matee.appreviewzz.persistence.repository.ExposedReplyRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedReviewMessageRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedReviewRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedSessionRepository
+import cz.matee.appreviewzz.persistence.repository.ExposedUserMfaRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedUserRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedUserTokenRepository
 import io.ktor.client.HttpClient
@@ -114,6 +118,8 @@ class Components(
     val userTokens = ExposedUserTokenRepository(exposed)
 
     private val dataKeys = ExposedDataKeyRepository(exposed)
+    private val appDataKeys = ExposedAppDataKeyRepository(exposed)
+    private val userMfa = ExposedUserMfaRepository(exposed)
 
     /** DLQ. Čte z ní jak scheduler, tak `jobs failed` v CLI — dokud není console (F3). */
     val failedJobs = ExposedFailedJobRepository(exposed)
@@ -138,6 +144,20 @@ class Components(
                     "Práce s credentials potřebuje VAULT_KEK_URI (aws-kms://… nebo local://…) — bez něj se nedají ani uložit, ani rozbalit",
                 )
         CredentialVault(dataKeys, credentials, MeteredKekProvider(KekProviders.fromUri(kekUri), kekUsage))
+    }
+
+    /**
+     * Druhý faktor (F5.3). `null` bez `VAULT_KEK_URI`: TOTP tajemství je plnohodnotný
+     * credential a bez správce klíčů ho nemáme kam bezpečně uložit. Zapnout druhý faktor
+     * tam pak nejde a console to řekne větou — to je poctivější než ho ukládat otevřeně.
+     */
+    val mfaService: MfaService? by lazy {
+        val kekUri = config.vaultKekUri ?: return@lazy null
+        MfaService(
+            mfa = userMfa,
+            vault = UserSecretBox(appDataKeys, MeteredKekProvider(KekProviders.fromUri(kekUri), kekUsage)),
+            users = users,
+        )
     }
 
     /**
@@ -397,6 +417,7 @@ class Components(
             hasher = passwordHasher,
             mailer = mailer,
             links = consoleLinks,
+            mfa = mfaService,
         )
     }
 

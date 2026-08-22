@@ -82,6 +82,40 @@ internal object UserTokens : Table("user_token") {
     override val primaryKey = PrimaryKey(id)
 }
 
+/** Druhý faktor (F5.3). Řádek na uživatele; `confirmedAt == null` je rozdělané nastavení. */
+internal object UserTotps : Table("user_totp") {
+    val userId = userId("user_id")
+    val dataKeyId = uuid("data_key_id")
+    val ciphertext = binary("ciphertext")
+    val createdAt = instant("created_at")
+    val confirmedAt = instant("confirmed_at").nullable()
+    val lastStep = long("last_step").nullable()
+
+    override val primaryKey = PrimaryKey(userId)
+}
+
+internal object UserRecoveryCodes : Table("user_recovery_code") {
+    val id = uuid("id")
+    val userId = userId("user_id")
+    val codeHash = binary("code_hash")
+    val createdAt = instant("created_at")
+    val usedAt = instant("used_at").nullable()
+
+    override val primaryKey = PrimaryKey(id)
+}
+
+/** DEK pro tajemství vázaná na uživatele. Deployment-scoped, ne per organizace. */
+internal object AppDataKeys : Table("app_data_key") {
+    val id = uuid("id")
+    val kekUri = text("kek_uri")
+    val wrappedDek = binary("wrapped_dek")
+    val active = bool("active")
+    val createdAt = instant("created_at")
+    val retiredAt = instant("retired_at").nullable()
+
+    override val primaryKey = PrimaryKey(id)
+}
+
 internal object OrgMembers : Table("org_member") {
     val orgId = organizationId()
     val userId = userId("user_id")

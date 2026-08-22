@@ -1,6 +1,7 @@
 package cz.matee.appreviewzz.core.model
 
 import kotlin.time.Instant
+import kotlin.uuid.Uuid
 
 /**
  * Datový klíč organizace — v databázi leží **jen zabalený** (wrapped) KEKem z KMS.
@@ -34,4 +35,18 @@ class OrgDataKey(
 
     /** Bez ByteArray v textové podobě — zabalený klíč nemá co dělat v logu. */
     override fun toString(): String = "OrgDataKey(id=$id, orgId=$orgId, kekUri=$kekUri, active=$active)"
+}
+
+/**
+ * Datový klíč pro tajemství, která nepatří žádné organizaci (TOTP seed uživatele).
+ * Jinak úplně stejná úvaha jako u [OrgDataKey] — v databázi leží jen zabalený.
+ */
+class AppDataKey(
+    val id: Uuid,
+    val kekUri: String,
+    val wrappedDek: ByteArray,
+    val active: Boolean,
+    val createdAt: Instant,
+) {
+    override fun toString(): String = "AppDataKey(id=$id, kekUri=$kekUri, active=$active)"
 }

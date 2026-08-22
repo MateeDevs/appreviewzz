@@ -25,12 +25,16 @@ import cz.matee.appreviewzz.core.usecase.ChannelService
 import cz.matee.appreviewzz.core.usecase.ConsoleLinks
 import cz.matee.appreviewzz.core.usecase.CredentialService
 import cz.matee.appreviewzz.core.usecase.DailyRatingsUseCase
+import cz.matee.appreviewzz.core.usecase.MfaService
 import cz.matee.appreviewzz.core.usecase.OrganizationService
 import cz.matee.appreviewzz.core.usecase.RatingsInsights
 import cz.matee.appreviewzz.core.usecase.ReviewInbox
 import cz.matee.appreviewzz.crypto.Argon2PasswordHasher
 import cz.matee.appreviewzz.crypto.CredentialVault
+import cz.matee.appreviewzz.crypto.KekProvider
 import cz.matee.appreviewzz.crypto.KekProviders
+import cz.matee.appreviewzz.crypto.UserSecretBox
+import cz.matee.appreviewzz.persistence.repository.ExposedAppDataKeyRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedAppRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedAuditLogRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedChannelRepository
@@ -46,6 +50,7 @@ import cz.matee.appreviewzz.persistence.repository.ExposedReplyRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedReviewMessageRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedReviewRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedSessionRepository
+import cz.matee.appreviewzz.persistence.repository.ExposedUserMfaRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedUserRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedUserTokenRepository
 import io.ktor.client.HttpClient
@@ -66,6 +71,7 @@ import io.ktor.server.testing.ApplicationTestBuilder
 import io.micrometer.prometheusmetrics.PrometheusConfig
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
 import java.nio.file.Files
+import kotlin.time.Clock
 
 /**
  * Console nad opravdovým Postgresem. Session, role i pozvánky stojí na tom, co se doopravdy
@@ -176,6 +182,8 @@ fun ApplicationTestBuilder.consoleModule(
     mailer: RecordingMailer,
     policy: AuthPolicy = AuthPolicy(),
     limits: RateLimits = RateLimits.disabled(),
+    /** Vlastní hodiny potřebují jen testy druhého faktoru — kód platí třicet sekund. */
+    clock: Clock = Clock.System,
     slack: ConsoleSlack? = null,
     replyQueue: RecordingReplyQueue? = null,
     fakes: ConsoleFakes =
@@ -185,6 +193,13 @@ fun ApplicationTestBuilder.consoleModule(
     val organizations = ExposedOrganizationRepository(exposed)
     val memberships = ExposedMembershipRepository(exposed)
     val users = ExposedUserRepository(exposed)
+    val mfaService =
+        MfaService(
+            mfa = ExposedUserMfaRepository(exposed),
+            vault = UserSecretBox(ExposedAppDataKeyRepository(exposed), consoleKek()),
+            users = users,
+            clock = clock,
+        )
     val auth =
         AuthenticationService(
             users = users,
@@ -195,6 +210,8 @@ fun ApplicationTestBuilder.consoleModule(
             mailer = mailer,
             links = ConsoleLinks(CONSOLE_URL),
             policy = policy,
+            clock = clock,
+            mfa = mfaService,
         )
     val appRepository = ExposedAppRepository(exposed)
     val credentialRepository = ExposedCredentialRepository(exposed)
@@ -268,6 +285,7 @@ fun ApplicationTestBuilder.consoleModule(
                     credentials = credentialService,
                     channels = channelService,
                     cookies = SessionCookies(secure = false, lifetime = policy.sessionLifetime),
+                    mfa = mfaService,
                     organizations = organizations,
                     memberships = memberships,
                     slack = slack,
@@ -286,14 +304,19 @@ fun ApplicationTestBuilder.consoleModule(
  * v testech neobchází — jinak by se AAD binding neověřoval nikdy — a testy si přes něj
  * umí založit i credential, který jinak vzniká připojením Slacku.
  */
+private val kek: KekProvider by lazy {
+    KekProviders.fromUri("local://${Files.createTempDirectory("appreviewzz-keyset").resolve("keyset")}")
+}
+
 private val vault: CredentialVault by lazy {
-    val keyset = Files.createTempDirectory("appreviewzz-keyset").resolve("keyset")
     CredentialVault(
         dataKeys = ExposedDataKeyRepository(TestDatabase.database.exposed),
         credentials = ExposedCredentialRepository(TestDatabase.database.exposed),
-        kek = KekProviders.fromUri("local://$keyset"),
+        kek = kek,
     )
 }
+
+fun consoleKek(): KekProvider = kek
 
 fun consoleVault(): CredentialVault = vault
 

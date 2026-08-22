@@ -1,10 +1,12 @@
 package cz.matee.appreviewzz.core.port
 
+import cz.matee.appreviewzz.core.model.SealedSecret
 import cz.matee.appreviewzz.core.model.SecretPayload
 import cz.matee.appreviewzz.core.model.SessionId
 import cz.matee.appreviewzz.core.model.UserId
 import cz.matee.appreviewzz.core.model.UserSession
 import cz.matee.appreviewzz.core.model.UserTokenPurpose
+import cz.matee.appreviewzz.core.model.UserTotp
 import kotlin.time.Instant
 
 /**
@@ -82,6 +84,17 @@ interface UserTokenRepository {
     )
 
     /**
+     * Uživatel, kterému platný token patří — **bez** jeho zneplatnění. Používá se tam, kde
+     * po přečtení tokenu ještě může přijít neúspěch, po kterém má token dál platit: špatně
+     * opsaný kód z autentizační appky nemá stát nové přihlášení heslem.
+     */
+    fun findValid(
+        purpose: UserTokenPurpose,
+        tokenHash: ByteArray,
+        at: Instant,
+    ): UserId?
+
+    /**
      * Vymění otisk za uživatele a token zneplatní. Atomicky: dvě souběžná kliknutí na týž
      * odkaz uspějí nejvýš jednou.
      */
@@ -97,6 +110,75 @@ interface UserTokenRepository {
         purpose: UserTokenPurpose,
         at: Instant,
     ): Int
+}
+
+/**
+ * Šifrování tajemství, která patří **uživateli, ne organizaci** (F5.3) — dnes TOTP seed.
+ *
+ * Vlastní port, protože credential vault je celý postavený na klíči per organizace a uživatel
+ * žádnou mít nemusí (zakládá si účet dřív). Implementace v modulu `crypto` používá týž KEK,
+ * takže z dumpu databáze bez přístupu ke správci klíčů je i tenhle sloupec bezcenný.
+ */
+interface UserSecretVault {
+    /** @param purpose vstupuje do AAD — zapečetěné tajemství nejde použít v jiné roli. */
+    fun seal(
+        userId: UserId,
+        purpose: String,
+        secret: SecretPayload,
+    ): SealedSecret
+
+    fun open(
+        userId: UserId,
+        purpose: String,
+        sealed: SealedSecret,
+    ): SecretPayload
+}
+
+/**
+ * Druhý faktor. Záchranné kódy jsou tu schválně vedle TOTP: patří k sobě provozně (zapnutím
+ * druhého faktoru vzniknou, vypnutím zmizí) a odděleně by šlo snadno smazat jedno bez druhého.
+ */
+interface UserMfaRepository {
+    fun find(userId: UserId): UserTotp?
+
+    /** Rozdělané nastavení nahradí předchozí; potvrzené se nepřepisuje bez [delete]. */
+    fun startSetup(
+        userId: UserId,
+        secret: SealedSecret,
+        at: Instant,
+    )
+
+    fun confirm(
+        userId: UserId,
+        at: Instant,
+        step: Long,
+    )
+
+    /** Zápis použitého kroku — tentýž kód podruhé neprojde. */
+    fun recordStep(
+        userId: UserId,
+        step: Long,
+    )
+
+    /** Vypnutí druhého faktoru: mizí tajemství i všechny záchranné kódy. */
+    fun delete(userId: UserId)
+
+    fun replaceRecoveryCodes(
+        userId: UserId,
+        hashes: List<ByteArray>,
+        at: Instant,
+    )
+
+    /**
+     * Uplatní záchranný kód. Atomicky — dvě souběžná odeslání téhož kódu uspějí nejvýš jednou.
+     */
+    fun consumeRecoveryCode(
+        userId: UserId,
+        hash: ByteArray,
+        at: Instant,
+    ): Boolean
+
+    fun remainingRecoveryCodes(userId: UserId): Int
 }
 
 /** Jeden e-mail. Odesílatele i transport řeší implementace, doména zná jen adresáta a text. */

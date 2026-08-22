@@ -8,14 +8,17 @@ import type {
   Credential,
   Health,
   Invitation,
+  LoginOutcome,
   Me,
   Member,
+  MfaStatus,
   OrganizationSummary,
   RatingsRunResult,
   RatingsSeries,
   Review,
   ReviewDetail,
   ReviewState,
+  TotpSetup,
 } from './types'
 
 /**
@@ -37,11 +40,61 @@ export function useMe(): UseQueryResult<Me | null> {
   })
 }
 
-/** Po přihlášení i odhlášení se zahazuje celá cache — jiný uživatel, jiná data. */
+/**
+ * Po přihlášení i odhlášení se zahazuje celá cache — jiný uživatel, jiná data.
+ *
+ * Se zapnutým druhým faktorem tohle přihlášení nedokončí: server vrátí challenge a zbytek
+ * obstará [useVerifySecondFactor].
+ */
 export function useLogin() {
   const client = useQueryClient()
   return useMutation({
-    mutationFn: (input: { email: string; password: string }) => api.post<Me>('/api/auth/login', input),
+    mutationFn: (input: { email: string; password: string }) =>
+      api.post<LoginOutcome>('/api/auth/login', input),
+    onSuccess: () => client.invalidateQueries(),
+  })
+}
+
+export function useVerifySecondFactor() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (input: { challenge: string; code: string }) => api.post<Me>('/api/auth/mfa/verify', input),
+    onSuccess: () => client.invalidateQueries(),
+  })
+}
+
+export function useMfaStatus() {
+  return useQuery({ queryKey: ['mfa'], queryFn: () => api.get<MfaStatus>('/api/auth/totp') })
+}
+
+export function useStartTotp() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: () => api.post<TotpSetup>('/api/auth/totp/setup'),
+    onSuccess: () => client.invalidateQueries({ queryKey: ['mfa'] }),
+  })
+}
+
+export function useConfirmTotp() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (code: string) => api.post<{ codes: string[] }>('/api/auth/totp/confirm', { code }),
+    onSuccess: () => client.invalidateQueries(),
+  })
+}
+
+export function useRegenerateRecoveryCodes() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (code: string) => api.post<{ codes: string[] }>('/api/auth/totp/recovery-codes', { code }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ['mfa'] }),
+  })
+}
+
+export function useDisableTotp() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (input: { password: string; code: string }) => api.post<void>('/api/auth/totp/disable', input),
     onSuccess: () => client.invalidateQueries(),
   })
 }

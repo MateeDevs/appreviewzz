@@ -34,6 +34,9 @@ enum class AuthFailure {
     INVALID_CREDENTIALS,
     ACCOUNT_LOCKED,
     INVALID_TOKEN,
+    MFA_ALREADY_ENABLED,
+    MFA_NOT_SET_UP,
+    MFA_INVALID_CODE,
 }
 
 class AuthException(
@@ -55,6 +58,12 @@ data class AuthPolicy(
     val resetLifetime: Duration = 1.hours,
     val maxFailedLogins: Int = 8,
     val lockFor: Duration = 15.minutes,
+    /**
+     * Jak dlouho platí rozdělané přihlášení, které čeká na kód z appky. Krátce schválně:
+     * je to jediný artefakt, který vzniká po správně zadaném heslu, a nikdo ho nemá mít
+     * v otevřené záložce hodinu.
+     */
+    val mfaChallengeLifetime: Duration = 5.minutes,
 )
 
 /** Přihlášený uživatel tak, jak ho vidí zbytek API. */
@@ -74,6 +83,15 @@ data class Registration(
 )
 
 sealed interface LoginResult {
+    /**
+     * Heslo sedí, ale účet chce ještě kód z autentizační appky. **Žádná relace zatím nevzniká** —
+     * ven jde jen krátkodobý token, který se vymění za přihlášení až po ověření druhého faktoru.
+     */
+    data class SecondFactorRequired(
+        val challenge: SecretPayload,
+        val expiresAt: Instant,
+    ) : LoginResult
+
     data class Success(
         /** Plaintext do cookie. Podruhé už ho nikdo nezjistí — v databázi je jen otisk. */
         val token: SecretPayload,
@@ -110,6 +128,11 @@ class AuthenticationService(
     private val links: ConsoleLinks,
     private val clock: Clock = Clock.System,
     private val policy: AuthPolicy = AuthPolicy(),
+    /**
+     * Druhý faktor. `null` znamená instalaci bez něj (seed CLI, self-host bez správce klíčů) —
+     * přihlášení pak končí heslem, stejně jako do F5.
+     */
+    private val mfa: MfaService? = null,
 ) {
     /**
      * Registrace. Když už účet existuje bez hesla (založený přes CLI nebo pozvánkou),
@@ -185,6 +208,12 @@ class AuthenticationService(
         }
 
         users.recordLoginAttempt(account.user.id, failedLoginCount = 0, lockedUntil = null, lastLoginAt = now)
+
+        // Až sem je heslo ověřené. Když má účet druhý faktor, relace ještě nevzniká.
+        if (mfa?.isEnabled(account.user.id) == true) {
+            return LoginResult.SecondFactorRequired(issueChallenge(account.user.id, now), now + policy.mfaChallengeLifetime)
+        }
+
         val token = OpaqueTokens.generate()
         val session =
             sessions.create(
@@ -196,6 +225,44 @@ class AuthenticationService(
                 clientIp = clientIp,
             )
         return LoginResult.Success(token, session, account.copy(failedLoginCount = 0, lockedUntil = null))
+    }
+
+    /**
+     * Druhá půlka přihlášení: výměna challenge tokenu a kódu z appky za relaci.
+     *
+     * Špatný kód challenge **nespotřebuje** — jinak by jeden překlep znamenal zadávat heslo
+     * znovu. Proti hádání kódu stojí krátká platnost challenge a limit požadavků nad ní;
+     * po úspěchu se token zneplatní, takže se stejným už podruhé přihlásit nejde.
+     */
+    fun completeSecondFactor(
+        challenge: SecretPayload,
+        code: String,
+        userAgent: String?,
+        clientIp: String?,
+    ): LoginResult {
+        val service = mfa ?: return LoginResult.InvalidCredentials
+        val now = clock.now()
+        val hash = OpaqueTokens.hash(challenge)
+        val userId =
+            tokens.findValid(UserTokenPurpose.MFA_CHALLENGE, hash, now)
+                ?: return LoginResult.InvalidCredentials
+
+        if (!service.verify(userId, code)) return LoginResult.InvalidCredentials
+        tokens.consume(UserTokenPurpose.MFA_CHALLENGE, hash, now)
+
+        val account = users.findAccountById(userId) ?: return LoginResult.InvalidCredentials
+        val token = OpaqueTokens.generate()
+        val session =
+            sessions.create(
+                userId = userId,
+                tokenHash = OpaqueTokens.hash(token),
+                createdAt = now,
+                expiresAt = now + policy.sessionLifetime,
+                userAgent = userAgent,
+                clientIp = clientIp,
+            )
+        logger.info { "Uživatel $userId prošel druhým faktorem" }
+        return LoginResult.Success(token, session, account)
     }
 
     /** Ověření cookie při každém požadavku. `lastSeenAt` se posouvá, expirace se neprodlužuje. */
@@ -265,9 +332,27 @@ class AuthenticationService(
                 ?: throw AuthException(AuthFailure.INVALID_TOKEN, "Odkaz je neplatný nebo mu vypršela platnost")
 
         users.setPassword(userId, hasher.hash(newPassword), now)
+        // Rozdělaná přihlášení taky: challenge vydaná starým heslem nemá po resetu co platit.
+        tokens.invalidateAll(userId, UserTokenPurpose.MFA_CHALLENGE, now)
         val revoked = sessions.revokeAllOfUser(userId, now)
         logger.info { "Heslo uživatele $userId resetované, zrušeno $revoked relací" }
         return checkNotNull(users.findById(userId))
+    }
+
+    /**
+     * Ověření hesla u přihlášeného člověka. Používají ho kroky, na které nemá stačit ukradená
+     * relace — dnes vypnutí druhého faktoru.
+     */
+    fun reauthenticate(
+        user: AuthenticatedUser,
+        password: SecretPayload,
+    ) {
+        val hash =
+            user.account.passwordHash
+                ?: throw AuthException(AuthFailure.INVALID_CREDENTIALS, "Účet zatím nemá heslo")
+        if (!hasher.verify(password, hash)) {
+            throw AuthException(AuthFailure.INVALID_CREDENTIALS, "Heslo nesouhlasí")
+        }
     }
 
     /**
@@ -291,6 +376,23 @@ class AuthenticationService(
         users.setPassword(user.account.user.id, hasher.hash(newPassword), now)
         val revoked = sessions.revokeAllOfUserExcept(user.account.user.id, user.session.id, now)
         logger.info { "Uživatel ${user.account.user.id} si změnil heslo, zrušeno $revoked dalších relací" }
+    }
+
+    /** Rozdělané přihlášení. Předchozí se ruší: platit má vždycky jen to poslední. */
+    private fun issueChallenge(
+        userId: UserId,
+        now: Instant,
+    ): SecretPayload {
+        tokens.invalidateAll(userId, UserTokenPurpose.MFA_CHALLENGE, now)
+        val challenge = OpaqueTokens.generate()
+        tokens.create(
+            userId = userId,
+            purpose = UserTokenPurpose.MFA_CHALLENGE,
+            tokenHash = OpaqueTokens.hash(challenge),
+            expiresAt = now + policy.mfaChallengeLifetime,
+            at = now,
+        )
+        return challenge
     }
 
     private fun sendVerification(

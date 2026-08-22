@@ -15,6 +15,7 @@ import { InboxPage } from './pages/Inbox'
 import { OnboardingPage } from './pages/Onboarding'
 import { OrgLayout } from './pages/OrgLayout'
 import { OrganizationsPage } from './pages/Organizations'
+import { SecurityPage } from './pages/Security'
 import { Loading } from './components/ui'
 
 export function App() {
@@ -46,6 +47,7 @@ export function App() {
       ) : (
         <>
           <Route path="/organizace" element={<OrganizationsPage />} />
+          <Route path="/zabezpeceni" element={<SecurityPage />} />
           <Route path="/" element={<HomeRedirect />} />
           <Route path="/:org" element={<OrgLayout />}>
             <Route index element={<DashboardPage />} />

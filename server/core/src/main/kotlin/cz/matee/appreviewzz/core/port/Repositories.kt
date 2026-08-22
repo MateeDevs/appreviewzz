@@ -2,6 +2,7 @@ package cz.matee.appreviewzz.core.port
 
 import cz.matee.appreviewzz.core.model.ActorType
 import cz.matee.appreviewzz.core.model.App
+import cz.matee.appreviewzz.core.model.AppDataKey
 import cz.matee.appreviewzz.core.model.AppId
 import cz.matee.appreviewzz.core.model.AuditEntry
 import cz.matee.appreviewzz.core.model.BackupRun
@@ -41,6 +42,7 @@ import cz.matee.appreviewzz.core.model.ValidationStatus
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 import kotlin.time.Instant
+import kotlin.uuid.Uuid
 
 /**
  * Porty do perzistence. Pravidlo, které tu drží multi-tenancy: **každá metoda, která
@@ -199,6 +201,22 @@ interface DataKeyRepository {
         wrappedDek: ByteArray,
         at: Instant,
     ): OrgDataKey
+}
+
+/**
+ * DEK pro tajemství vázaná na uživatele, ne na organizaci (F5.3). Deployment má nejvýš
+ * jeden aktivní a vzniká líně — instalace, kde si nikdo nezapne druhý faktor, ho nemá.
+ */
+interface AppDataKeyRepository {
+    fun findActive(): AppDataKey?
+
+    fun findById(id: Uuid): AppDataKey?
+
+    fun create(
+        kekUri: String,
+        wrappedDek: ByteArray,
+        at: Instant,
+    ): AppDataKey
 }
 
 /**

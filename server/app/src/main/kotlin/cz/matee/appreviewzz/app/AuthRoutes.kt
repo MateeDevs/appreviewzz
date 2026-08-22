@@ -3,12 +3,16 @@ package cz.matee.appreviewzz.app
 import cz.matee.appreviewzz.core.model.OrgRole
 import cz.matee.appreviewzz.core.model.SecretPayload
 import cz.matee.appreviewzz.core.model.User
+import cz.matee.appreviewzz.core.model.UserId
 import cz.matee.appreviewzz.core.port.MembershipRepository
 import cz.matee.appreviewzz.core.port.OrganizationRepository
+import cz.matee.appreviewzz.core.usecase.AuthException
+import cz.matee.appreviewzz.core.usecase.AuthFailure
 import cz.matee.appreviewzz.core.usecase.AuthenticatedUser
 import cz.matee.appreviewzz.core.usecase.LoginResult
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.http.HttpStatusCode
+import io.ktor.server.application.ApplicationCall
 import io.ktor.server.plugins.callid.callId
 import io.ktor.server.request.header
 import io.ktor.server.request.receive
@@ -53,6 +57,52 @@ data class ChangePasswordRequest(
 )
 
 @Serializable
+data class SecondFactorRequest(
+    val challenge: String,
+    val code: String,
+)
+
+@Serializable
+data class CodeRequest(
+    val code: String,
+)
+
+@Serializable
+data class DisableTotpRequest(
+    val password: String,
+    val code: String,
+)
+
+/**
+ * Odpověď na přihlášení, které ještě není hotové. Vrací se s `202 Accepted` — console podle
+ * kódu pozná, že má ukázat pole na kód, aniž by musela hádat z těla.
+ */
+@Serializable
+data class SecondFactorChallenge(
+    val challenge: String,
+    val expiresAt: String,
+)
+
+@Serializable
+data class TotpSetupResponse(
+    /** Base32 tajemství pro ruční opsání; QR kód si console vyrobí z [provisioningUri]. */
+    val secret: String,
+    val provisioningUri: String,
+)
+
+@Serializable
+data class RecoveryCodesResponse(
+    val codes: List<String>,
+)
+
+@Serializable
+data class MfaStatusResponse(
+    val enabled: Boolean,
+    val setupPending: Boolean,
+    val remainingRecoveryCodes: Int,
+)
+
+@Serializable
 data class CsrfResponse(
     val token: String,
 )
@@ -72,6 +122,7 @@ data class MeResponse(
     val email: String,
     val displayName: String?,
     val emailVerified: Boolean,
+    val mfaEnabled: Boolean,
     val organizations: List<OrganizationSummary>,
 )
 
@@ -144,18 +195,15 @@ fun Route.authRoutes(
                     }
 
                 when (result) {
-                    is LoginResult.Success -> {
-                        cookies.issue(call, result.token)
-                        cookies.issueCsrf(call, newCsrfToken())
+                    is LoginResult.Success -> call.respondSignedIn(result, console)
+
+                    // Heslo sedí, chybí kód z appky. Relace ani cookie zatím nevzniká — 202
+                    // říká „přijato, ale ještě to není hotové", což je přesně tenhle stav.
+                    is LoginResult.SecondFactorRequired ->
                         call.respond(
-                            me(
-                                user = result.account.user,
-                                emailVerified = result.account.emailVerified,
-                                organizations = organizations,
-                                memberships = memberships,
-                            ),
+                            HttpStatusCode.Accepted,
+                            SecondFactorChallenge(result.challenge.value, result.expiresAt.toString()),
                         )
-                    }
 
                     LoginResult.InvalidCredentials ->
                         call.respond(
@@ -171,6 +219,32 @@ fun Route.authRoutes(
                                 requestId = call.callId,
                                 message = "Po sérii špatných hesel je účet dočasně zamčený, zkus to za chvíli",
                             ),
+                        )
+                }
+            }
+
+            /**
+             * Druhá půlka přihlášení. Klíč limitu je challenge, ne adresa: bez toho by hádání
+             * šestimístného kódu jelo pod společným stropem s běžnými pokusy o heslo.
+             */
+            post("/mfa/verify") {
+                val request = call.receive<SecondFactorRequest>()
+                if (!call.allowedBy(limits.authIdentity, identityKey("mfa", request.challenge))) return@post
+                val result =
+                    io {
+                        auth.completeSecondFactor(
+                            challenge = SecretPayload(request.challenge),
+                            code = request.code,
+                            userAgent = call.request.header("User-Agent"),
+                            clientIp = call.clientIp(),
+                        )
+                    }
+                when (result) {
+                    is LoginResult.Success -> call.respondSignedIn(result, console)
+                    else ->
+                        call.respond(
+                            HttpStatusCode.Unauthorized,
+                            ErrorResponse("invalid_code", call.callId, "Kód nesouhlasí nebo přihlášení vypršelo"),
                         )
                 }
             }
@@ -211,13 +285,75 @@ fun Route.authRoutes(
             get("/me") {
                 val user = call.authenticatedUser
                 call.respond(
-                    me(user.account.user, user.account.emailVerified, organizations, memberships),
+                    me(
+                        user = user.account.user,
+                        emailVerified = user.account.emailVerified,
+                        organizations = organizations,
+                        memberships = memberships,
+                        mfaEnabled = io { console.mfa?.isEnabled(user.account.user.id) } == true,
+                    ),
                 )
             }
 
             post("/email/resend") {
                 io { auth.resendVerification(call.authenticatedUser.account.user.id) }
                 call.respond(HttpStatusCode.Accepted)
+            }
+
+            get("/totp") {
+                call.respond(mfaStatus(console, call.authenticatedUser.account.user.id))
+            }
+
+            /**
+             * Nové tajemství. Tajemství tu opouští server naposledy v otevřené podobě —
+             * console ho po potvrzení zahodí a znovu ho nikdo nezjistí.
+             */
+            post("/totp/setup") {
+                val service = console.mfa ?: return@post call.respondMfaUnavailable()
+                val setup = io { service.startSetup(call.authenticatedUser.account.user) }
+                call.respond(TotpSetupResponse(setup.secret.value, setup.provisioningUri))
+            }
+
+            post("/totp/confirm") {
+                val service = console.mfa ?: return@post call.respondMfaUnavailable()
+                val request = call.receive<CodeRequest>()
+                val user = call.authenticatedUser.account.user
+                val codes = io { service.confirmSetup(user.id, request.code) }
+                call.respond(RecoveryCodesResponse(codes))
+            }
+
+            /** Nové záchranné kódy. Ty staré padají — proto se chce kód z appky, ne jen relace. */
+            post("/totp/recovery-codes") {
+                val service = console.mfa ?: return@post call.respondMfaUnavailable()
+                val request = call.receive<CodeRequest>()
+                val user = call.authenticatedUser.account.user
+                val codes =
+                    io {
+                        if (!service.verify(user.id, request.code)) {
+                            throw AuthException(AuthFailure.MFA_INVALID_CODE, "Kód nesouhlasí")
+                        }
+                        service.regenerateRecoveryCodes(user.id)
+                    }
+                call.respond(RecoveryCodesResponse(codes))
+            }
+
+            /**
+             * Vypnutí. Chce heslo **i** platný kód: ukradená relace tak druhý faktor nesundá,
+             * a to je jediný důvod, proč tu vůbec je.
+             */
+            post("/totp/disable") {
+                val service = console.mfa ?: return@post call.respondMfaUnavailable()
+                val request = call.receive<DisableTotpRequest>()
+                val user: AuthenticatedUser = call.authenticatedUser
+                io {
+                    auth.reauthenticate(user, SecretPayload(request.password))
+                    if (!service.verify(user.account.user.id, request.code)) {
+                        throw AuthException(AuthFailure.MFA_INVALID_CODE, "Kód nesouhlasí")
+                    }
+                    service.disable(user.account.user.id)
+                }
+                logger.info { "Uživatel ${user.account.user.id} vypnul druhý faktor" }
+                call.respond(HttpStatusCode.NoContent)
             }
 
             post("/password/change") {
@@ -242,6 +378,7 @@ private suspend fun me(
     emailVerified: Boolean,
     organizations: OrganizationRepository,
     memberships: MembershipRepository,
+    mfaEnabled: Boolean = false,
 ): MeResponse {
     val summaries =
         io {
@@ -261,6 +398,7 @@ private suspend fun me(
         email = user.email,
         displayName = user.displayName,
         emailVerified = emailVerified,
+        mfaEnabled = mfaEnabled,
         organizations = summaries,
     )
 }
@@ -276,4 +414,49 @@ private fun identityKey(
     val normalized = email.trim().lowercase()
     val digest = MessageDigest.getInstance("SHA-256").digest("$scope:$normalized".toByteArray(Charsets.UTF_8))
     return digest.joinToString(separator = "") { "%02x".format(it) }
+}
+
+/** Vydání relace po úspěšném přihlášení — jedno místo pro obě jeho půlky. */
+private suspend fun ApplicationCall.respondSignedIn(
+    result: LoginResult.Success,
+    console: ConsoleWiring,
+) {
+    console.cookies.issue(this, result.token)
+    console.cookies.issueCsrf(this, newCsrfToken())
+    respond(
+        me(
+            user = result.account.user,
+            emailVerified = result.account.emailVerified,
+            organizations = console.organizations,
+            memberships = console.memberships,
+            mfaEnabled = io { console.mfa?.isEnabled(result.account.user.id) } == true,
+        ),
+    )
+}
+
+private suspend fun mfaStatus(
+    console: ConsoleWiring,
+    userId: UserId,
+): MfaStatusResponse {
+    val status = io { console.mfa?.status(userId) }
+    return MfaStatusResponse(
+        enabled = status?.enabled == true,
+        setupPending = status?.setupPending == true,
+        remainingRecoveryCodes = status?.remainingRecoveryCodes ?: 0,
+    )
+}
+
+/**
+ * Instalace bez správce klíčů (a tedy bez místa, kam tajemství bezpečně uložit). Vlastní kód,
+ * ne 404 — console tak umí říct proč, místo aby tlačítko jen nefungovalo.
+ */
+private suspend fun ApplicationCall.respondMfaUnavailable() {
+    respond(
+        HttpStatusCode.ServiceUnavailable,
+        ErrorResponse(
+            error = "mfa_unavailable",
+            requestId = callId,
+            message = "Druhý faktor potřebuje nastavený správce klíčů (VAULT_KEK_URI)",
+        ),
+    )
 }

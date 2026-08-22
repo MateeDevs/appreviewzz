@@ -7,7 +7,9 @@ import {
   useRegister,
   useResetPassword,
   useVerifyEmail,
+  useVerifySecondFactor,
 } from '../api/hooks'
+import { needsSecondFactor } from '../api/types'
 import { Card, ErrorBox, Field } from '../components/ui'
 import { useEffect } from 'react'
 
@@ -17,11 +19,16 @@ const MIN_PASSWORD = 12
 export function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  // Rozdělané přihlášení: heslo prošlo, čeká se na kód z autentizační appky.
+  const [challenge, setChallenge] = useState<string | null>(null)
   const login = useLogin()
   const navigate = useNavigate()
   const [params] = useSearchParams()
   // Kdo přišel z odkazu (typicky z pozvánky), má se po přihlášení vrátit tam, kam mířil.
   const next = params.get('next')
+  const goOn = () => navigate(next && next.startsWith('/') ? next : '/')
+
+  if (challenge) return <SecondFactorForm challenge={challenge} onDone={goOn} onCancel={() => setChallenge(null)} />
 
   return (
     <div className="center">
@@ -29,7 +36,15 @@ export function LoginPage() {
         <form
           onSubmit={(event) => {
             event.preventDefault()
-            login.mutate({ email, password }, { onSuccess: () => navigate(next && next.startsWith('/') ? next : '/') })
+            login.mutate(
+              { email, password },
+              {
+                onSuccess: (outcome) => {
+                  if (needsSecondFactor(outcome)) setChallenge(outcome.challenge)
+                  else goOn()
+                },
+              },
+            )
           }}
         >
           <Field label="E-mail">
@@ -53,6 +68,58 @@ export function LoginPage() {
         </form>
         <p className="small muted" style={{ marginTop: '1rem' }}>
           <Link to="/registrace">Založit účet</Link> · <Link to="/zapomenute-heslo">Zapomenuté heslo</Link>
+        </p>
+      </Card>
+    </div>
+  )
+}
+
+/**
+ * Druhý krok přihlášení. Bere kód z appky i záchranný kód — jedno pole schválně: člověk,
+ * který zrovna nemá telefon, jinak neví, kam ten papírový kód napsat.
+ */
+function SecondFactorForm({
+  challenge,
+  onDone,
+  onCancel,
+}: {
+  challenge: string
+  onDone: () => void
+  onCancel: () => void
+}) {
+  const [code, setCode] = useState('')
+  const verify = useVerifySecondFactor()
+
+  return (
+    <div className="center">
+      <Card title="Kód z autentizační appky">
+        <form
+          onSubmit={(event) => {
+            event.preventDefault()
+            verify.mutate({ challenge, code }, { onSuccess: onDone })
+          }}
+        >
+          <Field label="Šestimístný kód" hint="Nemáš telefon po ruce? Napiš sem některý ze záchranných kódů.">
+            <input
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              autoComplete="one-time-code"
+              inputMode="text"
+              autoFocus
+              required
+            />
+          </Field>
+          <div className="stack" style={{ marginTop: '1rem' }}>
+            <ErrorBox error={verify.error} />
+            <button type="submit" disabled={verify.isPending}>
+              {verify.isPending ? 'Ověřuji…' : 'Pokračovat'}
+            </button>
+          </div>
+        </form>
+        <p className="small muted" style={{ marginTop: '1rem' }}>
+          <button type="button" className="link" onClick={onCancel}>
+            Zpátky na přihlášení
+          </button>
         </p>
       </Card>
     </div>

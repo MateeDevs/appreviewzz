@@ -72,9 +72,12 @@ fun Application.installErrorHandling() {
 private fun AuthFailure.status(): HttpStatusCode =
     when (this) {
         AuthFailure.INVALID_EMAIL, AuthFailure.WEAK_PASSWORD, AuthFailure.INVALID_TOKEN -> HttpStatusCode.BadRequest
-        AuthFailure.EMAIL_TAKEN -> HttpStatusCode.Conflict
+        AuthFailure.EMAIL_TAKEN, AuthFailure.MFA_ALREADY_ENABLED -> HttpStatusCode.Conflict
         AuthFailure.INVALID_CREDENTIALS -> HttpStatusCode.Unauthorized
         AuthFailure.ACCOUNT_LOCKED -> HttpStatusCode.Locked
+        // Špatně opsaný kód je vstupní chyba, ne „nejsi přihlášený" — console podle toho
+        // nechá formulář otevřený místo odhlášení.
+        AuthFailure.MFA_INVALID_CODE, AuthFailure.MFA_NOT_SET_UP -> HttpStatusCode.BadRequest
     }
 
 private fun ConsoleFailure.status(): HttpStatusCode =

@@ -21,7 +21,34 @@ export interface Me {
   email: string
   displayName: string | null
   emailVerified: boolean
+  mfaEnabled: boolean
   organizations: OrganizationSummary[]
+}
+
+/**
+ * Přihlášení, které ještě není hotové: heslo prošlo, chybí kód z autentizační appky.
+ * Server ho vrací s `202 Accepted` a relace zatím žádná není.
+ */
+export interface SecondFactorChallenge {
+  challenge: string
+  expiresAt: string
+}
+
+export type LoginOutcome = Me | SecondFactorChallenge
+
+export function needsSecondFactor(outcome: LoginOutcome): outcome is SecondFactorChallenge {
+  return 'challenge' in outcome
+}
+
+export interface MfaStatus {
+  enabled: boolean
+  setupPending: boolean
+  remainingRecoveryCodes: number
+}
+
+export interface TotpSetup {
+  secret: string
+  provisioningUri: string
 }
 
 export interface Member {

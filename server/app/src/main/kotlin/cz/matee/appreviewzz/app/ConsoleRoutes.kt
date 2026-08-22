@@ -16,6 +16,7 @@ import cz.matee.appreviewzz.core.usecase.ConsoleException
 import cz.matee.appreviewzz.core.usecase.ConsoleFailure
 import cz.matee.appreviewzz.core.usecase.CredentialService
 import cz.matee.appreviewzz.core.usecase.DailyRatingsUseCase
+import cz.matee.appreviewzz.core.usecase.MfaService
 import cz.matee.appreviewzz.core.usecase.OrgActor
 import cz.matee.appreviewzz.core.usecase.OrganizationService
 import cz.matee.appreviewzz.core.usecase.RatingsInsights
@@ -44,6 +45,11 @@ class ConsoleWiring(
     val cookies: SessionCookies,
     val organizations: OrganizationRepository,
     val memberships: MembershipRepository,
+    /**
+     * Druhý faktor (F5.3). `null` = instalace bez správce klíčů, kde nemáme tajemství kam
+     * bezpečně uložit; console pak nabídku zabezpečení schová a přihlášení končí heslem.
+     */
+    val mfa: MfaService? = null,
     /** `null` = instalace bez Slacku (self-host, který používá jen Teams). */
     val slack: ConsoleSlack? = null,
     /** `null` = instalace bez Teams (výchozí stav, dokud provozovatel nezaloží Azure Bota). */
