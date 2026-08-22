@@ -15,24 +15,8 @@ import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
-import kotlin.time.Clock
-import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
-import kotlin.time.Instant
-
-private val START = Instant.parse("2026-08-22T20:00:00Z")
-
-/** Ručně posouvaný čas: bez něj by se doplňování kbelíku dalo ověřit jen čekáním. */
-private class TestClock(
-    var current: Instant = START,
-) : Clock {
-    override fun now(): Instant = current
-
-    fun advance(by: Duration) {
-        current += by
-    }
-}
 
 /** Malá routa, která jen řekne, za koho nás server považuje. */
 private fun Application.whoAmI() {

@@ -64,6 +64,7 @@ fun Application.teamsWebhookRoutes(
     authenticator: BotFrameworkAuthenticator,
     intake: TeamsReplyIntake,
     limits: RateLimits = RateLimits.disabled(),
+    replay: ReplayGuard = ReplayGuard("teams-activity", ReplayGuard.TEAMS_RETENTION),
 ) {
     routing {
         route(TEAMS_MESSAGES_PATH) {
@@ -82,6 +83,16 @@ fun Application.teamsWebhookRoutes(
                 if (failure != null) {
                     logger.warn { "Teams messaging endpoint: aktivita odmítnuta ($failure)" }
                     call.respond(HttpStatusCode.Forbidden)
+                    return@post
+                }
+
+                // Až po ověření: `id` z neověřeného těla by šlo nastavit na cokoli a zaplnit
+                // tím paměť ochrany. Token od Bot Connectoru žije hodinu, takže bez tohohle
+                // by se zachycená aktivita dala celou tu dobu posílat znovu.
+                val activityId = activity.id
+                if (activityId != null && !replay.firstSighting(activityId)) {
+                    logger.warn { "Teams: přehrávka už zpracované aktivity $activityId" }
+                    call.respond(HttpStatusCode.OK)
                     return@post
                 }
 

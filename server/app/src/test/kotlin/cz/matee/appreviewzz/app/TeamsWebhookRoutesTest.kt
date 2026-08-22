@@ -105,10 +105,12 @@ private fun activity(
     replyToId: String = ACTIVITY,
     text: String = "Díky za zpětnou vazbu, opravujeme to.",
     type: String = "message",
+    id: String = "f:$replyToId-1",
 ): String =
     """
     {
       "type": "$type",
+      "id": "$id",
       "channelId": "msteams",
       "serviceUrl": "$SERVICE_URL",
       "conversation": { "id": "$CONVERSATION" },
@@ -225,6 +227,21 @@ class TeamsWebhookRoutesTest :
                 job.authorExternalId shouldBe "29:user"
                 job.authorDisplayName shouldBe "Tadeáš Sosín"
                 job.source shouldBe "TEAMS"
+            }
+        }
+
+        "zachycená aktivita poslaná podruhé se už nezpracuje" {
+            val queued = mutableListOf<ReplyJobData>()
+            testApplication {
+                application(testApp(queued))
+                val body = activity()
+                val authorization = "Bearer ${token()}"
+
+                // Token od Bot Connectoru je platný hodinu, takže sám o sobě druhé doručení
+                // téže aktivity neodliší od prvního.
+                repeat(2) { client.send(body, authorization).status shouldBe HttpStatusCode.OK }
+
+                queued shouldHaveSize 1
             }
         }
 

@@ -226,6 +226,28 @@ class SlackWebhookRoutesTest :
             }
         }
 
+        "zachycený požadavek poslaný podruhé se už nezpracuje" {
+            val queued = mutableListOf<ReplyJobData>()
+            testApplication {
+                application(testApp(queued))
+                val raw = body(payload())
+                val signature = sign(raw, NOW.epochSeconds)
+
+                // Bajt po bajtu tentýž požadavek: podpis je pořád platný i v čase, takže sám
+                // o sobě přehrávku nezachytí.
+                repeat(2) {
+                    client
+                        .post(SLACK_INTERACTIVITY_PATH) {
+                            header(SlackSignatureVerifier.TIMESTAMP_HEADER, NOW.epochSeconds.toString())
+                            header(SlackSignatureVerifier.SIGNATURE_HEADER, signature)
+                            setBody(raw)
+                        }.status shouldBe HttpStatusCode.OK
+                }
+
+                queued shouldHaveSize 1
+            }
+        }
+
         "neznámá zpráva dostane 200, ale nic se nepublikuje" {
             val queued = mutableListOf<ReplyJobData>()
             testApplication {

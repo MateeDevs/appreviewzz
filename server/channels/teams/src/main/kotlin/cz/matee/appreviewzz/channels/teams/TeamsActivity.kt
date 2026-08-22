@@ -16,6 +16,8 @@ private val json = Json { ignoreUnknownKeys = true }
  */
 data class TeamsActivity(
     val type: String,
+    /** ID téhle aktivity. Bot Connector ho dává unikátní — drží na něm ochrana proti přehrání. */
+    val id: String?,
     val channelId: String?,
     val serviceUrl: String?,
     val conversationId: String?,
@@ -56,6 +58,7 @@ data class TeamsActivity(
                     }
             return TeamsActivity(
                 type = body.string("type").orEmpty(),
+                id = body.string("id"),
                 channelId = body.string("channelId"),
                 serviceUrl = body.string("serviceUrl"),
                 conversationId = body["conversation"]?.jsonObject?.string("id"),

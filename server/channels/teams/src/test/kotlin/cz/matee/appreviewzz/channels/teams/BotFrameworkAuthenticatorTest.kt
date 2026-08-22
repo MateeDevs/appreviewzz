@@ -80,6 +80,7 @@ private fun ByteArray.dropLeadingZero(): ByteArray = if (size > 1 && this[0] == 
 private fun activity(serviceUrl: String? = SERVICE_URL): TeamsActivity =
     TeamsActivity(
         type = "message",
+        id = "f:1234",
         channelId = "msteams",
         serviceUrl = serviceUrl,
         conversationId = "19:abc@thread.tacv2",

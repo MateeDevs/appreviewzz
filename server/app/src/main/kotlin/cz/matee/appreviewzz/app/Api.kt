@@ -85,6 +85,7 @@ fun runApi(
         )
 
     val rateLimits = RateLimits(config.rateLimit, metrics)
+    val replay = ReplayGuards()
     if (!rateLimits.enabled) {
         logger.warn { "RATE_LIMIT_ENABLED=false — limity požadavků jsou vypnuté, musí je řešit proxy" }
     }
@@ -98,6 +99,7 @@ fun runApi(
                 database = database,
                 metrics = metrics,
                 rateLimits = rateLimits,
+                replay = replay,
                 trustedProxyHops = config.server.trustedProxyHops,
                 slackVerifier = verifier,
                 slackIntake = intake,
@@ -136,6 +138,8 @@ fun Application.apiModule(
     metrics: PrometheusMeterRegistry,
     /** Výchozí stav je bez limitů: testy jinak samy sebe odstřelí a self-host je může mít na proxy. */
     rateLimits: RateLimits = RateLimits.disabled(),
+    /** Nová sada na každý modul — jinak by si dvě aplikace v testu předávaly okno navzájem. */
+    replay: ReplayGuards = ReplayGuards(),
     trustedProxyHops: Int = 0,
     slackVerifier: SlackSignatureVerifier? = null,
     slackIntake: SlackReplyIntake? = null,
@@ -151,10 +155,10 @@ fun Application.apiModule(
     healthRoutes(readiness = database::isHealthy)
     // Bez ověření podpisu endpoint nevzniká: otevřený webhook by uměl publikovat odpovědi
     // jménem klienta.
-    if (slackVerifier != null && slackIntake != null) slackWebhookRoutes(slackVerifier, slackIntake, rateLimits)
+    if (slackVerifier != null && slackIntake != null) slackWebhookRoutes(slackVerifier, slackIntake, rateLimits, replay.slack)
     // Totéž pro Teams: bez ověření tokenu od Bot Connectoru endpoint nevzniká.
-    if (teamsAuthenticator != null && teamsIntake != null) teamsWebhookRoutes(teamsAuthenticator, teamsIntake, rateLimits)
-    slackInstall?.let { slackInstallRoutes(it.oauth, it.states, it.store, it.redirectUri) }
+    if (teamsAuthenticator != null && teamsIntake != null) teamsWebhookRoutes(teamsAuthenticator, teamsIntake, rateLimits, replay.teams)
+    slackInstall?.let { slackInstallRoutes(it.oauth, it.states, it.store, it.redirectUri, replay.slackInstall) }
     console?.let { consoleRoutes(it, rateLimits) }
     // Až po API: fallback bere všechno, co si nikdo jiný nevzal.
     consoleStaticRoutes()

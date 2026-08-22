@@ -79,6 +79,7 @@ fun Application.slackWebhookRoutes(
     verifier: SlackSignatureVerifier,
     intake: SlackReplyIntake,
     limits: RateLimits = RateLimits.disabled(),
+    replay: ReplayGuard = ReplayGuard("slack-interactivity", ReplayGuard.SLACK_RETENTION),
 ) {
     routing {
         route(SLACK_INTERACTIVITY_PATH) {
@@ -88,15 +89,25 @@ fun Application.slackWebhookRoutes(
 
             post {
                 val rawBody = call.receiveText()
+                val signature = call.request.header(SlackSignatureVerifier.SIGNATURE_HEADER)
                 val failure =
                     verifier.verify(
                         timestamp = call.request.header(SlackSignatureVerifier.TIMESTAMP_HEADER),
-                        signature = call.request.header(SlackSignatureVerifier.SIGNATURE_HEADER),
+                        signature = signature,
                         rawBody = rawBody,
                     )
                 if (failure != null) {
                     logger.warn { "Slack interactivity: požadavek odmítnut ($failure)" }
                     call.respond(HttpStatusCode.Unauthorized)
+                    return@post
+                }
+
+                // Podpis pokrývá čas i tělo, takže je pro každé kliknutí jiný — a druhý výskyt
+                // téhož podpisu proto není nový požadavek, ale přehrávka toho starého. Sám podpis
+                // by ji nezachytil: v okně tolerance je pořád platný.
+                if (!replay.firstSighting(signature.orEmpty())) {
+                    logger.warn { "Slack interactivity: přehrávka už zpracovaného požadavku" }
+                    call.respond(HttpStatusCode.OK)
                     return@post
                 }
 

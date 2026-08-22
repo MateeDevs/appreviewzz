@@ -75,6 +75,7 @@ fun Application.slackInstallRoutes(
     states: SlackInstallStates,
     store: SlackInstallStore,
     redirectUri: String,
+    replay: ReplayGuard = ReplayGuard("slack-install", ReplayGuard.INSTALL_RETENTION),
 ) {
     routing {
         get(SLACK_INSTALL_PATH) {
@@ -102,6 +103,19 @@ fun Application.slackInstallRoutes(
             val code = parameters["code"]
             if (verified == null || code.isNullOrBlank()) {
                 call.respondText("Instalaci se nepodařilo dokončit — zkus to prosím znovu.", status = HttpStatusCode.BadRequest)
+                return@get
+            }
+
+            // `state` je podepsaný a má expiraci, ale sám o sobě je použitelný opakovaně:
+            // dvě hodiny by stačily na to, aby ho někdo z historie prohlížeče použil ještě
+            // jednou a připojil k cizí organizaci svůj workspace. Dokončit instalaci tedy jde
+            // jen jednou; klient si pro druhý pokus vygeneruje nový odkaz.
+            if (!replay.firstSighting(parameters["state"].orEmpty())) {
+                logger.warn { "Instalace Slacku: state už byl jednou uplatněný" }
+                call.respondText(
+                    "Tenhle instalační odkaz už byl použitý. Vygeneruj si prosím nový.",
+                    status = HttpStatusCode.BadRequest,
+                )
                 return@get
             }
 
