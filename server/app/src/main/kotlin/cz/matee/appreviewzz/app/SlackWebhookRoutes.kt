@@ -15,6 +15,7 @@ import io.ktor.server.request.header
 import io.ktor.server.request.receiveText
 import io.ktor.server.response.respond
 import io.ktor.server.routing.post
+import io.ktor.server.routing.route
 import io.ktor.server.routing.routing
 
 private val logger = KotlinLogging.logger {}
@@ -77,40 +78,47 @@ class SlackReplyIntake(
 fun Application.slackWebhookRoutes(
     verifier: SlackSignatureVerifier,
     intake: SlackReplyIntake,
+    limits: RateLimits = RateLimits.disabled(),
 ) {
     routing {
-        post(SLACK_INTERACTIVITY_PATH) {
-            val rawBody = call.receiveText()
-            val failure =
-                verifier.verify(
-                    timestamp = call.request.header(SlackSignatureVerifier.TIMESTAMP_HEADER),
-                    signature = call.request.header(SlackSignatureVerifier.SIGNATURE_HEADER),
-                    rawBody = rawBody,
-                )
-            if (failure != null) {
-                logger.warn { "Slack interactivity: požadavek odmítnut ($failure)" }
-                call.respond(HttpStatusCode.Unauthorized)
-                return@post
-            }
+        route(SLACK_INTERACTIVITY_PATH) {
+            // Limit sedí **před** ověřením podpisu: spočítat HMAC nad megabajtovým tělem
+            // něco stojí, a útočník, který podpis nezná, se sem jinak dobuší kolikrát chce.
+            rateLimited(limits.webhook)
 
-            val payload = rawBody.formField("payload")
-            val submission = payload?.let { SlackInteraction.parse(it) }
-            if (submission == null) {
-                // Kliknutí na jiný prvek nebo typ interakce, který neobsluhujeme: potvrdit a zahodit.
-                call.respond(HttpStatusCode.OK)
-                return@post
-            }
-
-            val result = intake.accept(submission)
-            if (result == IntakeResult.UNKNOWN_MESSAGE) {
-                logger.warn {
-                    "Slack interactivity: zpráva ${submission.conversationId}/${submission.messageTs} není v databázi"
+            post {
+                val rawBody = call.receiveText()
+                val failure =
+                    verifier.verify(
+                        timestamp = call.request.header(SlackSignatureVerifier.TIMESTAMP_HEADER),
+                        signature = call.request.header(SlackSignatureVerifier.SIGNATURE_HEADER),
+                        rawBody = rawBody,
+                    )
+                if (failure != null) {
+                    logger.warn { "Slack interactivity: požadavek odmítnut ($failure)" }
+                    call.respond(HttpStatusCode.Unauthorized)
+                    return@post
                 }
-            } else {
-                logger.info { "Slack interactivity: odpověď na zprávu ${submission.messageTs} — $result" }
+
+                val payload = rawBody.formField("payload")
+                val submission = payload?.let { SlackInteraction.parse(it) }
+                if (submission == null) {
+                    // Kliknutí na jiný prvek nebo typ interakce, který neobsluhujeme: potvrdit a zahodit.
+                    call.respond(HttpStatusCode.OK)
+                    return@post
+                }
+
+                val result = intake.accept(submission)
+                if (result == IntakeResult.UNKNOWN_MESSAGE) {
+                    logger.warn {
+                        "Slack interactivity: zpráva ${submission.conversationId}/${submission.messageTs} není v databázi"
+                    }
+                } else {
+                    logger.info { "Slack interactivity: odpověď na zprávu ${submission.messageTs} — $result" }
+                }
+                // I neznámá zpráva dostane 200: opakované doručení Slacku by dopadlo stejně.
+                call.respond(HttpStatusCode.OK)
             }
-            // I neznámá zpráva dostane 200: opakované doručení Slacku by dopadlo stejně.
-            call.respond(HttpStatusCode.OK)
         }
     }
 }

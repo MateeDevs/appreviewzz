@@ -175,6 +175,7 @@ class RecordingReplyQueue : (ConsoleReply) -> Boolean {
 fun ApplicationTestBuilder.consoleModule(
     mailer: RecordingMailer,
     policy: AuthPolicy = AuthPolicy(),
+    limits: RateLimits = RateLimits.disabled(),
     slack: ConsoleSlack? = null,
     replyQueue: RecordingReplyQueue? = null,
     fakes: ConsoleFakes =
@@ -258,6 +259,7 @@ fun ApplicationTestBuilder.consoleModule(
         apiModule(
             database = TestDatabase.database,
             metrics = PrometheusMeterRegistry(PrometheusConfig.DEFAULT),
+            rateLimits = limits,
             console =
                 ConsoleWiring(
                     auth = auth,

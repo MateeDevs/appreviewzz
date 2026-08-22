@@ -22,6 +22,30 @@ data class ServerConfig(
     val port: Int,
     /** Port pro /metrics. Nikdy se nevystavuje ven. */
     val managementPort: Int,
+    /**
+     * Kolik reverzních proxy před námi stojí. Podle toho se z `X-Forwarded-For` bere adresa
+     * klienta: hlavičku si klient umí napsat sám, ale položku, kterou připsala **naše** proxy,
+     * podstrčit nedokáže — a to je ta `hops`-tá od konce.
+     *
+     * `0` znamená „nikdo před námi není, věř jen skutečnému peeru". Špatně nastavená hodnota
+     * je bezpečnostní chyba oběma směry: příliš vysoká pustí ke slovu podvrženou hlavičku,
+     * příliš nízká slepí všechny klienty do jedné adresy a limity pak platí pro celý svět
+     * dohromady.
+     */
+    val trustedProxyHops: Int,
+)
+
+/**
+ * Limity požadavků (F5.1). Výchozí čísla jsou stavěná tak, aby o nich normální práce
+ * v consoli nevěděla — přihlašovací okno pustí čtyři překlepy za pět minut a přehled
+ * s deseti grafy se vejde do minutového stropu i při rychlém proklikávání.
+ */
+data class RateLimitConfig(
+    val enabled: Boolean = true,
+    val apiPerMinute: Int = 240,
+    val authPerFiveMinutes: Int = 20,
+    val authPerIdentity: Int = 8,
+    val webhookPerMinute: Int = 240,
 )
 
 /**
@@ -136,6 +160,7 @@ data class AppConfig(
     val role: Role,
     val environment: String,
     val server: ServerConfig,
+    val rateLimit: RateLimitConfig,
     val database: DatabaseConfig,
     /**
      * URI správce klíčů credential vaultu (`aws-kms://…`, `local://…`). Povinné pro roli
@@ -159,6 +184,15 @@ data class AppConfig(
                         host = env.optional("SERVER_HOST", "0.0.0.0"),
                         port = env.optional("SERVER_PORT", "8080").toInt(),
                         managementPort = env.optional("MANAGEMENT_PORT", "8081").toInt(),
+                        trustedProxyHops = env.optional("TRUSTED_PROXY_HOPS", "1").toInt(),
+                    ),
+                rateLimit =
+                    RateLimitConfig(
+                        enabled = env.optional("RATE_LIMIT_ENABLED", "true").toBooleanStrict(),
+                        apiPerMinute = env.optional("RATE_LIMIT_API_PER_MINUTE", "240").toInt(),
+                        authPerFiveMinutes = env.optional("RATE_LIMIT_AUTH_PER_5M", "20").toInt(),
+                        authPerIdentity = env.optional("RATE_LIMIT_AUTH_PER_IDENTITY", "8").toInt(),
+                        webhookPerMinute = env.optional("RATE_LIMIT_WEBHOOK_PER_MINUTE", "240").toInt(),
                     ),
                 database =
                     DatabaseConfig(

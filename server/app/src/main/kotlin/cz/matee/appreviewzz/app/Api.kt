@@ -84,12 +84,28 @@ fun runApi(
             },
         )
 
+    val rateLimits = RateLimits(config.rateLimit, metrics)
+    if (!rateLimits.enabled) {
+        logger.warn { "RATE_LIMIT_ENABLED=false — limity požadavků jsou vypnuté, musí je řešit proxy" }
+    }
+
     embeddedServer(
         Netty,
         port = config.server.port,
         host = config.server.host,
         module = {
-            apiModule(database, metrics, verifier, intake, teamsAuthenticator, teamsIntake, install, console)
+            apiModule(
+                database = database,
+                metrics = metrics,
+                rateLimits = rateLimits,
+                trustedProxyHops = config.server.trustedProxyHops,
+                slackVerifier = verifier,
+                slackIntake = intake,
+                teamsAuthenticator = teamsAuthenticator,
+                teamsIntake = teamsIntake,
+                slackInstall = install,
+                console = console,
+            )
         },
     ).start(wait = true)
 }
@@ -118,6 +134,9 @@ class SlackInstallRoutes(
 fun Application.apiModule(
     database: Database,
     metrics: PrometheusMeterRegistry,
+    /** Výchozí stav je bez limitů: testy jinak samy sebe odstřelí a self-host je může mít na proxy. */
+    rateLimits: RateLimits = RateLimits.disabled(),
+    trustedProxyHops: Int = 0,
     slackVerifier: SlackSignatureVerifier? = null,
     slackIntake: SlackReplyIntake? = null,
     teamsAuthenticator: BotFrameworkAuthenticator? = null,
@@ -125,17 +144,18 @@ fun Application.apiModule(
     slackInstall: SlackInstallRoutes? = null,
     console: ConsoleWiring? = null,
 ) {
+    installClientAddress(trustedProxyHops)
     installObservability(metrics)
     installSerialization()
     installErrorHandling()
     healthRoutes(readiness = database::isHealthy)
     // Bez ověření podpisu endpoint nevzniká: otevřený webhook by uměl publikovat odpovědi
     // jménem klienta.
-    if (slackVerifier != null && slackIntake != null) slackWebhookRoutes(slackVerifier, slackIntake)
+    if (slackVerifier != null && slackIntake != null) slackWebhookRoutes(slackVerifier, slackIntake, rateLimits)
     // Totéž pro Teams: bez ověření tokenu od Bot Connectoru endpoint nevzniká.
-    if (teamsAuthenticator != null && teamsIntake != null) teamsWebhookRoutes(teamsAuthenticator, teamsIntake)
+    if (teamsAuthenticator != null && teamsIntake != null) teamsWebhookRoutes(teamsAuthenticator, teamsIntake, rateLimits)
     slackInstall?.let { slackInstallRoutes(it.oauth, it.states, it.store, it.redirectUri) }
-    console?.let { consoleRoutes(it) }
+    console?.let { consoleRoutes(it, rateLimits) }
     // Až po API: fallback bere všechno, co si nikdo jiný nevzal.
     consoleStaticRoutes()
 }

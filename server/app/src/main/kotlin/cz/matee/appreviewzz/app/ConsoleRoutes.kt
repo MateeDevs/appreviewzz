@@ -58,15 +58,19 @@ class ConsoleWiring(
 /**
  * Celé API console pod `/api`.
  *
- * Ochrana je nasazená **na stromě cest**, ne v jednotlivých handlerech: CSRF na všem, co
- * mění stav, a session na všem kromě přihlašovacích endpointů. Nová sekce tak nemůže
- * zapomenout zeptat se, kdo volá.
+ * Ochrana je nasazená **na stromě cest**, ne v jednotlivých handlerech: limit požadavků
+ * a CSRF na všem, co mění stav, a session na všem kromě přihlašovacích endpointů. Nová
+ * sekce tak nemůže zapomenout zeptat se, kdo volá.
  */
-fun Application.consoleRoutes(console: ConsoleWiring) {
+fun Application.consoleRoutes(
+    console: ConsoleWiring,
+    limits: RateLimits = RateLimits.disabled(),
+) {
     routing {
         route("/api") {
+            rateLimited(limits.api)
             requireCsrf()
-            authRoutes(console)
+            authRoutes(console, limits)
 
             requireSession(console.auth) {
                 orgRoutes(console)

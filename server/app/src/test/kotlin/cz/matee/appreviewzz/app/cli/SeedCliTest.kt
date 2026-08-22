@@ -5,6 +5,7 @@ import cz.matee.appreviewzz.app.AppConfig
 import cz.matee.appreviewzz.app.BackupConfig
 import cz.matee.appreviewzz.app.ConsoleConfig
 import cz.matee.appreviewzz.app.MailConfig
+import cz.matee.appreviewzz.app.RateLimitConfig
 import cz.matee.appreviewzz.app.Role
 import cz.matee.appreviewzz.app.ServerConfig
 import cz.matee.appreviewzz.app.SlackConfig
@@ -30,7 +31,8 @@ class SeedCliTest :
             AppConfig(
                 role = Role.API,
                 environment = "test",
-                server = ServerConfig(host = "127.0.0.1", port = 0, managementPort = 0),
+                server = ServerConfig(host = "127.0.0.1", port = 0, managementPort = 0, trustedProxyHops = 0),
+                rateLimit = RateLimitConfig(),
                 database = TestDatabase.config,
                 vaultKekUri = "local://${workDirectory.resolve("keyset")}",
                 worker = WorkerConfig(schedulerThreads = 1, pollingIntervalSeconds = 10, sweepIntervalSeconds = 60),

@@ -14,6 +14,7 @@ import io.ktor.server.request.header
 import io.ktor.server.request.receiveText
 import io.ktor.server.response.respond
 import io.ktor.server.routing.post
+import io.ktor.server.routing.route
 import io.ktor.server.routing.routing
 
 private val logger = KotlinLogging.logger {}
@@ -62,40 +63,46 @@ class TeamsReplyIntake(
 fun Application.teamsWebhookRoutes(
     authenticator: BotFrameworkAuthenticator,
     intake: TeamsReplyIntake,
+    limits: RateLimits = RateLimits.disabled(),
 ) {
     routing {
-        post(TEAMS_MESSAGES_PATH) {
-            val activity = TeamsActivity.parse(call.receiveText())
-            if (activity == null) {
-                // Nečitelné tělo je buď cizí sken, nebo rozbitý klient; odmítnout, ne přijmout.
-                call.respond(HttpStatusCode.BadRequest)
-                return@post
-            }
+        route(TEAMS_MESSAGES_PATH) {
+            // Stejně jako u Slacku: limit dřív, než se sáhne na kryptografii.
+            rateLimited(limits.webhook)
 
-            val failure = authenticator.verify(call.request.header("Authorization"), activity)
-            if (failure != null) {
-                logger.warn { "Teams messaging endpoint: aktivita odmítnuta ($failure)" }
-                call.respond(HttpStatusCode.Forbidden)
-                return@post
-            }
-
-            val submission = activity.replySubmission()
-            if (submission == null) {
-                // Přidání bota do týmu, systémové zprávy: potvrdit a zahodit.
-                call.respond(HttpStatusCode.OK)
-                return@post
-            }
-
-            val result = intake.accept(submission)
-            if (result == IntakeResult.UNKNOWN_MESSAGE) {
-                logger.warn {
-                    "Teams: karta ${submission.conversationId}/${submission.activityId} není v databázi"
+            post {
+                val activity = TeamsActivity.parse(call.receiveText())
+                if (activity == null) {
+                    // Nečitelné tělo je buď cizí sken, nebo rozbitý klient; odmítnout, ne přijmout.
+                    call.respond(HttpStatusCode.BadRequest)
+                    return@post
                 }
-            } else {
-                logger.info { "Teams: odpověď na kartu ${submission.activityId} — $result" }
+
+                val failure = authenticator.verify(call.request.header("Authorization"), activity)
+                if (failure != null) {
+                    logger.warn { "Teams messaging endpoint: aktivita odmítnuta ($failure)" }
+                    call.respond(HttpStatusCode.Forbidden)
+                    return@post
+                }
+
+                val submission = activity.replySubmission()
+                if (submission == null) {
+                    // Přidání bota do týmu, systémové zprávy: potvrdit a zahodit.
+                    call.respond(HttpStatusCode.OK)
+                    return@post
+                }
+
+                val result = intake.accept(submission)
+                if (result == IntakeResult.UNKNOWN_MESSAGE) {
+                    logger.warn {
+                        "Teams: karta ${submission.conversationId}/${submission.activityId} není v databázi"
+                    }
+                } else {
+                    logger.info { "Teams: odpověď na kartu ${submission.activityId} — $result" }
+                }
+                // I neznámá karta dostane 200: opakované doručení by dopadlo stejně.
+                call.respond(HttpStatusCode.OK)
             }
-            // I neznámá karta dostane 200: opakované doručení by dopadlo stejně.
-            call.respond(HttpStatusCode.OK)
         }
     }
 }

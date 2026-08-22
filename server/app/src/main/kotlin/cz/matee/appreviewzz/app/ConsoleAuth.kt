@@ -6,8 +6,10 @@ import cz.matee.appreviewzz.core.usecase.AuthenticatedUser
 import cz.matee.appreviewzz.core.usecase.AuthenticationService
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
+import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.ApplicationCallPipeline
+import io.ktor.server.application.application
 import io.ktor.server.application.call
 import io.ktor.server.plugins.callid.callId
 import io.ktor.server.plugins.origin
@@ -117,7 +119,7 @@ fun Route.requireSession(
     auth: AuthenticationService,
     build: Route.() -> Unit,
 ): Route {
-    val child = (this as RoutingNode).createChild(TransparentSelector)
+    val child = (this as RoutingNode).createChild(TransparentSelector())
     child.intercept(ApplicationCallPipeline.Plugins) {
         val token =
             call.request.cookies[SESSION_COOKIE]
@@ -137,7 +139,14 @@ fun Route.requireSession(
 /** Nový CSRF token. Náhoda z téhož zdroje jako session token — nic slabšího tu nemá co dělat. */
 fun newCsrfToken(): SecretPayload = OpaqueTokens.generate()
 
-private object TransparentSelector : RouteSelector() {
+/**
+ * Uzel, který na cestu nesahá — je tu jen kvůli tomu, aby na něm mohl viset interceptor.
+ *
+ * **Instance na každé volání, ne singleton.** `createChild` vrací existující uzel se stejným
+ * selektorem, takže sdílená instance by slepila dva nezávislé podstromy do jednoho: přihlašovací
+ * endpointy by se ocitly pod `requireSession` a odpovídaly by `401` i na správné heslo.
+ */
+internal class TransparentSelector : RouteSelector() {
     override suspend fun evaluate(
         context: RoutingResolveContext,
         segmentIndex: Int,
@@ -147,18 +156,51 @@ private object TransparentSelector : RouteSelector() {
 private val SAFE_METHODS = setOf(HttpMethod.Get, HttpMethod.Head, HttpMethod.Options)
 
 /**
- * Adresa klienta pro výpis relací. Za reverzní proxy je pravda v `X-Forwarded-For`;
- * bereme první položku, tedy toho, kdo se opravdu připojil k proxy.
+ * Odkud vzít adresu klienta. Nastavuje se jednou při sestavení modulu, protože správná
+ * odpověď závisí na tom, co běží před námi — a špatná se pozná až tím, že limity buď
+ * nechytí nikoho, nebo všechny najednou.
  */
-fun ApplicationCall.clientIp(): String? {
-    val forwarded =
-        request
-            .header("X-Forwarded-For")
-            ?.split(',')
-            ?.firstOrNull()
-            ?.trim()
-    return forwarded?.takeIf { it.isNotBlank() } ?: request.origin.remoteHost
+class ClientAddress(
+    private val trustedProxyHops: Int,
+) {
+    /**
+     * `X-Forwarded-For` je seznam, do kterého každý skok **připisuje na konec** adresu,
+     * ze které k němu požadavek přišel. Klient si klidně pošle vlastní hlavičku, ale ovlivnit
+     * umí jen její začátek — proto se bere `hops`-tá položka od konce, tedy ta, kterou tam
+     * napsala naše proxy. (Do F5 se brala první; ta se dá nastavit z prohlížeče, takže limit
+     * i výpis relací šlo obelhat jedním headerem.)
+     */
+    fun of(call: ApplicationCall): String? {
+        val peer = call.request.origin.remoteHost
+        if (trustedProxyHops <= 0) return peer
+        val chain =
+            call.request
+                .header(FORWARDED_FOR)
+                ?.split(',')
+                ?.map { it.trim() }
+                ?.filter { it.isNotBlank() }
+                .orEmpty()
+        if (chain.isEmpty()) return peer
+        return chain.getOrNull((chain.size - trustedProxyHops).coerceAtLeast(0)) ?: peer
+    }
+
+    private companion object {
+        const val FORWARDED_FOR = "X-Forwarded-For"
+    }
 }
+
+private val ClientAddressKey = AttributeKey<ClientAddress>("appreviewzz.clientAddress")
+
+fun Application.installClientAddress(trustedProxyHops: Int) {
+    attributes.put(ClientAddressKey, ClientAddress(trustedProxyHops))
+}
+
+/** Adresa klienta pro limity a pro výpis relací. */
+fun ApplicationCall.clientIp(): String? =
+    application.attributes
+        .getOrNull(ClientAddressKey)
+        ?.of(this)
+        ?: request.origin.remoteHost
 
 /** Porovnání, které neprozradí délku shody dobou běhu — u CSRF tokenu je to zvyk, ne luxus. */
 private fun constantTimeEquals(

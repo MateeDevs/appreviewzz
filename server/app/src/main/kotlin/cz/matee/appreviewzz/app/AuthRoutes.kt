@@ -18,6 +18,7 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.route
 import kotlinx.serialization.Serializable
+import java.security.MessageDigest
 
 private val logger = KotlinLogging.logger {}
 
@@ -82,7 +83,10 @@ data class MeResponse(
  * tokenem bez serverového seznamu nedá udělat jinak než blocklistem, tedy stejnou
  * tabulkou, jen složitěji.
  */
-fun Route.authRoutes(console: ConsoleWiring) {
+fun Route.authRoutes(
+    console: ConsoleWiring,
+    limits: RateLimits = RateLimits.disabled(),
+) {
     val auth = console.auth
     val cookies = console.cookies
     val organizations = console.organizations
@@ -91,6 +95,7 @@ fun Route.authRoutes(console: ConsoleWiring) {
     route("/auth") {
         // Console si o token řekne dřív, než ukáže formulář — tím je proti CSRF chráněné
         // i samotné přihlášení (útočník by jinak uměl přihlásit oběť na svůj účet).
+        // Zůstává mimo přísný limit: patří ke každému formuláři a nic neprozradí.
         get("/csrf") {
             val existing = call.request.cookies[CSRF_COOKIE]?.takeIf { it.isNotBlank() }
             val token = existing?.let(::SecretPayload) ?: newCsrfToken()
@@ -98,99 +103,108 @@ fun Route.authRoutes(console: ConsoleWiring) {
             call.respond(CsrfResponse(token.value))
         }
 
-        post("/register") {
-            val request = call.receive<RegisterRequest>()
-            val registration =
-                io {
-                    auth.register(
-                        email = request.email,
-                        displayName = request.displayName,
-                        password = SecretPayload(request.password),
-                        userAgent = call.request.header("User-Agent"),
-                        clientIp = call.clientIp(),
-                    )
-                }
-            // Registrace rovnou přihlašuje; potvrzení e-mailu si console vyžádá až u kroku,
-            // který ho opravdu potřebuje (založení organizace).
-            cookies.issue(call, registration.token)
-            cookies.issueCsrf(call, newCsrfToken())
-            call.respond(
-                HttpStatusCode.Created,
-                me(registration.user, emailVerified = false, organizations, memberships),
-            )
-        }
-
-        post("/login") {
-            val request = call.receive<LoginRequest>()
-            val result =
-                io {
-                    auth.login(
-                        email = request.email,
-                        password = SecretPayload(request.password),
-                        userAgent = call.request.header("User-Agent"),
-                        clientIp = call.clientIp(),
-                    )
-                }
-
-            when (result) {
-                is LoginResult.Success -> {
-                    cookies.issue(call, result.token)
-                    cookies.issueCsrf(call, newCsrfToken())
-                    call.respond(
-                        me(
-                            user = result.account.user,
-                            emailVerified = result.account.emailVerified,
-                            organizations = organizations,
-                            memberships = memberships,
-                        ),
-                    )
-                }
-
-                LoginResult.InvalidCredentials ->
-                    call.respond(
-                        HttpStatusCode.Unauthorized,
-                        ErrorResponse("invalid_credentials", call.callId, "E-mail nebo heslo nesouhlasí"),
-                    )
-
-                is LoginResult.Locked ->
-                    call.respond(
-                        HttpStatusCode.Locked,
-                        ErrorResponse(
-                            error = "account_locked",
-                            requestId = call.callId,
-                            message = "Po sérii špatných hesel je účet dočasně zamčený, zkus to za chvíli",
-                        ),
-                    )
+        // Přísnější limit než na zbytku API: tudy se hádají hesla a každý pokus stojí
+        // jeden argon2.
+        rateLimitedGroup(limits.auth) {
+            post("/register") {
+                val request = call.receive<RegisterRequest>()
+                val registration =
+                    io {
+                        auth.register(
+                            email = request.email,
+                            displayName = request.displayName,
+                            password = SecretPayload(request.password),
+                            userAgent = call.request.header("User-Agent"),
+                            clientIp = call.clientIp(),
+                        )
+                    }
+                // Registrace rovnou přihlašuje; potvrzení e-mailu si console vyžádá až u kroku,
+                // který ho opravdu potřebuje (založení organizace).
+                cookies.issue(call, registration.token)
+                cookies.issueCsrf(call, newCsrfToken())
+                call.respond(
+                    HttpStatusCode.Created,
+                    me(registration.user, emailVerified = false, organizations, memberships),
+                )
             }
-        }
 
-        post("/logout") {
-            call.request.cookies[SESSION_COOKIE]?.takeIf { it.isNotBlank() }?.let { token ->
-                io { auth.logout(SecretPayload(token)) }
+            post("/login") {
+                val request = call.receive<LoginRequest>()
+                // Druhý klíč vedle adresy: cílový účet. Bez něj by pomalý pokus rozprostřený
+                // po adresách prošel, protože každá adresa má vlastní kbelík.
+                if (!call.allowedBy(limits.authIdentity, identityKey("login", request.email))) return@post
+                val result =
+                    io {
+                        auth.login(
+                            email = request.email,
+                            password = SecretPayload(request.password),
+                            userAgent = call.request.header("User-Agent"),
+                            clientIp = call.clientIp(),
+                        )
+                    }
+
+                when (result) {
+                    is LoginResult.Success -> {
+                        cookies.issue(call, result.token)
+                        cookies.issueCsrf(call, newCsrfToken())
+                        call.respond(
+                            me(
+                                user = result.account.user,
+                                emailVerified = result.account.emailVerified,
+                                organizations = organizations,
+                                memberships = memberships,
+                            ),
+                        )
+                    }
+
+                    LoginResult.InvalidCredentials ->
+                        call.respond(
+                            HttpStatusCode.Unauthorized,
+                            ErrorResponse("invalid_credentials", call.callId, "E-mail nebo heslo nesouhlasí"),
+                        )
+
+                    is LoginResult.Locked ->
+                        call.respond(
+                            HttpStatusCode.Locked,
+                            ErrorResponse(
+                                error = "account_locked",
+                                requestId = call.callId,
+                                message = "Po sérii špatných hesel je účet dočasně zamčený, zkus to za chvíli",
+                            ),
+                        )
+                }
             }
-            cookies.clear(call)
-            call.respond(HttpStatusCode.NoContent)
-        }
 
-        post("/email/verify") {
-            val request = call.receive<TokenRequest>()
-            io { auth.verifyEmail(SecretPayload(request.token)) }
-            call.respond(HttpStatusCode.NoContent)
-        }
+            post("/logout") {
+                call.request.cookies[SESSION_COOKIE]?.takeIf { it.isNotBlank() }?.let { token ->
+                    io { auth.logout(SecretPayload(token)) }
+                }
+                cookies.clear(call)
+                call.respond(HttpStatusCode.NoContent)
+            }
 
-        post("/password/forgot") {
-            val request = call.receive<EmailRequest>()
-            io { auth.requestPasswordReset(request.email) }
-            // Vždy stejná odpověď: jinak by formulář prozradil, které e-maily u nás jsou.
-            call.respond(HttpStatusCode.Accepted)
-        }
+            post("/email/verify") {
+                val request = call.receive<TokenRequest>()
+                io { auth.verifyEmail(SecretPayload(request.token)) }
+                call.respond(HttpStatusCode.NoContent)
+            }
 
-        post("/password/reset") {
-            val request = call.receive<ResetPasswordRequest>()
-            io { auth.resetPassword(SecretPayload(request.token), SecretPayload(request.password)) }
-            // Relace padly všechny, včetně té v tomhle prohlížeči — ať se člověk přihlásí nanovo.
-            cookies.clear(call)
-            call.respond(HttpStatusCode.NoContent)
+            post("/password/forgot") {
+                val request = call.receive<EmailRequest>()
+                // Limit na e-mail, ne jen na adresu: jinak by šlo cizí schránku zaplavit odkazy.
+                if (!call.allowedBy(limits.authIdentity, identityKey("forgot", request.email))) return@post
+                io { auth.requestPasswordReset(request.email) }
+                // Vždy stejná odpověď: jinak by formulář prozradil, které e-maily u nás jsou.
+                call.respond(HttpStatusCode.Accepted)
+            }
+
+            post("/password/reset") {
+                val request = call.receive<ResetPasswordRequest>()
+                io { auth.resetPassword(SecretPayload(request.token), SecretPayload(request.password)) }
+                // Relace padly všechny, včetně té v tomhle prohlížeči — ať se člověk přihlásí nanovo.
+                cookies.clear(call)
+                call.respond(HttpStatusCode.NoContent)
+            }
         }
 
         requireSession(auth) {
@@ -249,4 +263,17 @@ private suspend fun me(
         emailVerified = emailVerified,
         organizations = summaries,
     )
+}
+
+/**
+ * Klíč limitu pro konkrétní účet. Hashuje se, aby se e-maily neválely v paměti procesu ani
+ * v případném výpisu — na porovnávání to stačí a zpátky se z toho nic nepřečte.
+ */
+private fun identityKey(
+    scope: String,
+    email: String,
+): String {
+    val normalized = email.trim().lowercase()
+    val digest = MessageDigest.getInstance("SHA-256").digest("$scope:$normalized".toByteArray(Charsets.UTF_8))
+    return digest.joinToString(separator = "") { "%02x".format(it) }
 }
