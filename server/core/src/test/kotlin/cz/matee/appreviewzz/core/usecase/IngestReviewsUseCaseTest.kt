@@ -96,6 +96,33 @@ class IngestReviewsUseCaseTest :
             report.notifiable.map { it.review.storeReviewId } shouldContainExactly listOf("gp:new")
         }
 
+        test("appka bez watermarku notifikuje jen recenze mladší, než je sama") {
+            // Řádky založené dřív, než se watermark vyplňoval sám. Bez fallbacku na čas
+            // založení by první ingest vysypal do kanálu celou historii ze storu.
+            val app = apps.put(Ingest.app(org, notifyFrom = null, createdAt = Ingest.now))
+            credentials.attach(
+                app.id,
+                CredentialPurpose.REVIEWS,
+                Ingest.credential(org, CredentialType.GP_SERVICE_ACCOUNT),
+            )
+            val source =
+                FakeReviewSource(Platform.ANDROID) {
+                    listOf(
+                        Ingest.observed("gp:history", submittedAt = Ingest.now.minus(kotlin.time.Duration.parse("30d"))),
+                        Ingest.observed("gp:fresh", submittedAt = Ingest.now.plus(kotlin.time.Duration.parse("1h"))),
+                    )
+                }
+
+            val report = runBlocking { useCase(source).ingest(org, app.id) }
+
+            reviews.calls.map { it.observed.storeReviewId to it.initialState } shouldContainExactly
+                listOf(
+                    "gp:history" to ReviewState.SUPPRESSED,
+                    "gp:fresh" to ReviewState.NEW,
+                )
+            report.notifiable.map { it.review.storeReviewId } shouldContainExactly listOf("gp:fresh")
+        }
+
         test("odpověď nalezená ve storu recenzi rovnou vyřídí místo notifikace") {
             val app = apps.put(Ingest.app(org))
             credentials.attach(

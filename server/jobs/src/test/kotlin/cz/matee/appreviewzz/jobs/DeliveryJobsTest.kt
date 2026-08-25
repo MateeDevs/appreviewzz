@@ -163,8 +163,13 @@ class DeliveryJobsTest :
             val app =
                 apps.create(
                     org.id,
+                    // Watermark před fixture recenzemi — jinak je potlačí čas založení appky.
                     cz.matee.appreviewzz.core.port
-                        .NewApp(name = "IsleGrow", gpPackageName = "cz.matee.islegrow"),
+                        .NewApp(
+                            name = "IsleGrow",
+                            gpPackageName = "cz.matee.islegrow",
+                            notifyFrom = Instant.parse("2026-08-01T00:00:00Z"),
+                        ),
                 )
             val key = dataKeys.create(org.id, "local://keyset", byteArrayOf(9), Instant.parse("2026-08-19T08:00:00Z"))
             val storeKey =

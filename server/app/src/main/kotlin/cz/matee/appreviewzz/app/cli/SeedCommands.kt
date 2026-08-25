@@ -152,7 +152,7 @@ class SeedCommands(
                 "App Store" to (app.ascAppId ?: "—"),
                 "jazyk" to app.locale.code,
                 "časová zóna" to app.timezone,
-                "notifikace od" to (app.notifyFrom?.toString() ?: "bez omezení"),
+                "notifikace od" to (app.notifyFrom?.toString() ?: "od založení appky"),
                 "ingest" to "každých ${app.ingestIntervalMinutes} min",
                 "denní přehled" to app.dailyDigestAt.toString(),
             ),
@@ -919,13 +919,13 @@ private fun timezone(raw: String): String = usage { AppInputs.timezone(raw, "--t
 private fun ingestInterval(minutes: Int): Int = usage { AppInputs.ingestInterval(minutes, "--ingest-interval") }
 
 /**
- * Watermark, od kterého se recenze notifikují. `now` je to, co se použije při onboardingu
- * existující appky: historie se doimportuje, ale kanál nezaplaví.
+ * Watermark, od kterého se recenze notifikují. Bez `--notify-from` je to čas založení appky:
+ * historie se doimportuje, ale kanál nezaplaví.
  */
 private fun notifyFrom(
     raw: String?,
     clock: Clock,
-): Instant? = usage { AppInputs.notifyFrom(raw, "--notify-from", clock) }
+): Instant = usage { AppInputs.newAppNotifyFrom(raw, "--notify-from", clock) }
 
 private fun digestAt(raw: String): LocalTime = usage { AppInputs.digestAt(raw, "--digest-at") }
 

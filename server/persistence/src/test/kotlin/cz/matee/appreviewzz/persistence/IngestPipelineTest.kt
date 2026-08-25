@@ -75,7 +75,8 @@ class IngestPipelineTest :
                 sources = listOf(source),
             )
 
-        fun setUpApp(notifyFrom: Instant? = null): Pair<OrganizationId, AppId> {
+        // Výchozí watermark je před fixture recenzemi: většinu testů tady zajímá dedup, ne potlačování.
+        fun setUpApp(notifyFrom: Instant = Instant.parse("2026-08-01T00:00:00Z")): Pair<OrganizationId, AppId> {
             val org = organizations.create("Matee", "matee")
             val app =
                 apps.create(

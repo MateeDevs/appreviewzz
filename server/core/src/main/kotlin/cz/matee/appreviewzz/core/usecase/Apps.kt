@@ -28,6 +28,7 @@ data class AppDraft(
     val ascAppId: String? = null,
     val locale: String? = null,
     val timezone: String? = null,
+    /** `now`, ISO-8601, nebo nic — u nové appky se z prázdna stane čas jejího přidání. */
     val notifyFrom: String? = null,
     val aiInstructions: String? = null,
     val ingestIntervalMinutes: Int? = null,
@@ -91,7 +92,9 @@ class AppService(
                 defaults.copy(
                     locale = draft.locale?.let { AppInputs.locale(it, "locale") } ?: defaults.locale,
                     timezone = draft.timezone?.let { AppInputs.timezone(it, "timezone") } ?: defaults.timezone,
-                    notifyFrom = AppInputs.notifyFrom(draft.notifyFrom, "notifyFrom", clock),
+                    // Bez zadané hodnoty je watermark „teď": recenze starší než dnešní přidání
+                    // appky patří do historie, ne do kanálu.
+                    notifyFrom = AppInputs.newAppNotifyFrom(draft.notifyFrom, "notifyFrom", clock),
                     aiInstructions = draft.aiInstructions?.takeIf { it.isNotBlank() },
                     ingestIntervalMinutes =
                         draft.ingestIntervalMinutes?.let { AppInputs.ingestInterval(it, "ingestIntervalMinutes") }

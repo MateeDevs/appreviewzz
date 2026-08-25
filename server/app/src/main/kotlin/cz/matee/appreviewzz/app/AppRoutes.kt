@@ -24,7 +24,7 @@ data class CreateAppRequest(
     val ascAppId: String? = null,
     val locale: String? = null,
     val timezone: String? = null,
-    /** `now` nebo ISO-8601. Při onboardingu existující appky se posílá `now`. */
+    /** `now` nebo ISO-8601. Bez hodnoty je watermarkem čas přidání appky — historie do kanálu nejde. */
     val notifyFrom: String? = null,
     val aiInstructions: String? = null,
     val ingestIntervalMinutes: Int? = null,
@@ -37,6 +37,7 @@ data class UpdateAppRequest(
     val gpReportingBucket: String? = null,
     val locale: String? = null,
     val timezone: String? = null,
+    /** `null` znamená „nech, jak je" — watermark se nedá zrušit, jen posunout. */
     val notifyFrom: String? = null,
     val aiInstructions: String? = null,
     val ingestIntervalMinutes: Int? = null,

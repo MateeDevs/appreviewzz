@@ -61,6 +61,7 @@ class SeedCliTest :
                 console =
                     ConsoleConfig(
                         baseUrl = "https://console.appreviewzz.test",
+                        allowedHosts = emptySet(),
                         mail =
                             MailConfig(
                                 from = "test@appreviewzz.test",
@@ -174,6 +175,16 @@ class SeedCliTest :
             val listed = cli("app list --org $organization")
             listed.out shouldContain "android+ios"
             listed.out shouldContain "IsleGrow"
+        }
+
+        "app create bez --notify-from nastaví watermark na teď" {
+            val organization = seedOrganization()
+            val result = cli("app create --org $organization --name IsleGrow --gp-package cz.matee.islegrow")
+
+            result.code shouldBe 0
+            // Bez watermarku by první ingest vysypal do kanálu celou historii ze storu.
+            result.out shouldContain "notifikace od"
+            result.out shouldNotContain "od založení appky"
         }
 
         "app create odmítne balíček, který v organizaci už je" {

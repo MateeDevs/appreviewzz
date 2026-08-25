@@ -75,6 +75,19 @@ class AppRoutesTest :
             }
         }
 
+        "appka bez zadaného notifyFrom má watermark od svého založení" {
+            testApplication {
+                consoleModule(mailer)
+                val owner = ownerWithOrg(mailer)
+
+                // Klient v consoli datum nevyplní skoro nikdy — a bez watermarku by první ingest
+                // vysypal do kanálu i recenze staré měsíce.
+                val body = owner.createApp().bodyAsText()
+                body shouldNotContain "\"notifyFrom\":null"
+                body shouldContain "\"notifyFrom\":\"2"
+            }
+        }
+
         "notifyFrom 'now' se uloží jako čas, ne jako text" {
             testApplication {
                 consoleModule(mailer)

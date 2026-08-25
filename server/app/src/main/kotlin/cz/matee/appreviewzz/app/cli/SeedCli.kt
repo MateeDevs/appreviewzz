@@ -123,7 +123,7 @@ private val COMMANDS =
             usage =
                 "app create --org <slug|ID> --name <název> [--gp-package <balíček>] [--gp-bucket <pubsite_prod_…>] " +
                     "[--asc-app-id <ID>] " +
-                    "[--locale cs|en] [--timezone <zóna>] [--notify-from now|<ISO-8601>] " +
+                    "[--locale cs|en] [--timezone <zóna>] [--notify-from <ISO-8601>; výchozí je teď] " +
                     "[--ingest-interval <minuty>] [--digest-at HH:MM] [--ai-instructions <text>]",
             run = { args -> appCreate(args) },
         ),

@@ -112,7 +112,8 @@ data class IngestReport(
  * - **Dedup je upsert** nad `(app, platform, store_review_id)`, ne seznam zpracovaných ID, takže
  *   editace recenze nezapadne (dnes zapadne) a opakovaný běh nic nezduplikuje.
  * - **Watermark `notify_from`** rozhoduje o stavu už při zakládání: starší recenze se uloží kvůli
- *   historii, ale do kanálu nejdou. Připojení staré appky tak kanál nezaplaví.
+ *   historii, ale do kanálu nejdou. Ve výchozím stavu je to čas přidání appky do systému, takže
+ *   připojení staré appky kanál nezaplaví, i když watermark nikdo ručně nevyplnil.
  * - **Odpověď nalezená ve storu** (někdo odpověděl v Play Console) recenzi rovnou překlopí do
  *   `REPLIED` místo toho, aby se poslala jako „nová".
  *
@@ -228,12 +229,16 @@ class IngestReviewsUseCase(
     /**
      * Recenze starší než watermark se ukládá bez notifikace. Rozhoduje čas vzniku ve storu,
      * ne čas editace — jinak by stará recenze prošla watermarkem jen proto, že ji autor přepsal.
+     *
+     * Appka bez nastaveného watermarku (řádky z doby, kdy se hodnota nevyplňovala) se řídí časem
+     * svého založení: co bylo ve storu dřív, než jsme appku vůbec znali, není novinka. Bez toho
+     * první ingest vysype do kanálu celou historii — přesně to, kvůli čemu watermark existuje.
      */
     private fun isUnderWatermark(
         app: App,
         review: ObservedReview,
     ): Boolean {
-        val notifyFrom = app.notifyFrom ?: return false
+        val notifyFrom = app.notifyFrom ?: app.createdAt
         return review.submittedAt < notifyFrom
     }
 

@@ -70,8 +70,20 @@ object AppInputs {
     }
 
     /**
+     * Watermark nově zakládané appky. Bez zadané hodnoty je to **teď**: appka přidaná dnes
+     * nesmí do kanálu vysypat recenze, které ve storu ležely měsíce. Kdo historii do kanálu
+     * opravdu chce, pošle konkrétní datum v minulosti.
+     */
+    fun newAppNotifyFrom(
+        raw: String?,
+        field: String,
+        clock: Clock,
+    ): Instant = notifyFrom(raw, field, clock) ?: clock.now()
+
+    /**
      * Watermark, od kterého se recenze notifikují. `now` je to, co se použije při onboardingu
-     * existující appky: historie se doimportuje, ale kanál nezaplaví.
+     * existující appky: historie se doimportuje, ale kanál nezaplaví. `null` znamená
+     * „hodnotu neměň" — výchozí hodnotu pro novou appku dává [newAppNotifyFrom].
      */
     fun notifyFrom(
         raw: String?,

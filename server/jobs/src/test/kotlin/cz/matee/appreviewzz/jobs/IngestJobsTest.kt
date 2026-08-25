@@ -98,7 +98,16 @@ class IngestJobsTest :
 
         fun setUpApp(): App {
             val org = organizations.create("Matee", "matee-${Uuid.random()}".take(30))
-            val app = apps.create(org.id, NewApp(name = "IsleGrow", gpPackageName = "cz.matee.islegrow"))
+            // Watermark před fixture recenzí — jinak by ji potlačil čas založení appky.
+            val app =
+                apps.create(
+                    org.id,
+                    NewApp(
+                        name = "IsleGrow",
+                        gpPackageName = "cz.matee.islegrow",
+                        notifyFrom = Instant.parse("2026-08-01T00:00:00Z"),
+                    ),
+                )
             val key = dataKeys.create(org.id, "local://keyset", byteArrayOf(9), Instant.parse("2026-08-19T08:00:00Z"))
             val credential =
                 credentials.create(
