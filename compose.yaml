@@ -30,10 +30,13 @@ x-app-env: &app-env
   TEAMS_BOT_APP_ID: ${TEAMS_BOT_APP_ID:-}
   TEAMS_BOT_APP_PASSWORD: ${TEAMS_BOT_APP_PASSWORD:-}
   TEAMS_BOT_TENANT_ID: ${TEAMS_BOT_TENANT_ID:-}
-  # Console (F3). Bez SMTP se e-maily (potvrzení adresy, obnova hesla, pozvánky) jen vypisují
-  # do logu — pro první rozkoukání to stačí, odkaz si vyzobeš z `docker compose logs api`.
-  CONSOLE_BASE_URL: ${CONSOLE_BASE_URL:-http://localhost:8080}
-  MAIL_FROM: ${MAIL_FROM:-appreviewzz@localhost}
+  # Console (F3). Odkazy v e-mailech vedou na doménu, na které požadavek přišel;
+  # CONSOLE_BASE_URL je záloha pro poštu mimo požadavek a zároveň povolená doména.
+  # Bez SMTP se e-maily (potvrzení adresy, obnova hesla, pozvánky) jen vypisují do logu —
+  # pro první rozkoukání to stačí, odkaz si vyzobeš z `docker compose logs api`.
+  CONSOLE_BASE_URL: ${CONSOLE_BASE_URL:-}
+  CONSOLE_ALLOWED_HOSTS: ${CONSOLE_ALLOWED_HOSTS:-}
+  MAIL_FROM: ${MAIL_FROM:-}
   MAIL_SMTP_HOST: ${MAIL_SMTP_HOST:-}
   MAIL_SMTP_PORT: ${MAIL_SMTP_PORT:-587}
   MAIL_SMTP_USER: ${MAIL_SMTP_USER:-}

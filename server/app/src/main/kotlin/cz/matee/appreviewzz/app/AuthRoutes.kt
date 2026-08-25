@@ -167,6 +167,8 @@ fun Route.authRoutes(
                             password = SecretPayload(request.password),
                             userAgent = call.request.header("User-Agent"),
                             clientIp = call.clientIp(),
+                            // Odkaz na potvrzení má vést na doménu, na které se člověk registroval.
+                            origin = call.consoleOrigin(),
                         )
                     }
                 // Registrace rovnou přihlašuje; potvrzení e-mailu si console vyžádá až u kroku,
@@ -267,7 +269,7 @@ fun Route.authRoutes(
                 val request = call.receive<EmailRequest>()
                 // Limit na e-mail, ne jen na adresu: jinak by šlo cizí schránku zaplavit odkazy.
                 if (!call.allowedBy(limits.authIdentity, identityKey("forgot", request.email))) return@post
-                io { auth.requestPasswordReset(request.email) }
+                io { auth.requestPasswordReset(request.email, origin = call.consoleOrigin()) }
                 // Vždy stejná odpověď: jinak by formulář prozradil, které e-maily u nás jsou.
                 call.respond(HttpStatusCode.Accepted)
             }
@@ -296,7 +298,7 @@ fun Route.authRoutes(
             }
 
             post("/email/resend") {
-                io { auth.resendVerification(call.authenticatedUser.account.user.id) }
+                io { auth.resendVerification(call.authenticatedUser.account.user.id, origin = call.consoleOrigin()) }
                 call.respond(HttpStatusCode.Accepted)
             }
 

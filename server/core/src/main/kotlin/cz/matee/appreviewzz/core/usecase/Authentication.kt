@@ -152,6 +152,7 @@ class AuthenticationService(
         locale: MessageLocale = MessageLocale.CS,
         userAgent: String? = null,
         clientIp: String? = null,
+        origin: String? = null,
     ): Registration {
         val normalized = normalizeEmail(email)
         requireStrongPassword(password)
@@ -169,7 +170,7 @@ class AuthenticationService(
                 else -> throw AuthException(AuthFailure.EMAIL_TAKEN, "Účet s e-mailem $normalized už existuje")
             }
 
-        sendVerification(user, locale, now)
+        sendVerification(user, locale, now, origin)
         logger.info { "Registrace uživatele ${user.id}" }
 
         val token = OpaqueTokens.generate()
@@ -304,10 +305,11 @@ class AuthenticationService(
     fun resendVerification(
         userId: UserId,
         locale: MessageLocale = MessageLocale.CS,
+        origin: String? = null,
     ) {
         val account = users.findAccountById(userId) ?: return
         if (account.emailVerified) return
-        sendVerification(account.user, locale, clock.now())
+        sendVerification(account.user, locale, clock.now(), origin)
     }
 
     /**
@@ -317,6 +319,7 @@ class AuthenticationService(
     fun requestPasswordReset(
         email: String,
         locale: MessageLocale = MessageLocale.CS,
+        origin: String? = null,
     ) {
         val now = clock.now()
         val account = users.findAccountByEmail(normalizeEmailLoosely(email)) ?: return
@@ -330,7 +333,14 @@ class AuthenticationService(
             expiresAt = now + policy.resetLifetime,
             at = now,
         )
-        deliver(AuthMails.passwordReset(account.user, links.passwordReset(token), policy.resetLifetime, locale))
+        deliver(
+            AuthMails.passwordReset(
+                account.user,
+                links.passwordReset(token, origin),
+                policy.resetLifetime,
+                locale,
+            ),
+        )
     }
 
     /** Reset hesla z odkazu. Ruší všechny relace — nevíme, kdo se mezitím přihlásil. */
@@ -412,6 +422,7 @@ class AuthenticationService(
         user: User,
         locale: MessageLocale,
         now: Instant,
+        origin: String?,
     ) {
         tokens.invalidateAll(user.id, UserTokenPurpose.EMAIL_VERIFICATION, now)
         val token = OpaqueTokens.generate()
@@ -422,7 +433,7 @@ class AuthenticationService(
             expiresAt = now + policy.verificationLifetime,
             at = now,
         )
-        deliver(AuthMails.emailVerification(user, links.emailVerification(token), locale))
+        deliver(AuthMails.emailVerification(user, links.emailVerification(token, origin), locale))
     }
 
     /**
@@ -474,15 +485,74 @@ class AuthenticationService(
     }
 }
 
-/** Adresy v console, na které se odkazuje z e-mailů. */
+/**
+ * Adresy v console, na které se odkazuje z e-mailů.
+ *
+ * Odkaz musí vést tam, kde člověk konzoli opravdu otevřel: pozvánka ze stagingu nesmí
+ * posílat do produkce a lokální běh nesmí posílat na doménu, na kterou se vývojář nedostane.
+ * Proto se základ bere z požadavku (`origin`) a nakonfigurovaná [baseUrl] je až záloha —
+ * pro poštu, která vzniká mimo požadavek (CLI, worker), a pro požadavky s cizím hostitelem.
+ *
+ * Hostitele si totiž do požadavku píše klient. Kdyby se bral bez kontroly, stačil by jeden
+ * `Host: utocnik.example` a oběti by přišel odkaz na obnovu hesla mířící na cizí server —
+ * proto musí projít přes [allowedHosts]. Prázdná konfigurace (žádná [baseUrl] ani
+ * [allowedHosts]) znamená „nikdo nic nenastavil": pak se hostiteli z požadavku věří,
+ * protože jediná alternativa je natvrdo localhost, který nefunguje nikomu.
+ */
 class ConsoleLinks(
-    baseUrl: String,
+    baseUrl: String? = null,
+    allowedHosts: Set<String> = emptySet(),
 ) {
-    private val base = baseUrl.trimEnd('/')
+    private val fallback = baseUrl?.trim()?.takeIf { it.isNotBlank() }?.trimEnd('/')
 
-    fun emailVerification(token: SecretPayload): String = "$base/overeni?token=${token.value}"
+    /** Vzory z konfigurace plus doména z [baseUrl] — tu není důvod vypisovat podruhé. */
+    private val allowed =
+        (allowedHosts.map { it.trim().lowercase() } + listOfNotNull(fallback?.let { hostOf(it) }))
+            .filter { it.isNotBlank() }
+            .toSet()
 
-    fun passwordReset(token: SecretPayload): String = "$base/obnova-hesla?token=${token.value}"
+    fun emailVerification(
+        token: SecretPayload,
+        origin: String? = null,
+    ): String = "${base(origin)}/overeni?token=${token.value}"
 
-    fun invitation(token: SecretPayload): String = "$base/pozvanka?token=${token.value}"
+    fun passwordReset(
+        token: SecretPayload,
+        origin: String? = null,
+    ): String = "${base(origin)}/obnova-hesla?token=${token.value}"
+
+    fun invitation(
+        token: SecretPayload,
+        origin: String? = null,
+    ): String = "${base(origin)}/pozvanka?token=${token.value}"
+
+    /** Základ odkazu pro požadavek přišlý z [origin] (`https://host[:port]`, nebo `null`). */
+    fun base(origin: String?): String {
+        val candidate = origin?.trim()?.trimEnd('/')?.takeIf { ORIGIN.matches(it) } ?: return fallback ?: LOCAL
+        if (allowed.isEmpty()) return candidate
+        return if (allowed.any { it.covers(hostOf(candidate)) }) candidate else fallback ?: LOCAL
+    }
+
+    /**
+     * `*.appreviewzz.com` sedí na apex i na libovolnou subdoménu — jinak by se každé nové
+     * prostředí muselo dopisovat do konfigurace. Port se porovnává jen tehdy, když ho vzor
+     * uvádí (kvůli lokálnímu `localhost:5173`).
+     */
+    private fun String.covers(host: String): Boolean {
+        val target = if (contains(':')) host else host.substringBefore(':')
+        return if (startsWith("*.")) {
+            target == removePrefix("*.") || target.endsWith(removePrefix("*"))
+        } else {
+            target == this
+        }
+    }
+
+    private companion object {
+        const val LOCAL = "http://localhost:8080"
+
+        /** Schválně přísné: co se sem nevejde, je pro odkaz v e-mailu stejně nepoužitelné. */
+        val ORIGIN = Regex("""^https?://[A-Za-z0-9._-]+(:\d{1,5})?$""")
+
+        fun hostOf(url: String): String = url.substringAfter("://").substringBefore('/').lowercase()
+    }
 }

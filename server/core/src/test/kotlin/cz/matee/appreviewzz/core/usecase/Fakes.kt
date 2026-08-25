@@ -49,6 +49,8 @@ internal object Ingest {
         ascAppId: String? = null,
         notifyFrom: Instant? = null,
         enabled: Boolean = true,
+        /** Týden před [now]: appka je zaběhlá, takže o notifikaci nerozhoduje čas jejího přidání. */
+        createdAt: Instant = now.minus(kotlin.time.Duration.parse("7d")),
     ): App =
         App(
             id = AppId(Uuid.random()),
@@ -64,7 +66,7 @@ internal object Ingest {
             ingestIntervalMinutes = 30,
             dailyDigestAt = LocalTime(8, 30),
             enabled = enabled,
-            createdAt = now,
+            createdAt = createdAt,
         )
 
     fun credential(

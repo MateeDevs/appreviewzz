@@ -8,6 +8,9 @@ import io.ktor.server.application.install
 import io.ktor.server.plugins.defaultheaders.DefaultHeaders
 import io.ktor.server.request.path
 import io.ktor.server.response.header
+import io.ktor.server.response.respondText
+import io.ktor.server.routing.get
+import io.ktor.server.routing.routing
 
 /**
  * Hlavičky, kterými prohlížeči říkáme, co si k naší stránce smí dovolit (F5.4).
@@ -20,8 +23,15 @@ import io.ktor.server.response.header
  * `style-src` má `'unsafe-inline'` schválně: React nastavuje styly přes CSSOM a rozdíl mezi
  * povoleným a zakázaným inline stylem je natolik nespolehlivý napříč prohlížeči, že by
  * přísnější hodnota znamenala rozbité obrazovky výměnou za skoro nic.
+ *
+ * [indexable] je jediná hlavička, která se liší podle prostředí. Staging servíruje tutéž
+ * konzoli na veřejné adrese, takže bez tohohle skončí přihlašovací stránka ve vyhledávači
+ * vedle produkční — a uživatel se pak diví, proč mu tam nejde heslo.
  */
-fun Application.installSecurityHeaders(https: Boolean) {
+fun Application.installSecurityHeaders(
+    https: Boolean,
+    indexable: Boolean = false,
+) {
     install(DefaultHeaders) {
         header("X-Content-Type-Options", "nosniff")
         header("X-Frame-Options", "DENY")
@@ -34,6 +44,14 @@ fun Application.installSecurityHeaders(https: Boolean) {
         header("Cross-Origin-Resource-Policy", "same-origin")
         // Jen na https: na http ji prohlížeč ignoruje a v lokálním běhu by akorát mátla.
         if (https) header("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
+        // Hlavička platí i na to, co robots.txt neřeší — třeba na odkaz, který někdo někam vloží.
+        if (!indexable) header("X-Robots-Tag", "noindex, nofollow")
+    }
+
+    routing {
+        get("/robots.txt") {
+            call.respondText(if (indexable) ROBOTS_PUBLIC else ROBOTS_NONE)
+        }
     }
 
     // Odpovědi API nesou recenze, klíče (jejich otisky) a profil — nemají co ležet
@@ -60,3 +78,17 @@ private val CONTENT_SECURITY_POLICY =
         "style-src 'self' 'unsafe-inline'",
         "connect-src 'self'",
     ).joinToString(separator = "; ")
+
+/** V produkci je veřejná jen přihlašovací a registrační stránka; API a webhooky ve vyhledávači nemají co dělat. */
+private val ROBOTS_PUBLIC =
+    """
+    User-agent: *
+    Disallow: /api/
+    Disallow: /webhooks/
+    """.trimIndent() + "\n"
+
+private val ROBOTS_NONE =
+    """
+    User-agent: *
+    Disallow: /
+    """.trimIndent() + "\n"

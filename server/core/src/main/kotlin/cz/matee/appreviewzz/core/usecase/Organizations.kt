@@ -125,6 +125,8 @@ class OrganizationService(
         email: String,
         role: OrgRole,
         locale: MessageLocale = MessageLocale.CS,
+        /** Adresa, na které konzoli otevřel zvoucí — pozvánka má vést tam, ne do jiného prostředí. */
+        origin: String? = null,
     ): InvitationResult {
         requireRole(actor, OrgRole.ADMIN)
         if (role == OrgRole.OWNER) requireRole(actor, OrgRole.OWNER)
@@ -161,7 +163,7 @@ class OrganizationService(
                         organization = organization.name,
                         invitedBy = actor.displayName,
                         role = role,
-                        link = links.invitation(token),
+                        link = links.invitation(token, origin),
                         validFor = invitationLifetime,
                         locale = locale,
                     ),

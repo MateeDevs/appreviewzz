@@ -27,6 +27,13 @@ fun runApi(
     val metrics = PrometheusMeterRegistry(PrometheusConfig.DEFAULT)
     startManagementServer(config, metrics)
 
+    if (config.console.baseUrl == null && config.console.allowedHosts.isEmpty()) {
+        logger.warn {
+            "CONSOLE_BASE_URL ani CONSOLE_ALLOWED_HOSTS nejsou nastavené — odkazy v e-mailech " +
+                "vedou na doménu z požadavku, jakou si klient pošle. Pro produkci nastav CONSOLE_BASE_URL."
+        }
+    }
+
     val verifier = components.slackSignatureVerifier
     if (verifier == null) {
         logger.warn { "SLACK_SIGNING_SECRET není nastavený — odpovědi ze Slacku se nepřijímají" }
@@ -94,6 +101,7 @@ fun runApi(
             rateLimits = rateLimits,
             trustedProxyHops = config.server.trustedProxyHops,
             https = config.console.baseUrl?.startsWith("https://") == true || config.environment != "local",
+            indexable = config.environment == "prod",
         )
 
     embeddedServer(
@@ -141,6 +149,8 @@ class ApiHardening(
     val replay: ReplayGuards = ReplayGuards(),
     val trustedProxyHops: Int = 0,
     val https: Boolean = false,
+    /** Jen produkce patří do vyhledávačů. Výchozí `false`, protože špatně je tu jen jeden směr. */
+    val indexable: Boolean = false,
 )
 
 /** Pohromadě, protože buď je nastavené všechno, nebo se endpointy neregistrují vůbec. */
@@ -164,7 +174,8 @@ fun Application.apiModule(
     console: ConsoleWiring? = null,
 ) {
     installClientAddress(hardening.trustedProxyHops)
-    installSecurityHeaders(hardening.https)
+    installConsoleOrigin(hardening.trustedProxyHops, hardening.https)
+    installSecurityHeaders(hardening.https, hardening.indexable)
     installObservability(metrics)
     installSerialization()
     installErrorHandling()

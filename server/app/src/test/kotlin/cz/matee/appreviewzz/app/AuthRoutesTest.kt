@@ -2,6 +2,7 @@ package cz.matee.appreviewzz.app
 
 import cz.matee.appreviewzz.app.cli.TestDatabase
 import cz.matee.appreviewzz.core.usecase.AuthPolicy
+import cz.matee.appreviewzz.core.usecase.ConsoleLinks
 import cz.matee.appreviewzz.persistence.repository.ExposedUserRepository
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.collections.shouldHaveSize
@@ -192,6 +193,27 @@ class AuthRoutesTest :
                 client.get("/api/auth/me").status shouldBe HttpStatusCode.Unauthorized
                 client.login(password = PASSWORD).status shouldBe HttpStatusCode.Unauthorized
                 client.login(password = "uplne-nove-dlouhe-heslo").status shouldBe HttpStatusCode.OK
+            }
+        }
+
+        "odkaz v e-mailu vede na doménu, na které požadavek přišel" {
+            testApplication {
+                // Nasazení, které obsluhuje víc domén: konfigurace zná obě, vybere požadavek.
+                consoleModule(mailer, links = ConsoleLinks(CONSOLE_URL, setOf("localhost")))
+                val client = browser()
+                client.register()
+
+                // Testovací klient chodí na `localhost`, ne na doménu z konfigurace.
+                mailer.sent.last().body shouldContain "http://localhost/overeni?token="
+            }
+        }
+
+        "cizí Host v požadavku odkaz nepřepíše" {
+            testApplication {
+                consoleModule(mailer)
+                browser().register()
+
+                mailer.sent.last().body shouldContain "$CONSOLE_URL/overeni?token="
             }
         }
 

@@ -134,9 +134,16 @@ data class MailConfig(
 /**
  * Console (F3). `baseUrl` je adresa, na které ji vidí klient — skládají se z ní odkazy
  * v e-mailech, takže nesmí být localhost, jakmile chodí pošta ven.
+ *
+ * Odkazy se přednostně skládají z domény, na které požadavek přišel (viz `ConsoleLinks`),
+ * takže staging posílá na staging a produkce na produkci bez ohledu na tuhle hodnotu.
+ * `baseUrl` je záloha pro poštu vzniklou mimo požadavek a zároveň první povolená doména;
+ * [allowedHosts] přidává další (`staging.appreviewzz.com`, `*.appreviewzz.com`) pro případ,
+ * že jedno nasazení obsluhuje víc domén.
  */
 data class ConsoleConfig(
     val baseUrl: String?,
+    val allowedHosts: Set<String>,
     val mail: MailConfig,
 ) {
     /**
@@ -183,6 +190,9 @@ data class AppConfig(
     companion object {
         fun fromEnv(env: (String) -> String? = System::getenv): AppConfig {
             val environment = env.optional("APPREVIEWZZ_ENV", "local")
+            val consoleBaseUrl =
+                env("CONSOLE_BASE_URL")?.takeIf { it.isNotBlank() }
+                    ?: env("PUBLIC_BASE_URL")?.takeIf { it.isNotBlank() }
             return AppConfig(
                 role = Role.parse(env.optional("APPREVIEWZZ_ROLE", "api")),
                 environment = environment,
@@ -235,12 +245,23 @@ data class AppConfig(
                     ),
                 console =
                     ConsoleConfig(
-                        baseUrl =
-                            env("CONSOLE_BASE_URL")?.takeIf { it.isNotBlank() }
-                                ?: env("PUBLIC_BASE_URL")?.takeIf { it.isNotBlank() },
+                        baseUrl = consoleBaseUrl,
+                        allowedHosts =
+                            env("CONSOLE_ALLOWED_HOSTS")
+                                ?.split(',')
+                                ?.map { it.trim() }
+                                ?.filter { it.isNotBlank() }
+                                ?.toSet()
+                                .orEmpty(),
                         mail =
                             MailConfig(
-                                from = env.optional("MAIL_FROM", "appreviewzz@localhost"),
+                                // Bez MAIL_FROM se odesílatel odvodí z domény konzole — pošta má
+                                // chodit ze stejné domény, na kterou vedou odkazy. Jakmile je před
+                                // tím opravdový relay, patří sem stejně adresa, na kterou sedí
+                                // SPF/DKIM, takže se to nastavuje explicitně.
+                                from =
+                                    env("MAIL_FROM")?.takeIf { it.isNotBlank() }
+                                        ?: defaultMailFrom(consoleBaseUrl),
                                 smtpHost = env("MAIL_SMTP_HOST")?.takeIf { it.isNotBlank() },
                                 smtpPort = env.optional("MAIL_SMTP_PORT", "587").toInt(),
                                 smtpUser = env("MAIL_SMTP_USER")?.takeIf { it.isNotBlank() },
@@ -268,6 +289,12 @@ data class AppConfig(
             )
         }
     }
+}
+
+/** `appreviewzz@<doména konzole>`; bez konfigurace zůstává localhost, ať je vidět, že chybí. */
+private fun defaultMailFrom(consoleBaseUrl: String?): String {
+    val host = consoleBaseUrl?.substringAfter("://")?.substringBefore('/')?.substringBefore(':')
+    return "appreviewzz@${host?.takeIf { it.isNotBlank() } ?: "localhost"}"
 }
 
 private fun ((String) -> String?).required(name: String): String =

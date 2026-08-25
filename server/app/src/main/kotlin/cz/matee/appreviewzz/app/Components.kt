@@ -413,8 +413,16 @@ class Components(
         }
     }
 
+    /**
+     * Odkazy do konzole. Základ se bere z požadavku (viz [ConsoleLinks]), takže staging
+     * posílá na staging; nakonfigurovaná adresa je záloha pro poštu mimo požadavek a zároveň
+     * první povolená doména.
+     */
     val consoleLinks: ConsoleLinks by lazy {
-        ConsoleLinks(config.console.baseUrl ?: config.slack.publicBaseUrl ?: "http://localhost:8080")
+        ConsoleLinks(
+            baseUrl = config.console.baseUrl ?: config.slack.publicBaseUrl,
+            allowedHosts = config.console.allowedHosts,
+        )
     }
 
     val authentication: AuthenticationService by lazy {

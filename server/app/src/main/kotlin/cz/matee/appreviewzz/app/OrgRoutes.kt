@@ -151,7 +151,15 @@ fun Route.orgRoutes(console: ConsoleWiring) {
             val context = call.orgContext(organizations, memberships)
             val request = call.receive<InviteRequest>()
             val result =
-                io { orgs.invite(context.organization, context.actor, request.email, request.role) }
+                io {
+                    orgs.invite(
+                        context.organization,
+                        context.actor,
+                        request.email,
+                        request.role,
+                        origin = call.consoleOrigin(),
+                    )
+                }
             call.respond(
                 HttpStatusCode.Created,
                 InvitationResponse(

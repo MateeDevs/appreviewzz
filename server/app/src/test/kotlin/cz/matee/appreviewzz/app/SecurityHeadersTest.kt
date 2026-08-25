@@ -6,6 +6,7 @@ import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.ktor.client.request.get
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.testing.testApplication
 import io.micrometer.prometheusmetrics.PrometheusConfig
@@ -58,6 +59,36 @@ class SecurityHeadersTest :
                 }
 
                 client.get("/health/live").headers["Strict-Transport-Security"] shouldContain "max-age="
+            }
+        }
+
+        "mimo produkci se prostředí nedá naindexovat" {
+            testApplication {
+                application {
+                    apiModule(TestDatabase.database, PrometheusMeterRegistry(PrometheusConfig.DEFAULT))
+                }
+
+                // Staging servíruje tutéž konzoli na veřejné adrese — bez tohohle by se
+                // jeho přihlašovací stránka objevila ve vyhledávači vedle produkční.
+                client.get("/health/live").headers["X-Robots-Tag"] shouldBe "noindex, nofollow"
+                client.get("/robots.txt").bodyAsText() shouldContain "Disallow: /"
+            }
+        }
+
+        "produkce se indexovat smí, API a webhooky ne" {
+            testApplication {
+                application {
+                    apiModule(
+                        TestDatabase.database,
+                        PrometheusMeterRegistry(PrometheusConfig.DEFAULT),
+                        hardening = ApiHardening(indexable = true),
+                    )
+                }
+
+                client.get("/health/live").headers["X-Robots-Tag"].shouldBeNull()
+                val robots = client.get("/robots.txt").bodyAsText()
+                robots shouldContain "Disallow: /api/"
+                robots shouldContain "Disallow: /webhooks/"
             }
         }
 

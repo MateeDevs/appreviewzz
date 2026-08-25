@@ -25,6 +25,8 @@ dist/
 *.p8
 *-service-account*.json
 local-keyset.json
+# Lokální keyset z `VAULT_KEK_URI=local://…` při vývoji — klíč k credentials, nikdy do repa
+.local/
 secrets/
 
 # Terraform
@@ -34,6 +36,11 @@ secrets/
 *.tfvars
 !*.tfvars.example
 .terraform.lock.hcl
+# zip s kódem Lambdy se skládá při plánu, do repa nepatří
+deploy/terraform/modules/*/.build/
+
+# Lokální nastavení nástrojů
+.claude/
 
 # OS
 .DS_Store

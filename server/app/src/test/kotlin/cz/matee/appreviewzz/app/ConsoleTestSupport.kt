@@ -186,6 +186,8 @@ fun ApplicationTestBuilder.consoleModule(
     clock: Clock = Clock.System,
     slack: ConsoleSlack? = null,
     replyQueue: RecordingReplyQueue? = null,
+    /** Výchozí allowlist je jen `console.test`, takže odkazy v testech nezávisí na hostiteli. */
+    links: ConsoleLinks = ConsoleLinks(CONSOLE_URL),
     fakes: ConsoleFakes =
         ConsoleFakes(FakeReviewSource(Platform.ANDROID), FakeReviewSource(Platform.IOS), FakeNotificationChannel()),
 ) {
@@ -208,7 +210,7 @@ fun ApplicationTestBuilder.consoleModule(
             // Levné parametry: testy ověřují smyčku přihlášení, ne odolnost argon2.
             hasher = Argon2PasswordHasher(memoryKib = 256, iterations = 1, parallelism = 1),
             mailer = mailer,
-            links = ConsoleLinks(CONSOLE_URL),
+            links = links,
             policy = policy,
             clock = clock,
             mfa = mfaService,
@@ -269,7 +271,7 @@ fun ApplicationTestBuilder.consoleModule(
             invitations = ExposedInvitationRepository(exposed),
             audit = audit,
             mailer = mailer,
-            links = ConsoleLinks(CONSOLE_URL),
+            links = links,
         )
 
     application {
