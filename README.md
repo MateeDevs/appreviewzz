@@ -79,7 +79,7 @@ Onboarding klienta od nuly (`appreviewzz help` vypíše všechny příkazy):
 appreviewzz org create --name "Isle Grow"
 appreviewzz user add --org isle-grow --email klient@example.com --role owner
 appreviewzz app create --org isle-grow --name IsleGrow \
-  --gp-package cz.matee.islegrow --asc-app-id 1234567890 --notify-from now
+  --gp-package cz.matee.islegrow --asc-app-id 1234567890
 appreviewzz credential add --org isle-grow --type gp --label "Play SA" --file service-account.json
 appreviewzz credential attach --org isle-grow --app <APP_ID> --credential <CREDENTIAL_ID>
 appreviewzz credential validate --org isle-grow --app <APP_ID> --credential <CREDENTIAL_ID>
@@ -109,8 +109,9 @@ appreviewzz credential add --org isle-grow --type asc --label "IsleGrow ASC" \
 
 Několik věcí, které stojí za zmínku:
 
-- `--notify-from now` je watermark: starší recenze se uloží kvůli historii, ale do kanálů
-  nepůjdou — připojení staré appky tedy Slack nezaplaví.
+- Watermark (`notify_from`) je ve výchozím stavu čas přidání appky: starší recenze se uloží
+  kvůli historii, ale do kanálů nepůjdou — připojení staré appky tedy Slack nezaplaví.
+  `--notify-from <ISO-8601>` ho posune, když má tým dostat i kus historie.
 - Payload klíče z vaultu nikdy nevyjde. CLI tiskne jen fingerprint a neutrální nápovědu
   (`client_email`, Key ID) — přesně to, co uvidí klient v konzoli.
 - Nová appka se rozjede sama, worker si ji vyzvedne při nejbližším sweepu.

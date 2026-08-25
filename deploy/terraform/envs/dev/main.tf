@@ -1,3 +1,5 @@
+# ZRUŠENO. Tohle prostředí nahradily envs/staging a envs/prod (ADR 0017). Zůstává v repu
+# jen proto, aby se dal pustit `tofu destroy` — po něm se celý adresář smaže.
 terraform {
   required_version = ">= 1.9"
 

@@ -134,10 +134,10 @@ jobs:
       - name: Formát
         run: terraform fmt -check -recursive deploy/terraform
 
-      - name: Validace modulů
+      - name: Validace modulů a prostředí
         run: |
-          for module in deploy/terraform/modules/*/; do
-            echo "== $module"
-            terraform -chdir="$module" init -backend=false -input=false
-            terraform -chdir="$module" validate
+          for dir in deploy/terraform/modules/*/ deploy/terraform/envs/*/; do
+            echo "== $dir"
+            terraform -chdir="$dir" init -backend=false -input=false
+            terraform -chdir="$dir" validate
           done

@@ -1,5 +1,8 @@
 # Nasazení na Coolify. Image staví CI a publikuje do GHCR — na hostiteli se nic nebuildí.
 # Proměnné se vyplňují v Coolify UI, ne tady.
+#
+# Týž soubor slouží stagingu i produkci; liší se hodnotami proměnných (ADR 0017). Zásadní je
+# APP_VERSION: staging jede na `latest`, produkce na `prod`, který se přesměrovává ručně.
 
 services:
   api:
@@ -14,6 +17,7 @@ services:
     environment:
       APPREVIEWZZ_ROLE: api
       APPREVIEWZZ_ENV: ${APPREVIEWZZ_ENV:-dev}
+      TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-1}
       DATABASE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-appreviewzz}
       DATABASE_USER: ${POSTGRES_USER:-appreviewzz}
       DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?}
@@ -35,13 +39,20 @@ services:
       TEAMS_BOT_APP_ID: ${TEAMS_BOT_APP_ID:-}
       TEAMS_BOT_APP_PASSWORD: ${TEAMS_BOT_APP_PASSWORD:-}
       TEAMS_BOT_TENANT_ID: ${TEAMS_BOT_TENANT_ID:-}
-      # Console (F3): odkazy v e-mailech a odchozí pošta. Bez SMTP jdou e-maily do logu.
+      # Console (F3): odkazy v e-mailech a odchozí pošta. Odkaz vede na doménu, na které
+      # požadavek přišel (Traefik ji dává do X-Forwarded-Host); CONSOLE_BASE_URL je záloha
+      # pro poštu mimo požadavek a zároveň jediná doména, které se z požadavku věří —
+      # v produkci ji nastav, ať `Host` z prohlížeče nerozhoduje o odkazu na reset hesla.
+      # Víc domén na jednom nasazení řeší CONSOLE_ALLOWED_HOSTS (čárkou, `*.domena` sedí i na apex).
+      # Bez SMTP jdou e-maily do logu.
       CONSOLE_BASE_URL: ${CONSOLE_BASE_URL:-}
-      MAIL_FROM: ${MAIL_FROM:-appreviewzz@localhost}
+      CONSOLE_ALLOWED_HOSTS: ${CONSOLE_ALLOWED_HOSTS:-}
+      MAIL_FROM: ${MAIL_FROM:-}
       MAIL_SMTP_HOST: ${MAIL_SMTP_HOST:-}
       MAIL_SMTP_PORT: ${MAIL_SMTP_PORT:-587}
       MAIL_SMTP_USER: ${MAIL_SMTP_USER:-}
       MAIL_SMTP_PASSWORD: ${MAIL_SMTP_PASSWORD:-}
+      MAIL_SMTP_STARTTLS: ${MAIL_SMTP_STARTTLS:-true}
     depends_on:
       postgres:
         condition: service_healthy

@@ -74,6 +74,7 @@ dodavatelským řetězcem, cílený útok na zaměstnance mimo pracovní zaříz
 | Zjištění, které e-maily u nás jsou | stejná odpověď i stejná doba běhu pro známý i neznámý účet (počítá se dummy hash) |
 | Přehrání kódu z autentizační appky | uplatněný časový krok se ukládá; kód platný ještě 25 sekund už podruhé neprojde |
 | Uhádnutí kódu druhého faktoru | challenge platí 5 minut a limit je vázaný na ni, ne na adresu |
+| Podstrčení domény do odkazu v e-mailu (`Host: utocnik.example`) | odkaz se skládá z domény požadavku jen tehdy, když projde allowlistem (`CONSOLE_BASE_URL` + `CONSOLE_ALLOWED_HOSTS`); jinak platí nakonfigurovaná adresa ([ConsoleLinks]) |
 | XSS v konzoli | React escapuje, žádné `dangerouslySetInnerHTML`; CSP bez `'unsafe-inline'` u skriptů (F5.4) |
 | Clickjacking | `frame-ancestors 'none'` + `X-Frame-Options: DENY` |
 
@@ -149,6 +150,7 @@ Kdyby na bezpečnost byl jeden den, tohle je pořadí:
 4. Append-only kopie audit logu mimo hlavní databázi.
 
 [Authentication.kt]: ../server/core/src/main/kotlin/cz/matee/appreviewzz/core/usecase/Authentication.kt
+[ConsoleLinks]: ../server/core/src/main/kotlin/cz/matee/appreviewzz/core/usecase/Authentication.kt
 [ADR 0009]: adr/0009-domenove-schema-tenancy.md
 [ADR 0011]: adr/0011-audit-vault-klice.md
 [ADR 0015]: adr/0015-druhy-faktor-totp.md

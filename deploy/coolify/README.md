@@ -3,6 +3,10 @@
 Aplikace běží mimo AWS, z AWS se používá jen KMS klíč — viz
 [ADR 0008](../../docs/adr/0008-hosting-coolify-kek-v-kms.md).
 
+Prostředí jsou dvě a **každé je samostatný resource s vlastní databází, vlastním KMS klíčem
+a vlastním access keyem** ([ADR 0017](../../docs/adr/0017-staging-a-produkce-oddelena-prostredi.md)).
+Postup níž platí pro obě, liší se jen hodnotami ve sloupci prostředí.
+
 Image staví GitHub Actions a publikuje do `ghcr.io/mateedevs/appreviewzz`. Coolify ho jen
 stahuje; na hostiteli se nic nekompiluje.
 
@@ -13,17 +17,30 @@ ARM hostitelé (Hetzner) jsou běžní a build pod QEMU emulací by trval násob
 
 Vyplňují se v Coolify UI, nikdy do repozitáře.
 
-| Proměnná | Odkud ji vzít |
-|---|---|
-| `POSTGRES_PASSWORD` | vygeneruj náhodné, min. 32 znaků |
-| `VAULT_KEK_URI` | výstup `vault_kek_uri` z `deploy/terraform/envs/dev` |
-| `AWS_REGION` | `eu-north-1` |
-| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | access key IAM uživatele `appreviewzz-dev-app` |
-| `BACKUP_TARGET` | výstup `backup_target` z `deploy/terraform/envs/dev` (`s3://…`) |
-| `APP_VERSION` | tag image, default `latest` |
-| `APPREVIEWZZ_ENV` | `dev` |
+| Proměnná | staging | produkce |
+|---|---|---|
+| `APPREVIEWZZ_ENV` | `staging` | `prod` |
+| `APP_VERSION` | `latest` | **`prod`** |
+| `POSTGRES_PASSWORD` | vygeneruj náhodné, min. 32 znaků | totéž, ale jiné |
+| `VAULT_KEK_URI` | výstup `vault_kek_uri` z `envs/staging` | z `envs/prod` |
+| `AWS_REGION` | `eu-north-1` | `eu-north-1` |
+| `AWS_ACCESS_KEY_ID` / `_SECRET_` | key uživatele `appreviewzz-staging-app` | `appreviewzz-prod-app` |
+| `BACKUP_TARGET` | výstup `backup_target` z `envs/staging` | z `envs/prod` |
+| `BACKUP_RETENTION_DAYS` | `7` | `30` |
+| `TRUSTED_PROXY_HOPS` | `1` | `1` |
+| `PUBLIC_BASE_URL` | `https://console.staging.appreviewzz.com` | `https://console.appreviewzz.com` |
+| `CONSOLE_BASE_URL` | totéž | totéž |
+| `CONSOLE_ALLOWED_HOSTS` | `console.staging.appreviewzz.com` | `console.appreviewzz.com` |
+| `MAIL_SMTP_HOST` | `smtp.resend.com` | `smtp.resend.com` |
+| `MAIL_SMTP_USER` | `resend` | `resend` |
+| `MAIL_SMTP_PASSWORD` | API klíč `appreviewzz-staging` | API klíč `appreviewzz-prod` |
+| `MAIL_FROM` | `staging@…` | `noreply@…` |
 
-Access key se generuje ručně v AWS konzoli (IAM → Users → `appreviewzz-dev-app` →
+`CONSOLE_ALLOWED_HOSTS` vypisuj přesně, ne zástupným znakem: `*.appreviewzz.com` sedí
+i na doménu druhého prostředí, takže by produkce uměla poslat odkaz na obnovu hesla
+mířící na staging.
+
+Access key se generuje ručně v AWS konzoli (IAM → Users → `appreviewzz-<prostředí>-app` →
 Security credentials → Create access key → *Application running outside AWS*), aby se
 tajná část nikdy neocitla v terraform state.
 
@@ -59,19 +76,24 @@ do GHCR a zavolá deploy webhook Coolify. Potřebuje repozitářové secrets:
 
 | Secret | Kde ho vzít |
 |---|---|
-| `COOLIFY_WEBHOOK_URL` | Coolify → resource → Webhooks → Deploy Webhook |
+| `COOLIFY_STAGING_WEBHOOK_URL` | Coolify → resource stagingu → Webhooks → Deploy Webhook |
+| `COOLIFY_PROD_WEBHOOK_URL` | totéž u produkčního resource |
 | `COOLIFY_TOKEN` | Coolify → Keys & Tokens → API tokens |
 
-Když nejsou nastavené, workflow se přeskočí a image se jen publikuje.
+Když nejsou nastavené, deploy se přeskočí a image se jen publikuje.
 
 ## Verze, která běží
 
-Compose sahá po tagu `latest` a služby mají `pull_policy: always`, takže každé nasazení
-stáhne aktuální image. Bez toho by Docker u pohyblivého tagu použil lokální kopii
-a nasazení by tiše zůstalo na první stažené verzi.
+Služby mají `pull_policy: always`, takže každé nasazení stáhne aktuální image. Bez toho by
+Docker u pohyblivého tagu použil lokální kopii a nasazení by tiše zůstalo na první stažené
+verzi.
 
-Co reálně běží, řekne `/health/live` — vrací verzi i git SHA. Když se neshoduje
-s `HEAD` na `epic/v2`, nasazení neproběhlo.
+**Staging jede na `latest`** — každý push do `epic/v2` ho nasadí. **Produkce jede na `prod`**
+a ten tag se přesměruje výhradně ručním spuštěním workflow *Deploy* s konkrétním sha; postup
+je v [runbooku](../../docs/runbooks/nasazeni-do-produkce.md). Kdo do produkčního
+`APP_VERSION` napíše `latest`, obejde tím celé schvalování.
+
+Co reálně běží, řekne `/health/live` — vrací verzi i git SHA.
 
 ## Zálohy
 
@@ -87,4 +109,6 @@ docker exec -it <kontejner-api> /opt/appreviewzz/bin/appreviewzz backup list
 ```
 
 Alarm si postav nad metrikou `appreviewzz_backup_last_success_age_seconds` (port 8081) —
-prahem je zhruba 30 hodin, tedy jedna zmeškaná noční záloha.
+prahem je zhruba 30 hodin, tedy jedna zmeškaná noční záloha. Náš provoz to řeší mimo
+hostitele terraform modulem `backup-freshness`, který se ptá přímo S3: to, že job doběhl,
+totiž ještě neznamená, že objekt někam dosedl.
