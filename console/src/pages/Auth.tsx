@@ -10,7 +10,7 @@ import {
   useVerifySecondFactor,
 } from '../api/hooks'
 import { needsSecondFactor } from '../api/types'
-import { Card, ErrorBox, Field } from '../components/ui'
+import { AuthShell, Card, ErrorBox, Field } from '../components/ui'
 import { useEffect } from 'react'
 
 /** Nejkratší heslo, které projde na serveru. Když se to změní, řekne to server větou. */
@@ -31,8 +31,8 @@ export function LoginPage() {
   if (challenge) return <SecondFactorForm challenge={challenge} onDone={goOn} onCancel={() => setChallenge(null)} />
 
   return (
-    <div className="center">
-      <Card title="Přihlášení do appreviewzz">
+    <AuthShell>
+      <Card title="Přihlášení">
         <form
           onSubmit={(event) => {
             event.preventDefault()
@@ -70,7 +70,7 @@ export function LoginPage() {
           <Link to="/registrace">Založit účet</Link> · <Link to="/zapomenute-heslo">Zapomenuté heslo</Link>
         </p>
       </Card>
-    </div>
+    </AuthShell>
   )
 }
 
@@ -91,7 +91,7 @@ function SecondFactorForm({
   const verify = useVerifySecondFactor()
 
   return (
-    <div className="center">
+    <AuthShell>
       <Card title="Kód z autentizační appky">
         <form
           onSubmit={(event) => {
@@ -122,7 +122,7 @@ function SecondFactorForm({
           </button>
         </p>
       </Card>
-    </div>
+    </AuthShell>
   )
 }
 
@@ -134,7 +134,7 @@ export function RegisterPage() {
   const navigate = useNavigate()
 
   return (
-    <div className="center">
+    <AuthShell>
       <Card title="Založení účtu">
         <form
           onSubmit={(event) => {
@@ -169,7 +169,7 @@ export function RegisterPage() {
           Už účet máš? <Link to="/login">Přihlásit se</Link>
         </p>
       </Card>
-    </div>
+    </AuthShell>
   )
 }
 
@@ -185,7 +185,7 @@ export function VerifyEmailPage() {
   }, [token, mutate])
 
   return (
-    <div className="center">
+    <AuthShell>
       <Card title="Potvrzení e-mailu">
         {!token ? <div className="error">Odkaz nemá token — otevři ho prosím přímo z e-mailu.</div> : null}
         {verify.isPending ? <p className="muted">Ověřuji…</p> : null}
@@ -195,7 +195,7 @@ export function VerifyEmailPage() {
           <Link to="/">Pokračovat do console</Link>
         </p>
       </Card>
-    </div>
+    </AuthShell>
   )
 }
 
@@ -204,7 +204,7 @@ export function ForgotPasswordPage() {
   const forgot = useForgotPassword()
 
   return (
-    <div className="center">
+    <AuthShell>
       <Card title="Obnova hesla">
         {forgot.isSuccess ? (
           <>
@@ -234,7 +234,7 @@ export function ForgotPasswordPage() {
           <Link to="/login">Zpátky na přihlášení</Link>
         </p>
       </Card>
-    </div>
+    </AuthShell>
   )
 }
 
@@ -245,7 +245,7 @@ export function ResetPasswordPage() {
   const reset = useResetPassword()
 
   return (
-    <div className="center">
+    <AuthShell>
       <Card title="Nové heslo">
         {reset.isSuccess ? (
           <>
@@ -281,7 +281,7 @@ export function ResetPasswordPage() {
           </form>
         )}
       </Card>
-    </div>
+    </AuthShell>
   )
 }
 
@@ -296,7 +296,7 @@ export function AcceptInvitationPage({ signedIn }: { signedIn: boolean }) {
   const navigate = useNavigate()
 
   return (
-    <div className="center">
+    <AuthShell>
       <Card title="Pozvánka do organizace">
         {!token ? <div className="error">Odkaz nemá token — otevři ho prosím přímo z e-mailu.</div> : null}
         {!signedIn ? (
@@ -323,6 +323,6 @@ export function AcceptInvitationPage({ signedIn }: { signedIn: boolean }) {
           </>
         )}
       </Card>
-    </div>
+    </AuthShell>
   )
 }

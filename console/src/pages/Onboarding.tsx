@@ -81,11 +81,13 @@ export function OnboardingPage() {
     },
     {
       title: 'Nastavení',
-      done: firstApp?.notifyFrom != null,
+      done: firstApp != null,
       detail:
         firstApp?.notifyFrom != null
-          ? 'Notifikace se posílají jen u recenzí novějších než nastavené datum.'
-          : 'U appky, která už recenze má, nastav datum, od kterého chodí notifikace — jinak první stažení zaplaví kanál.',
+          ? `Do kanálu jdou jen recenze novější než ${new Date(firstApp.notifyFrom).toLocaleDateString('cs-CZ', {
+              dateStyle: 'medium',
+            })} — datum se nastavilo při přidání appky a v nastavení jde posunout. Starší recenze se ukládají do historie, ale nenotifikují.`
+          : 'Po přidání appky se datum, od kterého chodí notifikace, nastaví na den přidání — starší recenze kanál nezaplaví.',
       action: { label: 'Otevřít nastavení', to: appPath },
     },
   ]

@@ -10,6 +10,48 @@ export function Card({ title, children }: { title?: string; children: ReactNode 
   )
 }
 
+/** Hvězdička ve čtverečku — tentýž tvar jako favicona, ať se značka nerozchází. */
+function BrandMark() {
+  return (
+    <span className="brand-mark" aria-hidden="true">
+      <svg viewBox="0 0 32 32" fill="currentColor">
+        <path d="M16 6.5l3.1 6.3 7 1-5 4.9 1.2 6.9-6.3-3.3-6.3 3.3 1.2-6.9-5-4.9 7-1z" />
+      </svg>
+    </span>
+  )
+}
+
+/** Značka: hvězdička a název. Jinde než v hlavičkách se nepoužívá. */
+export function Brand({ subtitle }: { subtitle?: ReactNode }) {
+  return (
+    <div className="brand">
+      <BrandMark />
+      <div>
+        <div className="brand-name">appreviewzz</div>
+        {subtitle ? <div className="brand-org">{subtitle}</div> : null}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Rám pro obrazovky bez navigace (přihlášení, pozvánka, rozcestník). Značka nad kartou
+ * je jediné, co člověku před přihlášením řekne, kde vlastně je.
+ */
+export function AuthShell({ wide, children }: { wide?: boolean; children: ReactNode }) {
+  return (
+    <div className="center">
+      <div className={wide ? 'auth wide' : 'auth'}>
+        <div className="auth-brand">
+          <BrandMark />
+          <span className="brand-name">appreviewzz</span>
+        </div>
+        {children}
+      </div>
+    </div>
+  )
+}
+
 export function Field({
   label,
   hint,
@@ -40,7 +82,12 @@ export function ErrorBox({ error }: { error: unknown }) {
 }
 
 export function Loading({ what = 'Načítám…' }: { what?: string }) {
-  return <p className="muted">{what}</p>
+  return (
+    <div className="loading">
+      <span className="spinner" aria-hidden="true" />
+      <span>{what}</span>
+    </div>
+  )
 }
 
 export function Empty({ children }: { children: ReactNode }) {

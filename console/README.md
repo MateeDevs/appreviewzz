@@ -25,6 +25,10 @@ cizí origin nefungovala stejně jako v produkci.
 
 - **Žádná komponentová knihovna.** Console má pár desítek obrazovek a jedno téma; vlastní
   CSS (`src/styles.css`) je kratší než konfigurace design systému a nemá co zastarat.
+  Barvy, rádiusy a stíny jsou nahoře v souboru jako proměnné ve dvou sadách (světlá a tmavá),
+  takže se vzhled ladí na jednom místě.
+- **Žádné externí písmo.** CSP pouští `font-src` jen z vlastního originu a self-hostovaný
+  webfont by za pár set kilobajtů koupil rozdíl, kterého si nikdo nevšimne — proto systémové.
 - **Žádný stav mimo TanStack Query.** Pravda je na serveru, klient je jen pohled — proto
   tu není redux ani globální store.
 - **Žádný token v `localStorage`.** Session je `httpOnly` cookie, kterou JavaScript nevidí;

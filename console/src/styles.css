@@ -1,37 +1,71 @@
 /*
  * Vlastní CSS místo komponentové knihovny. Console má pár desítek obrazovek a jedno téma;
  * design systém by sem přitáhl víc závislostí, než kolik by ušetřil řádků.
+ *
+ * Písmo je schválně systémové: CSP nepouští `font-src` mimo vlastní origin a self-hostovaný
+ * Inter by za pár set kilobajtů koupil rozdíl, kterého si nikdo nevšimne.
  */
 :root {
-  --bg: #f6f7f9;
+  color-scheme: light dark;
+
+  --bg: #f5f6f9;
+  --bg-tint: #eef1f7;
   --surface: #ffffff;
-  --border: #dfe3e8;
-  --text: #16191d;
+  --surface-2: #f2f4f8;
+  --border: #e3e7ee;
+  --border-strong: #d2d8e2;
+  --text: #0f1419;
   --muted: #5f6b7a;
-  --accent: #2f6feb;
+  --faint: #8a94a3;
+
+  --accent: #4f46e5;
+  --accent-hover: #4338ca;
   --accent-text: #ffffff;
-  --ok: #17795e;
-  --warn: #9a6700;
+  --accent-soft: rgba(79, 70, 229, 0.09);
+  --accent-ring: rgba(79, 70, 229, 0.22);
+
+  --ok: #067647;
+  --ok-soft: #ecfdf3;
+  --warn: #b54708;
+  --warn-soft: #fff8ec;
   --error: #b42318;
-  --error-bg: #fdf1f0;
-  --radius: 10px;
-  --shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
+  --error-bg: #fef3f2;
+  --star: #f0a500;
+
+  --radius: 14px;
+  --radius-sm: 9px;
+  --shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 1px 3px rgba(16, 24, 40, 0.04);
+  --shadow-lg: 0 10px 30px -12px rgba(16, 24, 40, 0.22), 0 2px 6px rgba(16, 24, 40, 0.05);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #14171c;
-    --surface: #1c2027;
-    --border: #2c323b;
-    --text: #e8eaed;
-    --muted: #9aa4b2;
-    --accent: #6a9bff;
-    --accent-text: #10141a;
+    --bg: #0d0f14;
+    --bg-tint: #10131a;
+    --surface: #151922;
+    --surface-2: #1c212b;
+    --border: #262c38;
+    --border-strong: #333b4a;
+    --text: #e7eaf0;
+    --muted: #98a2b3;
+    --faint: #77808f;
+
+    --accent: #818cf8;
+    --accent-hover: #9aa3fb;
+    --accent-text: #0f1220;
+    --accent-soft: rgba(129, 140, 248, 0.14);
+    --accent-ring: rgba(129, 140, 248, 0.3);
+
     --ok: #4ec9a3;
+    --ok-soft: rgba(78, 201, 163, 0.12);
     --warn: #e3b341;
+    --warn-soft: rgba(227, 179, 65, 0.12);
     --error: #ff7b72;
-    --error-bg: #2a1a1a;
-    --shadow: none;
+    --error-bg: rgba(255, 123, 114, 0.11);
+    --star: #f5be4d;
+
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 16px 40px -20px rgba(0, 0, 0, 0.8), 0 2px 8px rgba(0, 0, 0, 0.35);
   }
 }
 
@@ -41,146 +75,369 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font: 15px/1.5 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font: 15px/1.55 system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-a { color: var(--accent); }
+::selection { background: var(--accent-soft); }
 
-h1 { font-size: 1.5rem; margin: 0 0 0.25rem; }
-h2 { font-size: 1.15rem; margin: 0 0 0.75rem; }
-h3 { font-size: 1rem; margin: 0 0 0.5rem; }
+a {
+  color: var(--accent);
+  text-decoration-color: color-mix(in srgb, var(--accent) 35%, transparent);
+  text-underline-offset: 2px;
+}
+a:hover { text-decoration-color: currentColor; }
+
+h1 { font-size: 1.55rem; font-weight: 640; letter-spacing: -0.02em; margin: 0; }
+h2 { font-size: 1.05rem; font-weight: 600; letter-spacing: -0.01em; margin: 0 0 0.85rem; }
+h3 { font-size: 0.95rem; font-weight: 600; margin: 0 0 0.5rem; }
 p { margin: 0 0 0.75rem; }
+p:last-child { margin-bottom: 0; }
+
+/* Podtitulek pod nadpisem stránky. Sází se jen tady, tak ať nemusí do každé stránky třída. */
+h1 + p { margin-top: 0.3rem; color: var(--muted); }
 
 .muted { color: var(--muted); }
 .small { font-size: 0.85rem; }
-.row { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
+.row { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
 .spread { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
-.stack { display: flex; flex-direction: column; gap: 1rem; }
+.stack { display: flex; flex-direction: column; gap: 1.15rem; }
 .grow { flex: 1; }
 
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 /* --- layout --- */
-.shell { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
+.shell { display: grid; grid-template-columns: 252px 1fr; min-height: 100vh; }
+
 .sidebar {
   background: var(--surface);
   border-right: 1px solid var(--border);
-  padding: 1.25rem 1rem;
+  padding: 1.15rem 0.85rem 1rem;
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 1.1rem;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
 }
-.sidebar nav { display: flex; flex-direction: column; gap: 0.15rem; }
+
+.brand { display: flex; align-items: center; gap: 0.6rem; padding: 0 0.35rem; }
+.brand-mark {
+  width: 30px;
+  height: 30px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: linear-gradient(140deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #22d3ee));
+  color: var(--accent-text);
+}
+.brand-mark svg { width: 17px; height: 17px; }
+.brand-name { font-weight: 640; letter-spacing: -0.02em; line-height: 1.2; }
+.brand-org {
+  font-size: 0.78rem;
+  color: var(--muted);
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 150px;
+}
+
+.sidebar nav { display: flex; flex-direction: column; gap: 0.1rem; }
 .sidebar nav a {
-  padding: 0.45rem 0.6rem;
-  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.48rem 0.6rem;
+  border-radius: var(--radius-sm);
   text-decoration: none;
-  color: var(--text);
+  color: var(--muted);
+  font-size: 0.92rem;
+  font-weight: 500;
+  transition: background 0.12s ease, color 0.12s ease;
 }
-.sidebar nav a:hover { background: var(--bg); }
-.sidebar nav a.active { background: var(--accent); color: var(--accent-text); }
-.brand { font-weight: 600; letter-spacing: -0.01em; }
-.content { padding: 1.75rem 2rem; max-width: 1100px; }
+.sidebar nav a svg { width: 17px; height: 17px; flex: none; opacity: 0.85; }
+.sidebar nav a:hover { background: var(--surface-2); color: var(--text); }
+.sidebar nav a.active { background: var(--accent-soft); color: var(--accent); }
+.sidebar nav a.active svg { opacity: 1; }
 
-@media (max-width: 760px) {
+.sidebar-foot {
+  border-top: 1px solid var(--border);
+  padding: 0.85rem 0.6rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+}
+.sidebar-foot .who { color: var(--text); font-weight: 500; overflow: hidden; text-overflow: ellipsis; }
+.sidebar-foot a { color: var(--muted); text-decoration: none; }
+.sidebar-foot a:hover { color: var(--accent); }
+.sidebar-foot button.link { align-self: flex-start; }
+
+.content {
+  padding: 2rem 2.25rem 4rem;
+  max-width: 1120px;
+  width: 100%;
+}
+
+@media (max-width: 860px) {
   .shell { grid-template-columns: 1fr; }
-  .sidebar { border-right: none; border-bottom: 1px solid var(--border); }
-  .content { padding: 1.25rem; }
+  .sidebar {
+    position: static;
+    height: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    gap: 0.75rem;
+    padding: 0.85rem 1rem;
+  }
+  .sidebar nav {
+    flex-direction: row;
+    gap: 0.25rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin: 0 -1rem;
+    padding: 0 1rem;
+  }
+  .sidebar nav::-webkit-scrollbar { display: none; }
+  .sidebar nav a { white-space: nowrap; }
+  .sidebar .grow { display: none; }
+  .sidebar-foot { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 0.75rem; padding: 0.6rem 0 0; }
+  .content { padding: 1.25rem 1rem 3rem; }
+  /* Na úzké obrazovce se do tabulky nevejde dlouhý identifikátor úlohy; ať se raději zalomí,
+     než aby přetekl z karty. */
+  th, td { padding: 0.55rem 0.4rem; }
+  td, tbody th { overflow-wrap: anywhere; }
+  tbody th { width: 8rem; }
 }
 
-/* --- centered auth pages --- */
+/* --- centrované stránky (přihlášení, rozcestník) --- */
 .center {
   min-height: 100vh;
   display: grid;
   place-items: center;
-  padding: 1.5rem;
+  padding: 2rem 1.25rem;
+  background:
+    radial-gradient(60rem 30rem at 50% -10%, var(--accent-soft), transparent 70%),
+    linear-gradient(180deg, var(--bg-tint), var(--bg) 45%);
 }
-.center .card { width: min(420px, 100%); }
+.center .card { width: 100%; box-shadow: var(--shadow-lg); }
+.auth { width: min(420px, 100%); display: flex; flex-direction: column; gap: 1.1rem; }
+.auth.wide { width: min(600px, 100%); }
+.auth-brand { display: flex; align-items: center; gap: 0.6rem; justify-content: center; }
+.auth-brand .brand-name { font-size: 1.05rem; }
+.auth-foot { text-align: center; font-size: 0.85rem; color: var(--muted); }
 
-/* --- cards, forms --- */
+/* Karty v .auth řadí mezera flexboxu, aby se nesčítala s vlastním odsazením karty. */
+.auth .card + .card { margin-top: 0; }
+
+/* Seznam odkazů (organizace na rozcestníku) — řádky, ne odrážky. */
+.list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.65rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.list li:first-child { padding-top: 0; }
+.list li:last-child { border-bottom: none; padding-bottom: 0; }
+.list a { font-weight: 500; text-decoration: none; }
+.list a:hover { text-decoration: underline; }
+
+/* --- karty, formuláře --- */
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 1.25rem;
+  padding: 1.35rem;
   box-shadow: var(--shadow);
 }
-.card + .card { margin-top: 1rem; }
+.card + .card { margin-top: 1.15rem; }
+.card > h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-bottom: 0.85rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
 
-label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.25rem; }
+label {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 0.35rem;
+}
 input, select, textarea {
   width: 100%;
-  padding: 0.5rem 0.65rem;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg);
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
   color: var(--text);
   font: inherit;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
 }
-textarea { min-height: 90px; resize: vertical; }
-input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
-.field + .field { margin-top: 0.75rem; }
-.hint { font-size: 0.8rem; color: var(--muted); margin-top: 0.25rem; }
+input::placeholder, textarea::placeholder { color: var(--faint); }
+textarea { min-height: 96px; resize: vertical; }
+input:hover, select:hover, textarea:hover { border-color: var(--faint); }
+input:focus, select:focus, textarea:focus, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+/* Vlastní šipka: nativní vzhled selectu se v obou tématech chová jinak než zbytek polí. */
+select {
+  appearance: none;
+  padding-right: 2.1rem;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5' fill='none' stroke='%23808a99' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.7rem center;
+}
+.field + .field { margin-top: 0.85rem; }
+.hint { font-size: 0.8rem; color: var(--muted); margin-top: 0.3rem; }
 
 button {
-  padding: 0.5rem 0.9rem;
-  border-radius: 8px;
-  border: 1px solid var(--accent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.52rem 0.95rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
   background: var(--accent);
   color: var(--accent-text);
   font: inherit;
+  font-weight: 550;
   cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease, transform 0.06s ease;
 }
+button:hover:not(:disabled) { background: var(--accent-hover); }
+button:active:not(:disabled) { transform: translateY(1px); }
 button:disabled { opacity: 0.55; cursor: progress; }
-button.secondary { background: transparent; color: var(--text); border-color: var(--border); }
-button.danger { background: transparent; color: var(--error); border-color: var(--border); }
-button.link { background: none; border: none; color: var(--accent); padding: 0; text-decoration: underline; }
 
-/* --- feedback --- */
-.error {
-  background: var(--error-bg);
-  border: 1px solid var(--error);
-  color: var(--error);
-  border-radius: 8px;
-  padding: 0.6rem 0.75rem;
-  font-size: 0.9rem;
+button.secondary {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--border-strong);
 }
-.notice {
+button.secondary:hover:not(:disabled) { background: var(--surface-2); border-color: var(--faint); }
+
+button.danger { background: transparent; color: var(--error); border-color: var(--border-strong); }
+button.danger:hover:not(:disabled) { background: var(--error-bg); border-color: var(--error); }
+
+button.link {
+  background: none;
+  border: none;
+  color: var(--accent);
+  padding: 0;
+  font-weight: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+button.link:hover:not(:disabled) { background: none; color: var(--accent-hover); }
+
+/* --- zpětná vazba --- */
+.error, .notice {
+  border-radius: var(--radius-sm);
+  padding: 0.65rem 0.8rem;
+  font-size: 0.9rem;
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 0.6rem 0.75rem;
-  font-size: 0.9rem;
-  background: var(--bg);
+  border-left-width: 3px;
 }
+.error { background: var(--error-bg); border-color: var(--error); color: var(--error); }
+.notice { background: var(--surface-2); border-left-color: var(--border-strong); }
+
 .badge {
-  display: inline-block;
-  padding: 0.1rem 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.55rem;
   border-radius: 999px;
-  font-size: 0.75rem;
-  border: 1px solid var(--border);
+  font-size: 0.76rem;
+  font-weight: 500;
+  line-height: 1.5;
+  border: 1px solid transparent;
+  background: var(--surface-2);
   color: var(--muted);
 }
-.badge.ok { color: var(--ok); border-color: var(--ok); }
-.badge.warn { color: var(--warn); border-color: var(--warn); }
-.badge.bad { color: var(--error); border-color: var(--error); }
+.badge.ok { color: var(--ok); background: var(--ok-soft); }
+.badge.warn { color: var(--warn); background: var(--warn-soft); }
+.badge.bad { color: var(--error); background: var(--error-bg); }
+
+/* Načítání: kolečko místo holé věty — ať je vidět, že se něco děje. */
+.loading { display: flex; align-items: center; gap: 0.55rem; color: var(--muted); }
+.spinner {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid var(--border-strong);
+  border-top-color: var(--accent);
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 
 table { width: 100%; border-collapse: collapse; }
-th, td { text-align: left; padding: 0.55rem 0.5rem; border-bottom: 1px solid var(--border); vertical-align: top; }
-th { font-size: 0.8rem; color: var(--muted); font-weight: 500; }
-tr:last-child td { border-bottom: none; }
+th, td { text-align: left; padding: 0.65rem 0.6rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+th:first-child, td:first-child { padding-left: 0; }
+th:last-child, td:last-child { padding-right: 0; }
+thead th {
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-weight: 550;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+/* Tabulka klíč–hodnota (přehled aplikace): záhlaví je v řádku, ne nahoře. */
+tbody th { font-size: 0.85rem; font-weight: 500; color: var(--muted); width: 11rem; }
+tbody tr:last-child td, tbody tr:last-child th { border-bottom: none; }
+tbody tr { transition: background 0.1s ease; }
+thead + tbody tr:hover { background: var(--surface-2); }
 
-.review { border-bottom: 1px solid var(--border); padding: 0.9rem 0; }
-.review:last-child { border-bottom: none; }
-.stars { color: var(--warn); letter-spacing: 0.1em; }
-.steps { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
-.step { padding: 0.3rem 0.7rem; border-radius: 999px; border: 1px solid var(--border); font-size: 0.85rem; color: var(--muted); }
-.step.current { border-color: var(--accent); color: var(--accent); }
-.step.done { border-color: var(--ok); color: var(--ok); }
-code { background: var(--bg); padding: 0.1rem 0.3rem; border-radius: 5px; font-size: 0.85em; }
+.review { border-bottom: 1px solid var(--border); padding: 1rem 0; }
+.review:first-child { padding-top: 0; }
+.review:last-child { border-bottom: none; padding-bottom: 0; }
+.stars { color: var(--star); letter-spacing: 0.08em; }
+
+.steps { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+.step {
+  padding: 0.32rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 0.83rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+.step.current { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.step.done { border-color: transparent; background: var(--ok-soft); color: var(--ok); }
+
+code {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  padding: 0.08rem 0.32rem;
+  border-radius: 6px;
+  font-size: 0.85em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
 
 /* Graf hodnocení. Inline SVG bez knihovny — jedna čára nestojí za 100 kB v bundlu. */
 .chart { width: 100%; height: auto; display: block; }
 .chart-axis { stroke: var(--border); stroke-width: 1; }
-.chart-line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; }
-.chart-area { fill: var(--accent); opacity: 0.08; stroke: none; }
+.chart-line { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.chart-area { fill: var(--accent); opacity: 0.1; stroke: none; }
 .chart-dot { fill: var(--accent); }
 .chart-label { fill: var(--muted); font-size: 10px; }
 .chart-value { fill: var(--accent); font-size: 12px; font-weight: 600; }
@@ -189,11 +446,26 @@ code { background: var(--bg); padding: 0.1rem 0.3rem; border-radius: 5px; font-s
 .codes {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.95rem;
-  line-height: 1.8;
+  line-height: 1.9;
   letter-spacing: 0.05em;
-  background: var(--bg);
+  background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 0.75rem 1rem;
+  padding: 0.85rem 1.1rem;
   margin: 0 0 1rem;
+}
+
+/* Karta se při doběhnutí dat objeví, místo aby blikla. */
+.card { animation: rise 0.22s ease both; }
+@keyframes rise {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

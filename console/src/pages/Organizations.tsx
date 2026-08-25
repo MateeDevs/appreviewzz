@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useCreateOrganization, useMe, useOrganizations, useResendVerification } from '../api/hooks'
-import { Card, ErrorBox, Field, Loading } from '../components/ui'
+import { AuthShell, Card, ErrorBox, Field, Loading } from '../components/ui'
 
 /**
  * Rozcestník: seznam organizací a založení nové.
@@ -21,60 +21,58 @@ export function OrganizationsPage() {
   const verified = me.data?.emailVerified ?? false
 
   return (
-    <div className="center">
-      <div style={{ width: 'min(560px, 100%)' }}>
-        <Card title="Tvoje organizace">
-          {organizations.isPending ? <Loading /> : null}
-          <ErrorBox error={organizations.error} />
-          {organizations.data?.length === 0 ? (
-            <p className="muted">Zatím žádná. Založ první a přizvi si do ní kolegy.</p>
-          ) : (
-            <ul>
-              {organizations.data?.map((organization) => (
-                <li key={organization.id}>
-                  <Link to={`/${organization.slug}`}>{organization.name}</Link>{' '}
-                  <span className="small muted">({organization.role.toLowerCase()})</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
+    <AuthShell wide>
+      <Card title="Tvoje organizace">
+        {organizations.isPending ? <Loading /> : null}
+        <ErrorBox error={organizations.error} />
+        {organizations.data?.length === 0 ? (
+          <p className="muted">Zatím žádná. Založ první a přizvi si do ní kolegy.</p>
+        ) : (
+          <ul className="list">
+            {organizations.data?.map((organization) => (
+              <li key={organization.id}>
+                <Link to={`/${organization.slug}`}>{organization.name}</Link>
+                <span className="badge">{organization.role.toLowerCase()}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
 
-        <Card title="Nová organizace">
-          {!verified ? (
-            <div className="notice">
-              Nejdřív potvrď e-mail — poslali jsme ti odkaz na <strong>{me.data?.email}</strong>.{' '}
-              <button type="button" className="link" onClick={() => resend.mutate()} disabled={resend.isPending}>
-                Poslat znovu
+      <Card title="Nová organizace">
+        {!verified ? (
+          <div className="notice">
+            Nejdřív potvrď e-mail — poslali jsme ti odkaz na <strong>{me.data?.email}</strong>.{' '}
+            <button type="button" className="link" onClick={() => resend.mutate()} disabled={resend.isPending}>
+              Poslat znovu
+            </button>
+            {resend.isSuccess ? <span className="muted"> · odesláno</span> : null}
+          </div>
+        ) : (
+          <form
+            onSubmit={(event) => {
+              event.preventDefault()
+              create.mutate(
+                { name, slug: slug.trim() === '' ? undefined : slug.trim() },
+                { onSuccess: (organization) => navigate(`/${organization.slug}/onboarding`) },
+              )
+            }}
+          >
+            <Field label="Název">
+              <input value={name} onChange={(e) => setName(e.target.value)} required />
+            </Field>
+            <Field label="Adresa (nepovinné)" hint="Odvodí se z názvu; používá se v odkazech do console.">
+              <input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="matee" />
+            </Field>
+            <div className="stack" style={{ marginTop: '1rem' }}>
+              <ErrorBox error={create.error} />
+              <button type="submit" disabled={create.isPending}>
+                Založit organizaci
               </button>
-              {resend.isSuccess ? <span className="muted"> · odesláno</span> : null}
             </div>
-          ) : (
-            <form
-              onSubmit={(event) => {
-                event.preventDefault()
-                create.mutate(
-                  { name, slug: slug.trim() === '' ? undefined : slug.trim() },
-                  { onSuccess: (organization) => navigate(`/${organization.slug}/onboarding`) },
-                )
-              }}
-            >
-              <Field label="Název">
-                <input value={name} onChange={(e) => setName(e.target.value)} required />
-              </Field>
-              <Field label="Adresa (nepovinné)" hint="Odvodí se z názvu; používá se v odkazech do console.">
-                <input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="matee" />
-              </Field>
-              <div className="stack" style={{ marginTop: '1rem' }}>
-                <ErrorBox error={create.error} />
-                <button type="submit" disabled={create.isPending}>
-                  Založit organizaci
-                </button>
-              </div>
-            </form>
-          )}
-        </Card>
-      </div>
-    </div>
+          </form>
+        )}
+      </Card>
+  </AuthShell>
   )
 }

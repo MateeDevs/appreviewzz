@@ -8,7 +8,7 @@ import {
   useRegenerateRecoveryCodes,
   useStartTotp,
 } from '../api/hooks'
-import { Badge, Card, ErrorBox, Field, Loading } from '../components/ui'
+import { AuthShell, Badge, Card, ErrorBox, Field, Loading } from '../components/ui'
 
 /**
  * Zabezpečení účtu (F5.3). Druhý faktor je věc uživatele, ne organizace — proto je stránka
@@ -18,7 +18,7 @@ export function SecurityPage() {
   const status = useMfaStatus()
 
   return (
-    <div className="center">
+    <AuthShell>
       <Card title="Zabezpečení účtu">
         {status.isPending ? <Loading /> : null}
         <ErrorBox error={status.error} />
@@ -33,7 +33,7 @@ export function SecurityPage() {
           <Link to="/">Zpátky do console</Link>
         </p>
       </Card>
-    </div>
+    </AuthShell>
   )
 }
 

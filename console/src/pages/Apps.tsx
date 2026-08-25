@@ -27,6 +27,7 @@ export function AppsPage() {
   const [name, setName] = useState('')
   const [gpPackage, setGpPackage] = useState('')
   const [ascAppId, setAscAppId] = useState('')
+  const [notifyFrom, setNotifyFrom] = useState('')
 
   return (
     <div className="stack">
@@ -74,12 +75,15 @@ export function AppsPage() {
                 name,
                 gpPackageName: gpPackage.trim() === '' ? null : gpPackage.trim(),
                 ascAppId: ascAppId.trim() === '' ? null : ascAppId.trim(),
+                // Prázdné pole nechává rozhodnutí na serveru: watermarkem je čas přidání appky.
+                notifyFrom: dayToInstant(notifyFrom),
               },
               {
                 onSuccess: () => {
                   setName('')
                   setGpPackage('')
                   setAscAppId('')
+                  setNotifyFrom('')
                 },
               },
             )
@@ -93,6 +97,12 @@ export function AppsPage() {
           </Field>
           <Field label="App Store — číselné App ID" hint="Najdeš ho v App Store Connect v adrese appky.">
             <input value={ascAppId} onChange={(e) => setAscAppId(e.target.value)} placeholder="1234567890" />
+          </Field>
+          <Field
+            label="Posílat recenze od"
+            hint="Prázdné = ode dneška. Starší recenze se stáhnou do historie, ale do kanálu nepůjdou — jinak první stažení vysype do Slacku celou historii appky."
+          >
+            <input type="date" value={notifyFrom} onChange={(e) => setNotifyFrom(e.target.value)} />
           </Field>
           <div className="stack" style={{ marginTop: '1rem' }}>
             <ErrorBox error={create.error} />
@@ -144,8 +154,12 @@ function AppSettingsCard({ org, appId }: { org: string; appId: string }) {
     timezone: app.timezone,
     ingestIntervalMinutes: String(app.ingestIntervalMinutes),
     dailyDigestAt: app.dailyDigestAt.slice(0, 5),
+    notifyFrom: instantToDay(app.notifyFrom),
     aiInstructions: app.aiInstructions ?? '',
   }
+  // Posílat jen změněné datum: jinak by uložení nastavení posunulo watermark na půlnoc
+  // toho dne a zahodilo přesný čas, na kterém se appka založila.
+  const notifyFromChanged = values.notifyFrom !== instantToDay(app.notifyFrom)
   const set = (key: string, value: string) => setDraft({ ...values, [key]: value })
 
   return (
@@ -163,6 +177,7 @@ function AppSettingsCard({ org, appId }: { org: string; appId: string }) {
                 timezone: values.timezone,
                 ingestIntervalMinutes: Number(values.ingestIntervalMinutes),
                 dailyDigestAt: values.dailyDigestAt,
+                notifyFrom: notifyFromChanged ? dayToInstant(values.notifyFrom) : null,
                 aiInstructions: values.aiInstructions === '' ? null : values.aiInstructions,
                 enabled: app.enabled,
               },
@@ -206,6 +221,23 @@ function AppSettingsCard({ org, appId }: { org: string; appId: string }) {
         </Field>
         <Field label="Čas denního přehledu">
           <input type="time" value={values.dailyDigestAt} onChange={(e) => set('dailyDigestAt', e.target.value)} />
+        </Field>
+        <Field
+          label="Posílat recenze od"
+          hint={
+            <>
+              Do kanálu jdou jen recenze novější než tohle datum; starší zůstávají v historii.
+              {app.notifyFrom ? (
+                <>
+                  {' '}
+                  Teď platí <When iso={app.notifyFrom} />.
+                </>
+              ) : null}{' '}
+              Posunutí data dozadu už jednou potlačené recenze nepošle.
+            </>
+          }
+        >
+          <input type="date" value={values.notifyFrom} onChange={(e) => set('notifyFrom', e.target.value)} />
         </Field>
         <Field
           label="Instrukce pro AI návrhy"
@@ -605,4 +637,19 @@ function ChannelsCard({ org, appId }: { org: string; appId: string }) {
       )}
     </Card>
   )
+}
+
+/**
+ * `<input type="date">` umí jen den; watermark je okamžik, tak z něj bereme půlnoc v zóně
+ * prohlížeče. Prázdné pole je `null` — server si pak dosadí vlastní výchozí hodnotu.
+ */
+function dayToInstant(day: string | undefined): string | null {
+  return day ? new Date(`${day}T00:00:00`).toISOString() : null
+}
+
+/** Opačný směr: watermark ze serveru jako den v místní zóně, ne v UTC. */
+function instantToDay(iso: string | null): string {
+  if (!iso) return ''
+  const date = new Date(iso)
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 10)
 }

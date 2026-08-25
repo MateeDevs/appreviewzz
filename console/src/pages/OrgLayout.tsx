@@ -1,5 +1,14 @@
 import { NavLink, Navigate, Outlet, useParams } from 'react-router-dom'
 import { useLogout, useMe } from '../api/hooks'
+import { Brand } from '../components/ui'
+import {
+  IconApps,
+  IconAudit,
+  IconGuide,
+  IconOverview,
+  IconReviews,
+  IconTeam,
+} from '../components/icons'
 
 /**
  * Rám organizace: navigace a přepínač účtu. Organizace se v adrese identifikuje slugem,
@@ -17,34 +26,43 @@ export function OrgLayout() {
   return (
     <div className="shell">
       <aside className="sidebar">
-        <div>
-          <div className="brand">appreviewzz</div>
-          <div className="small muted">{membership?.name ?? org}</div>
-        </div>
+        <Brand subtitle={membership?.name ?? org} />
         <nav>
           <NavLink to={`/${org}`} end>
+            <IconOverview />
             Přehled
           </NavLink>
-          <NavLink to={`/${org}/recenze`}>Recenze</NavLink>
-          <NavLink to={`/${org}/aplikace`}>Aplikace</NavLink>
-          <NavLink to={`/${org}/tym`}>Tým</NavLink>
-          <NavLink to={`/${org}/audit`}>Audit</NavLink>
-          <NavLink to={`/${org}/onboarding`}>Průvodce</NavLink>
+          <NavLink to={`/${org}/recenze`}>
+            <IconReviews />
+            Recenze
+          </NavLink>
+          <NavLink to={`/${org}/aplikace`}>
+            <IconApps />
+            Aplikace
+          </NavLink>
+          <NavLink to={`/${org}/tym`}>
+            <IconTeam />
+            Tým
+          </NavLink>
+          <NavLink to={`/${org}/audit`}>
+            <IconAudit />
+            Audit
+          </NavLink>
+          <NavLink to={`/${org}/onboarding`}>
+            <IconGuide />
+            Průvodce
+          </NavLink>
         </nav>
         <div className="grow" />
-        <div className="small muted">
-          <div>{me.data?.displayName ?? me.data?.email}</div>
-          <div style={{ marginTop: '0.25rem' }}>
-            <NavLink to="/zabezpeceni">Zabezpečení účtu</NavLink>
-          </div>
+        <div className="sidebar-foot">
+          <div className="who">{me.data?.displayName ?? me.data?.email}</div>
+          <NavLink to="/zabezpeceni">Zabezpečení účtu</NavLink>
+          {me.data && me.data.organizations.length > 1 ? (
+            <NavLink to="/organizace">Přepnout organizaci</NavLink>
+          ) : null}
           <button type="button" className="link" onClick={() => logout.mutate()}>
             Odhlásit se
           </button>
-          {me.data && me.data.organizations.length > 1 ? (
-            <div style={{ marginTop: '0.5rem' }}>
-              <NavLink to="/organizace">Přepnout organizaci</NavLink>
-            </div>
-          ) : null}
         </div>
       </aside>
       <main className="content">
