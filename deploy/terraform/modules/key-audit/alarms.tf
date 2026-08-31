@@ -36,8 +36,18 @@ resource "aws_sns_topic_policy" "alarms" {
         Sid       = "AllowAccountAdministration"
         Effect    = "Allow"
         Principal = { AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root" }
-        Action    = "SNS:*"
-        Resource  = aws_sns_topic.alarms.arn
+        Action = [
+          "SNS:GetTopicAttributes",
+          "SNS:SetTopicAttributes",
+          "SNS:AddPermission",
+          "SNS:RemovePermission",
+          "SNS:DeleteTopic",
+          "SNS:Subscribe",
+          "SNS:ListSubscriptionsByTopic",
+          "SNS:Publish",
+          "SNS:Receive"
+        ]
+        Resource = aws_sns_topic.alarms.arn
       },
     ]
   })
