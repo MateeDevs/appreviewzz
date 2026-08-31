@@ -19,7 +19,7 @@ import {
 } from '../api/hooks'
 import { Badge, Card, ErrorBox, Field, Loading, Modal, When } from '../components/ui'
 import { RatingsChart } from '../components/RatingsChart'
-import type { App, ChannelCheck, RatingsSeries, ResolvedStore, SetupGap, StoreResolution } from '../api/types'
+import type { App, ChannelCheck, RatingsSeries, ResolvedStore, StoreResolution } from '../api/types'
 
 export function AppsPage() {
   const { org = '' } = useParams()
@@ -73,18 +73,12 @@ export function AppsPage() {
   )
 }
 
-/** Kotvy sekcí v detailu appky — odkaz ze seznamu míří rovnou na to, co ještě chybí. */
-const SETUP_SECTION: Record<SetupGap, string> = {
-  STORE_KEY: 'klice',
-  CHANNEL: 'kanaly',
-}
-
 /**
  * Stav appky ve výpisu.
  *
  * Appka je od založení „zapnutá", ale dokud nemá klíč ke storu a kanál, nemá čím stahovat
  * ani kam psát — a klient marně čeká na zprávy. Proto se nedodělané nastavení hlásí dřív
- * než zapnutí, jmenuje, co chybí, a proklikem vede rovnou na tu sekci.
+ * než zapnutí a rovnou nabídne, co doplnit.
  */
 function AppStatus({ org, app }: { org: string; app: App }) {
   if (!app.enabled) return <Badge tone="warn">vypnutá</Badge>
@@ -93,23 +87,40 @@ function AppStatus({ org, app }: { org: string; app: App }) {
   return (
     <div className="setup-status">
       <Badge tone="warn">čeká na nastavení</Badge>
-      <div className="small">
-        {app.setup.gaps.map((gap, index) => (
-          <span key={gap}>
-            {index > 0 ? <span className="muted"> · </span> : null}
-            <Link to={`/${org}/aplikace/${app.id}#${SETUP_SECTION[gap]}`}>{gapLabel(gap, app)}</Link>
-          </span>
-        ))}
-      </div>
+      <SetupTodos org={org} app={app} />
     </div>
   )
 }
 
-/** Co přesně chybí. U klíče se pojmenuje store — „chybí klíč" u dvouplatformní appky neřekne který. */
-function gapLabel(gap: SetupGap, app: App): string {
-  if (gap === 'CHANNEL') return 'chybí kanál'
-  const stores = app.setup.platformsWithoutKey.map((platform) => (platform === 'ANDROID' ? 'Google Play' : 'App Store'))
-  return stores.length === 0 ? 'chybí klíč ke storu' : `chybí klíč: ${stores.join(' a ')}`
+/** Co zbývá doplnit. Každá položka je odkaz na svou sekci v detailu appky. */
+function SetupTodos({ org, app }: { org: string; app: App }) {
+  return (
+    <div className="setup-todo">
+      {setupTodos(app).map((todo) => (
+        <Link key={todo.label} className="setup-todo-item" to={`/${org}/aplikace/${app.id}#${todo.section}`}>
+          <span aria-hidden="true">+</span>
+          {todo.label}
+        </Link>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * Chybějící nastavení po položkách. Klíč se dělí po storech — „chybí klíč" u appky na obou
+ * platformách neřekne, který z nich se čeká, a klient pak doplní ten, co už má.
+ */
+function setupTodos(app: App): Array<{ label: string; section: string }> {
+  const todos = app.setup.platformsWithoutKey.map((platform) => ({
+    label: platform === 'ANDROID' ? 'klíč ke Google Play' : 'klíč k App Storu',
+    section: 'klice',
+  }))
+  // Pojistka pro případ, že by server hlásil chybějící klíč bez konkrétního storu.
+  if (todos.length === 0 && app.setup.gaps.includes('STORE_KEY')) {
+    todos.push({ label: 'klíč ke storu', section: 'klice' })
+  }
+  if (app.setup.gaps.includes('CHANNEL')) todos.push({ label: 'kanál pro zprávy', section: 'kanaly' })
+  return todos
 }
 
 /**
@@ -316,10 +327,10 @@ export function AppDetailPage() {
           {app.platforms.join(' + ')} · {app.gpPackageName ?? app.ascAppId}
         </p>
         {app.enabled && !app.setup.ready ? (
-          <p className="row" style={{ marginTop: '0.5rem' }}>
+          <div className="row" style={{ marginTop: '0.6rem' }}>
             <Badge tone="warn">čeká na nastavení</Badge>
-            <span className="small muted">{app.setup.gaps.map((gap) => gapLabel(gap, app)).join(' · ')}</span>
-          </p>
+            <SetupTodos org={org} app={app} />
+          </div>
         ) : null}
       </div>
       <AppSettingsCard org={org} appId={appId} />

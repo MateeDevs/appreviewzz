@@ -501,9 +501,33 @@ code {
   to { opacity: 1; transform: none; }
 }
 
-/* Stav ve výpisu aplikací: pod odznakem stojí, co přesně chybí — a je to odkaz na tu sekci. */
-.setup-status { display: flex; flex-direction: column; gap: 0.3rem; align-items: flex-start; }
-.setup-status .small a { color: var(--warn); text-decoration-color: color-mix(in srgb, var(--warn) 40%, transparent); }
+/*
+ * Stav ve výpisu aplikací: pod odznakem stojí, co ještě chybí — po položkách, každá odkazem
+ * na svou sekci v detailu. Přerušovaný rámeček je tvar prázdného místa, které se má vyplnit;
+ * barvu si položka bere až pod kurzorem, aby výpis nesvítil výstrahami.
+ */
+.setup-status { display: flex; flex-direction: column; gap: 0.45rem; align-items: flex-start; }
+.setup-todo { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.setup-todo-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.32rem;
+  padding: 0.1rem 0.55rem;
+  border: 1px dashed var(--border-strong);
+  border-radius: 999px;
+  font-size: 0.78rem;
+  line-height: 1.6;
+  color: var(--muted);
+  text-decoration: none;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.setup-todo-item span { font-weight: 600; opacity: 0.65; }
+.setup-todo-item:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  text-decoration: none;
+}
 
 /*
  * Doskok z odkazu „chybí klíč". Po scrollu se z místa kliknutí rozlije vlna přes kartu
