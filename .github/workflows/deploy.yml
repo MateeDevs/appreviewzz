@@ -1,21 +1,15 @@
 name: Deploy
 
-# Dvě různé věci v jednom souboru, protože sdílejí image:
-#   push do epic/v2   → build, publikace do GHCR a nasazení stagingu
-#   workflow_dispatch → povýšení konkrétní revize do produkce (nic se nestaví znovu)
+# Větev je jediná pravda o tom, co kde běží:
+#   push do epic/v2    → build, publikace do GHCR a nasazení stagingu
+#   push do production → povýšení té revize do produkce (nic se nestaví znovu)
 on:
   push:
-    branches: [epic/v2]
-  workflow_dispatch:
-    inputs:
-      sha:
-        description: 'Commit, který se má nasadit do produkce (plný sha, musí být už postavený)'
-        required: true
-        type: string
+    branches: [epic/v2, production]
 
 concurrency:
   # Povýšení do produkce nesmí čekat na běžící staging build a naopak.
-  group: deploy-${{ github.event_name }}
+  group: deploy-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:
@@ -30,7 +24,7 @@ jobs:
   # emulací trvá násobně dýl než celý zbytek pipeline.
   build:
     name: Build ${{ matrix.platform }}
-    if: github.event_name == 'push'
+    if: github.ref_name == 'epic/v2'
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -87,7 +81,7 @@ jobs:
 
   publish:
     name: Publish manifest & deploy staging
-    if: github.event_name == 'push'
+    if: github.ref_name == 'epic/v2'
     runs-on: ubuntu-latest
     needs: build
     steps:
@@ -119,6 +113,9 @@ jobs:
       - name: Inspect published image
         run: docker buildx imagetools inspect "$IMAGE:latest"
 
+      # Až tady, po publikaci manifestu. Coolify má auto-deploy vypnutý schválně:
+      # git webhook chodí v okamžiku pushe, tedy o celý build dřív, než `latest` existuje,
+      # a staging by se tím trvale nasazoval o jeden commit pozadu.
       - name: Deploy stagingu
         env:
           COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
@@ -126,10 +123,9 @@ jobs:
 
   # Produkce se nestaví, jen se povyšuje už postavený image. Tag `prod` je tím pádem
   # jediné místo, kde se rozhoduje, co v produkci běží — a mění se výhradně tímhle krokem.
-  # Rollback je totéž spuštění se starším sha.
   promote:
     name: Povýšit do produkce
-    if: github.event_name == 'workflow_dispatch'
+    if: github.ref_name == 'production'
     runs-on: ubuntu-latest
     # Prostor pro schvalování a chráněné secrets; bez pravidel se chová jako by tu nebylo.
     environment: production
@@ -145,13 +141,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Zároveň kontrola, že se povyšuje něco, co existuje — na překlep v sha se přijde tady,
-      # ne až tím, že produkce nenaběhne.
+      # Do produkce smí jen revize, která se opravdu postavila a běžela na stagingu.
+      # Když image chybí, je to skoro vždycky merge commit: `production` se povyšuje
+      # fast-forwardem, protože merge vyrobí nový sha, pro který žádný image neexistuje.
       - name: Ověřit, že image pro tenhle commit existuje
-        run: docker buildx imagetools inspect "$IMAGE:${{ inputs.sha }}"
+        run: |
+          if ! docker buildx imagetools inspect "$IMAGE:${{ github.sha }}"; then
+            echo "::error::Pro commit ${{ github.sha }} není v GHCR image. Do production se povyšuje fast-forwardem: git push origin epic/v2:production"
+            exit 1
+          fi
 
       - name: Přesměrovat tag prod
-        run: docker buildx imagetools create --tag "$IMAGE:prod" "$IMAGE:${{ inputs.sha }}"
+        run: docker buildx imagetools create --tag "$IMAGE:prod" "$IMAGE:${{ github.sha }}"
 
       - name: Deploy produkce
         env:
@@ -163,6 +164,6 @@ jobs:
           {
             echo "### Produkce nasazena"
             echo
-            echo "- commit: \`${{ inputs.sha }}\`"
+            echo "- commit: \`${{ github.sha }}\`"
             echo "- tag: \`$IMAGE:prod\`"
           } >> "$GITHUB_STEP_SUMMARY"

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Spustí nasazení v Coolify přes deploy webhook.
 #
-# Bez nastaveného webhooku končí úspěchem a jen to řekne — image je publikovaný v GHCR
-# a nasadit se dá ručně. Dokud secrets nejsou v repozitáři, nemá smysl kvůli tomu shazovat
-# celou pipeline.
+# Chybějící webhook je chyba, ne důvod k přeskočení: Coolify má auto-deploy vypnutý,
+# takže tenhle skript je jediná cesta, jak se nasazení spustí. Tiché `exit 0` by znamenalo
+# zelenou pipeline nad prostředím, které zůstalo na staré verzi.
 #
 # Použití: COOLIFY_TOKEN=… trigger-deploy.sh <webhook-url> <popis prostředí>
 set -euo pipefail
@@ -12,8 +12,8 @@ url="${1:-}"
 label="${2:-prostředí}"
 
 if [ -z "$url" ]; then
-  echo "Webhook pro $label není nastavený — nasazení přeskočeno, image je v GHCR."
-  exit 0
+  echo "::error::Deploy webhook pro $label není nastavený (secret COOLIFY_*_WEBHOOK_URL). Image je v GHCR, ale nic se nenasadilo."
+  exit 1
 fi
 
 response=$(mktemp)

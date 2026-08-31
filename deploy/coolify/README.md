@@ -55,7 +55,10 @@ tajná část nikdy neocitla v terraform state.
    síti, Traefik nezjistí jejich IP a vrací `503 no available server` — i když
    aplikace uvnitř běží úplně v pořádku.
 5. Domain nastav na subdoménu pro webhooky — Coolify vyřídí TLS přes Let's Encrypt.
-6. Deploy.
+6. **Vypni Auto Deploy** (Settings → *Auto Deploy*). Nasazení spouští CI, ne push do gitu.
+7. Branch nastav podle prostředí: staging `epic/v2`, produkce `production`. Coolify si z ní
+   bere `compose.yaml`, takže produkce nesmí sledovat vývojovou větev.
+8. Deploy.
 
 Kontrola po nasazení:
 
@@ -71,8 +74,14 @@ chodí po interní síti.
 
 ## Automatický deploy z CI
 
-Workflow `.github/workflows/deploy.yml` po pushi na `epic/v2` postaví image, publikuje ho
-do GHCR a zavolá deploy webhook Coolify. Potřebuje repozitářové secrets:
+Nasazuje se výhradně z `.github/workflows/deploy.yml`, podle toho, do které větve se pushlo:
+
+| Push do | Co se stane |
+|---|---|
+| `epic/v2` | postaví se image, publikuje jako `:latest` a `:<sha>`, nasadí se staging |
+| `production` | nic se nestaví; tag `:prod` se přesměruje na ten sha a nasadí se produkce |
+
+Potřebuje repozitářové secrets:
 
 | Secret | Kde ho vzít |
 |---|---|
@@ -80,7 +89,13 @@ do GHCR a zavolá deploy webhook Coolify. Potřebuje repozitářové secrets:
 | `COOLIFY_PROD_WEBHOOK_URL` | totéž u produkčního resource |
 | `COOLIFY_TOKEN` | Coolify → Keys & Tokens → API tokens |
 
-Když nejsou nastavené, deploy se přeskočí a image se jen publikuje.
+URL deploy webhooku obsahuje UUID resource. Po smazání a znovuvytvoření resource je stará
+URL mrtvá a secret se musí přepsat — nasazení pak končí HTTP 404, ne tichým nicneděláním.
+
+**Auto Deploy musí být v Coolify u obou resourců vypnutý.** Git webhook chodí v okamžiku
+pushe, tedy o celý build dřív, než je image v GHCR: staging by se tím trvale nasazoval
+o jeden commit pozadu a produkce by se re-deployovala při každém pushi do vývojové větve,
+protože `compose.yaml` si Coolify bere z git větve.
 
 ## Verze, která běží
 
@@ -89,9 +104,9 @@ Docker u pohyblivého tagu použil lokální kopii a nasazení by tiše zůstalo
 verzi.
 
 **Staging jede na `latest`** — každý push do `epic/v2` ho nasadí. **Produkce jede na `prod`**
-a ten tag se přesměruje výhradně ručním spuštěním workflow *Deploy* s konkrétním sha; postup
-je v [runbooku](../../docs/runbooks/nasazeni-do-produkce.md). Kdo do produkčního
-`APP_VERSION` napíše `latest`, obejde tím celé schvalování.
+a ten tag se přesměruje výhradně pushem do větve `production`; postup je v
+[runbooku](../../docs/runbooks/nasazeni-do-produkce.md). Kdo do produkčního `APP_VERSION`
+napíše `latest`, obejde tím celé schvalování.
 
 Co reálně běží, řekne `/health/live` — vrací verzi i git SHA.
 
