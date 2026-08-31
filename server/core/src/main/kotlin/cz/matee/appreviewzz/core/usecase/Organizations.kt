@@ -30,6 +30,12 @@ import kotlin.time.Instant
 
 private val logger = KotlinLogging.logger {}
 
+/** Když z názvu nezbyde nic použitelného (třeba samé emoji), ať adresa aspoň něco znamená. */
+private const val FALLBACK_SLUG = "organizace"
+
+/** Kolikrát zkusit náhodnou příponu, než to vzdáme — kolize jsou tu jen teoretické. */
+private const val SLUG_ATTEMPTS = 5
+
 /** Kdo operaci provádí a s jakou rolí. Roli zjišťuje vrstva nad tímhle, ne use-case sám. */
 data class OrgActor(
     val userId: UserId,
@@ -78,11 +84,13 @@ class OrganizationService(
     /**
      * Založení organizace. Vyžaduje ověřený e-mail: bez toho by šlo obsadit slug (a začít
      * zvát lidi) z adresy, ke které se zakládající vůbec nedostane.
+     *
+     * Adresu si člověk nevybírá — odvodí se z názvu (viz [availableSlug]). Je to údaj, který
+     * při zakládání nikoho nezajímá, a špatně zvolený se pak vleče všemi odkazy.
      */
     fun create(
         founder: UserAccount,
         name: String,
-        slug: String?,
     ): Organization {
         if (!founder.emailVerified) {
             throw ConsoleException(
@@ -93,19 +101,30 @@ class OrganizationService(
         val trimmed = name.trim()
         if (trimmed.isEmpty()) throw ConsoleException(ConsoleFailure.INVALID_INPUT, "Organizace potřebuje název")
 
-        val candidate = (slug?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: Slugs.of(trimmed))
-        if (!Slugs.isValid(candidate)) {
-            throw ConsoleException(ConsoleFailure.INVALID_INPUT, "Adresa '$candidate' neprojde: ${Slugs.RULE}")
-        }
-        organizations.findBySlug(candidate)?.let {
-            throw ConsoleException(ConsoleFailure.SLUG_TAKEN, "Adresu '$candidate' už někdo používá, zvol jinou")
-        }
-
-        val organization = organizations.create(trimmed, candidate)
+        val organization = organizations.create(trimmed, availableSlug(trimmed))
         memberships.upsert(organization.id, founder.user.id, OrgRole.OWNER)
         audit(organization.id, founder.user, "org.created", "organization", organization.id.toString())
         logger.info { "Organizace ${organization.slug} založená uživatelem ${founder.user.id}" }
         return organization
+    }
+
+    /**
+     * Volná adresa pro nový název. Když je odvozená obsazená (nebo z názvu nezbylo nic, co by
+     * prošlo pravidlem), přilepí se náhodná přípona — druhá „Matee" tak dostane `matee-k3fqz7`
+     * místo odmítnutého formuláře.
+     */
+    private fun availableSlug(name: String): String {
+        val base = Slugs.of(name).ifEmpty { FALLBACK_SLUG }
+        if (Slugs.isValid(base) && organizations.findBySlug(base) == null) return base
+        repeat(SLUG_ATTEMPTS) {
+            val candidate = Slugs.withSuffix(base)
+            if (Slugs.isValid(candidate) && organizations.findBySlug(candidate) == null) return candidate
+        }
+        // Prakticky nedosažitelné (32^6 možností na jeden základ), ale ať to nekončí tichým pádem.
+        throw ConsoleException(
+            ConsoleFailure.SLUG_TAKEN,
+            "Adresu pro '$name' se nepodařilo vygenerovat, zkus jiný název",
+        )
     }
 
     fun listMembers(orgId: OrganizationId): List<OrgMember> =

@@ -27,7 +27,7 @@ private fun String.jsonValue(field: String): String =
 private suspend fun io.ktor.server.testing.ApplicationTestBuilder.ownerWithOrg(mailer: RecordingMailer): HttpClient {
     val owner = browser()
     owner.signUpVerified(OWNER, mailer)
-    owner.postJson("/api/orgs", """{"name":"Matee","slug":"$SLUG"}""")
+    owner.postJson("/api/orgs", """{"name":"Matee"}""")
     return owner
 }
 
@@ -177,7 +177,7 @@ class AppRoutesTest :
 
                 val outsider = browser()
                 outsider.signUpVerified(OUTSIDER, mailer)
-                outsider.postJson("/api/orgs", """{"name":"Cizí firma","slug":"cizi"}""")
+                outsider.postJson("/api/orgs", """{"name":"Cizí"}""")
 
                 outsider.get("/api/orgs/$SLUG/apps/$id").status shouldBe HttpStatusCode.NotFound
                 // Ani pod vlastní organizací: appka do ní nepatří.

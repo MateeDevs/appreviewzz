@@ -19,9 +19,8 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class CreateOrganizationRequest(
+    /** Adresa (slug) se odvodí z názvu; klient si ji nevybírá. */
     val name: String,
-    /** Nepovinné — když chybí, odvodí se z názvu. */
-    val slug: String? = null,
 )
 
 @Serializable
@@ -91,7 +90,7 @@ fun Route.orgRoutes(console: ConsoleWiring) {
     post("/orgs") {
         val request = call.receive<CreateOrganizationRequest>()
         val organization =
-            io { orgs.create(call.authenticatedUser.account, request.name, request.slug) }
+            io { orgs.create(call.authenticatedUser.account, request.name) }
         call.respond(HttpStatusCode.Created, organization.toResponse(OrgRole.OWNER))
     }
 

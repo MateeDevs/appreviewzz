@@ -4,7 +4,9 @@ import cz.matee.appreviewzz.app.cli.TestDatabase
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldMatch
 import io.kotest.matchers.string.shouldNotContain
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
@@ -17,14 +19,7 @@ private const val OWNER = "vlastnik@example.com"
 private const val COLLEAGUE = "kolega@example.com"
 private const val OUTSIDER = "cizi@example.com"
 
-private suspend fun HttpClient.createOrg(
-    name: String = "Matee interní",
-    slug: String? = null,
-): HttpResponse =
-    postJson(
-        "/api/orgs",
-        if (slug == null) """{"name":"$name"}""" else """{"name":"$name","slug":"$slug"}""",
-    )
+private suspend fun HttpClient.createOrg(name: String = "Matee interní"): HttpResponse = postJson("/api/orgs", """{"name":"$name"}""")
 
 private suspend fun HttpClient.invite(
     slug: String,
@@ -77,18 +72,21 @@ class OrgRoutesTest :
             }
         }
 
-        "obsazený slug se odmítne" {
+        "druhá organizace stejného jména dostane adresu s příponou" {
             testApplication {
                 consoleModule(mailer)
                 val first = browser()
                 first.signUpVerified(OWNER, mailer)
-                first.createOrg(slug = "matee")
+                first.createOrg(name = "Matee").bodyAsText().jsonValue("slug") shouldBe "matee"
 
                 val second = browser()
                 second.signUpVerified(COLLEAGUE, mailer)
-                val response = second.createOrg(name = "Jiná firma", slug = "matee")
-                response.status shouldBe HttpStatusCode.Conflict
-                response.bodyAsText() shouldContain "slug_taken"
+                val response = second.createOrg(name = "Matee")
+                response.status shouldBe HttpStatusCode.Created
+                // Zakládající o adresu nepřijde, jen dostane odlišenou: matee-k3fqz7.
+                val slug = response.bodyAsText().jsonValue("slug")
+                slug shouldNotBe "matee"
+                slug shouldMatch Regex("^matee-[a-z0-9]{6}$")
             }
         }
 
@@ -97,7 +95,7 @@ class OrgRoutesTest :
                 consoleModule(mailer)
                 val owner = browser()
                 owner.signUpVerified(OWNER, mailer)
-                owner.createOrg(slug = "matee")
+                owner.createOrg(name = "Matee")
 
                 val outsider = browser()
                 outsider.signUpVerified(OUTSIDER, mailer)
@@ -115,7 +113,7 @@ class OrgRoutesTest :
                 consoleModule(mailer)
                 val owner = browser()
                 owner.signUpVerified(OWNER, mailer)
-                val slug = owner.createOrg(slug = "matee").bodyAsText().jsonValue("slug")
+                val slug = owner.createOrg(name = "Matee").bodyAsText().jsonValue("slug")
 
                 val invited = owner.invite(slug, COLLEAGUE, role = "ADMIN")
                 invited.status shouldBe HttpStatusCode.Created
@@ -142,7 +140,7 @@ class OrgRoutesTest :
                 consoleModule(mailer)
                 val owner = browser()
                 owner.signUpVerified(OWNER, mailer)
-                owner.createOrg(slug = "matee")
+                owner.createOrg(name = "Matee")
                 owner.invite("matee", COLLEAGUE)
                 val token = mailer.tokenOf(mailer.lastTo(COLLEAGUE))
 
@@ -165,7 +163,7 @@ class OrgRoutesTest :
                 consoleModule(mailer)
                 val owner = browser()
                 owner.signUpVerified(OWNER, mailer)
-                owner.createOrg(slug = "matee")
+                owner.createOrg(name = "Matee")
 
                 owner.invite("matee", COLLEAGUE)
                 val first = mailer.tokenOf(mailer.lastTo(COLLEAGUE))
@@ -186,7 +184,7 @@ class OrgRoutesTest :
                 consoleModule(mailer)
                 val owner = browser()
                 owner.signUpVerified(OWNER, mailer)
-                owner.createOrg(slug = "matee")
+                owner.createOrg(name = "Matee")
                 owner.invite("matee", COLLEAGUE)
 
                 val colleague = joinViaInvitation(mailer, COLLEAGUE)
@@ -208,7 +206,7 @@ class OrgRoutesTest :
                 consoleModule(mailer)
                 val owner = browser()
                 owner.signUpVerified(OWNER, mailer)
-                owner.createOrg(slug = "matee")
+                owner.createOrg(name = "Matee")
 
                 val members = owner.get("/api/orgs/matee/members").bodyAsText()
                 val ownerId = members.jsonValue("userId")
@@ -226,7 +224,7 @@ class OrgRoutesTest :
                 consoleModule(mailer)
                 val owner = browser()
                 owner.signUpVerified(OWNER, mailer)
-                owner.createOrg(slug = "matee")
+                owner.createOrg(name = "Matee")
                 owner.invite("matee", COLLEAGUE, role = "ADMIN")
 
                 val colleague = joinViaInvitation(mailer, COLLEAGUE)
@@ -249,7 +247,7 @@ class OrgRoutesTest :
                 consoleModule(mailer)
                 val owner = browser()
                 owner.signUpVerified(OWNER, mailer)
-                owner.createOrg(slug = "matee")
+                owner.createOrg(name = "Matee")
                 owner.invite("matee", COLLEAGUE)
                 val token = mailer.tokenOf(mailer.lastTo(COLLEAGUE))
                 val id = owner.get("/api/orgs/matee/invitations").bodyAsText().jsonValue("id")
@@ -268,7 +266,7 @@ class OrgRoutesTest :
                 consoleModule(mailer)
                 val owner = browser()
                 owner.signUpVerified(OWNER, mailer)
-                owner.createOrg(slug = "matee")
+                owner.createOrg(name = "Matee")
 
                 val response = owner.invite("matee", OWNER)
                 response.status shouldBe HttpStatusCode.BadRequest

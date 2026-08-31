@@ -16,7 +16,6 @@ export function OrganizationsPage() {
   const resend = useResendVerification()
   const navigate = useNavigate()
   const [name, setName] = useState('')
-  const [slug, setSlug] = useState('')
 
   const verified = me.data?.emailVerified ?? false
 
@@ -52,17 +51,11 @@ export function OrganizationsPage() {
           <form
             onSubmit={(event) => {
               event.preventDefault()
-              create.mutate(
-                { name, slug: slug.trim() === '' ? undefined : slug.trim() },
-                { onSuccess: (organization) => navigate(`/${organization.slug}/onboarding`) },
-              )
+              create.mutate({ name }, { onSuccess: (organization) => navigate(`/${organization.slug}/onboarding`) })
             }}
           >
-            <Field label="Název">
+            <Field label="Název" hint="Adresa do console se odvodí z názvu.">
               <input value={name} onChange={(e) => setName(e.target.value)} required />
-            </Field>
-            <Field label="Adresa (nepovinné)" hint="Odvodí se z názvu; používá se v odkazech do console.">
-              <input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="matee" />
             </Field>
             <div className="stack" style={{ marginTop: '1rem' }}>
               <ErrorBox error={create.error} />

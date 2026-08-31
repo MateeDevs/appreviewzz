@@ -145,7 +145,7 @@ export function useOrganizations() {
 export function useCreateOrganization() {
   const client = useQueryClient()
   return useMutation({
-    mutationFn: (input: { name: string; slug?: string }) => api.post<OrganizationSummary>('/api/orgs', input),
+    mutationFn: (input: { name: string }) => api.post<OrganizationSummary>('/api/orgs', input),
     onSuccess: () => client.invalidateQueries(),
   })
 }

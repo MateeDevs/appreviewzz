@@ -58,7 +58,7 @@ private fun seedSnapshot(
 private suspend fun ApplicationTestBuilder.ownerWithApp(mailer: RecordingMailer): Pair<HttpClient, String> {
     val owner = browser()
     owner.signUpVerified(OWNER, mailer)
-    owner.postJson("/api/orgs", """{"name":"Matee","slug":"$SLUG"}""")
+    owner.postJson("/api/orgs", """{"name":"Matee"}""")
     val app =
         owner
             .postJson("/api/orgs/$SLUG/apps", """{"name":"IsleGrow","gpPackageName":"cz.matee.islegrow"}""")

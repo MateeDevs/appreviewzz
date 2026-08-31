@@ -48,7 +48,7 @@ private fun String.jsonValue(field: String): String =
 private suspend fun ApplicationTestBuilder.ownerWithApp(mailer: RecordingMailer): Pair<HttpClient, String> {
     val owner = browser()
     owner.signUpVerified(OWNER, mailer)
-    owner.postJson("/api/orgs", """{"name":"Matee","slug":"$SLUG"}""")
+    owner.postJson("/api/orgs", """{"name":"Matee"}""")
     val app =
         owner
             .postJson("/api/orgs/$SLUG/apps", """{"name":"Testovací appka","gpPackageName":"cz.matee.test"}""")
@@ -227,7 +227,7 @@ class CredentialRoutesTest :
 
                 val outsider = browser()
                 outsider.signUpVerified("cizi@example.com", mailer)
-                outsider.postJson("/api/orgs", """{"name":"Cizí","slug":"cizi"}""")
+                outsider.postJson("/api/orgs", """{"name":"Cizí"}""")
 
                 outsider.get("/api/orgs/$SLUG/credentials").status shouldBe HttpStatusCode.NotFound
                 outsider.deleteSigned("/api/orgs/cizi/credentials/$credentialId").status shouldBe HttpStatusCode.NotFound
