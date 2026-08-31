@@ -83,11 +83,8 @@ export function Modal({
       }}
     >
       <div className="modal-body">
-        <div className="spread modal-head">
+        <div className="modal-head">
           <h2>{title}</h2>
-          <button type="button" className="link" onClick={() => ref.current?.close()}>
-            Zavřít
-          </button>
         </div>
         {children}
       </div>
