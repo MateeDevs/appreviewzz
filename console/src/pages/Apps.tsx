@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useLocation, useParams } from 'react-router-dom'
 import {
   useAddCredential,
   useApps,
@@ -19,7 +19,7 @@ import {
 } from '../api/hooks'
 import { Badge, Card, ErrorBox, Field, Loading, Modal, When } from '../components/ui'
 import { RatingsChart } from '../components/RatingsChart'
-import type { ChannelCheck, RatingsSeries, ResolvedStore, StoreResolution } from '../api/types'
+import type { App, ChannelCheck, RatingsSeries, ResolvedStore, SetupGap, StoreResolution } from '../api/types'
 
 export function AppsPage() {
   const { org = '' } = useParams()
@@ -53,7 +53,9 @@ export function AppsPage() {
                     <Link to={`/${org}/aplikace/${app.id}`}>{app.name}</Link>
                   </td>
                   <td className="small muted">{app.gpPackageName ?? app.ascAppId}</td>
-                  <td>{app.enabled ? <Badge tone="ok">zapnutá</Badge> : <Badge tone="warn">vypnutá</Badge>}</td>
+                  <td>
+                    <AppStatus org={org} app={app} />
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -69,6 +71,70 @@ export function AppsPage() {
       {adding ? <AddAppDialog org={org} onClose={() => setAdding(false)} /> : null}
     </div>
   )
+}
+
+/** Kotvy sekcí v detailu appky — odkaz ze seznamu míří rovnou na to, co ještě chybí. */
+const SETUP_SECTION: Record<SetupGap, string> = {
+  STORE_KEY: 'klice',
+  CHANNEL: 'kanaly',
+}
+
+/**
+ * Stav appky ve výpisu.
+ *
+ * Appka je od založení „zapnutá", ale dokud nemá klíč ke storu a kanál, nemá čím stahovat
+ * ani kam psát — a klient marně čeká na zprávy. Proto se nedodělané nastavení hlásí dřív
+ * než zapnutí, jmenuje, co chybí, a proklikem vede rovnou na tu sekci.
+ */
+function AppStatus({ org, app }: { org: string; app: App }) {
+  if (!app.enabled) return <Badge tone="warn">vypnutá</Badge>
+  if (app.setup.ready) return <Badge tone="ok">sleduje se</Badge>
+
+  return (
+    <div className="setup-status">
+      <Badge tone="warn">čeká na nastavení</Badge>
+      <div className="small">
+        {app.setup.gaps.map((gap, index) => (
+          <span key={gap}>
+            {index > 0 ? <span className="muted"> · </span> : null}
+            <Link to={`/${org}/aplikace/${app.id}#${SETUP_SECTION[gap]}`}>{gapLabel(gap, app)}</Link>
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/** Co přesně chybí. U klíče se pojmenuje store — „chybí klíč" u dvouplatformní appky neřekne který. */
+function gapLabel(gap: SetupGap, app: App): string {
+  if (gap === 'CHANNEL') return 'chybí kanál'
+  const stores = app.setup.platformsWithoutKey.map((platform) => (platform === 'ANDROID' ? 'Google Play' : 'App Store'))
+  return stores.length === 0 ? 'chybí klíč ke storu' : `chybí klíč: ${stores.join(' a ')}`
+}
+
+/**
+ * Doskok na sekci z odkazu „chybí klíč".
+ *
+ * Samotný scroll je málo: člověk přijde na stránku plnou karet a neví, na kterou se dívat.
+ * Karta proto po doskoku problikne — jednou, krátce, a po `prefers-reduced-motion` vůbec
+ * (o to se stará CSS).
+ */
+function useSetupFocus(id: string): string | undefined {
+  const { hash } = useLocation()
+  const [focused, setFocused] = useState(false)
+
+  useEffect(() => {
+    if (hash !== `#${id}`) return
+    // Karta se vykresluje až po načtení dat, takže se na ni ptáme po zapsání do DOM.
+    const node = document.getElementById(id)
+    if (!node) return
+    node.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    setFocused(true)
+    const timer = setTimeout(() => setFocused(false), 1800)
+    return () => clearTimeout(timer)
+  }, [hash, id])
+
+  return focused ? 'ripple' : undefined
 }
 
 /**
@@ -249,6 +315,12 @@ export function AppDetailPage() {
         <p className="muted">
           {app.platforms.join(' + ')} · {app.gpPackageName ?? app.ascAppId}
         </p>
+        {app.enabled && !app.setup.ready ? (
+          <p className="row" style={{ marginTop: '0.5rem' }}>
+            <Badge tone="warn">čeká na nastavení</Badge>
+            <span className="small muted">{app.setup.gaps.map((gap) => gapLabel(gap, app)).join(' · ')}</span>
+          </p>
+        ) : null}
       </div>
       <AppSettingsCard org={org} appId={appId} />
       <RatingsCard org={org} appId={appId} />
@@ -448,6 +520,7 @@ function sourceLabel(source: string): string {
 }
 
 function CredentialsCard({ org, appId }: { org: string; appId: string }) {
+  const focus = useSetupFocus('klice')
   const credentials = useCredentials(org)
   const add = useAddCredential(org)
   const attach = useAttachCredential(org)
@@ -464,7 +537,7 @@ function CredentialsCard({ org, appId }: { org: string; appId: string }) {
   )
 
   return (
-    <Card title="Klíče ke storu">
+    <Card id="klice" className={focus} title="Klíče ke storu">
       <ErrorBox error={credentials.error} />
       {storeKeys.length === 0 ? (
         <p className="muted">Zatím žádný klíč — bez něj nemáme čím recenze stáhnout.</p>
@@ -606,6 +679,7 @@ function CredentialsCard({ org, appId }: { org: string; appId: string }) {
 }
 
 function ChannelsCard({ org, appId }: { org: string; appId: string }) {
+  const focus = useSetupFocus('kanaly')
   const channels = useChannels(org, appId)
   const credentials = useCredentials(org)
   const create = useCreateChannel(org, appId)
@@ -620,7 +694,7 @@ function ChannelsCard({ org, appId }: { org: string; appId: string }) {
   const installs = (credentials.data ?? []).filter((credential) => credential.type === 'SLACK_INSTALL')
 
   return (
-    <Card title="Kanály">
+    <Card id="kanaly" className={focus} title="Kanály">
       <ErrorBox error={channels.error} />
       {channels.data?.length === 0 ? (
         <p className="muted">Zatím žádný kanál — recenze nemají kam chodit.</p>

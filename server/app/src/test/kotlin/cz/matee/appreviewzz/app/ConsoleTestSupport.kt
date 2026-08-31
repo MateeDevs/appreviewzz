@@ -19,6 +19,7 @@ import cz.matee.appreviewzz.core.port.StoreConnectorException
 import cz.matee.appreviewzz.core.port.StoreContext
 import cz.matee.appreviewzz.core.port.ValidationOutcome
 import cz.matee.appreviewzz.core.usecase.AppService
+import cz.matee.appreviewzz.core.usecase.AppSetupCheck
 import cz.matee.appreviewzz.core.usecase.AuthPolicy
 import cz.matee.appreviewzz.core.usecase.AuthenticationService
 import cz.matee.appreviewzz.core.usecase.ChannelService
@@ -322,6 +323,7 @@ fun ApplicationTestBuilder.consoleModule(
                     auth = auth,
                     orgs = orgs,
                     apps = appService,
+                    appSetup = AppSetupCheck(credentials = credentialRepository, channels = channelRepository),
                     credentials = credentialService,
                     channels = channelService,
                     cookies = SessionCookies(secure = false, lifetime = policy.sessionLifetime),

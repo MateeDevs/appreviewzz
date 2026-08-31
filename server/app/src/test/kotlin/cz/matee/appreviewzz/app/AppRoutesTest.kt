@@ -60,6 +60,22 @@ class AppRoutesTest :
             }
         }
 
+        "nová appka hlásí, že čeká na klíč i na kanál" {
+            testApplication {
+                consoleModule(mailer)
+                val owner = ownerWithOrg(mailer)
+
+                // Appka je od založení zapnutá, ale bez klíče nemá čím stahovat a bez kanálu
+                // kam psát — console podle toho odliší „sledujeme" od „čeká na nastavení".
+                val body = owner.createApp().bodyAsText()
+                body shouldContain "\"ready\":false"
+                body shouldContain "\"gaps\":[\"STORE_KEY\",\"CHANNEL\"]"
+                body shouldContain "\"platformsWithoutKey\":[\"ANDROID\"]"
+
+                owner.get("/api/orgs/$SLUG/apps").bodyAsText() shouldContain "\"ready\":false"
+            }
+        }
+
         "appka jen s App Store ID projde, bez obou storů ne" {
             testApplication {
                 consoleModule(mailer)

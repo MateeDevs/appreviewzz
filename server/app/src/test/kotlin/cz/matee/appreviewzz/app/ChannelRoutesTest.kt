@@ -127,6 +127,22 @@ class ChannelRoutesTest :
             }
         }
 
+        "připojený kanál zmizí ze seznamu toho, co appce chybí" {
+            testApplication {
+                consoleModule(mailer, fakes = fakes)
+                val (owner, appId) = ownerWithApp(mailer)
+                val credentialId = installSlack(SLUG)
+
+                owner.postJson(
+                    "/api/orgs/$SLUG/apps/$appId/channels",
+                    """{"targetRef":"$CHANNEL_ID","credentialId":"$credentialId"}""",
+                )
+
+                // Kanál je, klíč ke storu pořád ne — a console to musí umět říct odděleně.
+                owner.get("/api/orgs/$SLUG/apps/$appId").bodyAsText() shouldContain "\"gaps\":[\"STORE_KEY\"]"
+            }
+        }
+
         "jméno kanálu místo ID se odmítne s vysvětlením" {
             testApplication {
                 consoleModule(mailer, fakes = fakes)

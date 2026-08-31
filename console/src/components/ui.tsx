@@ -1,9 +1,20 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import { ApiError } from '../api/client'
 
-export function Card({ title, children }: { title?: string; children: ReactNode }) {
+export function Card({
+  id,
+  title,
+  className,
+  children,
+}: {
+  /** Kotva pro odkaz na sekci — bez ní se na kartu nedá doskočit z jiné obrazovky. */
+  id?: string
+  title?: string
+  className?: string
+  children: ReactNode
+}) {
   return (
-    <section className="card">
+    <section id={id} className={className ? `card ${className}` : 'card'}>
       {title ? <h2>{title}</h2> : null}
       {children}
     </section>

@@ -87,7 +87,18 @@ export interface App {
   ingestIntervalSource: 'PLATFORM' | 'APP'
   dailyDigestAt: string
   enabled: boolean
+  /** Co appce chybí, aby recenze tekly — počítá server, console to jen ukazuje. */
+  setup: AppSetup
 }
+
+/** Chybějící nastavení appky. Prázdné `gaps` znamenají, že appka doopravdy běží. */
+export interface AppSetup {
+  ready: boolean
+  gaps: SetupGap[]
+  platformsWithoutKey: Platform[]
+}
+
+export type SetupGap = 'STORE_KEY' | 'CHANNEL'
 
 /** Co server vyčetl z jednoho odkazu na store. `name` chybí, když store neodpověděl. */
 export interface ResolvedStore {

@@ -62,6 +62,7 @@ fun runApi(
             mfa = components.mfaService,
             orgs = components.organizationService,
             apps = components.appService,
+            appSetup = components.appSetupCheck,
             storeLookup = components.storeLookup,
             credentials = components.credentialService,
             channels = components.channelService,

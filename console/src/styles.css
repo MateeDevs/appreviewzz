@@ -501,6 +501,38 @@ code {
   to { opacity: 1; transform: none; }
 }
 
+/* Stav ve výpisu aplikací: pod odznakem stojí, co přesně chybí — a je to odkaz na tu sekci. */
+.setup-status { display: flex; flex-direction: column; gap: 0.3rem; align-items: flex-start; }
+.setup-status .small a { color: var(--warn); text-decoration-color: color-mix(in srgb, var(--warn) 40%, transparent); }
+
+/*
+ * Doskok z odkazu „chybí klíč". Po scrollu se z místa kliknutí rozlije vlna přes kartu
+ * a rámeček krátce zesílí — jinak člověk přijde na stránku plnou karet a neví, kam koukat.
+ */
+.card.ripple { position: relative; overflow: hidden; animation: focus-frame 1.8s ease-out; }
+.card.ripple::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  pointer-events: none;
+  animation: ripple 1.5s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+@keyframes ripple {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(180); }
+}
+@keyframes focus-frame {
+  0% { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
+  35% { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
+  100% { border-color: var(--border); box-shadow: var(--shadow); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

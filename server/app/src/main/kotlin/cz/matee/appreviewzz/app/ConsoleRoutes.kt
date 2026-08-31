@@ -10,6 +10,7 @@ import cz.matee.appreviewzz.core.port.AuditLogRepository
 import cz.matee.appreviewzz.core.port.MembershipRepository
 import cz.matee.appreviewzz.core.port.OrganizationRepository
 import cz.matee.appreviewzz.core.usecase.AppService
+import cz.matee.appreviewzz.core.usecase.AppSetupCheck
 import cz.matee.appreviewzz.core.usecase.AuthenticationService
 import cz.matee.appreviewzz.core.usecase.ChannelService
 import cz.matee.appreviewzz.core.usecase.ConsoleException
@@ -38,6 +39,8 @@ class ConsoleWiring(
     val auth: AuthenticationService,
     val orgs: OrganizationService,
     val apps: AppService,
+    /** Čeká appka ještě na klíč nebo kanál? Console podle toho odliší nastavenou appku od nové. */
+    val appSetup: AppSetupCheck,
     val credentials: CredentialService,
     val channels: ChannelService,
     val reviews: ReviewInbox,

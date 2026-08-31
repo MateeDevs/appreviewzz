@@ -8,9 +8,11 @@ import cz.matee.appreviewzz.core.port.AppListingSource
 import cz.matee.appreviewzz.core.port.StoreConnectorException
 import cz.matee.appreviewzz.core.usecase.AppDraft
 import cz.matee.appreviewzz.core.usecase.AppInputs
+import cz.matee.appreviewzz.core.usecase.AppSetup
 import cz.matee.appreviewzz.core.usecase.ConsoleException
 import cz.matee.appreviewzz.core.usecase.ConsoleFailure
 import cz.matee.appreviewzz.core.usecase.OrgActor
+import cz.matee.appreviewzz.core.usecase.SetupGap
 import cz.matee.appreviewzz.core.usecase.requireRole
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.request.receive
@@ -99,6 +101,15 @@ data class AppResponse(
     val ingestIntervalSource: IngestIntervalSource,
     val dailyDigestAt: String,
     val enabled: Boolean,
+    /** Co appce chybí, aby recenze tekly. Console podle toho odliší „sledujeme" od „čeká na nastavení". */
+    val setup: AppSetupResponse,
+)
+
+@Serializable
+data class AppSetupResponse(
+    val ready: Boolean,
+    val gaps: List<SetupGap>,
+    val platformsWithoutKey: List<Platform>,
 )
 
 /** Odkud se vzal interval stahování: platformní výchozí hodnota, nebo výjimka pro tuhle appku. */
@@ -117,11 +128,14 @@ enum class IngestIntervalSource {
  */
 fun Route.appRoutes(console: ConsoleWiring) {
     val apps = console.apps
+    val setup = console.appSetup
 
     route("/orgs/{org}/apps") {
         get {
             val context = call.orgContext(console.organizations, console.memberships)
-            call.respond(io { apps.list(context.organization.id).map { it.toResponse(apps.effectiveInterval(it)) } })
+            call.respond(
+                io { apps.list(context.organization.id).map { it.toResponse(apps.effectiveInterval(it), setup.of(it)) } },
+            )
         }
 
         post {
@@ -147,7 +161,7 @@ fun Route.appRoutes(console: ConsoleWiring) {
                             ),
                     )
                 }
-            call.respond(HttpStatusCode.Created, app.toResponse(apps.effectiveInterval(app)))
+            call.respond(HttpStatusCode.Created, app.toResponse(apps.effectiveInterval(app), io { setup.of(app) }))
         }
 
         /**
@@ -162,7 +176,13 @@ fun Route.appRoutes(console: ConsoleWiring) {
 
         get("/{app}") {
             val context = call.orgContext(console.organizations, console.memberships)
-            call.respond(io { apps.get(context.organization.id, call.appIdParam()).let { it.toResponse(apps.effectiveInterval(it)) } })
+            call.respond(
+                io {
+                    apps.get(context.organization.id, call.appIdParam()).let {
+                        it.toResponse(apps.effectiveInterval(it), setup.of(it))
+                    }
+                },
+            )
         }
 
         patch("/{app}") {
@@ -188,7 +208,7 @@ fun Route.appRoutes(console: ConsoleWiring) {
                             ),
                     )
                 }
-            call.respond(app.toResponse(apps.effectiveInterval(app)))
+            call.respond(app.toResponse(apps.effectiveInterval(app), io { setup.of(app) }))
         }
 
         delete("/{app}") {
@@ -199,24 +219,32 @@ fun Route.appRoutes(console: ConsoleWiring) {
     }
 }
 
-private fun App.toResponse(effectiveInterval: Int) =
-    AppResponse(
-        id = id.toString(),
-        name = name,
-        gpPackageName = gpPackageName,
-        gpReportingBucket = gpReportingBucket,
-        ascAppId = ascAppId,
-        platforms = platforms().toList(),
-        locale = locale,
-        timezone = timezone,
-        notifyFrom = notifyFrom?.toString(),
-        aiInstructions = aiInstructions,
-        ingestIntervalMinutes = effectiveInterval,
-        ingestIntervalSource =
-            if (ingestIntervalMinutes == null) IngestIntervalSource.PLATFORM else IngestIntervalSource.APP,
-        dailyDigestAt = dailyDigestAt.toString(),
-        enabled = enabled,
-    )
+private fun App.toResponse(
+    effectiveInterval: Int,
+    setup: AppSetup,
+) = AppResponse(
+    id = id.toString(),
+    name = name,
+    gpPackageName = gpPackageName,
+    gpReportingBucket = gpReportingBucket,
+    ascAppId = ascAppId,
+    platforms = platforms().toList(),
+    locale = locale,
+    timezone = timezone,
+    notifyFrom = notifyFrom?.toString(),
+    aiInstructions = aiInstructions,
+    ingestIntervalMinutes = effectiveInterval,
+    ingestIntervalSource =
+        if (ingestIntervalMinutes == null) IngestIntervalSource.PLATFORM else IngestIntervalSource.APP,
+    dailyDigestAt = dailyDigestAt.toString(),
+    enabled = enabled,
+    setup =
+        AppSetupResponse(
+            ready = setup.ready,
+            gaps = setup.gaps,
+            platformsWithoutKey = setup.platformsWithoutKey,
+        ),
+)
 
 /**
  * Vyčtení appky z odkazu na store (F3.3).

@@ -39,6 +39,7 @@ import cz.matee.appreviewzz.core.port.ReviewRefreshSource
 import cz.matee.appreviewzz.core.port.ReviewSource
 import cz.matee.appreviewzz.core.port.SuggestReplyProvider
 import cz.matee.appreviewzz.core.usecase.AppService
+import cz.matee.appreviewzz.core.usecase.AppSetupCheck
 import cz.matee.appreviewzz.core.usecase.AuthPolicy
 import cz.matee.appreviewzz.core.usecase.AuthenticationService
 import cz.matee.appreviewzz.core.usecase.ChannelService
@@ -511,6 +512,9 @@ class Components(
 
     /** Sledované aplikace (F3.3). Interval stahování si bere z platformní konfigurace (F7.4). */
     val appService: AppService by lazy { AppService(apps = apps, audit = audit, ingest = platformConfig) }
+
+    /** Čeká appka ještě na klíč nebo kanál (F3.3)? Jen čtení dvou tabulek, žádný stav. */
+    val appSetupCheck: AppSetupCheck by lazy { AppSetupCheck(credentials = credentials, channels = channels) }
 
     /**
      * Vyčtení názvu z veřejného listingu, když si klient přidává appku odkazem ze storu.

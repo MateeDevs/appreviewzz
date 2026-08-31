@@ -127,6 +127,19 @@ class CredentialRoutesTest :
             }
         }
 
+        "přiřazení klíče zavře díru v nastavení appky" {
+            testApplication {
+                consoleModule(mailer, fakes = fakes)
+                val (owner, appId) = ownerWithApp(mailer)
+                val credentialId = owner.addGooglePlayKey().bodyAsText().jsonValue("id")
+
+                owner.postJson("/api/orgs/$SLUG/apps/$appId/credentials", """{"credentialId":"$credentialId"}""")
+
+                // Klíč je připojený, takže zbývá jediné, co appce brání v provozu — kanál.
+                owner.get("/api/orgs/$SLUG/apps/$appId").bodyAsText() shouldContain "\"gaps\":[\"CHANNEL\"]"
+            }
+        }
+
         "ověření proti storu zapíše výsledek do metadat" {
             testApplication {
                 consoleModule(mailer, fakes = fakes)
