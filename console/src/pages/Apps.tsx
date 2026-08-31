@@ -43,7 +43,6 @@ export function AppsPage() {
               <tr>
                 <th>Název</th>
                 <th>Store</th>
-                <th>Ingest</th>
                 <th>Stav</th>
               </tr>
             </thead>
@@ -54,7 +53,6 @@ export function AppsPage() {
                     <Link to={`/${org}/aplikace/${app.id}`}>{app.name}</Link>
                   </td>
                   <td className="small muted">{app.gpPackageName ?? app.ascAppId}</td>
-                  <td className="small">každých {app.ingestIntervalMinutes} min</td>
                   <td>{app.enabled ? <Badge tone="ok">zapnutá</Badge> : <Badge tone="warn">vypnutá</Badge>}</td>
                 </tr>
               ))}
@@ -323,14 +321,6 @@ function AppSettingsCard({ org, appId }: { org: string; appId: string }) {
         <Field label="Časová zóna" hint="Podle ní se počítá čas denního přehledu.">
           <input value={values.timezone} onChange={(e) => set('timezone', e.target.value)} />
         </Field>
-        <div className="field">
-          <label>Jak často se stahují recenze</label>
-          <p className="small muted" style={{ margin: 0 }}>
-            Každých {app.ingestIntervalMinutes} min
-            {app.ingestIntervalSource === 'APP' ? ' (nastaveno zvlášť pro tuhle aplikaci)' : ''}. Interval
-            nastavujeme my — ovlivňuje kvóty storu i to, jak rychle se recenze objeví. Když ti nesedí, napiš nám.
-          </p>
-        </div>
         <Field label="Čas denního přehledu">
           <input type="time" value={values.dailyDigestAt} onChange={(e) => set('dailyDigestAt', e.target.value)} />
         </Field>
