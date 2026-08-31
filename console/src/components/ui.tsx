@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import { ApiError } from '../api/client'
 
 export function Card({ title, children }: { title?: string; children: ReactNode }) {
@@ -49,6 +49,49 @@ export function AuthShell({ wide, children }: { wide?: boolean; children: ReactN
         {children}
       </div>
     </div>
+  )
+}
+
+/**
+ * Modální dialog nad nativním `<dialog>`. Escape, zamčený focus i překryv jsou tím pádem
+ * věcí prohlížeče, ne tří set řádků vlastní obsluhy klávesnice — a chovají se všude stejně.
+ */
+export function Modal({
+  title,
+  onClose,
+  children,
+}: {
+  title: string
+  onClose: () => void
+  children: ReactNode
+}) {
+  const ref = useRef<HTMLDialogElement>(null)
+
+  useEffect(() => {
+    const dialog = ref.current
+    if (!dialog?.open) dialog?.showModal()
+  }, [])
+
+  return (
+    <dialog
+      ref={ref}
+      className="modal"
+      onClose={onClose}
+      // Kliknutí mimo kartu zavírá; `<dialog>` hlásí kliknutí na překryv sám na sobě.
+      onClick={(event) => {
+        if (event.target === ref.current) ref.current?.close()
+      }}
+    >
+      <div className="modal-body">
+        <div className="spread modal-head">
+          <h2>{title}</h2>
+          <button type="button" className="link" onClick={() => ref.current?.close()}>
+            Zavřít
+          </button>
+        </div>
+        {children}
+      </div>
+    </dialog>
   )
 }
 

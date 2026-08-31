@@ -92,6 +92,21 @@ data class RatingsContext(
     val territories: List<String> = emptyList(),
 )
 
+/**
+ * Veřejný listing appky ve storu — to málo, co jde zjistit bez klíče, když si klient
+ * v consoli přidává aplikaci: **jak se jmenuje**.
+ *
+ * Je to schválně jiné rozhraní než [RatingsSource], i když se čte tatáž stránka: tohle běží
+ * interaktivně proti klientovi, který čeká u dialogu, a jeho selhání nic neshodí — jméno
+ * si prostě napíše sám.
+ */
+interface AppListingSource {
+    val platform: Platform
+
+    /** Jméno appky ve storu, nebo `null`, když store takový identifikátor nezná. */
+    suspend fun fetchName(identifier: String): String?
+}
+
 /** Zdroj recenzí jednoho storu. Přidání dalšího storu je implementace tohohle rozhraní. */
 interface ReviewSource {
     val platform: Platform

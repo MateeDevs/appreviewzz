@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
   useAddCredential,
@@ -11,23 +11,20 @@ import {
   useCredentials,
   useDeleteChannel,
   useRatings,
+  useResolveStoreLinks,
   useRunRatings,
   useTestChannels,
   useUpdateApp,
   useValidateCredential,
 } from '../api/hooks'
-import { Badge, Card, ErrorBox, Field, Loading, When } from '../components/ui'
+import { Badge, Card, ErrorBox, Field, Loading, Modal, When } from '../components/ui'
 import { RatingsChart } from '../components/RatingsChart'
-import type { ChannelCheck, RatingsSeries } from '../api/types'
+import type { ChannelCheck, RatingsSeries, ResolvedStore, StoreResolution } from '../api/types'
 
 export function AppsPage() {
   const { org = '' } = useParams()
   const apps = useApps(org)
-  const create = useCreateApp(org)
-  const [name, setName] = useState('')
-  const [gpPackage, setGpPackage] = useState('')
-  const [ascAppId, setAscAppId] = useState('')
-  const [notifyFrom, setNotifyFrom] = useState('')
+  const [adding, setAdding] = useState(false)
 
   return (
     <div className="stack">
@@ -64,54 +61,177 @@ export function AppsPage() {
             </tbody>
           </table>
         ) : null}
+        <div style={{ marginTop: apps.data && apps.data.length > 0 ? '1.1rem' : '0.75rem' }}>
+          <button type="button" onClick={() => setAdding(true)}>
+            Přidat aplikaci
+          </button>
+        </div>
       </Card>
 
-      <Card title="Přidat aplikaci">
-        <form
-          onSubmit={(event) => {
-            event.preventDefault()
-            create.mutate(
-              {
-                name,
-                gpPackageName: gpPackage.trim() === '' ? null : gpPackage.trim(),
-                ascAppId: ascAppId.trim() === '' ? null : ascAppId.trim(),
-                // Prázdné pole nechává rozhodnutí na serveru: watermarkem je čas přidání appky.
-                notifyFrom: dayToInstant(notifyFrom),
-              },
-              {
-                onSuccess: () => {
-                  setName('')
-                  setGpPackage('')
-                  setAscAppId('')
-                  setNotifyFrom('')
-                },
-              },
-            )
-          }}
+      {adding ? <AddAppDialog org={org} onClose={() => setAdding(false)} /> : null}
+    </div>
+  )
+}
+
+/**
+ * Přidání aplikace odkazem ze storu.
+ *
+ * Klient nemá odkud znát package name ani číselné App ID — zná adresu, na které appku ve
+ * storu vidí. Z ní se obojí vytáhne a rovnou se doptáme storu na název, takže zbývá jediné
+ * rozhodnutí: který název použít. Odkazy se ověřují průběžně, aby se překlep poznal dřív,
+ * než klient dialog potvrdí.
+ */
+function AddAppDialog({ org, onClose }: { org: string; onClose: () => void }) {
+  const create = useCreateApp(org)
+  const resolve = useResolveStoreLinks(org)
+  const resolveLinks = resolve.mutate
+  const [googlePlayUrl, setGooglePlayUrl] = useState('')
+  const [appStoreUrl, setAppStoreUrl] = useState('')
+  const [name, setName] = useState('')
+  const [resolved, setResolved] = useState<{ links: string; result: StoreResolution } | null>(null)
+  // Jakmile klient název přepíše, přestaneme mu ho pod rukama přepisovat výsledkem ze storu.
+  const nameEdited = useRef(false)
+
+  const links = `${googlePlayUrl.trim()}\u0000${appStoreUrl.trim()}`
+  // Výsledek platí jen pro odkazy, ze kterých vznikl — jinak by po úpravě odkazu chvíli
+  // svítil identifikátor od předchozího.
+  const current = resolved?.links === links ? resolved.result : null
+
+  useEffect(() => {
+    const [googlePlay, appStore] = links.split('\u0000')
+    if (googlePlay === '' && appStore === '') return
+    // Odkaz se vkládá po částech (nebo se lepí ze schránky) — počkáme, až psaní ustane.
+    const timer = setTimeout(() => {
+      resolveLinks(
+        { googlePlayUrl: googlePlay || undefined, appStoreUrl: appStore || undefined },
+        {
+          onSuccess: (result) => {
+            setResolved({ links, result })
+            const suggestion = result.googlePlay?.name ?? result.appStore?.name
+            if (suggestion && !nameEdited.current) setName(suggestion)
+          },
+        },
+      )
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [links, resolveLinks])
+
+  const identifiers = [current?.googlePlay, current?.appStore].filter(
+    (store): store is ResolvedStore => store != null && store.identifier !== '',
+  )
+  const suggestions = [...new Set(identifiers.map((store) => store.name).filter((value): value is string => value != null))]
+  // Vyplněný odkaz, ze kterého nic nekouká, přidání blokuje: jinak by se appka tiše založila
+  // jen s tím druhým storem a klient by se to dozvěděl až tím, že recenze nechodí.
+  const broken =
+    (googlePlayUrl.trim() !== '' && current?.googlePlay?.identifier === '') ||
+    (appStoreUrl.trim() !== '' && current?.appStore?.identifier === '')
+  const ready = identifiers.length > 0 && name.trim() !== '' && !broken
+
+  return (
+    <Modal title="Přidat aplikaci" onClose={onClose}>
+      <form
+        onSubmit={(event) => {
+          event.preventDefault()
+          create.mutate(
+            {
+              name: name.trim(),
+              gpPackageName: current?.googlePlay?.identifier || null,
+              ascAppId: current?.appStore?.identifier || null,
+            },
+            { onSuccess: onClose },
+          )
+        }}
+      >
+        <Field
+          label="Odkaz na Google Play"
+          hint="Adresa stránky appky v Play Storu. Nech prázdné, když appka na Androidu není."
         >
-          <Field label="Název">
-            <input value={name} onChange={(e) => setName(e.target.value)} required />
+          <input
+            value={googlePlayUrl}
+            onChange={(e) => setGooglePlayUrl(e.target.value)}
+            placeholder="https://play.google.com/store/apps/details?id=cz.matee.appka"
+            autoFocus
+          />
+        </Field>
+        <StoreHint store={current?.googlePlay} filled={googlePlayUrl.trim() !== ''} pending={resolve.isPending} />
+
+        <Field label="Odkaz na App Store" hint="Adresa stránky appky v App Storu. Nech prázdné, když appka na iOS není.">
+          <input
+            value={appStoreUrl}
+            onChange={(e) => setAppStoreUrl(e.target.value)}
+            placeholder="https://apps.apple.com/cz/app/appka/id1234567890"
+          />
+        </Field>
+        <StoreHint store={current?.appStore} filled={appStoreUrl.trim() !== ''} pending={resolve.isPending} />
+
+        <div style={{ marginTop: '0.85rem' }}>
+          <Field label="Název" hint="Pod tímhle názvem appku uvidíš v consoli i ve zprávách do kanálu.">
+            <input
+              value={name}
+              onChange={(e) => {
+                nameEdited.current = true
+                setName(e.target.value)
+              }}
+              required
+            />
           </Field>
-          <Field label="Google Play — package name" hint="Např. cz.matee.islegrow. Nech prázdné, když appka na Androidu není.">
-            <input value={gpPackage} onChange={(e) => setGpPackage(e.target.value)} placeholder="cz.matee.appka" />
-          </Field>
-          <Field label="App Store — číselné App ID" hint="Najdeš ho v App Store Connect v adrese appky.">
-            <input value={ascAppId} onChange={(e) => setAscAppId(e.target.value)} placeholder="1234567890" />
-          </Field>
-          <Field
-            label="Posílat recenze od"
-            hint="Prázdné = ode dneška. Starší recenze se stáhnou do historie, ale do kanálu nepůjdou — jinak první stažení vysype do Slacku celou historii appky."
-          >
-            <input type="date" value={notifyFrom} onChange={(e) => setNotifyFrom(e.target.value)} />
-          </Field>
-          <div className="stack" style={{ marginTop: '1rem' }}>
-            <ErrorBox error={create.error} />
-            <button type="submit" disabled={create.isPending}>
-              Přidat
+          {suggestions.length > 0 ? (
+            <div className="chips">
+              {suggestions.map((suggestion) => (
+                <button
+                  key={suggestion}
+                  type="button"
+                  className={suggestion === name ? 'chip selected' : 'chip'}
+                  onClick={() => {
+                    nameEdited.current = true
+                    setName(suggestion)
+                  }}
+                >
+                  {suggestion}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+
+        <p className="small muted" style={{ marginTop: '0.85rem' }}>
+          Do kanálu půjdou recenze od chvíle, kdy appku přidáš. Starší se stáhnou do historie,
+          ale nikoho neupozorní — jinak by první stažení vysypalo do Slacku celou historii appky.
+        </p>
+
+        <div className="stack" style={{ marginTop: '1rem' }}>
+          <ErrorBox error={create.error ?? resolve.error} />
+          <div className="row">
+            <button type="submit" disabled={!ready || create.isPending}>
+              {create.isPending ? 'Přidávám…' : 'Přidat aplikaci'}
+            </button>
+            <button type="button" className="secondary" onClick={onClose}>
+              Zrušit
             </button>
           </div>
-        </form>
-      </Card>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+/** Co se z odkazu přečetlo — identifikátor pod polem je jediné potvrzení, že sedí ten správný. */
+function StoreHint({
+  store,
+  filled,
+  pending,
+}: {
+  store: ResolvedStore | null | undefined
+  filled: boolean
+  pending: boolean
+}) {
+  if (!filled) return null
+  if (!store) return pending ? <div className="hint">Hledám appku ve storu…</div> : null
+  if (store.identifier === '') return <div className="hint" style={{ color: 'var(--error)' }}>{store.error}</div>
+  return (
+    <div className="hint">
+      <code>{store.identifier}</code>
+      {store.name ? ` · ${store.name}` : ` · ${store.error ?? ''}`}
     </div>
   )
 }
@@ -154,12 +274,8 @@ function AppSettingsCard({ org, appId }: { org: string; appId: string }) {
     timezone: app.timezone,
     ingestIntervalMinutes: String(app.ingestIntervalMinutes),
     dailyDigestAt: app.dailyDigestAt.slice(0, 5),
-    notifyFrom: instantToDay(app.notifyFrom),
     aiInstructions: app.aiInstructions ?? '',
   }
-  // Posílat jen změněné datum: jinak by uložení nastavení posunulo watermark na půlnoc
-  // toho dne a zahodilo přesný čas, na kterém se appka založila.
-  const notifyFromChanged = values.notifyFrom !== instantToDay(app.notifyFrom)
   const set = (key: string, value: string) => setDraft({ ...values, [key]: value })
 
   return (
@@ -177,7 +293,6 @@ function AppSettingsCard({ org, appId }: { org: string; appId: string }) {
                 timezone: values.timezone,
                 ingestIntervalMinutes: Number(values.ingestIntervalMinutes),
                 dailyDigestAt: values.dailyDigestAt,
-                notifyFrom: notifyFromChanged ? dayToInstant(values.notifyFrom) : null,
                 aiInstructions: values.aiInstructions === '' ? null : values.aiInstructions,
                 enabled: app.enabled,
               },
@@ -222,23 +337,21 @@ function AppSettingsCard({ org, appId }: { org: string; appId: string }) {
         <Field label="Čas denního přehledu">
           <input type="time" value={values.dailyDigestAt} onChange={(e) => set('dailyDigestAt', e.target.value)} />
         </Field>
-        <Field
-          label="Posílat recenze od"
-          hint={
-            <>
-              Do kanálu jdou jen recenze novější než tohle datum; starší zůstávají v historii.
-              {app.notifyFrom ? (
-                <>
-                  {' '}
-                  Teď platí <When iso={app.notifyFrom} />.
-                </>
-              ) : null}{' '}
-              Posunutí data dozadu už jednou potlačené recenze nepošle.
-            </>
-          }
-        >
-          <input type="date" value={values.notifyFrom} onChange={(e) => set('notifyFrom', e.target.value)} />
-        </Field>
+        {/* Watermark se nenastavuje, jen ukazuje: je to čas přidání appky a měnit ho zpětně
+            by znamenalo buď zaplavit kanál historií, nebo zamlčet recenze, které už přišly. */}
+        <div className="field">
+          <label>Posílat recenze od</label>
+          <p className="small muted" style={{ margin: 0 }}>
+            Do kanálu jdou recenze od chvíle, kdy se appka přidala do console
+            {app.notifyFrom ? (
+              <>
+                {' '}
+                (<When iso={app.notifyFrom} />)
+              </>
+            ) : null}
+            . Starší zůstávají v historii, ale nikoho neupozorní.
+          </p>
+        </div>
         <Field
           label="Instrukce pro AI návrhy"
           hint="Tón odpovědí, čemu se vyhnout, jak podepisovat. Nechej prázdné, když návrhy nechceš ovlivňovat."
@@ -637,19 +750,4 @@ function ChannelsCard({ org, appId }: { org: string; appId: string }) {
       )}
     </Card>
   )
-}
-
-/**
- * `<input type="date">` umí jen den; watermark je okamžik, tak z něj bereme půlnoc v zóně
- * prohlížeče. Prázdné pole je `null` — server si pak dosadí vlastní výchozí hodnotu.
- */
-function dayToInstant(day: string | undefined): string | null {
-  return day ? new Date(`${day}T00:00:00`).toISOString() : null
-}
-
-/** Opačný směr: watermark ze serveru jako den v místní zóně, ne v UTC. */
-function instantToDay(iso: string | null): string {
-  if (!iso) return ''
-  const date = new Date(iso)
-  return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 10)
 }

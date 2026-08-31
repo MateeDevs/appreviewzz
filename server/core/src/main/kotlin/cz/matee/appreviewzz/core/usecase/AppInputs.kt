@@ -99,8 +99,57 @@ object AppInputs {
                 }
         }
 
+    /**
+     * Package name aplikace v Google Play. Bere i **celý odkaz na store** — do console se
+     * appka přidává tak, že se odkaz zkopíruje z prohlížeče, a nutit člověka, aby si z něj
+     * package name vypsal sám, je zbytečný krok navíc.
+     */
+    fun playPackage(
+        raw: String,
+        field: String,
+    ): String {
+        val value = raw.trim()
+        val candidate =
+            PLAY_LINK_ID
+                .find(value)
+                ?.groupValues
+                ?.get(1)
+                ?.trim() ?: value
+        if (!PACKAGE_NAME.matches(candidate)) {
+            invalid(field, "'$raw' není package name ani odkaz na Google Play (čekám např. cz.matee.islegrow)")
+        }
+        return candidate
+    }
+
+    /**
+     * Číselné App ID. Stejně jako u Play bere celý odkaz z App Storu; `id1490577875`
+     * i holé číslo znamenají totéž.
+     */
+    fun appStoreId(
+        raw: String,
+        field: String,
+    ): String {
+        val value = raw.trim()
+        val candidate = APP_STORE_LINK_ID.find(value)?.groupValues?.get(1) ?: value.removePrefix("id")
+        if (!APP_STORE_ID.matches(candidate)) {
+            invalid(field, "'$raw' není číselné App ID ani odkaz na App Store (čekám např. 1490577875)")
+        }
+        return candidate
+    }
+
     /** Pravidla Cloud Storage: malá písmena, číslice, pomlčky, podtržítka a tečky. */
     private val BUCKET_NAME = Regex("[a-z0-9][a-z0-9._-]{2,221}")
+
+    /** `…/store/apps/details?id=cz.matee.islegrow&hl=cs`, ale i `market://details?id=…`. */
+    private val PLAY_LINK_ID = Regex("""[?&]id=([^&#]+)""")
+
+    /** Java package: aspoň dva segmenty, každý začíná písmenem. */
+    private val PACKAGE_NAME = Regex("""[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+""")
+
+    /** `…/cz/app/islegrow/id1490577875?l=cs` na apps.apple.com i na starém itunes.apple.com. */
+    private val APP_STORE_LINK_ID = Regex("""/id(\d{3,})""")
+
+    private val APP_STORE_ID = Regex("""\d{3,}""")
 
     private fun invalid(
         field: String,

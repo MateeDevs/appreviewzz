@@ -65,8 +65,18 @@ class AppService(
         val name = draft.name.trim()
         if (name.isEmpty()) throw ConsoleException(ConsoleFailure.INVALID_INPUT, "Aplikace potřebuje název")
 
-        val gpPackage = draft.gpPackageName?.trim()?.takeIf { it.isNotEmpty() }
-        val ascAppId = draft.ascAppId?.trim()?.takeIf { it.isNotEmpty() }
+        // Identifikátory se berou i z odkazu na store — console je tak, jak je klient
+        // zkopíruje z prohlížeče, posílá rovnou (viz [AppInputs.playPackage]).
+        val gpPackage =
+            draft.gpPackageName
+                ?.trim()
+                ?.takeIf { it.isNotEmpty() }
+                ?.let { AppInputs.playPackage(it, "gpPackageName") }
+        val ascAppId =
+            draft.ascAppId
+                ?.trim()
+                ?.takeIf { it.isNotEmpty() }
+                ?.let { AppInputs.appStoreId(it, "ascAppId") }
         if (gpPackage == null && ascAppId == null) {
             throw ConsoleException(
                 ConsoleFailure.INVALID_INPUT,

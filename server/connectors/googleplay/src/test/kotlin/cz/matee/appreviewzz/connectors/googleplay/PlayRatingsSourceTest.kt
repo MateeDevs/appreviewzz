@@ -208,6 +208,32 @@ class PlayRatingsSourceTest :
                     .kind shouldBe StoreErrorKind.NOT_FOUND
             }
 
+            test("jméno appky se přečte ze stejné stránky jako čísla") {
+                val engine =
+                    RecordingEngine { request ->
+                        if (request.url.encodedPath.contains("/store/apps/details")) {
+                            respond(fixture("play-listing.html"), headers = htmlHeaders)
+                        } else {
+                            null
+                        }
+                    }
+
+                PlayStoreListingLookup(engine.client()).fetchName(PACKAGE) shouldBe "IsleGrow"
+            }
+
+            test("bez jména v listingu se vrátí prázdno — klient si název napíše sám") {
+                val engine =
+                    RecordingEngine { request ->
+                        if (request.url.encodedPath.contains("/store/apps/details")) {
+                            respond("<html><body>Google něco přestavěl</body></html>", headers = htmlHeaders)
+                        } else {
+                            null
+                        }
+                    }
+
+                PlayStoreListingLookup(engine.client()).fetchName(PACKAGE).shouldBeNull()
+            }
+
             test("změněný layout znamená prázdno, ne pád") {
                 val engine =
                     RecordingEngine { request ->

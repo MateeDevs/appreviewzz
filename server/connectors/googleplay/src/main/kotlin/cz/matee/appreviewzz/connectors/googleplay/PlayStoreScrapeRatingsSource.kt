@@ -17,6 +17,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.isSuccess
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -66,7 +67,28 @@ class PlayStoreScrapeRatingsSource(
         )
     }
 
-    private suspend fun listing(packageName: String): String? {
+    private suspend fun listing(packageName: String): String? =
+        PlayListing.fetch(httpClient, baseUrl, packageName) { status ->
+            logger.info { "Play listing pro $packageName vrátil $status, hodnocení nebude" }
+        }
+
+    companion object {
+        const val PLAY_STORE_BASE_URL = "https://play.google.com"
+        const val SCRAPE_PRIORITY = 50
+    }
+}
+
+/**
+ * Stažení veřejné stránky appky. Sdílené mezi hodnocením a vyhledáním jména při přidávání
+ * appky — je to tatáž stránka a tytéž způsoby, jak se to může nepovést.
+ */
+internal object PlayListing {
+    suspend fun fetch(
+        httpClient: HttpClient,
+        baseUrl: String,
+        packageName: String,
+        onUnexpectedStatus: (Int) -> Unit,
+    ): String? {
         val response =
             try {
                 httpClient.get("$baseUrl/store/apps/details") {
@@ -89,15 +111,10 @@ class PlayStoreScrapeRatingsSource(
             throw StoreConnectorException(StoreErrorKind.NOT_FOUND, "Aplikace $packageName v Play Storu není")
         }
         if (!response.status.isSuccess()) {
-            logger.info { "Play listing pro $packageName vrátil ${response.status.value}, hodnocení nebude" }
+            onUnexpectedStatus(response.status.value)
             return null
         }
         return response.bodyAsText()
-    }
-
-    companion object {
-        const val PLAY_STORE_BASE_URL = "https://play.google.com"
-        const val SCRAPE_PRIORITY = 50
     }
 }
 
@@ -112,17 +129,21 @@ internal data class PlayAggregate(
  * je to ta část, která se rozbije, až Google přestaví stránku.
  */
 internal object PlayListingParser {
+    /** Jméno appky — bere se ze stejného `ld+json` bloku jako průměr, tedy odjinud než z markupu. */
+    fun name(html: String): String? =
+        softwareApplication(html)
+            ?.get("name")
+            ?.jsonPrimitive
+            ?.contentOrNull
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
+
     /**
      * Strukturovaná data (`schema.org/AggregateRating`) jsou jediná stabilní část stránky:
      * Google je tam drží kvůli vyhledávačům, takže se mění řádově míň než markup.
      */
     fun aggregate(html: String): PlayAggregate? {
-        val blocks = LD_JSON.findAll(html).mapNotNull { runCatching { json.parseToJsonElement(it.groupValues[1]) }.getOrNull() }
-        val rating =
-            blocks
-                .mapNotNull { (it as? JsonObject)?.get("aggregateRating")?.jsonObject }
-                .firstOrNull()
-                ?: return null
+        val rating = softwareApplication(html)?.get("aggregateRating")?.jsonObject ?: return null
         return PlayAggregate(
             average = rating["ratingValue"]?.jsonPrimitive?.doubleOrNull,
             count = (rating["ratingCount"] ?: rating["reviewCount"])?.jsonPrimitive?.longOrNull,
@@ -145,6 +166,13 @@ internal object PlayListingParser {
                 .fold(0L) { sum, (_, votes) -> sum + votes }
         return counts.takeIf { it.size == STARS && it.values.sum() > 0 }
     }
+
+    /** `ld+json` blok se strukturovanými daty appky; Google ho drží kvůli vyhledávačům. */
+    private fun softwareApplication(html: String): JsonObject? =
+        LD_JSON
+            .findAll(html)
+            .mapNotNull { runCatching { json.parseToJsonElement(it.groupValues[1]) }.getOrNull() as? JsonObject }
+            .firstOrNull { it["name"] != null || it["aggregateRating"] != null }
 
     private fun parse(
         html: String,

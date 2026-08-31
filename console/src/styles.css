@@ -348,6 +348,44 @@ button.link {
 }
 button.link:hover:not(:disabled) { background: none; color: var(--accent-hover); }
 
+/* --- modální dialog --- */
+.modal {
+  border: none;
+  padding: 0;
+  background: transparent;
+  color: var(--text);
+  width: min(560px, calc(100vw - 2rem));
+  max-height: calc(100vh - 3rem);
+  overflow: visible;
+}
+.modal::backdrop { background: rgba(9, 12, 18, 0.45); backdrop-filter: blur(2px); }
+.modal-body {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  padding: 1.35rem;
+  max-height: calc(100vh - 3rem);
+  overflow-y: auto;
+}
+.modal-head { padding-bottom: 0.85rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border); }
+.modal-head h2 { margin: 0; }
+
+/* Nabídnutý název ze storu — klikací návrh, ne další pole k vyplnění. */
+.chips { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.45rem; }
+.chip {
+  padding: 0.28rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.83rem;
+  font-weight: 500;
+}
+.chip:hover:not(:disabled) { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.chip.selected { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.chip:disabled { opacity: 1; cursor: default; }
+
 /* --- zpětná vazba --- */
 .error, .notice {
   border-radius: var(--radius-sm);

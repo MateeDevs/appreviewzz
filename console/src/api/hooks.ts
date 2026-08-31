@@ -18,6 +18,7 @@ import type {
   Review,
   ReviewDetail,
   ReviewState,
+  StoreResolution,
   TotpSetup,
 } from './types'
 
@@ -212,6 +213,17 @@ export function useCreateApp(org: string) {
   return useMutation({
     mutationFn: (input: Record<string, unknown>) => api.post<App>(`/api/orgs/${org}/apps`, input),
     onSuccess: () => client.invalidateQueries({ queryKey: ['apps', org] }),
+  })
+}
+
+/**
+ * Vyčtení appky z odkazů na store. Volá se z dialogu při psaní, takže se výsledek
+ * nekešuje — odkaz se mezi dvěma pokusy mění.
+ */
+export function useResolveStoreLinks(org: string) {
+  return useMutation({
+    mutationFn: (input: { googlePlayUrl?: string; appStoreUrl?: string }) =>
+      api.post<StoreResolution>(`/api/orgs/${org}/apps/resolve`, input),
   })
 }
 

@@ -20,11 +20,13 @@ import cz.matee.appreviewzz.channels.teams.TeamsNotificationChannel
 import cz.matee.appreviewzz.channels.teams.TeamsTokens
 import cz.matee.appreviewzz.channels.teams.teamsHttpClient
 import cz.matee.appreviewzz.connectors.appstore.AppStoreConnector
+import cz.matee.appreviewzz.connectors.appstore.AppStoreListingLookup
 import cz.matee.appreviewzz.connectors.appstore.AppStoreListingRatingsSource
 import cz.matee.appreviewzz.connectors.appstore.ITunesRatingsSource
 import cz.matee.appreviewzz.connectors.appstore.appStoreHttpClient
 import cz.matee.appreviewzz.connectors.googleplay.GooglePlayConnector
 import cz.matee.appreviewzz.connectors.googleplay.PlayReportingRatingsSource
+import cz.matee.appreviewzz.connectors.googleplay.PlayStoreListingLookup
 import cz.matee.appreviewzz.connectors.googleplay.PlayStoreScrapeRatingsSource
 import cz.matee.appreviewzz.connectors.googleplay.googleHttpClient
 import cz.matee.appreviewzz.core.model.SecretPayload
@@ -452,6 +454,19 @@ class Components(
 
     /** Sledované aplikace (F3.3). */
     val appService: AppService by lazy { AppService(apps = apps, audit = audit) }
+
+    /**
+     * Vyčtení názvu z veřejného listingu, když si klient přidává appku odkazem ze storu.
+     * Sahá na HTTP klienty storů, takže vzniká líně jako všechno ostatní kolem konektorů.
+     */
+    val storeLookup: StoreLookup by lazy {
+        StoreLookup(
+            listOf(
+                PlayStoreListingLookup(storeClients.googlePlay),
+                AppStoreListingLookup(storeClients.appStore),
+            ),
+        )
+    }
 
     /**
      * Klíče ke storům (F3.4). Sahá na vault, takže vzniká líně — bez `VAULT_KEK_URI`

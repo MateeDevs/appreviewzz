@@ -36,6 +36,10 @@ internal data class LookupResponse(
 @Serializable
 internal data class LookupResult(
     val trackId: Long? = null,
+    /** Jméno appky ve storu; při přidávání aplikace v consoli je to to jediné, co se z lookupu bere. */
+    val trackName: String? = null,
+    /** `software` u appky. Lookup podle ID vrátí i písničku nebo film, když ID patří jim. */
+    val wrapperType: String? = null,
     @SerialName("averageUserRating") val averageUserRating: Double? = null,
     @SerialName("userRatingCount") val userRatingCount: Long? = null,
 )

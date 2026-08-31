@@ -100,6 +100,65 @@ class AppRoutesTest :
             }
         }
 
+        "appka se založí odkazy ze storu, nic se neopisuje" {
+            testApplication {
+                consoleModule(mailer)
+                val owner = ownerWithOrg(mailer)
+
+                val created =
+                    owner.createApp(
+                        """{"name":"IsleGrow",""" +
+                            """"gpPackageName":"https://play.google.com/store/apps/details?id=cz.matee.islegrow&hl=cs",""" +
+                            """"ascAppId":"https://apps.apple.com/cz/app/islegrow/id1490577875"}""",
+                    )
+
+                created.status shouldBe HttpStatusCode.Created
+                val body = created.bodyAsText()
+                body shouldContain "\"gpPackageName\":\"cz.matee.islegrow\""
+                body shouldContain "\"ascAppId\":\"1490577875\""
+                body shouldContain "\"platforms\":[\"ANDROID\",\"IOS\"]"
+            }
+        }
+
+        "odkazy ze storu se rozluští ještě před přidáním appky" {
+            testApplication {
+                consoleModule(mailer)
+                val owner = ownerWithOrg(mailer)
+
+                val resolved =
+                    owner.postJson(
+                        "/api/orgs/$SLUG/apps/resolve",
+                        """{"googlePlayUrl":"https://play.google.com/store/apps/details?id=cz.matee.islegrow",""" +
+                            """"appStoreUrl":"https://apps.apple.com/cz/app/islegrow/id1490577875"}""",
+                    )
+
+                resolved.status shouldBe HttpStatusCode.OK
+                val body = resolved.bodyAsText()
+                body shouldContain "\"identifier\":\"cz.matee.islegrow\""
+                body shouldContain "\"identifier\":\"1490577875\""
+            }
+        }
+
+        "nesmyslný odkaz je věta u pole, ne odmítnutý požadavek" {
+            testApplication {
+                consoleModule(mailer)
+                val owner = ownerWithOrg(mailer)
+
+                // Jeden špatný odkaz nesmí shodit i ten druhý — dialog má u každého pole
+                // ukázat, co je s ním, a nechat klienta pokračovat.
+                val resolved =
+                    owner.postJson(
+                        "/api/orgs/$SLUG/apps/resolve",
+                        """{"googlePlayUrl":"tohle není odkaz","appStoreUrl":"1490577875"}""",
+                    )
+
+                resolved.status shouldBe HttpStatusCode.OK
+                val body = resolved.bodyAsText()
+                body shouldContain "Odkaz na Google Play 'tohle není odkaz' není package name"
+                body shouldContain "\"identifier\":\"1490577875\""
+            }
+        }
+
         "tentýž balíček podruhé se odmítne" {
             testApplication {
                 consoleModule(mailer)

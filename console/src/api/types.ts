@@ -83,6 +83,19 @@ export interface App {
   enabled: boolean
 }
 
+/** Co server vyčetl z jednoho odkazu na store. `name` chybí, když store neodpověděl. */
+export interface ResolvedStore {
+  platform: Platform
+  identifier: string
+  name: string | null
+  error: string | null
+}
+
+export interface StoreResolution {
+  googlePlay: ResolvedStore | null
+  appStore: ResolvedStore | null
+}
+
 export interface Credential {
   id: string
   type: CredentialType

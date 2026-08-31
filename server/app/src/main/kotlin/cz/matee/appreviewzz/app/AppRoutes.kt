@@ -2,8 +2,16 @@ package cz.matee.appreviewzz.app
 
 import cz.matee.appreviewzz.core.model.App
 import cz.matee.appreviewzz.core.model.MessageLocale
+import cz.matee.appreviewzz.core.model.OrgRole
 import cz.matee.appreviewzz.core.model.Platform
+import cz.matee.appreviewzz.core.port.AppListingSource
+import cz.matee.appreviewzz.core.port.StoreConnectorException
 import cz.matee.appreviewzz.core.usecase.AppDraft
+import cz.matee.appreviewzz.core.usecase.AppInputs
+import cz.matee.appreviewzz.core.usecase.ConsoleException
+import cz.matee.appreviewzz.core.usecase.ConsoleFailure
+import cz.matee.appreviewzz.core.usecase.OrgActor
+import cz.matee.appreviewzz.core.usecase.requireRole
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
@@ -43,6 +51,32 @@ data class UpdateAppRequest(
     val ingestIntervalMinutes: Int? = null,
     val dailyDigestAt: String? = null,
     val enabled: Boolean? = null,
+)
+
+/** Odkazy ze storu, jak je klient zkopíruje z prohlížeče. Aspoň jeden musí být vyplněný. */
+@Serializable
+data class ResolveStoreLinksRequest(
+    val googlePlayUrl: String? = null,
+    val appStoreUrl: String? = null,
+)
+
+/**
+ * Co se z odkazu povedlo vyčíst. `name` je `null`, když store neodpověděl — přidání appky
+ * to nebrání, jen si klient název napíše sám.
+ */
+@Serializable
+data class ResolvedStore(
+    val platform: Platform,
+    val identifier: String,
+    val name: String?,
+    /** Věta pro člověka, když se odkaz nepovedlo rozluštit nebo store mlčel. */
+    val error: String?,
+)
+
+@Serializable
+data class ResolveStoreLinksResponse(
+    val googlePlay: ResolvedStore?,
+    val appStore: ResolvedStore?,
 )
 
 @Serializable
@@ -104,6 +138,16 @@ fun Route.appRoutes(console: ConsoleWiring) {
             call.respond(HttpStatusCode.Created, app.toResponse())
         }
 
+        /**
+         * Rozluštění odkazů ze storu. Odděleně od zakládání schválně: dialog ho volá ve chvíli,
+         * kdy klient odkaz vloží, aby mu mohl nabídnout název dřív, než appku potvrdí.
+         */
+        post("/resolve") {
+            val context = call.orgContext(console.organizations, console.memberships)
+            val request = call.receive<ResolveStoreLinksRequest>()
+            call.respond(console.storeLookup.resolve(context.actor, request))
+        }
+
         get("/{app}") {
             val context = call.orgContext(console.organizations, console.memberships)
             call.respond(io { apps.get(context.organization.id, call.appIdParam()).toResponse() })
@@ -159,3 +203,69 @@ private fun App.toResponse() =
         dailyDigestAt = dailyDigestAt.toString(),
         enabled = enabled,
     )
+
+/**
+ * Vyčtení appky z odkazu na store (F3.3).
+ *
+ * Klient přidává aplikaci tak, že vloží odkaz z Google Play a z App Storu; z nich se vezme
+ * package name, číselné App ID a název, který store uvádí. Sedí v `app`, ne v doméně:
+ * čtení veřejného listingu umí jen konektory.
+ *
+ * Selhání storu **není chyba požadavku** — vrátí se jako věta u konkrétního odkazu a dialog
+ * nechá klienta pokračovat s vlastním názvem. Jinak by nedostupný Play Store znamenal, že se
+ * appka nedá přidat vůbec.
+ */
+class StoreLookup(
+    private val sources: List<AppListingSource> = emptyList(),
+) {
+    suspend fun resolve(
+        actor: OrgActor,
+        request: ResolveStoreLinksRequest,
+    ): ResolveStoreLinksResponse {
+        requireRole(actor, OrgRole.ADMIN)
+        val googlePlay = request.googlePlayUrl?.takeIf { it.isNotBlank() }
+        val appStore = request.appStoreUrl?.takeIf { it.isNotBlank() }
+        if (googlePlay == null && appStore == null) {
+            throw ConsoleException(
+                ConsoleFailure.INVALID_INPUT,
+                "Vlož aspoň jeden odkaz — na Google Play, nebo na App Store",
+            )
+        }
+
+        // Jménem pole je popisek, který má klient u vstupu před sebou — hláška se ukazuje
+        // rovnou pod ním a „googlePlayUrl" by tam bylo cizí slovo.
+        return ResolveStoreLinksResponse(
+            googlePlay = googlePlay?.let { resolve(Platform.ANDROID, it) { raw -> AppInputs.playPackage(raw, "Odkaz na Google Play") } },
+            appStore = appStore?.let { resolve(Platform.IOS, it) { raw -> AppInputs.appStoreId(raw, "Odkaz na App Store") } },
+        )
+    }
+
+    private suspend fun resolve(
+        platform: Platform,
+        raw: String,
+        identify: (String) -> String,
+    ): ResolvedStore {
+        val identifier =
+            try {
+                identify(raw)
+            } catch (error: ConsoleException) {
+                return ResolvedStore(platform, identifier = "", name = null, error = error.message)
+            }
+
+        val source = sources.firstOrNull { it.platform == platform }
+        val name =
+            try {
+                source?.fetchName(identifier)
+            } catch (error: StoreConnectorException) {
+                // Věta z konektoru je psaná pro člověka („Aplikace … v Play Storu není"),
+                // takže se předává, jak je — vlastní obal by ji jen zamlžil.
+                return ResolvedStore(platform, identifier, name = null, error = error.message)
+            }
+        return ResolvedStore(
+            platform = platform,
+            identifier = identifier,
+            name = name,
+            error = if (name == null) "Název se ze storu nepovedlo přečíst, napiš ho ručně" else null,
+        )
+    }
+}

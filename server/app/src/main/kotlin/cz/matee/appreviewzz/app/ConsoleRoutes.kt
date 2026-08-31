@@ -46,6 +46,11 @@ class ConsoleWiring(
     val organizations: OrganizationRepository,
     val memberships: MembershipRepository,
     /**
+     * Čtení názvu appky z odkazu na store při jejím přidávání. Výchozí instance je bez
+     * konektorů: identifikátory z odkazu vytáhne, název nechá na klientovi.
+     */
+    val storeLookup: StoreLookup = StoreLookup(),
+    /**
      * Druhý faktor (F5.3). `null` = instalace bez správce klíčů, kde nemáme tajemství kam
      * bezpečně uložit; console pak nabídku zabezpečení schová a přihlášení končí heslem.
      */

@@ -47,7 +47,7 @@ export function OnboardingPage() {
       detail:
         (apps.data?.length ?? 0) > 0
           ? `Sledujeme ${apps.data?.length} ${apps.data?.length === 1 ? 'aplikaci' : 'aplikace'}.`
-          : 'Přidej appku i s package name z Google Play, případně číselným App ID z App Store.',
+          : 'Vlož odkaz na appku v Google Play a v App Storu — package name i App ID si console vytáhne sama.',
       action: { label: 'Přidat aplikaci', to: `/${org}/aplikace` },
     },
     {
@@ -84,10 +84,10 @@ export function OnboardingPage() {
       done: firstApp != null,
       detail:
         firstApp?.notifyFrom != null
-          ? `Do kanálu jdou jen recenze novější než ${new Date(firstApp.notifyFrom).toLocaleDateString('cs-CZ', {
+          ? `Do kanálu jdou recenze od ${new Date(firstApp.notifyFrom).toLocaleDateString('cs-CZ', {
               dateStyle: 'medium',
-            })} — datum se nastavilo při přidání appky a v nastavení jde posunout. Starší recenze se ukládají do historie, ale nenotifikují.`
-          : 'Po přidání appky se datum, od kterého chodí notifikace, nastaví na den přidání — starší recenze kanál nezaplaví.',
+            })}, kdy se appka přidala; starší se ukládají do historie, ale nenotifikují. Zbývá doladit jazyk zpráv, čas přehledu a instrukce pro AI.`
+          : 'Recenze začnou do kanálu chodit od chvíle, kdy appku přidáš — historie kanál nezaplaví.',
       action: { label: 'Otevřít nastavení', to: appPath },
     },
   ]
