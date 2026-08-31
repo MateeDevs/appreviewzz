@@ -18,7 +18,8 @@ Seřazeno podle toho, co by bolelo nejvíc:
 | **Hesla a druhý faktor uživatelů** | cesta do konzole, odkud jde vyměnit klíč a přesměrovat kanál | `app_user.password_hash` (argon2id), `user_totp.ciphertext` |
 | **Relace konzole** | totéž, bez nutnosti znát heslo | `user_session.token_hash` (SHA-256), plaintext jen v cookie |
 | **Recenze a hodnocení** | obchodní data klienta; samostatně nejsou tajná, ale prozrazují, kdo je náš zákazník | `review`, `rating_snapshot` |
-| **Audit log** | to jediné, co po incidentu řekne, co se dělo | `audit_log` |
+| **Audit log** | to jediné, co po incidentu řekne, co se dělo | `audit_log`, `platform_audit_log` |
+| **Platformní klíče** | API klíč k AI, který platí pro všechny klienty naráz; a stropy, kterými se dá zvednout zátěž na store API celé flotily | `platform_secret.ciphertext` (DEK `app_data_key`), `platform_setting` |
 
 ## 2. Kdo je proti nám
 
@@ -30,6 +31,7 @@ Seřazeno podle toho, co by bolelo nejvíc:
 | **Kdo umí číst logy** | výstup kontejneru, agregátor logů | tajemství, která se do nich dostala nedopatřením |
 | **Kdo má dump databáze** | záloha, snapshot disku, ukradený `pg_dump` | klíče klientů |
 | **Uživatel Slacku či Teams klienta** | může klikat na naše zprávy a karty | publikovat odpověď jménem klienta, dosáhnout na cizí organizaci |
+| **Účet se správou platformy** | konfigurace platné pro všechny klienty, platformní klíče | zneužít klíč k AI, srazit interval stahování a vyčerpat kvóty store API všem naráz |
 | **Provozovatel hostingu** | root na stroji, přístup k proměnným prostředí | všechno; viz zbytková rizika |
 
 Mimo model: útočník s fyzickým přístupem k HSM v AWS, kompromitace samotného Postgresu
@@ -87,7 +89,22 @@ dodavatelským řetězcem, cílený útok na zaměstnance mimo pracovní zaříz
 | Podstrčit ciphertext z jiné organizace | AAD `org_id:credential_id:type` — ciphertext je kryptograficky svázaný s řádkem |
 | Eskalace uvnitř organizace (MEMBER → OWNER) | role se ověřuje v use-case, ne v UI; testy na to jsou |
 
-### 4.3 Webhooky
+### 4.3 Správa platformy
+
+Sekce, která přibyla v F7 ([ADR 0018]). Je to jediné místo v aplikaci, kde jedna změna
+dopadne na **všechny** klienty — proto má vlastní řádky, a ne jen odkaz na role.
+
+| Hrozba | Obrana |
+|---|---|
+| Ukradený účet správce platformy | **zapnutý druhý faktor je podmínka vstupu**, ne doporučení: bez něj vrací sekce `403` |
+| Povýšení cizího účtu útočníkem, který se dovnitř dostal | roli uděluje **jen seed CLI**, tedy přístup ke stroji a k databázi; přes HTTP to nejde vůbec |
+| Zjištění hádáním adres, že sekce existuje | bez role vrací `404`, ne `403` — stejně jako u cizí organizace |
+| Správce platformy čtoucí data klientů | superadmin **není** členem žádné organizace a `orgContext` stojí na členství; test to hlídá pro appky, recenze, credentials i členy |
+| Vytažení platformního klíče přes API | úložiště je write-only: ven jde otisk a nápověda, nikdy hodnota — a to ani hodnota z proměnné prostředí |
+| Klient snižující si interval stahování | pole zmizelo z jeho formuláře a `PATCH` s ním vrací `403`; podlaha platí i pro výjimku udělenou správcem |
+| Nezjistitelná změna konfigurace | každá změna jde do `platform_audit_log`, u tajemství jako otisk před a po |
+
+### 4.4 Webhooky
 
 | Hrozba | Obrana |
 |---|---|
@@ -98,7 +115,7 @@ dodavatelským řetězcem, cílený útok na zaměstnance mimo pracovní zaříz
 | Zahlcení ověřování podpisů | limit požadavků sedí **před** kryptografií |
 | Instalace Slacku jménem cizí organizace | podepsaný `state` s expirací, nově jednorázový (F5.2) |
 
-### 4.4 Data v klidu
+### 4.5 Data v klidu
 
 | Hrozba | Obrana |
 |---|---|
@@ -110,7 +127,7 @@ dodavatelským řetězcem, cílený útok na zaměstnance mimo pracovní zaříz
 | Tajemství v logu | typový obal `SecretPayload` s redigovaným `toString()` **a** redakční filtr na výstupu (F5.4) |
 | Jednorázové odkazy v logu | tělo e-mailu se bez SMTP vypisuje jen s `MAIL_LOG_LINKS=true` (F5.4) |
 
-### 4.5 Odchozí volání
+### 4.6 Odchozí volání
 
 | Hrozba | Obrana |
 |---|---|

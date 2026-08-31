@@ -123,6 +123,19 @@ internal class FakeAppRepository(
 
     override fun listEnabled(): List<App> = apps.filter { it.enabled }
 
+    override fun findAnyById(id: AppId): App? = apps.firstOrNull { it.id == id }
+
+    override fun listWithIntervalOverride(): List<App> = apps.filter { it.ingestIntervalMinutes != null }
+
+    override fun updateIngestInterval(
+        id: AppId,
+        minutes: Int?,
+    ): App? {
+        val index = apps.indexOfFirst { it.id == id }
+        if (index < 0) return null
+        return apps[index].copy(ingestIntervalMinutes = minutes).also { apps[index] = it }
+    }
+
     override fun listByOrg(orgId: OrganizationId): List<App> = apps.filter { it.orgId == orgId }
 
     override fun create(

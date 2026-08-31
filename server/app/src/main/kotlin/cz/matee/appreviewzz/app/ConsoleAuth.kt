@@ -1,9 +1,11 @@
 package cz.matee.appreviewzz.app
 
 import cz.matee.appreviewzz.core.model.OpaqueTokens
+import cz.matee.appreviewzz.core.model.PlatformRole
 import cz.matee.appreviewzz.core.model.SecretPayload
 import cz.matee.appreviewzz.core.usecase.AuthenticatedUser
 import cz.matee.appreviewzz.core.usecase.AuthenticationService
+import cz.matee.appreviewzz.core.usecase.MfaService
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.Application
@@ -131,6 +133,44 @@ fun Route.requireSession(
             return@intercept finish()
         }
         call.attributes.put(AuthenticatedUserKey, user)
+    }
+    child.build()
+    return child
+}
+
+/**
+ * Podstrom cest platformní správy (F7.1). Kromě session chce dvě věci navíc:
+ *
+ * - **roli `SUPERADMIN`** — kdo ji nemá, dostane `404`, ne `403`. Stejná úvaha jako u cizí
+ *   organizace: existence sekce není nic, co by se mělo dát zjistit hádáním adres.
+ * - **zapnutý druhý faktor** — účet, který drží platformní tajemství a stropy pro všechny
+ *   klienty, je poslední, který má stát na samotném hesle (ADR 0015, ADR 0018). Tady `403`
+ *   s vlastním kódem: uživatel má vědět, co udělat, a console ho pošle na zabezpečení.
+ *
+ * Ochrana visí na stromě, ne v handlerech — nová sekce se tak nemůže zapomenout zeptat.
+ */
+fun Route.requirePlatformAdmin(
+    mfa: MfaService?,
+    build: Route.() -> Unit,
+): Route {
+    val child = (this as RoutingNode).createChild(TransparentSelector())
+    child.intercept(ApplicationCallPipeline.Plugins) {
+        val user = call.authenticatedUser.account.user
+        if (user.platformRole != PlatformRole.SUPERADMIN) {
+            call.respond(HttpStatusCode.NotFound, ErrorResponse("not_found", call.callId))
+            return@intercept finish()
+        }
+        if (mfa == null || !io { mfa.isEnabled(user.id) }) {
+            call.respond(
+                HttpStatusCode.Forbidden,
+                ErrorResponse(
+                    error = "platform_mfa_required",
+                    requestId = call.callId,
+                    message = "Správa platformy potřebuje zapnutý druhý faktor — zapni si ho v zabezpečení účtu",
+                ),
+            )
+            return@intercept finish()
+        }
     }
     child.build()
     return child

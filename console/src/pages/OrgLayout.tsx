@@ -57,6 +57,10 @@ export function OrgLayout() {
         <div className="sidebar-foot">
           <div className="who">{me.data?.displayName ?? me.data?.email}</div>
           <NavLink to="/zabezpeceni">Zabezpečení účtu</NavLink>
+          {/* Odkaz vidí jen správce platformy. Sekce sama si roli ověřuje na serveru. */}
+          {me.data?.platformRole === 'SUPERADMIN' ? (
+            <NavLink to="/platforma">Správa platformy</NavLink>
+          ) : null}
           {me.data && me.data.organizations.length > 1 ? (
             <NavLink to="/organizace">Přepnout organizaci</NavLink>
           ) : null}

@@ -272,7 +272,6 @@ function AppSettingsCard({ org, appId }: { org: string; appId: string }) {
     gpReportingBucket: app.gpReportingBucket ?? '',
     locale: app.locale.toLowerCase(),
     timezone: app.timezone,
-    ingestIntervalMinutes: String(app.ingestIntervalMinutes),
     dailyDigestAt: app.dailyDigestAt.slice(0, 5),
     aiInstructions: app.aiInstructions ?? '',
   }
@@ -291,7 +290,6 @@ function AppSettingsCard({ org, appId }: { org: string; appId: string }) {
                 gpReportingBucket: values.gpReportingBucket === '' ? null : values.gpReportingBucket,
                 locale: values.locale,
                 timezone: values.timezone,
-                ingestIntervalMinutes: Number(values.ingestIntervalMinutes),
                 dailyDigestAt: values.dailyDigestAt,
                 aiInstructions: values.aiInstructions === '' ? null : values.aiInstructions,
                 enabled: app.enabled,
@@ -325,15 +323,14 @@ function AppSettingsCard({ org, appId }: { org: string; appId: string }) {
         <Field label="Časová zóna" hint="Podle ní se počítá čas denního přehledu.">
           <input value={values.timezone} onChange={(e) => set('timezone', e.target.value)} />
         </Field>
-        <Field label="Jak často stahovat recenze (minuty)">
-          <input
-            type="number"
-            min={5}
-            max={1440}
-            value={values.ingestIntervalMinutes}
-            onChange={(e) => set('ingestIntervalMinutes', e.target.value)}
-          />
-        </Field>
+        <div className="field">
+          <label>Jak často se stahují recenze</label>
+          <p className="small muted" style={{ margin: 0 }}>
+            Každých {app.ingestIntervalMinutes} min
+            {app.ingestIntervalSource === 'APP' ? ' (nastaveno zvlášť pro tuhle aplikaci)' : ''}. Interval
+            nastavujeme my — ovlivňuje kvóty storu i to, jak rychle se recenze objeví. Když ti nesedí, napiš nám.
+          </p>
+        </div>
         <Field label="Čas denního přehledu">
           <input type="time" value={values.dailyDigestAt} onChange={(e) => set('dailyDigestAt', e.target.value)} />
         </Field>

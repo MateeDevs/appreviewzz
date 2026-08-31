@@ -21,5 +21,6 @@ Krátké záznamy o rozhodnutích, která se těžko vracejí. Formát: kontext 
 | [0015](0015-druhy-faktor-totp.md) | Druhý faktor: TOTP, tajemství pod KEKem | Přijato |
 | [0016](0016-produkce-zustava-na-coolify.md) | Produkce v1 zůstává na Coolify | Přijato |
 | [0017](0017-staging-a-produkce-oddelena-prostredi.md) | Staging a produkce jako oddělená prostředí, každé s vlastním KEK | Přijato |
+| [0018](0018-platformni-sprava-a-superadmin.md) | Platformní správa: role SUPERADMIN a konfigurace v databázi | Přijato |
 
 Nové ADR: zkopíruj strukturu z 0001, další číslo v pořadí, přidej řádek do tabulky.

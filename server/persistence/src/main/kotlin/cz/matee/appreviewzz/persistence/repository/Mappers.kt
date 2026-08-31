@@ -51,6 +51,7 @@ internal fun ResultRow.toUser(): User =
         email = this[Users.email],
         displayName = this[Users.displayName],
         createdAt = this[Users.createdAt],
+        platformRole = this[Users.platformRole],
     )
 
 /** Přihlašovací pohled na uživatele. Hash hesla jde ven jen sem, dál ho nikdo nedostane. */

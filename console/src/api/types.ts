@@ -1,6 +1,8 @@
 /** Tvary odpovědí API. Drží se jedna k jedné DTO na serveru — když se rozejdou, spadne build. */
 
 export type OrgRole = 'OWNER' | 'ADMIN' | 'MEMBER'
+/** Správa platformy — osa kolmá k členství, ne vyšší role v organizaci. */
+export type PlatformRole = 'SUPERADMIN'
 export type Platform = 'ANDROID' | 'IOS'
 export type ValidationStatus = 'UNKNOWN' | 'VALID' | 'INVALID'
 export type ReviewState = 'NEW' | 'NOTIFIED' | 'REPLIED' | 'UPDATED' | 'IGNORED' | 'SUPPRESSED'
@@ -22,6 +24,8 @@ export interface Me {
   displayName: string | null
   emailVerified: boolean
   mfaEnabled: boolean
+  /** `null` u drtivé většiny účtů. Odkaz na sekci se podle toho jen ukazuje — rozhoduje server. */
+  platformRole: PlatformRole | null
   organizations: OrganizationSummary[]
 }
 
@@ -78,7 +82,9 @@ export interface App {
   timezone: string
   notifyFrom: string | null
   aiInstructions: string | null
+  /** Efektivní interval. Nastavuje ho provozovatel platformy, klient ho jen vidí. */
   ingestIntervalMinutes: number
+  ingestIntervalSource: 'PLATFORM' | 'APP'
   dailyDigestAt: string
   enabled: boolean
 }
@@ -215,4 +221,64 @@ export interface RatingsRunResult {
   sent: number
   alreadySent: number
   errors: string[]
+}
+
+// ---------------------------------------------------------------- správa platformy (F7)
+
+export type PlatformSettingType = 'INT' | 'TEXT' | 'BOOL' | 'ENUM' | 'SECRET'
+
+/** Odkud je hodnota, která právě platí. Bez toho se dlouho hledá, proč uložení nic neudělalo. */
+export type PlatformSettingSource = 'DEFAULT' | 'ENV' | 'DB'
+
+export interface PlatformSetting {
+  key: string
+  type: PlatformSettingType
+  section: string
+  label: string
+  help: string
+  /** U tajemství vždy `null` — hodnota se z API nevrací. */
+  value: string | null
+  source: PlatformSettingSource
+  default: string | null
+  envName: string | null
+  options: string[]
+  min: number | null
+  max: number | null
+}
+
+export interface PlatformSecret {
+  key: string
+  label: string
+  fingerprint: string
+  hint: string | null
+  updatedAt: string
+}
+
+export interface PlatformOverview {
+  organizations: number
+  users: number
+  apps: number
+  enabledApps: number
+  failedJobs: number
+  appsWithIntervalOverride: number
+  defaultIntervalMinutes: number
+  minIntervalMinutes: number
+}
+
+export interface PlatformAuditEntry {
+  actorLabel: string | null
+  action: string
+  targetKey: string | null
+  metadata: Record<string, string>
+  createdAt: string | null
+}
+
+export interface PlatformApp {
+  id: string
+  name: string
+  orgId: string
+  intervalMinutes: number
+  /** `null` znamená, že appka jede na platformní výchozí hodnotě. */
+  overrideMinutes: number | null
+  enabled: boolean
 }

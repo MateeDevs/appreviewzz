@@ -105,6 +105,18 @@ private val COMMANDS =
             run = { args -> userAdd(args) },
         ),
         Command(
+            name = "user platform-role",
+            options = setOf("email", "role"),
+            usage = "user platform-role [--email <e-mail>] [--role superadmin|none]  (bez --email jen vypíše, kdo ji má)",
+            run = { args -> userPlatformRole(args) },
+        ),
+        Command(
+            name = "platform config",
+            options = emptySet(),
+            usage = "platform config",
+            run = { _ -> platformConfigList() },
+        ),
+        Command(
             name = "app create",
             options =
                 setOf(

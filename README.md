@@ -107,6 +107,25 @@ appreviewzz credential add --org isle-grow --type asc --label "IsleGrow ASC" \
   --file AuthKey_ABC123DEFG.p8 --key-id ABC123DEFG --issuer-id 69a6de70-…
 ```
 
+### Správa platformy
+
+Nastavení, které platí pro celou instalaci (jak často se stahují recenze, klíč k AI), sedí
+v databázi, ne v proměnných prostředí — mění se z konzole bez restartu. Sekci vidí účet
+s rolí `superadmin`, kterou uděluje **jen CLI**:
+
+```bash
+appreviewzz user platform-role --email tadeas@matee.cz --role superadmin
+appreviewzz platform config      # co právě platí a odkud (výchozí / prostředí / uloženo)
+```
+
+Pak si ten člověk musí zapnout druhý faktor — bez něj ho sekce nepustí dovnitř. Správa
+platformy je osa **kolmá** k členství: nedává přístup k datům žádné organizace. Detaily
+v [ADR 0018](docs/adr/0018-platformni-sprava-a-superadmin.md) a
+[runbooku](docs/runbooks/sprava-platformy.md).
+
+Samostatná instalace, kde si nikdo roli neudělí, o sekci vůbec neví a platí hodnoty
+z prostředí — nic se nestává povinným.
+
 Několik věcí, které stojí za zmínku:
 
 - Watermark (`notify_from`) je ve výchozím stavu čas přidání appky: starší recenze se uloží
@@ -238,9 +257,9 @@ Vše přes proměnné prostředí (12-factor), žádný konfigurační soubor v 
 | `BACKUP_KEEP_AT_LEAST` | `7` | kolik posledních záloh zůstává bez ohledu na stáří |
 | `BACKUP_S3_ENDPOINT` | — | jiné S3 než AWS (MinIO, Backblaze); zapíná path-style adresaci |
 | `PG_DUMP_PATH` / `PG_RESTORE_PATH` | `pg_dump` / `pg_restore` | cesty ke klientským nástrojům Postgresu |
-| `AI_PROVIDER` | `none` | `gemini` nebo `none`; bez AI chodí do Slacku prázdný vstup a odpověď píše člověk |
-| `AI_MODEL` | `gemini-2.5-flash` | model providera |
-| `AI_API_KEY` | — | povinné pro `AI_PROVIDER=gemini` |
+| `AI_PROVIDER` | `none` | `gemini` nebo `none`; bez AI chodí do Slacku prázdný vstup a odpověď píše člověk. **Přebije ho hodnota uložená ve správě platformy** |
+| `AI_MODEL` | `gemini-2.5-flash` | model providera; totéž — dá se přebít z konzole |
+| `AI_API_KEY` | — | povinné pro `AI_PROVIDER=gemini`, pokud klíč není uložený ve správě platformy |
 | `SLACK_SIGNING_SECRET` | — | bez něj se interactivity endpoint nezaregistruje a ze Slacku nejde odpovídat |
 | `SLACK_CLIENT_ID` / `SLACK_CLIENT_SECRET` | — | zapínají „Add to Slack" do cizích workspaců; do vlastního stačí `slack connect` |
 | `PUBLIC_BASE_URL` | — | veřejná adresa API; z ní se skládá OAuth redirect a instalační odkaz |
@@ -305,7 +324,7 @@ v obnovené databázi nečitelné.
 ## Dokumentace
 
 - [ADR](docs/adr/) — architektonická rozhodnutí a jejich důvody
-- [Runbooky](docs/runbooks/) — provozní postupy (zálohy a obnova, alarm na vault klíč)
+- [Runbooky](docs/runbooks/) — provozní postupy (zálohy a obnova, alarm na vault klíč, správa platformy)
 - [Slack App](docs/slack-app.md) — založení appky, oprávnění, připojení kanálu, řešení potíží
 - [Teams bot](docs/teams-bot.md) — založení Azure Bota, instalace do týmu, připojení kanálu
 - [Threat model](docs/threat-model.md) — co chráníme, před kým, a jaká zbytková rizika neseme

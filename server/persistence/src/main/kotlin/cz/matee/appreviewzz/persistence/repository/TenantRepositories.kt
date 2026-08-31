@@ -6,6 +6,7 @@ import cz.matee.appreviewzz.core.model.OrgMembership
 import cz.matee.appreviewzz.core.model.OrgRole
 import cz.matee.appreviewzz.core.model.Organization
 import cz.matee.appreviewzz.core.model.OrganizationId
+import cz.matee.appreviewzz.core.model.PlatformRole
 import cz.matee.appreviewzz.core.model.User
 import cz.matee.appreviewzz.core.model.UserAccount
 import cz.matee.appreviewzz.core.model.UserId
@@ -20,6 +21,7 @@ import cz.matee.appreviewzz.persistence.schema.Users
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.isNotNull
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -141,6 +143,26 @@ class ExposedUserRepository(
                 .where { Users.id eq id }
                 .firstOrNull()
                 ?.toUserAccount()
+        }
+
+    override fun setPlatformRole(
+        id: UserId,
+        role: PlatformRole?,
+    ): Boolean =
+        transaction(database) {
+            Users.update({ Users.id eq id }) {
+                it[platformRole] = role
+                it[updatedAt] = clock.now()
+            } > 0
+        }
+
+    override fun listPlatformAdmins(): List<User> =
+        transaction(database) {
+            Users
+                .selectAll()
+                .where { Users.platformRole.isNotNull() }
+                .orderBy(Users.email to SortOrder.ASC)
+                .map { it.toUser() }
         }
 
     override fun setPassword(

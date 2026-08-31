@@ -27,13 +27,15 @@ import cz.matee.appreviewzz.core.usecase.CredentialService
 import cz.matee.appreviewzz.core.usecase.DailyRatingsUseCase
 import cz.matee.appreviewzz.core.usecase.MfaService
 import cz.matee.appreviewzz.core.usecase.OrganizationService
+import cz.matee.appreviewzz.core.usecase.PlatformAdminService
+import cz.matee.appreviewzz.core.usecase.PlatformConfig
 import cz.matee.appreviewzz.core.usecase.RatingsInsights
 import cz.matee.appreviewzz.core.usecase.ReviewInbox
+import cz.matee.appreviewzz.crypto.AppSecretBox
 import cz.matee.appreviewzz.crypto.Argon2PasswordHasher
 import cz.matee.appreviewzz.crypto.CredentialVault
 import cz.matee.appreviewzz.crypto.KekProvider
 import cz.matee.appreviewzz.crypto.KekProviders
-import cz.matee.appreviewzz.crypto.UserSecretBox
 import cz.matee.appreviewzz.persistence.repository.ExposedAppDataKeyRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedAppRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedAuditLogRepository
@@ -44,6 +46,10 @@ import cz.matee.appreviewzz.persistence.repository.ExposedFailedJobRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedInvitationRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedMembershipRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedOrganizationRepository
+import cz.matee.appreviewzz.persistence.repository.ExposedPlatformAuditRepository
+import cz.matee.appreviewzz.persistence.repository.ExposedPlatformSecretRepository
+import cz.matee.appreviewzz.persistence.repository.ExposedPlatformSettingRepository
+import cz.matee.appreviewzz.persistence.repository.ExposedPlatformStatsRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedRatingSnapshotRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedRatingsDigestRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedReplyRepository
@@ -72,6 +78,7 @@ import io.micrometer.prometheusmetrics.PrometheusConfig
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
 import java.nio.file.Files
 import kotlin.time.Clock
+import kotlin.time.Duration
 
 /**
  * Console nad opravdovým Postgresem. Session, role i pozvánky stojí na tom, co se doopravdy
@@ -188,6 +195,11 @@ fun ApplicationTestBuilder.consoleModule(
     replyQueue: RecordingReplyQueue? = null,
     /** Výchozí allowlist je jen `console.test`, takže odkazy v testech nezávisí na hostiteli. */
     links: ConsoleLinks = ConsoleLinks(CONSOLE_URL),
+    /**
+     * Prostředí pro platformní konfiguraci. Výchozí je prázdné schválně — testy nesmí
+     * záviset na tom, co má vývojář v shellu.
+     */
+    platformEnv: (String) -> String? = { null },
     fakes: ConsoleFakes =
         ConsoleFakes(FakeReviewSource(Platform.ANDROID), FakeReviewSource(Platform.IOS), FakeNotificationChannel()),
 ) {
@@ -198,7 +210,7 @@ fun ApplicationTestBuilder.consoleModule(
     val mfaService =
         MfaService(
             mfa = ExposedUserMfaRepository(exposed),
-            vault = consoleUserSecrets(),
+            vault = consoleAppSecrets(),
             users = users,
             clock = clock,
         )
@@ -219,7 +231,33 @@ fun ApplicationTestBuilder.consoleModule(
     val credentialRepository = ExposedCredentialRepository(exposed)
     val channelRepository = ExposedChannelRepository(exposed)
     val audit = ExposedAuditLogRepository(exposed)
-    val appService = AppService(apps = appRepository, audit = audit)
+
+    // Platformní konfigurace (F7). Prostředí se testům podstrkává, ne čte ze systému —
+    // jinak by výsledek závisel na tom, co má vývojář v shellu.
+    val platformSettings = ExposedPlatformSettingRepository(exposed)
+    val platformSecrets = ExposedPlatformSecretRepository(exposed)
+    val platformConfig =
+        PlatformConfig(
+            settings = platformSettings,
+            secrets = platformSecrets,
+            vault = consoleAppSecrets(),
+            env = platformEnv,
+            clock = clock,
+            // Bez TTL: test, který uloží hodnotu a hned se na ni zeptá, nemá čekat půl minuty.
+            ttl = Duration.ZERO,
+        )
+    val platformAdmin =
+        PlatformAdminService(
+            config = platformConfig,
+            settings = platformSettings,
+            secrets = platformSecrets,
+            audit = ExposedPlatformAuditRepository(exposed),
+            stats = ExposedPlatformStatsRepository(exposed),
+            apps = appRepository,
+            vault = consoleAppSecrets(),
+            clock = clock,
+        )
+    val appService = AppService(apps = appRepository, audit = audit, ingest = platformConfig)
     val vault = consoleVault()
     val credentialService =
         CredentialService(
@@ -295,6 +333,8 @@ fun ApplicationTestBuilder.consoleModule(
                     ratings = ratingsInsights,
                     dailyRatings = dailyRatings,
                     audit = audit,
+                    platform = platformAdmin,
+                    ingest = platformConfig,
                     enqueueReply = replyQueue,
                 ),
         )
@@ -320,12 +360,13 @@ private val vault: CredentialVault by lazy {
 
 fun consoleKek(): KekProvider = kek
 
-/** Trezor uživatelských tajemství nad testovací databází — testy si přes něj sáhnou na rotaci. */
-fun consoleUserSecrets(): UserSecretBox =
-    UserSecretBox(
+/** Trezor tajemství mimo organizace nad testovací databází — testy si přes něj sáhnou na rotaci. */
+fun consoleAppSecrets(): AppSecretBox =
+    AppSecretBox(
         keys = ExposedAppDataKeyRepository(TestDatabase.database.exposed),
         kek = kek,
         secrets = ExposedUserMfaRepository(TestDatabase.database.exposed),
+        platformSecrets = ExposedPlatformSecretRepository(TestDatabase.database.exposed),
     )
 
 fun consoleVault(): CredentialVault = vault

@@ -24,6 +24,18 @@ enum class OrgRole {
     fun atLeast(required: OrgRole): Boolean = ordinal <= required.ordinal
 }
 
+/**
+ * Správa platformy — osa **kolmá** k [OrgRole], ne její čtvrtá hodnota.
+ *
+ * Role v organizaci jsou uspořádané a `atLeast()` na tom stojí; cokoli „nad OWNER" by tiše
+ * prošlo všemi dnešními kontrolami a dalo správci platformy credentials všech klientů.
+ * Superadmin proto k datům organizací nevidí vůbec — spravuje konfiguraci platformy
+ * a nic víc (ADR 0018).
+ */
+enum class PlatformRole {
+    SUPERADMIN,
+}
+
 enum class CredentialType {
     GP_SERVICE_ACCOUNT,
     ASC_API_KEY,

@@ -74,6 +74,8 @@ fun runApi(
             ratings = components.ratingsInsights,
             dailyRatings = components.dailyRatings,
             audit = components.audit,
+            platform = components.platformAdmin,
+            ingest = components.platformConfig,
             enqueueReply = { reply ->
                 components.replyJobs.enqueue(
                     queue,

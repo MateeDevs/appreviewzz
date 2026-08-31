@@ -25,6 +25,7 @@ import cz.matee.appreviewzz.core.model.MessageLocale
 import cz.matee.appreviewzz.core.model.OrgRole
 import cz.matee.appreviewzz.core.model.Organization
 import cz.matee.appreviewzz.core.model.OrganizationId
+import cz.matee.appreviewzz.core.model.PlatformRole
 import cz.matee.appreviewzz.core.model.Review
 import cz.matee.appreviewzz.core.model.ReviewState
 import cz.matee.appreviewzz.core.model.SecretPayload
@@ -41,6 +42,7 @@ import cz.matee.appreviewzz.core.port.ValidationOutcome
 import cz.matee.appreviewzz.core.port.auditEntry
 import cz.matee.appreviewzz.core.usecase.AppInputs
 import cz.matee.appreviewzz.core.usecase.ConsoleException
+import cz.matee.appreviewzz.core.usecase.PlatformActor
 import cz.matee.appreviewzz.core.usecase.PlatformIngest
 import cz.matee.appreviewzz.core.usecase.RatingsSkipReason
 import cz.matee.appreviewzz.core.usecase.hintFor
@@ -110,6 +112,67 @@ class SeedCommands(
         out(details("ID" to user.id.toString(), "jméno" to (user.displayName ?: "—")))
     }
 
+    /**
+     * Udělení a odebrání správy platformy (F7.1).
+     *
+     * Schválně **jen tady**, ne přes API: takových účtů jsou jednotky a povýšení přes HTTP je
+     * jediná operace, po které by z jednoho kompromitovaného účtu byly dva (ADR 0018).
+     * Bez `--email` jen vypíše, kdo roli má — na to se člověk potřebuje umět zeptat.
+     */
+    fun userPlatformRole(args: Arguments) {
+        val email = args.optional("email")
+        if (email == null) {
+            val admins = components.users.listPlatformAdmins()
+            if (admins.isEmpty()) {
+                out("Správu platformy nemá nikdo — uděl ji příkazem `user platform-role --email … --role superadmin`")
+            } else {
+                out("Správa platformy (${admins.size})")
+                admins.forEach { out("  ${it.id}  ${it.email}") }
+            }
+            return
+        }
+
+        val role =
+            when (val raw = (args.optional("role") ?: "superadmin").lowercase()) {
+                "superadmin" -> PlatformRole.SUPERADMIN
+                "none" -> null
+                else -> throw UsageException("--role zná superadmin nebo none, dostalo '$raw'")
+            }
+        val user =
+            components.users.findByEmail(email)
+                ?: throw CommandException("Uživatel $email tu není — účet si musí nejdřív založit sám")
+        components.users.setPlatformRole(user.id, role)
+        components.platformAdmin.record(
+            actor = PlatformActor.CLI,
+            action = if (role == null) "platform.role.revoked" else "platform.role.granted",
+            targetKey = user.id.toString(),
+            metadata = mapOf("email" to user.email),
+        )
+
+        if (role == null) {
+            out("Uživatel $email už správu platformy nemá")
+        } else {
+            out("Uživatel $email má správu platformy")
+            // Bez druhého faktoru ho sekce stejně nepustí dovnitř — ať to ví hned, ne až u 403.
+            val mfa = components.mfaService?.isEnabled(user.id) == true
+            if (!mfa) out("  Pozor: bez zapnutého druhého faktoru se do sekce nedostane. Ať si ho zapne v zabezpečení účtu.")
+        }
+    }
+
+    /** Výpis platformní konfigurace i s tím, odkud se která hodnota bere. */
+    fun platformConfigList() {
+        val settings = components.platformConfig.resolveAll()
+        out("Konfigurace platformy")
+        settings.forEach { setting ->
+            val value =
+                when {
+                    setting.definition.secret -> components.platformSecrets.findMeta(setting.definition.key)?.fingerprint ?: "—"
+                    else -> setting.value ?: "—"
+                }
+            out("  ${setting.definition.key.padEnd(SETTING_COLUMN)} $value  (${setting.source.name.lowercase()})")
+        }
+    }
+
     fun appCreate(args: Arguments) {
         val organization = organization(args)
         val gpPackage = args.optional("gp-package")
@@ -153,7 +216,11 @@ class SeedCommands(
                 "jazyk" to app.locale.code,
                 "časová zóna" to app.timezone,
                 "notifikace od" to (app.notifyFrom?.toString() ?: "od založení appky"),
-                "ingest" to "každých ${app.ingestIntervalMinutes} min",
+                "ingest" to
+                    (
+                        app.ingestIntervalMinutes?.let { "každých $it min (výjimka)" }
+                            ?: "každých ${components.platformConfig.defaultIntervalMinutes()} min (platformní)"
+                    ),
                 "denní přehled" to app.dailyDigestAt.toString(),
             ),
         )
@@ -711,13 +778,14 @@ class SeedCommands(
             )
         }
 
-        // Uživatelská tajemství visí na deploymentu, ne na organizaci — proto jen u plné rotace.
+        // Tajemství mimo organizace (druhý faktor, platformní klíče) visí na deploymentu —
+        // proto jen u plné rotace. Obojí sdílí jeden DEK, takže se přešifrují naráz.
         if (slug == null) {
-            val secrets = components.userSecrets
+            val secrets = components.appSecrets
             if (secrets == null) {
-                out("  druhý faktor: přeskočeno (bez VAULT_KEK_URI se nešifruje)")
+                out("  tajemství mimo organizace: přeskočeno (bez VAULT_KEK_URI se nešifruje)")
             } else {
-                out("  druhý faktor: přešifrováno ${secrets.rotateDataKey()} tajemství")
+                out("  tajemství mimo organizace: přešifrováno ${secrets.rotateDataKey()} položek")
             }
         }
         out("Hotovo, celkem $total klíčů v ${organizations.size} organizacích")
@@ -901,6 +969,7 @@ class SeedCommands(
         const val ENABLED_COLUMN = 8
         const val TYPE_COLUMN = 18
         const val STATUS_COLUMN = 7
+        const val SETTING_COLUMN = 34
     }
 }
 

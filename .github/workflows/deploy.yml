@@ -1,8 +1,13 @@
 name: Deploy
 
 # Větev je jediná pravda o tom, co kde běží:
-#   push do epic/v2    → build, publikace do GHCR a nasazení stagingu
-#   push do production → povýšení té revize do produkce (nic se nestaví znovu)
+#   push do vývojové větve → build, publikace do GHCR a nasazení stagingu
+#   push do production     → povýšení té revize do produkce (nic se nestaví znovu)
+#
+# Na obě větve se smí pushnout naráz. Promote si na image počká sám, takže pořadí ani
+# odstup pushů nikoho nezajímají.
+#
+# Až v2 nahradí master, mění se `epic/v2` na dvou místech vedle sebe: tady a v BUILD_BRANCH.
 on:
   push:
     branches: [epic/v2, production]
@@ -15,16 +20,19 @@ concurrency:
 permissions:
   contents: read
   packages: write
+  # Promote se dívá, jak dopadl build téhož commitu.
+  actions: read
 
 env:
   IMAGE: ghcr.io/mateedevs/appreviewzz
+  BUILD_BRANCH: epic/v2
 
 jobs:
   # Každá architektura se staví na svém nativním runneru — Gradle build pod QEMU
   # emulací trvá násobně dýl než celý zbytek pipeline.
   build:
     name: Build ${{ matrix.platform }}
-    if: github.ref_name == 'epic/v2'
+    if: github.ref_name != 'production'
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -81,7 +89,7 @@ jobs:
 
   publish:
     name: Publish manifest & deploy staging
-    if: github.ref_name == 'epic/v2'
+    if: github.ref_name != 'production'
     runs-on: ubuntu-latest
     needs: build
     steps:
@@ -129,6 +137,8 @@ jobs:
     runs-on: ubuntu-latest
     # Prostor pro schvalování a chráněné secrets; bez pravidel se chová jako by tu nebylo.
     environment: production
+    # Čeká se na cizí build, takže výchozí šestihodinový strop je tu k ničemu.
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v7
 
@@ -141,15 +151,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Do produkce smí jen revize, která se opravdu postavila a běžela na stagingu.
-      # Když image chybí, je to skoro vždycky merge commit: `production` se povyšuje
-      # fast-forwardem, protože merge vyrobí nový sha, pro který žádný image neexistuje.
-      - name: Ověřit, že image pro tenhle commit existuje
-        run: |
-          if ! docker buildx imagetools inspect "$IMAGE:${{ github.sha }}"; then
-            echo "::error::Pro commit ${{ github.sha }} není v GHCR image. Do production se povyšuje fast-forwardem: git push origin epic/v2:production"
-            exit 1
-          fi
+      # Do produkce smí jen revize, která se opravdu postavila. Když se build ještě staví,
+      # počká si na něj; když selhal nebo pro ten commit vůbec není, skončí to tady —
+      # produkce se v obou případech nezmění.
+      - name: Počkat na image pro tenhle commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: deploy/ci/wait-for-image.sh "$IMAGE" "${{ github.sha }}" "$BUILD_BRANCH"
 
       - name: Přesměrovat tag prod
         run: docker buildx imagetools create --tag "$IMAGE:prod" "$IMAGE:${{ github.sha }}"

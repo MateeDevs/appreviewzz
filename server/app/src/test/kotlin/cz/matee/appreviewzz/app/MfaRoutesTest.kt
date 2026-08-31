@@ -258,7 +258,7 @@ class MfaRoutesTest :
                 val secret = enableTotp(browser())
 
                 // Nový DEK a přešifrování; tajemství se nemění, jen klíč, pod kterým leží.
-                consoleUserSecrets().rotateDataKey() shouldBe 1
+                consoleAppSecrets().rotateDataKey() shouldBe 1
 
                 val client = browser()
                 val challenge =

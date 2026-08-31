@@ -23,6 +23,7 @@ import cz.matee.appreviewzz.core.model.OrgRole
 import cz.matee.appreviewzz.core.model.Organization
 import cz.matee.appreviewzz.core.model.OrganizationId
 import cz.matee.appreviewzz.core.model.Platform
+import cz.matee.appreviewzz.core.model.PlatformRole
 import cz.matee.appreviewzz.core.model.RatingSnapshot
 import cz.matee.appreviewzz.core.model.RatingSource
 import cz.matee.appreviewzz.core.model.Reply
@@ -86,6 +87,18 @@ interface UserRepository {
 
     fun findAccountById(id: UserId): UserAccount?
 
+    /**
+     * Udělení nebo odebrání správy platformy. Volá to **jen seed CLI** — přes HTTP se role
+     * neuděluje, aby z jednoho kompromitovaného účtu nešly udělat dva (ADR 0018).
+     */
+    fun setPlatformRole(
+        id: UserId,
+        role: PlatformRole?,
+    ): Boolean
+
+    /** Bez org-scope záměrně: výpis správců platformy pro `user platform-role` bez argumentů. */
+    fun listPlatformAdmins(): List<User>
+
     fun setPassword(
         id: UserId,
         passwordHash: String,
@@ -141,7 +154,8 @@ data class NewApp(
     val timezone: String = "Europe/Prague",
     val notifyFrom: Instant? = null,
     val aiInstructions: String? = null,
-    val ingestIntervalMinutes: Int = 30,
+    /** Výjimka od platformní výchozí hodnoty; `null` (běžný stav) = platí platforma. */
+    val ingestIntervalMinutes: Int? = null,
     val dailyDigestAt: LocalTime = LocalTime(8, 30),
 )
 
@@ -153,7 +167,7 @@ data class AppSettings(
     val timezone: String,
     val notifyFrom: Instant?,
     val aiInstructions: String?,
-    val ingestIntervalMinutes: Int,
+    val ingestIntervalMinutes: Int?,
     val dailyDigestAt: LocalTime,
     val enabled: Boolean,
 )
@@ -173,6 +187,25 @@ interface AppRepository {
 
     /** Bez org-scope záměrně: scheduler plánuje ingest napříč všemi tenanty. */
     fun listEnabled(): List<App>
+
+    /**
+     * Bez org-scope záměrně: výjimku intervalu uděluje **správce platformy**, který členem
+     * organizace není. Volá se výhradně z platformní sekce — běžné cesty do console berou
+     * appku přes [findById] s `orgId`.
+     */
+    fun findAnyById(id: AppId): App?
+
+    /** Bez org-scope záměrně: přehled udělených výjimek v platformní sekci. */
+    fun listWithIntervalOverride(): List<App>
+
+    /**
+     * Udělení nebo zrušení výjimky intervalu. `null` vrací appku k platformní výchozí hodnotě.
+     * Odděleně od [updateSettings], protože tohle je jediné pole, na které klient nesmí.
+     */
+    fun updateIngestInterval(
+        id: AppId,
+        minutes: Int?,
+    ): App?
 
     fun updateSettings(
         orgId: OrganizationId,

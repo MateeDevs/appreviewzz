@@ -14,27 +14,32 @@ Tenhle dokument je návod, který se čte odshora dolů a nic se v něm nedomý�
 **Větev `production` je to, co běží v produkci.** Nikde se nedrží druhý seznam nasazených
 verzí; `git log production` je celá historie nasazení.
 
-Produkce **nikdy nestaví image znovu**. Nasazuje se přesně ten, který už prošel CI a běžel na
-stagingu — jinak by se do produkce mohlo dostat něco, co nikdo neviděl. Proto se `production`
-povyšuje **fast-forwardem**: merge commit by vyrobil nový sha, pro který žádný image
-neexistuje, a workflow ho odmítne.
+Produkce **nikdy nestaví image znovu**. Nasazuje se přesně ten, který už prošel CI — jinak by
+se do produkce mohlo dostat něco, co nikdo neviděl. Proto se `production` povyšuje
+**fast-forwardem**: merge commit vyrobí nový sha, pro který žádný build neběží, a workflow
+ho odmítne.
+
+**Na obě větve se smí pushnout naráz.** Promote si na image počká (nejvýš 25 minut) a nasadí,
+jakmile build doběhne. Když build selže, skončí promote rovnou — produkce zůstane, kde byla.
 
 ## Nasazení
 
 1. **Ověř, že to na stagingu žije.** Alespoň přihlášení do konzole a jedna stránka s daty.
    Změny v ingestu nebo doručování si zaslouží i pohled do logu workeru.
-2. **Posuň `production` na revizi, která na stagingu běží:**
+2. **Posuň `production` na revizi, kterou chceš vydat:**
 
    ```bash
    git push origin epic/v2:production
    ```
 
-   Nasazuje se špička `epic/v2`. Když je na stagingu něco staršího (nebo chceš nasadit jen
-   část toho, co se mezitím nakupilo), pushni ten konkrétní commit:
-   `git push origin <sha>:production`.
-3. Workflow ověří, že image pro ten commit existuje, přesměruje tag `prod` a spustí deploy
-   webhook. Selhání v kroku *Ověřit, že image existuje* znamená, že se pushnul commit, který
-   CI nikdy nepostavilo — typicky merge commit. Produkce se ještě nezměnila.
+   Nasazuje se špička `epic/v2`. Když chceš vydat jen část toho, co se mezitím nakupilo,
+   pushni konkrétní commit: `git push origin <sha>:production`.
+3. Workflow počká na image pro ten commit, přesměruje tag `prod` a spustí deploy webhook.
+   Selhání v kroku *Počkat na image* znamená jednu ze dvou věcí a v obou případech se
+   produkce nezměnila:
+   - *build skončil jako failure* — vydává se rozbitá revize,
+   - *neexistuje build* — pushnul se commit, který na vývojové větvi nikdy nebyl,
+     typicky merge commit.
 
 Push, který by nebyl fast-forward, git odmítne sám. To je záměr: znamená to, že v produkci
 běží něco, co ve zvolené revizi není.
@@ -79,8 +84,10 @@ přejmenovávají sloupce, dělají ve dvou krocích a mezi nimi je aspoň jedno
   tiše zeslabí — pokud někdy bude potřeba škálovat, musí se nejdřív přesunout stav ven.
 - **`APP_VERSION` v Coolify je `prod` a nemění se.** Kdo tam napíše `latest`, obejde tím celé
   schvalování: produkce pak při nejbližším restartu natáhne poslední staging build.
-- **Auto Deploy je v Coolify vypnutý a musí zůstat.** Se zapnutým auto-deployem spustí
-  produkční nasazení každý push do větve, kterou resource sleduje, ještě než je image v GHCR.
+- **Auto deploy je v Coolify na `Manual deployments only` a musí tak zůstat.** S „Deploy on
+  push" spustí nasazení každý push do sledované větve, ještě než je image v GHCR — nasadí se
+  tedy předchozí verze a teprve druhý deploy z CI to spraví. Nasazení z CI běží dál, chodí
+  přes API, ne přes git webhook.
 - **`TRUSTED_PROXY_HOPS=1` platí pro dnešní cestu** (Traefik a nic před ním). Každá další
   proxy — Cloudflare v proxy režimu, druhý reverzní proxy — tu hodnotu mění a špatná hodnota
   znamená, že si adresu klienta určí kdokoli jednou hlavičkou. Ověřuje se to tak, že pošleš

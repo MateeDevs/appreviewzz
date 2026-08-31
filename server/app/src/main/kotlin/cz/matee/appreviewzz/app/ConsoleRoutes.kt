@@ -16,9 +16,11 @@ import cz.matee.appreviewzz.core.usecase.ConsoleException
 import cz.matee.appreviewzz.core.usecase.ConsoleFailure
 import cz.matee.appreviewzz.core.usecase.CredentialService
 import cz.matee.appreviewzz.core.usecase.DailyRatingsUseCase
+import cz.matee.appreviewzz.core.usecase.IngestPolicy
 import cz.matee.appreviewzz.core.usecase.MfaService
 import cz.matee.appreviewzz.core.usecase.OrgActor
 import cz.matee.appreviewzz.core.usecase.OrganizationService
+import cz.matee.appreviewzz.core.usecase.PlatformAdminService
 import cz.matee.appreviewzz.core.usecase.RatingsInsights
 import cz.matee.appreviewzz.core.usecase.ReviewInbox
 import io.ktor.server.application.Application
@@ -64,6 +66,13 @@ class ConsoleWiring(
      * console pak recenze ukazuje, ale odpovídat z ní nejde (a řekne to větou).
      */
     val enqueueReply: ((ConsoleReply) -> Boolean)? = null,
+    /**
+     * Správa platformy (F7). `null` = strom `/api/platform` se vůbec nezaregistruje —
+     * self-host, který si nikoho nepovýšil, o té sekci nemusí vědět.
+     */
+    val platform: PlatformAdminService? = null,
+    /** Jak často se stahují recenze. Sem se ptá i přehled v platformní sekci. */
+    val ingest: IngestPolicy = IngestPolicy.fixed(),
 )
 
 /**
@@ -90,6 +99,11 @@ fun Application.consoleRoutes(
                 channelRoutes(console)
                 reviewRoutes(console)
                 ratingsRoutes(console)
+
+                // Vlastní podstrom s vlastní ochranou: role SUPERADMIN a zapnutý druhý faktor.
+                requirePlatformAdmin(console.mfa) {
+                    platformRoutes(console)
+                }
             }
         }
     }
@@ -121,7 +135,17 @@ suspend fun ApplicationCall.orgContext(
         val role =
             memberships.roleOf(organization.id, user.id)
                 ?: throw ConsoleException(ConsoleFailure.NOT_FOUND, "Organizace '$slug' neexistuje")
-        OrgContext(organization, OrgActor(user.id, role, user.displayName ?: user.email))
+        OrgContext(
+            organization,
+            OrgActor(
+                userId = user.id,
+                role = role,
+                displayName = user.displayName ?: user.email,
+                // Nepřidává práva v organizaci — jen pár polí, která jsou knobem na náš
+                // provoz, ne nastavením klienta (interval stahování recenzí).
+                platformRole = user.platformRole,
+            ),
+        )
     }
 }
 

@@ -16,6 +16,8 @@ data class User(
     val email: String,
     val displayName: String?,
     val createdAt: Instant,
+    /** Správa platformy; `null` u drtivé většiny účtů. Nedává přístup k datům organizací. */
+    val platformRole: PlatformRole? = null,
 )
 
 data class OrgMembership(
@@ -45,7 +47,12 @@ data class App(
     /** Recenze starší než tohle se uloží bez notifikace (migrace, připojení staré appky). */
     val notifyFrom: Instant?,
     val aiInstructions: String?,
-    val ingestIntervalMinutes: Int,
+    /**
+     * **Výjimka** od platformní výchozí hodnoty, ne nastavení appky. `null` (běžný stav)
+     * znamená „stahuj tak často, jak řekne platforma" — efektivní číslo skládá
+     * `IngestPolicy`, protože interval je knob na náš provoz, ne klientova preference.
+     */
+    val ingestIntervalMinutes: Int?,
     val dailyDigestAt: LocalTime,
     val enabled: Boolean,
     val createdAt: Instant,

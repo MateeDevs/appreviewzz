@@ -91,10 +91,22 @@ data class AppResponse(
     val timezone: String,
     val notifyFrom: String?,
     val aiInstructions: String?,
+    /**
+     * Efektivní interval, tedy co doopravdy platí. Console ho ukazuje jako větu, ne jako
+     * pole — nastavuje ho provozovatel platformy (F7.4, ADR 0018).
+     */
     val ingestIntervalMinutes: Int,
+    val ingestIntervalSource: IngestIntervalSource,
     val dailyDigestAt: String,
     val enabled: Boolean,
 )
+
+/** Odkud se vzal interval stahování: platformní výchozí hodnota, nebo výjimka pro tuhle appku. */
+@Serializable
+enum class IngestIntervalSource {
+    PLATFORM,
+    APP,
+}
 
 /**
  * Sledované aplikace (F3.3) — druhý krok onboardingu, hned po založení organizace.
@@ -109,7 +121,7 @@ fun Route.appRoutes(console: ConsoleWiring) {
     route("/orgs/{org}/apps") {
         get {
             val context = call.orgContext(console.organizations, console.memberships)
-            call.respond(io { apps.list(context.organization.id).map { it.toResponse() } })
+            call.respond(io { apps.list(context.organization.id).map { it.toResponse(apps.effectiveInterval(it)) } })
         }
 
         post {
@@ -135,7 +147,7 @@ fun Route.appRoutes(console: ConsoleWiring) {
                             ),
                     )
                 }
-            call.respond(HttpStatusCode.Created, app.toResponse())
+            call.respond(HttpStatusCode.Created, app.toResponse(apps.effectiveInterval(app)))
         }
 
         /**
@@ -150,7 +162,7 @@ fun Route.appRoutes(console: ConsoleWiring) {
 
         get("/{app}") {
             val context = call.orgContext(console.organizations, console.memberships)
-            call.respond(io { apps.get(context.organization.id, call.appIdParam()).toResponse() })
+            call.respond(io { apps.get(context.organization.id, call.appIdParam()).let { it.toResponse(apps.effectiveInterval(it)) } })
         }
 
         patch("/{app}") {
@@ -176,7 +188,7 @@ fun Route.appRoutes(console: ConsoleWiring) {
                             ),
                     )
                 }
-            call.respond(app.toResponse())
+            call.respond(app.toResponse(apps.effectiveInterval(app)))
         }
 
         delete("/{app}") {
@@ -187,7 +199,7 @@ fun Route.appRoutes(console: ConsoleWiring) {
     }
 }
 
-private fun App.toResponse() =
+private fun App.toResponse(effectiveInterval: Int) =
     AppResponse(
         id = id.toString(),
         name = name,
@@ -199,7 +211,9 @@ private fun App.toResponse() =
         timezone = timezone,
         notifyFrom = notifyFrom?.toString(),
         aiInstructions = aiInstructions,
-        ingestIntervalMinutes = ingestIntervalMinutes,
+        ingestIntervalMinutes = effectiveInterval,
+        ingestIntervalSource =
+            if (ingestIntervalMinutes == null) IngestIntervalSource.PLATFORM else IngestIntervalSource.APP,
         dailyDigestAt = dailyDigestAt.toString(),
         enabled = enabled,
     )

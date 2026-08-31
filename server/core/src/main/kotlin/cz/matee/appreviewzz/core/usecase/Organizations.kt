@@ -9,6 +9,7 @@ import cz.matee.appreviewzz.core.model.OpaqueTokens
 import cz.matee.appreviewzz.core.model.OrgRole
 import cz.matee.appreviewzz.core.model.Organization
 import cz.matee.appreviewzz.core.model.OrganizationId
+import cz.matee.appreviewzz.core.model.PlatformRole
 import cz.matee.appreviewzz.core.model.SecretPayload
 import cz.matee.appreviewzz.core.model.Slugs
 import cz.matee.appreviewzz.core.model.User
@@ -41,6 +42,12 @@ data class OrgActor(
     val userId: UserId,
     val role: OrgRole,
     val displayName: String?,
+    /**
+     * Správa platformy, pokud ji ten člověk má. **Nepřidává** práva v organizaci — je tu
+     * jen kvůli hrstce polí, která jsou knobem na náš provoz, ne nastavením klienta
+     * (interval stahování recenzí, F7.4).
+     */
+    val platformRole: PlatformRole? = null,
 )
 
 /**

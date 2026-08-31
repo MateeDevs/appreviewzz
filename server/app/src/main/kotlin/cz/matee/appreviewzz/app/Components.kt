@@ -1,6 +1,6 @@
 package cz.matee.appreviewzz.app
 
-import cz.matee.appreviewzz.ai.SuggestReplyProviders
+import cz.matee.appreviewzz.ai.ConfiguredSuggestReplyProvider
 import cz.matee.appreviewzz.ai.aiHttpClient
 import cz.matee.appreviewzz.backup.BackupRetention
 import cz.matee.appreviewzz.backup.BackupService
@@ -49,16 +49,18 @@ import cz.matee.appreviewzz.core.usecase.DeliverReviewUseCase
 import cz.matee.appreviewzz.core.usecase.IngestReviewsUseCase
 import cz.matee.appreviewzz.core.usecase.MfaService
 import cz.matee.appreviewzz.core.usecase.OrganizationService
+import cz.matee.appreviewzz.core.usecase.PlatformAdminService
+import cz.matee.appreviewzz.core.usecase.PlatformConfig
 import cz.matee.appreviewzz.core.usecase.PublishReplyUseCase
 import cz.matee.appreviewzz.core.usecase.RatingsInsights
 import cz.matee.appreviewzz.core.usecase.RefreshStoreRepliesUseCase
 import cz.matee.appreviewzz.core.usecase.ReviewInbox
+import cz.matee.appreviewzz.crypto.AppSecretBox
 import cz.matee.appreviewzz.crypto.Argon2PasswordHasher
 import cz.matee.appreviewzz.crypto.CredentialVault
 import cz.matee.appreviewzz.crypto.KekProviders
 import cz.matee.appreviewzz.crypto.KekUsage
 import cz.matee.appreviewzz.crypto.MeteredKekProvider
-import cz.matee.appreviewzz.crypto.UserSecretBox
 import cz.matee.appreviewzz.jobs.BackupJobs
 import cz.matee.appreviewzz.jobs.DeliveryJobs
 import cz.matee.appreviewzz.jobs.IngestJobs
@@ -78,6 +80,10 @@ import cz.matee.appreviewzz.persistence.repository.ExposedFailedJobRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedInvitationRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedMembershipRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedOrganizationRepository
+import cz.matee.appreviewzz.persistence.repository.ExposedPlatformAuditRepository
+import cz.matee.appreviewzz.persistence.repository.ExposedPlatformSecretRepository
+import cz.matee.appreviewzz.persistence.repository.ExposedPlatformSettingRepository
+import cz.matee.appreviewzz.persistence.repository.ExposedPlatformStatsRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedRatingSnapshotRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedRatingsDigestRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedReplyRepository
@@ -127,6 +133,12 @@ class Components(
     private val appDataKeys = ExposedAppDataKeyRepository(exposed)
     private val userMfa = ExposedUserMfaRepository(exposed)
 
+    /** Platformní konfigurace (F7). Bez `org_id` — nepatří k žádnému tenantovi. */
+    val platformSettings = ExposedPlatformSettingRepository(exposed)
+    val platformSecrets = ExposedPlatformSecretRepository(exposed)
+    val platformAudit = ExposedPlatformAuditRepository(exposed)
+    private val platformStats = ExposedPlatformStatsRepository(exposed)
+
     /** DLQ. Čte z ní jak scheduler, tak `jobs failed` v CLI — dokud není console (F3). */
     val failedJobs = ExposedFailedJobRepository(exposed)
 
@@ -157,17 +169,18 @@ class Components(
      * credential a bez správce klíčů ho nemáme kam bezpečně uložit. Zapnout druhý faktor
      * tam pak nejde a console to řekne větou — to je poctivější než ho ukládat otevřeně.
      */
-    val userSecrets: UserSecretBox? by lazy {
+    val appSecrets: AppSecretBox? by lazy {
         val kekUri = config.vaultKekUri ?: return@lazy null
-        UserSecretBox(
+        AppSecretBox(
             keys = appDataKeys,
             kek = MeteredKekProvider(KekProviders.fromUri(kekUri), kekUsage),
             secrets = userMfa,
+            platformSecrets = platformSecrets,
         )
     }
 
     val mfaService: MfaService? by lazy {
-        MfaService(mfa = userMfa, vault = userSecrets ?: return@lazy null, users = users)
+        MfaService(mfa = userMfa, vault = appSecrets ?: return@lazy null, users = users)
     }
 
     /**
@@ -198,16 +211,12 @@ class Components(
     }
 
     /**
-     * Návrhy odpovědí. Provider vzniká líně i s vlastním HTTP klientem — bez AI se aplikace
-     * chová stejně, jen do Slacku chodí prázdný vstup.
+     * Návrhy odpovědí. Provider se řídí platformní konfigurací a umí se přestavět za běhu,
+     * když se v consoli změní klíč (F7.6) — proměnné `AI_*` zůstávají výchozí hodnotou.
+     * Bez AI se aplikace chová stejně, jen do Slacku chodí prázdný vstup.
      */
     val suggestions: SuggestReplyProvider by lazy {
-        SuggestReplyProviders.fromConfig(
-            provider = config.ai.provider,
-            apiKey = config.ai.apiKey,
-            model = config.ai.model,
-            httpClient = { aiClientDelegate.value },
-        )
+        ConfiguredSuggestReplyProvider(config = platformConfig, httpClient = { aiClientDelegate.value })
     }
 
     /**
@@ -370,6 +379,7 @@ class Components(
             ingest = ingest,
             apps = apps,
             failedJobs = failedJobs,
+            ingestPolicy = platformConfig,
             delivery = deliveryJobs,
             sweepInterval = Duration.ofSeconds(config.worker.sweepIntervalSeconds),
         )
@@ -472,8 +482,35 @@ class Components(
         )
     }
 
-    /** Sledované aplikace (F3.3). */
-    val appService: AppService by lazy { AppService(apps = apps, audit = audit) }
+    /**
+     * Čtení platformní konfigurace (F7.2). Sedí v API i ve workeru — obojí se ptá na tentýž
+     * interval a na tentýž klíč k AI, jen z jiného procesu.
+     */
+    val platformConfig: PlatformConfig by lazy {
+        PlatformConfig(
+            settings = platformSettings,
+            secrets = platformSecrets,
+            // Bez `VAULT_KEK_URI` zbývá prostředí: uložit tajemství nejde, přečíst z ENV ano.
+            vault = appSecrets,
+            env = System::getenv,
+        )
+    }
+
+    /** `null` bez `VAULT_KEK_URI` jen u tajemství; sekce jako taková funguje i bez správce klíčů. */
+    val platformAdmin: PlatformAdminService by lazy {
+        PlatformAdminService(
+            config = platformConfig,
+            settings = platformSettings,
+            secrets = platformSecrets,
+            audit = platformAudit,
+            stats = platformStats,
+            apps = apps,
+            vault = appSecrets,
+        )
+    }
+
+    /** Sledované aplikace (F3.3). Interval stahování si bere z platformní konfigurace (F7.4). */
+    val appService: AppService by lazy { AppService(apps = apps, audit = audit, ingest = platformConfig) }
 
     /**
      * Vyčtení názvu z veřejného listingu, když si klient přidává appku odkazem ze storu.

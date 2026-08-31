@@ -1,5 +1,6 @@
 package cz.matee.appreviewzz.app
 
+import cz.matee.appreviewzz.core.model.PlatformSettingException
 import cz.matee.appreviewzz.core.usecase.AuthException
 import cz.matee.appreviewzz.core.usecase.AuthFailure
 import cz.matee.appreviewzz.core.usecase.ConsoleException
@@ -44,6 +45,18 @@ fun Application.installErrorHandling() {
                 cause.failure.status(),
                 ErrorResponse(
                     error = cause.failure.name.lowercase(),
+                    requestId = call.callId,
+                    message = cause.message,
+                ),
+            )
+        }
+        // Hodnota mimo katalog je vstupní chyba, ne pád: věta je psaná pro člověka
+        // ve formuláři a nenese nic z konfigurace.
+        exception<PlatformSettingException> { call, cause ->
+            call.respond(
+                HttpStatusCode.BadRequest,
+                ErrorResponse(
+                    error = "invalid_input",
                     requestId = call.callId,
                     message = cause.message,
                 ),

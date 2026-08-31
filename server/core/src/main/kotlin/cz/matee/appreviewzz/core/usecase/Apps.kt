@@ -6,6 +6,7 @@ import cz.matee.appreviewzz.core.model.AppId
 import cz.matee.appreviewzz.core.model.OrgRole
 import cz.matee.appreviewzz.core.model.Organization
 import cz.matee.appreviewzz.core.model.OrganizationId
+import cz.matee.appreviewzz.core.model.PlatformRole
 import cz.matee.appreviewzz.core.port.AppRepository
 import cz.matee.appreviewzz.core.port.AppSettings
 import cz.matee.appreviewzz.core.port.AuditLogRepository
@@ -47,8 +48,16 @@ data class AppDraft(
 class AppService(
     private val apps: AppRepository,
     private val audit: AuditLogRepository,
+    /**
+     * Jak často se stahují recenze. Není to nastavení appky, ale knob na náš provoz —
+     * klient ho nevidí a `AppService` si ho odsud jen přečte (F7.4, ADR 0018).
+     */
+    private val ingest: IngestPolicy = IngestPolicy.fixed(),
     private val clock: Clock = Clock.System,
 ) {
+    /** Efektivní interval appky: vlastní výjimka, jinak platformní výchozí hodnota. */
+    fun effectiveInterval(app: App): Int = app.ingestIntervalMinutes ?: ingest.defaultIntervalMinutes()
+
     fun list(orgId: OrganizationId): List<App> = apps.listByOrg(orgId)
 
     fun get(
@@ -84,6 +93,7 @@ class AppService(
             )
         }
         requireIdentifiersFree(organization.id, gpPackage, ascAppId, except = null)
+        requireRoomForApp(organization.id)
 
         // Výchozí hodnoty drží doména (NewApp), ne tahle vrstva — jinak by se obojí rozešlo.
         val defaults =
@@ -106,9 +116,7 @@ class AppService(
                     // appky patří do historie, ne do kanálu.
                     notifyFrom = AppInputs.newAppNotifyFrom(draft.notifyFrom, "notifyFrom", clock),
                     aiInstructions = draft.aiInstructions?.takeIf { it.isNotBlank() },
-                    ingestIntervalMinutes =
-                        draft.ingestIntervalMinutes?.let { AppInputs.ingestInterval(it, "ingestIntervalMinutes") }
-                            ?: defaults.ingestIntervalMinutes,
+                    ingestIntervalMinutes = intervalOverride(actor, draft),
                     dailyDigestAt =
                         draft.dailyDigestAt?.let { AppInputs.digestAt(it, "dailyDigestAt") } ?: defaults.dailyDigestAt,
                 ),
@@ -142,9 +150,7 @@ class AppService(
                 timezone = draft.timezone?.let { AppInputs.timezone(it, "timezone") } ?: current.timezone,
                 notifyFrom = AppInputs.notifyFrom(draft.notifyFrom, "notifyFrom", clock) ?: current.notifyFrom,
                 aiInstructions = draft.aiInstructions?.takeIf { it.isNotBlank() },
-                ingestIntervalMinutes =
-                    draft.ingestIntervalMinutes?.let { AppInputs.ingestInterval(it, "ingestIntervalMinutes") }
-                        ?: current.ingestIntervalMinutes,
+                ingestIntervalMinutes = intervalOverride(actor, draft) ?: current.ingestIntervalMinutes,
                 dailyDigestAt = draft.dailyDigestAt?.let { AppInputs.digestAt(it, "dailyDigestAt") } ?: current.dailyDigestAt,
                 enabled = draft.enabled ?: current.enabled,
             )
@@ -171,6 +177,22 @@ class AppService(
         logger.info { "Aplikace ${app.id} (${app.name}) smazaná z organizace ${organization.slug}" }
     }
 
+    /**
+     * Strop počtu aplikací (platformní nastavení). Kontroluje se **jen při zakládání** —
+     * snížení stropu nemá klientovi zneviditelnit appky, které už sleduje.
+     */
+    private fun requireRoomForApp(orgId: OrganizationId) {
+        val limit = ingest.maxAppsPerOrg()
+        if (limit <= 0) return
+        val current = apps.listByOrg(orgId).size
+        if (current >= limit) {
+            throw ConsoleException(
+                ConsoleFailure.FORBIDDEN,
+                "Organizace má maximum sledovaných aplikací ($limit) — napiš nám, když potřebuješ víc",
+            )
+        }
+    }
+
     private fun requireIdentifiersFree(
         orgId: OrganizationId,
         gpPackage: String?,
@@ -193,6 +215,32 @@ class AppService(
         }
     }
 
+    /**
+     * Interval stahování z požadavku. Pro klienta je to `403`, ne tiché ignorování: console
+     * to pole neposílá, takže sem se dostane jen vlastní klient nad API — a ten si zaslouží
+     * vědět, že se jeho hodnota neuložila.
+     */
+    private fun intervalOverride(
+        actor: OrgActor,
+        draft: AppDraft,
+    ): Int? {
+        val requested = draft.ingestIntervalMinutes ?: return null
+        if (actor.platformRole != PlatformRole.SUPERADMIN) {
+            throw ConsoleException(
+                ConsoleFailure.FORBIDDEN,
+                "Jak často se stahují recenze, nastavuje provozovatel platformy — napiš nám, když ti interval nesedí",
+            )
+        }
+        val floor = ingest.minIntervalMinutes()
+        if (requested < floor) {
+            throw ConsoleException(
+                ConsoleFailure.INVALID_INPUT,
+                "Interval nesmí být kratší než platformní podlaha $floor minut",
+            )
+        }
+        return AppInputs.ingestInterval(requested, "ingestIntervalMinutes")
+    }
+
     private fun changes(
         before: App,
         after: App,
@@ -202,7 +250,7 @@ class AppService(
             if (before.enabled != after.enabled) put("enabled", after.enabled.toString())
             if (before.locale != after.locale) put("locale", after.locale.code)
             if (before.ingestIntervalMinutes != after.ingestIntervalMinutes) {
-                put("ingestIntervalMinutes", after.ingestIntervalMinutes.toString())
+                put("ingestIntervalMinutes", after.ingestIntervalMinutes?.toString() ?: "platformní")
             }
             if (before.notifyFrom != after.notifyFrom) put("notifyFrom", after.notifyFrom.toString())
         }

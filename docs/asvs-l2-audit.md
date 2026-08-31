@@ -73,10 +73,12 @@ Nesplněné a částečné jsou vypsané v [§15](#15-co-z-toho-plyne).
 |---|---|---|---|
 | 4.1.1 | Vynucení na serveru | ✅ | konzole si nic nehlídá sama |
 | 4.1.2 | Nedá se měnit metadata přístupu | ✅ | role se čte z databáze, ne z požadavku |
-| 4.1.3 | Nejmenší oprávnění | ✅ | OWNER / ADMIN / MEMBER, kontrola v use-case |
+| 4.1.3 | Nejmenší oprávnění | ✅ | OWNER / ADMIN / MEMBER, kontrola v use-case; správa platformy je **kolmá** role, která nedává přístup k datům organizací ([ADR 0018](adr/0018-platformni-sprava-a-superadmin.md)) |
 | 4.1.5 | Deny by default | ✅ | podstrom bez session neexistuje, ne že vrátí prázdno |
 | 4.2.1 | Ochrana proti IDOR | ✅ | `orgId` jako první parametr každé metody ([ADR 0009](adr/0009-domenove-schema-tenancy.md)), cross-tenant testy |
 | 4.2.2 | CSRF | ✅ | double-submit token, nasazený na stromě cest |
+| 4.3.1 | Správcovská rozhraní s druhým faktorem | ✅ | `/api/platform/**` vyžaduje roli SUPERADMIN **a** zapnutý TOTP; bez role vrací `404` |
+| 4.3.2 | Žádná cesta k neautorizované správě | ✅ | roli uděluje jen seed CLI, ne API |
 | 4.3.1 | Administrace odděleně | — | žádné globální admin rozhraní není |
 
 ## V5 Validace, sanitizace a kódování
@@ -105,7 +107,7 @@ Nesplněné a částečné jsou vypsané v [§15](#15-co-z-toho-plyne).
 | 6.2.8 | Porovnávání v konstantním čase | ✅ | `MessageDigest.isEqual` u CSRF, podpisu Slacku i TOTP |
 | 6.3.1–2 | Náhoda z kryptografického zdroje | ✅ | `SecureRandom` všude, kde vzniká tajemství |
 | 6.4.1 | Správa klíčů | ✅ | KEK v KMS/keysetu, DEK zabalený v databázi |
-| 6.4.2 | Rotace klíčů | ✅ | `vault rotate` v CLI — organizace i klíč uživatelských tajemství |
+| 6.4.2 | Rotace klíčů | ✅ | `vault rotate` v CLI — organizace i klíč tajemství mimo organizace (druhý faktor, platformní klíče) |
 
 ## V7 Chyby a logování
 

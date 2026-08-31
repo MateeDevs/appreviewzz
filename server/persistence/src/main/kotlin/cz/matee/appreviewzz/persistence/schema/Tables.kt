@@ -8,6 +8,7 @@ import cz.matee.appreviewzz.core.model.CredentialType
 import cz.matee.appreviewzz.core.model.MessageStatus
 import cz.matee.appreviewzz.core.model.OrgRole
 import cz.matee.appreviewzz.core.model.Platform
+import cz.matee.appreviewzz.core.model.PlatformRole
 import cz.matee.appreviewzz.core.model.RatingSource
 import cz.matee.appreviewzz.core.model.ReplySource
 import cz.matee.appreviewzz.core.model.ReplyStatus
@@ -50,6 +51,7 @@ internal object Users : Table("app_user") {
     val lastLoginAt = instant("last_login_at").nullable()
     val failedLoginCount = integer("failed_login_count")
     val lockedUntil = instant("locked_until").nullable()
+    val platformRole = enumerationByName<PlatformRole>("platform_role", ENUM_LENGTH).nullable()
     val createdAt = instant("created_at")
     val updatedAt = instant("updated_at")
 
@@ -181,7 +183,7 @@ internal object Apps : Table("app") {
     val timezone = text("timezone")
     val notifyFrom = instant("notify_from").nullable()
     val aiInstructions = text("ai_instructions").nullable()
-    val ingestIntervalMinutes = integer("ingest_interval_minutes")
+    val ingestIntervalMinutes = integer("ingest_interval_minutes").nullable()
     val dailyDigestAt = time("daily_digest_at")
     val enabled = bool("enabled")
     val createdAt = instant("created_at")
@@ -362,6 +364,44 @@ internal object BackupRuns : Table("backup_run") {
     val sizeBytes = long("size_bytes").nullable()
     val checksum = text("checksum").nullable()
     val error = text("error").nullable()
+
+    override val primaryKey = PrimaryKey(id)
+}
+
+/**
+ * Platformní konfigurace (F7.2). Bez `org_id` schválně — je to jediná část schématu, která
+ * k žádné organizaci nepatří, a nesmí se do ní dát zamíchat.
+ */
+internal object PlatformSettingsTable : Table("platform_setting") {
+    val key = text("key")
+    val value = text("value")
+    val updatedAt = instant("updated_at")
+    val updatedBy = userId("updated_by").nullable()
+
+    override val primaryKey = PrimaryKey(key)
+}
+
+/** Write-only tajemství platformy. `ciphertext` z týhle tabulky nikdy nejde do API odpovědi. */
+internal object PlatformSecrets : Table("platform_secret") {
+    val key = text("key")
+    val dataKeyId = uuid("data_key_id")
+    val ciphertext = binary("ciphertext")
+    val fingerprint = text("fingerprint")
+    val hint = text("hint").nullable()
+    val updatedAt = instant("updated_at")
+    val updatedBy = userId("updated_by").nullable()
+
+    override val primaryKey = PrimaryKey(key)
+}
+
+internal object PlatformAuditLogs : Table("platform_audit_log") {
+    val id = long("id").autoIncrement()
+    val actorUserId = userId("actor_user_id").nullable()
+    val actorLabel = text("actor_label").nullable()
+    val action = text("action")
+    val targetKey = text("target_key").nullable()
+    val metadata = jsonb("metadata", schemaJson, MapSerializer(String.serializer(), String.serializer()))
+    val createdAt = instant("created_at")
 
     override val primaryKey = PrimaryKey(id)
 }

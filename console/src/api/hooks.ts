@@ -13,6 +13,11 @@ import type {
   Member,
   MfaStatus,
   OrganizationSummary,
+  PlatformApp,
+  PlatformAuditEntry,
+  PlatformOverview,
+  PlatformSecret,
+  PlatformSetting,
   RatingsRunResult,
   RatingsSeries,
   Review,
@@ -378,5 +383,86 @@ export function useRunRatings(org: string) {
   return useMutation({
     mutationFn: (appId: string) => api.post<RatingsRunResult>(`/api/orgs/${org}/apps/${appId}/ratings/run`),
     onSuccess: () => client.invalidateQueries({ queryKey: ['ratings', org] }),
+  })
+}
+
+// ---------------------------------------------------------------- správa platformy (F7)
+
+/**
+ * Sekce existuje jen pro superadmina se zapnutým druhým faktorem — server na ni jinak
+ * odpoví `404`, resp. `403`. Hooky se proto volají až pod routou, která roli ověřila.
+ */
+export function usePlatformSettings() {
+  return useQuery({
+    queryKey: ['platform', 'settings'],
+    queryFn: () => api.get<PlatformSetting[]>('/api/platform/settings'),
+  })
+}
+
+/**
+ * Uložení změn. `null` u klíče znamená zrušit uložené a vrátit se k prostředí, resp.
+ * k výchozí hodnotě — proto `string | null`, ne prázdný řetězec.
+ */
+export function useUpdatePlatformSettings() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (values: Record<string, string | null>) =>
+      api.put<PlatformSetting[]>('/api/platform/settings', { values }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ['platform'] }),
+  })
+}
+
+export function usePlatformSecrets() {
+  return useQuery({
+    queryKey: ['platform', 'secrets'],
+    queryFn: () => api.get<PlatformSecret[]>('/api/platform/secrets'),
+  })
+}
+
+export function useSetPlatformSecret() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (input: { key: string; value: string }) =>
+      api.put<void>(`/api/platform/secrets/${encodeURIComponent(input.key)}`, { value: input.value }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ['platform'] }),
+  })
+}
+
+export function useRemovePlatformSecret() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (key: string) => api.delete<void>(`/api/platform/secrets/${encodeURIComponent(key)}`),
+    onSuccess: () => client.invalidateQueries({ queryKey: ['platform'] }),
+  })
+}
+
+export function usePlatformOverview() {
+  return useQuery({
+    queryKey: ['platform', 'overview'],
+    queryFn: () => api.get<PlatformOverview>('/api/platform/overview'),
+  })
+}
+
+export function usePlatformAudit() {
+  return useQuery({
+    queryKey: ['platform', 'audit'],
+    queryFn: () => api.get<PlatformAuditEntry[]>('/api/platform/audit'),
+  })
+}
+
+/** Jen aplikace s udělenou výjimkou — výpis všech appek do platformní sekce nepatří. */
+export function usePlatformApps() {
+  return useQuery({
+    queryKey: ['platform', 'apps'],
+    queryFn: () => api.get<PlatformApp[]>('/api/platform/apps'),
+  })
+}
+
+export function useSetPlatformAppInterval() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (input: { appId: string; minutes: number | null }) =>
+      api.patch<PlatformApp>(`/api/platform/apps/${input.appId}`, { minutes: input.minutes }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ['platform'] }),
   })
 }

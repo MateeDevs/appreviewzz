@@ -79,7 +79,10 @@ Nasazuje se výhradně z `.github/workflows/deploy.yml`, podle toho, do které v
 | Push do | Co se stane |
 |---|---|
 | `epic/v2` | postaví se image, publikuje jako `:latest` a `:<sha>`, nasadí se staging |
-| `production` | nic se nestaví; tag `:prod` se přesměruje na ten sha a nasadí se produkce |
+| `production` | nic se nestaví; počká se na image pro ten sha, tag `:prod` se na něj přesměruje a nasadí se produkce |
+
+Na obě větve se smí pushnout naráz — promote si na build počká sám
+([`wait-for-image.sh`](../ci/wait-for-image.sh)).
 
 Potřebuje repozitářové secrets:
 
@@ -92,10 +95,11 @@ Potřebuje repozitářové secrets:
 URL deploy webhooku obsahuje UUID resource. Po smazání a znovuvytvoření resource je stará
 URL mrtvá a secret se musí přepsat — nasazení pak končí HTTP 404, ne tichým nicneděláním.
 
-**Auto Deploy musí být v Coolify u obou resourců vypnutý.** Git webhook chodí v okamžiku
-pushe, tedy o celý build dřív, než je image v GHCR: staging by se tím trvale nasazoval
-o jeden commit pozadu a produkce by se re-deployovala při každém pushi do vývojové větve,
-protože `compose.yaml` si Coolify bere z git větve.
+**Auto deploy musí být u obou resourců na `Manual deployments only`** (Configuration →
+Advanced → Deployment). Git webhook chodí v okamžiku pushe, tedy o celý build dřív, než je
+image v GHCR: každý commit by se nasazoval dvakrát a ten první deploy by vždycky natáhl
+předchozí verzi. Nasazení z CI to neomezuje — chodí přes `/api/v1/deploy`, ne přes git
+webhook, a v historii je poznáš podle *Source: API*.
 
 ## Verze, která běží
 

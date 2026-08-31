@@ -1,6 +1,7 @@
 package cz.matee.appreviewzz.core.usecase
 
 import cz.matee.appreviewzz.core.model.MessageLocale
+import cz.matee.appreviewzz.core.model.PlatformSettings
 import kotlinx.datetime.LocalTime
 import java.time.DateTimeException
 import java.time.ZoneId
@@ -16,8 +17,9 @@ import kotlin.time.Instant
  * (`--timezone` v CLI, `timezone` v API).
  */
 object AppInputs {
-    const val MIN_INGEST_INTERVAL = 5
-    const val MAX_INGEST_INTERVAL = 1440
+    /** Krajní meze zrcadlí `CHECK` v databázi; provozní podlaha je platformní nastavení. */
+    const val MIN_INGEST_INTERVAL = PlatformSettings.MIN_ALLOWED_INTERVAL
+    const val MAX_INGEST_INTERVAL = PlatformSettings.MAX_ALLOWED_INTERVAL
 
     fun locale(
         raw: String,

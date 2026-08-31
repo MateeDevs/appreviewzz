@@ -19,6 +19,7 @@ import cz.matee.appreviewzz.core.model.AppId
 import cz.matee.appreviewzz.core.model.OrganizationId
 import cz.matee.appreviewzz.core.port.AppRepository
 import cz.matee.appreviewzz.core.port.FailedJobRepository
+import cz.matee.appreviewzz.core.usecase.IngestPolicy
 import cz.matee.appreviewzz.core.usecase.IngestReport
 import cz.matee.appreviewzz.core.usecase.IngestReviewsUseCase
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -50,11 +51,19 @@ data class IngestJobData(
     override fun getData(): Any = this
 
     companion object {
-        fun of(app: App): IngestJobData =
+        /**
+         * @param defaultInterval platformní výchozí hodnota pro appky bez vlastní výjimky.
+         *   Do payloadu se ukládá **efektivní** číslo, aby se změna platformního nastavení
+         *   projevila jako změna payloadu — sweep ji pak pozná a instanci přeplánuje.
+         */
+        fun of(
+            app: App,
+            defaultInterval: Int,
+        ): IngestJobData =
             IngestJobData(
                 orgId = app.orgId.toString(),
                 appId = app.id.toString(),
-                intervalMinutes = app.ingestIntervalMinutes,
+                intervalMinutes = app.ingestIntervalMinutes ?: defaultInterval,
             )
     }
 }
@@ -74,6 +83,11 @@ class IngestJobs(
     private val ingest: IngestReviewsUseCase,
     private val apps: AppRepository,
     private val failedJobs: FailedJobRepository,
+    /**
+     * Jak často se stahuje appkám bez výjimky (F7.4). Čte se **při každém sweepu**, ne jednou
+     * při startu — jinak by změna platformního nastavení potřebovala restart workeru.
+     */
+    private val ingestPolicy: IngestPolicy = IngestPolicy.fixed(),
     /** Doručení do kanálů; `null` znamená běh bez kanálů (testy, samotný ingest). */
     private val delivery: DeliveryJobs? = null,
     private val clock: Clock = Clock.System,
@@ -102,7 +116,8 @@ class IngestJobs(
      * které jsou v pořádku — jinak by každý sweep odsunul ingest a ten by se nikdy nespustil.
      */
     fun sweep(client: SchedulerClient) {
-        val wanted = apps.listEnabled().associate { it.id.toString() to IngestJobData.of(it) }
+        val defaultInterval = ingestPolicy.defaultIntervalMinutes()
+        val wanted = apps.listEnabled().associate { it.id.toString() to IngestJobData.of(it, defaultInterval) }
         val scheduled =
             client
                 .getScheduledExecutionsForTask(INGEST_TASK, IngestJobData::class.java)

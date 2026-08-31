@@ -180,9 +180,10 @@ class AppRoutesTest :
                 zone.status shouldBe HttpStatusCode.BadRequest
                 zone.bodyAsText() shouldContain "Europe/Prague"
 
+                // Interval není klientova hodnota, takže se nezkoumá ani rozsah — odmítne se dřív.
                 val interval = owner.createApp("""{"name":"B","gpPackageName":"cz.b","ingestIntervalMinutes":1}""")
-                interval.status shouldBe HttpStatusCode.BadRequest
-                interval.bodyAsText() shouldContain "5"
+                interval.status shouldBe HttpStatusCode.Forbidden
+                interval.bodyAsText() shouldContain "provozovatel platformy"
             }
         }
 
@@ -195,17 +196,34 @@ class AppRoutesTest :
                 val updated =
                     owner.patchJson(
                         "/api/orgs/$SLUG/apps/$id",
-                        """{"name":"Přejmenovaná","locale":"en","ingestIntervalMinutes":60,"enabled":false}""",
+                        """{"name":"Přejmenovaná","locale":"en","enabled":false}""",
                     )
                 updated.status shouldBe HttpStatusCode.OK
                 val body = updated.bodyAsText()
                 body shouldContain "\"name\":\"Přejmenovaná\""
                 body shouldContain "\"locale\":\"EN\""
-                body shouldContain "\"ingestIntervalMinutes\":60"
                 body shouldContain "\"enabled\":false"
                 // Nezmíněná pole zůstala.
                 body shouldContain "\"timezone\":\"Europe/Prague\""
                 body shouldContain "\"gpPackageName\":\"cz.matee.test\""
+            }
+        }
+
+        "interval stahování klient nenastaví — je to knob na provoz, ne jeho preference" {
+            testApplication {
+                consoleModule(mailer)
+                val owner = ownerWithOrg(mailer)
+                val id = owner.createApp().bodyAsText().jsonValue("id")
+
+                // Appka jede na platformní hodnotě a odpověď to říká nahlas.
+                owner.get("/api/orgs/$SLUG/apps/$id").bodyAsText() shouldContain "\"ingestIntervalSource\":\"PLATFORM\""
+
+                // Vlastní klient nad API dostane 403, ne tiché ignorování — jinak by hádal,
+                // proč se jeho hodnota neuložila.
+                val rejected =
+                    owner.patchJson("/api/orgs/$SLUG/apps/$id", """{"name":"Testovací appka","ingestIntervalMinutes":5}""")
+                rejected.status shouldBe HttpStatusCode.Forbidden
+                owner.get("/api/orgs/$SLUG/apps/$id").bodyAsText() shouldContain "\"ingestIntervalMinutes\":30"
             }
         }
 

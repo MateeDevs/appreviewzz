@@ -1,6 +1,7 @@
 package cz.matee.appreviewzz.app
 
 import cz.matee.appreviewzz.core.model.OrgRole
+import cz.matee.appreviewzz.core.model.PlatformRole
 import cz.matee.appreviewzz.core.model.SecretPayload
 import cz.matee.appreviewzz.core.model.User
 import cz.matee.appreviewzz.core.model.UserId
@@ -123,6 +124,11 @@ data class MeResponse(
     val displayName: String?,
     val emailVerified: Boolean,
     val mfaEnabled: Boolean,
+    /**
+     * Správa platformy. Console podle toho ukazuje odkaz na sekci; **rozhoduje server** —
+     * strom `/api/platform` si roli ověřuje sám a bez druhého faktoru nepustí ani ji.
+     */
+    val platformRole: PlatformRole?,
     val organizations: List<OrganizationSummary>,
 )
 
@@ -401,6 +407,7 @@ private suspend fun me(
         displayName = user.displayName,
         emailVerified = emailVerified,
         mfaEnabled = mfaEnabled,
+        platformRole = user.platformRole,
         organizations = summaries,
     )
 }

@@ -15,6 +15,7 @@ import cz.matee.appreviewzz.persistence.schema.Channels
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.isNotNull
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -94,6 +95,36 @@ class ExposedAppRepository(
     override fun listEnabled(): List<App> =
         transaction(database) {
             Apps.selectAll().where { Apps.enabled eq true }.map { it.toApp() }
+        }
+
+    override fun findAnyById(id: AppId): App? =
+        transaction(database) {
+            Apps
+                .selectAll()
+                .where { Apps.id eq id }
+                .firstOrNull()
+                ?.toApp()
+        }
+
+    override fun listWithIntervalOverride(): List<App> =
+        transaction(database) {
+            Apps
+                .selectAll()
+                .where { Apps.ingestIntervalMinutes.isNotNull() }
+                .orderBy(Apps.name to SortOrder.ASC)
+                .map { it.toApp() }
+        }
+
+    override fun updateIngestInterval(
+        id: AppId,
+        minutes: Int?,
+    ): App? =
+        transaction(database) {
+            val updated =
+                Apps.update({ Apps.id eq id }) {
+                    it[ingestIntervalMinutes] = minutes
+                }
+            if (updated == 0) null else findAnyById(id)
         }
 
     override fun updateSettings(
