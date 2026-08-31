@@ -177,9 +177,10 @@ h1 + p { margin-top: 0.3rem; color: var(--muted); }
   font-size: 0.85rem;
 }
 .sidebar-foot .who { color: var(--text); font-weight: 500; overflow: hidden; text-overflow: ellipsis; }
-.sidebar-foot a { color: var(--muted); text-decoration: none; }
-.sidebar-foot a:hover { color: var(--accent); }
-.sidebar-foot button.link { align-self: flex-start; }
+/* Odkazy i tlačítka v patičce jsou jeden seznam, ať se z něj nic nevytrhává barvou. */
+.sidebar-foot a, .sidebar-foot button.link { color: var(--muted); text-decoration: none; }
+.sidebar-foot a:hover, .sidebar-foot button.link:hover:not(:disabled) { color: var(--accent); }
+.sidebar-foot button.link { align-self: flex-start; font-size: inherit; }
 
 .content {
   padding: 2rem 2.25rem 4rem;

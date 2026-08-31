@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import { QRCodeSVG } from 'qrcode.react'
 import {
   useConfirmTotp,
@@ -8,42 +7,38 @@ import {
   useRegenerateRecoveryCodes,
   useStartTotp,
 } from '../api/hooks'
-import { AuthShell, Badge, Card, ErrorBox, Field, Loading } from '../components/ui'
+import { Badge, ErrorBox, Field, Loading, Modal } from '../components/ui'
 
 /**
- * Zabezpečení účtu (F5.3). Druhý faktor je věc uživatele, ne organizace — proto je stránka
- * mimo rám organizace a odkazuje se na ni z patičky navigace.
+ * Zabezpečení účtu (F5.3). Druhý faktor je věc uživatele, ne organizace — a je to krátké
+ * zařizování, ne místo k pobytu; proto dialog nad rozdělanou prací, ne vlastní stránka.
  */
-export function SecurityPage() {
+export function SecurityDialog({ onClose }: { onClose: () => void }) {
   const status = useMfaStatus()
 
   return (
-    <AuthShell>
-      <Card title="Zabezpečení účtu">
-        {status.isPending ? <Loading /> : null}
-        <ErrorBox error={status.error} />
-        {status.data ? (
-          status.data.enabled ? (
-            <EnabledTotp remaining={status.data.remainingRecoveryCodes} />
-          ) : (
-            <TotpSetupFlow />
-          )
-        ) : null}
-        <p className="small muted" style={{ marginTop: '1.5rem' }}>
-          <Link to="/">Zpátky do console</Link>
-        </p>
-      </Card>
-    </AuthShell>
+    <Modal title="Zabezpečení účtu" onClose={onClose}>
+      {status.isPending ? <Loading /> : null}
+      <ErrorBox error={status.error} />
+      {status.data ? (
+        status.data.enabled ? (
+          <EnabledTotp remaining={status.data.remainingRecoveryCodes} onClose={onClose} />
+        ) : (
+          <TotpSetupFlow onClose={onClose} />
+        )
+      ) : null}
+    </Modal>
   )
 }
 
 /** Zapínání: QR kód, opsaný kód, a teprve pak záchranné kódy. */
-function TotpSetupFlow() {
+function TotpSetupFlow({ onClose }: { onClose: () => void }) {
   const start = useStartTotp()
   const confirm = useConfirmTotp()
   const [code, setCode] = useState('')
 
-  if (confirm.data) return <RecoveryCodes codes={confirm.data.codes} title="Druhý faktor je zapnutý" />
+  if (confirm.data)
+    return <RecoveryCodes codes={confirm.data.codes} title="Druhý faktor je zapnutý" onClose={onClose} />
 
   if (!start.data) {
     return (
@@ -90,14 +85,15 @@ function TotpSetupFlow() {
   )
 }
 
-function EnabledTotp({ remaining }: { remaining: number }) {
+function EnabledTotp({ remaining, onClose }: { remaining: number; onClose: () => void }) {
   const [mode, setMode] = useState<'none' | 'disable' | 'recovery'>('none')
   const regenerate = useRegenerateRecoveryCodes()
   const disable = useDisableTotp()
   const [password, setPassword] = useState('')
   const [code, setCode] = useState('')
 
-  if (regenerate.data) return <RecoveryCodes codes={regenerate.data.codes} title="Nové záchranné kódy" />
+  if (regenerate.data)
+    return <RecoveryCodes codes={regenerate.data.codes} title="Nové záchranné kódy" onClose={onClose} />
 
   return (
     <>
@@ -184,7 +180,7 @@ function EnabledTotp({ remaining }: { remaining: number }) {
 }
 
 /** Kódy se ukazují jednou; server si nechává jen otisk a znovu je nikdo nezjistí. */
-function RecoveryCodes({ codes, title }: { codes: string[]; title: string }) {
+function RecoveryCodes({ codes, title, onClose }: { codes: string[]; title: string; onClose: () => void }) {
   return (
     <>
       <h3>{title}</h3>
@@ -202,7 +198,9 @@ function RecoveryCodes({ codes, title }: { codes: string[]; title: string }) {
         >
           Zkopírovat
         </button>
-        <Link to="/">Hotovo</Link>
+        <button type="button" className="link" onClick={onClose}>
+          Hotovo
+        </button>
       </div>
     </>
   )

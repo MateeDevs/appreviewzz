@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { NavLink, Navigate, Outlet, useParams } from 'react-router-dom'
 import { useLogout, useMe } from '../api/hooks'
 import { Brand } from '../components/ui'
+import { SecurityDialog } from './Security'
 import {
   IconApps,
   IconAudit,
@@ -18,6 +20,7 @@ export function OrgLayout() {
   const { org = '' } = useParams()
   const me = useMe()
   const logout = useLogout()
+  const [security, setSecurity] = useState(false)
 
   const membership = me.data?.organizations.find((item) => item.slug === org)
   // Než dorazí profil, nic nepřesměrováváme — jinak by refresh stránky vyhodil ven.
@@ -56,7 +59,10 @@ export function OrgLayout() {
         <div className="grow" />
         <div className="sidebar-foot">
           <div className="who">{me.data?.displayName ?? me.data?.email}</div>
-          <NavLink to="/zabezpeceni">Zabezpečení účtu</NavLink>
+          {/* Druhý faktor je krátké zařizování — otevře se nad rozdělanou prací, nikam se neodchází. */}
+          <button type="button" className="link" onClick={() => setSecurity(true)}>
+            Zabezpečení účtu
+          </button>
           {/* Odkaz vidí jen správce platformy. Sekce sama si roli ověřuje na serveru. */}
           {me.data?.platformRole === 'SUPERADMIN' ? (
             <NavLink to="/platforma">Správa platformy</NavLink>
@@ -72,6 +78,7 @@ export function OrgLayout() {
       <main className="content">
         <Outlet />
       </main>
+      {security ? <SecurityDialog onClose={() => setSecurity(false)} /> : null}
     </div>
   )
 }

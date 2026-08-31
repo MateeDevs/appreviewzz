@@ -16,7 +16,6 @@ import { OnboardingPage } from './pages/Onboarding'
 import { OrgLayout } from './pages/OrgLayout'
 import { OrganizationsPage } from './pages/Organizations'
 import { PlatformPage } from './pages/Platform'
-import { SecurityPage } from './pages/Security'
 import { Loading } from './components/ui'
 
 export function App() {
@@ -48,7 +47,6 @@ export function App() {
       ) : (
         <>
           <Route path="/organizace" element={<OrganizationsPage />} />
-          <Route path="/zabezpeceni" element={<SecurityPage />} />
           {/* Routa se vykresluje jen správci platformy; o přístupu ale rozhoduje server —
               tohle je zkratka, aby se odsud nekoukalo na samé chyby. */}
           {me.data?.platformRole === 'SUPERADMIN' ? (
