@@ -5,6 +5,7 @@ import cz.matee.appreviewzz.core.model.Platform
 import cz.matee.appreviewzz.core.model.storeReplyMaxLength
 import cz.matee.appreviewzz.core.port.PublishedReply
 import cz.matee.appreviewzz.core.port.ReplyTarget
+import cz.matee.appreviewzz.core.port.ReviewRefreshSource
 import cz.matee.appreviewzz.core.port.ReviewSource
 import cz.matee.appreviewzz.core.port.StoreConnectorException
 import cz.matee.appreviewzz.core.port.StoreContext
@@ -44,6 +45,7 @@ class GooglePlayConnector(
     private val clock: Clock = Clock.System,
     private val baseUrl: String = ANDROID_PUBLISHER_BASE_URL,
 ) : ReviewSource,
+    ReviewRefreshSource,
     ReplyTarget {
     override val platform: Platform = Platform.ANDROID
 
@@ -81,6 +83,32 @@ class GooglePlayConnector(
             }
         }
         return collected
+    }
+
+    /**
+     * `reviews.get`. Na rozdíl od výpisu **týdenní okno nemá** — ověřeno proti ostrému API
+     * na dva roky staré recenzi. Dokumentace to neslibuje (omezení uvádí u obojího), takže
+     * kdyby to Google jednou utáhl, projeví se to jako 404 a recenze prostě zůstane, kde je.
+     */
+    override suspend fun fetchReview(
+        context: StoreContext,
+        storeReviewId: String,
+    ): ObservedReview? {
+        val account = GoogleServiceAccount.parse(context.credential)
+        val token = oauth.accessToken(account)
+        val response =
+            try {
+                request(account) {
+                    httpClient.get("$baseUrl/applications/${context.appIdentifier}/reviews/$storeReviewId") {
+                        bearerAuth(token)
+                    }
+                }
+            } catch (error: StoreConnectorException) {
+                // 404 je tady normální odpověď, ne porucha: autor recenzi smazal.
+                if (error.kind == StoreErrorKind.NOT_FOUND) return null
+                throw error
+            }
+        return response.body<ReviewDto>().toObservedReview()
     }
 
     override suspend fun validate(context: StoreContext): ValidationOutcome =

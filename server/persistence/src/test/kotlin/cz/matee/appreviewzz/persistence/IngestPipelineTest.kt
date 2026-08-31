@@ -12,6 +12,7 @@ import cz.matee.appreviewzz.core.model.SecretPayload
 import cz.matee.appreviewzz.core.model.ValidationStatus
 import cz.matee.appreviewzz.core.port.NewApp
 import cz.matee.appreviewzz.core.port.NewCredential
+import cz.matee.appreviewzz.core.port.ReviewRefreshSource
 import cz.matee.appreviewzz.core.port.ReviewSource
 import cz.matee.appreviewzz.core.port.SecretResolver
 import cz.matee.appreviewzz.core.port.StoreConnectorException
@@ -20,6 +21,7 @@ import cz.matee.appreviewzz.core.port.StoreErrorKind
 import cz.matee.appreviewzz.core.port.ValidationOutcome
 import cz.matee.appreviewzz.core.usecase.IngestReviewsUseCase
 import cz.matee.appreviewzz.core.usecase.PlatformIngest
+import cz.matee.appreviewzz.core.usecase.RefreshStoreRepliesUseCase
 import cz.matee.appreviewzz.persistence.repository.ExposedAppRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedAuditLogRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedCredentialRepository
@@ -33,6 +35,7 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.runBlocking
+import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
 
@@ -195,6 +198,53 @@ class IngestPipelineTest :
             afterEdit.notifiable shouldHaveSize 0
             reviews.findByStoreId(org, app, Platform.ANDROID, "gp:old").shouldNotBeNull().state shouldBe
                 ReviewState.SUPPRESSED
+        }
+
+        test("dohledávání najde odpověď z Play Console u recenze, kterou ingest už nevidí") {
+            val (org, app) = setUpApp()
+            // Recenze stará 18 dní: mimo týdenní okno `reviews.list`, uvnitř historie dohledávání.
+            val old = Instant.parse("2026-08-01T09:30:00Z")
+            val now = Instant.parse("2026-08-19T12:00:00Z")
+            store = listOf(Fixtures.observedReview(storeReviewId = "gp:stara", submittedAt = old))
+            runBlocking { useCase.ingest(org, app) }
+            reviews.findByStoreId(org, app, Platform.ANDROID, "gp:stara").shouldNotBeNull().state shouldBe
+                ReviewState.NEW
+
+            val refresh =
+                RefreshStoreRepliesUseCase(
+                    apps = apps,
+                    credentials = credentials,
+                    reviews = reviews,
+                    secrets = secrets,
+                    sources =
+                        listOf(
+                            object : ReviewRefreshSource {
+                                override val platform = Platform.ANDROID
+
+                                override suspend fun fetchReview(
+                                    context: StoreContext,
+                                    storeReviewId: String,
+                                ): ObservedReview? =
+                                    Fixtures.observedReview(
+                                        storeReviewId = storeReviewId,
+                                        submittedAt = old,
+                                        developerResponseBody = "Odpovězeno v Play Console.",
+                                    )
+                            },
+                        ),
+                    clock =
+                        object : Clock {
+                            override fun now(): Instant = now
+                        },
+                )
+
+            runBlocking { refresh.refresh(org, app) }.answered shouldBe 1
+            val refreshed = reviews.findByStoreId(org, app, Platform.ANDROID, "gp:stara").shouldNotBeNull()
+            refreshed.state shouldBe ReviewState.REPLIED
+            refreshed.developerResponseBody shouldBe "Odpovězeno v Play Console."
+
+            // Druhý běh už nemá co dělat: recenze je v REPLIED, do fronty čekajících nepatří.
+            runBlocking { refresh.refresh(org, app) }.answered shouldBe 0
         }
 
         test("neplatný klíč se propíše do stavu credentialu a do audit logu") {

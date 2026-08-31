@@ -32,7 +32,10 @@ import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.isNull
+import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.insertIgnore
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -176,6 +179,30 @@ class ExposedReviewRepository(
                 .map { it.toReview() }
         }
 
+    override fun listAwaitingStoreReply(
+        orgId: OrganizationId,
+        appId: AppId,
+        platform: Platform,
+        submittedAfter: Instant,
+        submittedBefore: Instant,
+        limit: Int,
+    ): List<Review> =
+        transaction(database) {
+            Reviews
+                .selectAll()
+                .where {
+                    (Reviews.orgId eq orgId) and
+                        (Reviews.appId eq appId) and
+                        (Reviews.platform eq platform) and
+                        (Reviews.state inList AWAITING_REPLY.toList()) and
+                        Reviews.developerResponseBody.isNull() and
+                        (Reviews.submittedAt greaterEq submittedAfter) and
+                        (Reviews.submittedAt less submittedBefore)
+                }.orderBy(Reviews.submittedAt to SortOrder.DESC)
+                .limit(limit)
+                .map { it.toReview() }
+        }
+
     override fun updateState(
         orgId: OrganizationId,
         id: ReviewId,
@@ -277,6 +304,11 @@ class ExposedReviewRepository(
             it[developerResponseBody] = observed.developerResponseBody
             it[observedAt] = seenAt
         }
+    }
+
+    private companion object {
+        /** Stavy, ve kterých recenze u nás pořád čeká na odpověď. */
+        val AWAITING_REPLY = setOf(ReviewState.NEW, ReviewState.NOTIFIED, ReviewState.UPDATED)
     }
 }
 

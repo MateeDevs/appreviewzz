@@ -35,6 +35,7 @@ import cz.matee.appreviewzz.core.port.NotificationChannel
 import cz.matee.appreviewzz.core.port.PasswordHasher
 import cz.matee.appreviewzz.core.port.RatingsSource
 import cz.matee.appreviewzz.core.port.ReplyTarget
+import cz.matee.appreviewzz.core.port.ReviewRefreshSource
 import cz.matee.appreviewzz.core.port.ReviewSource
 import cz.matee.appreviewzz.core.port.SuggestReplyProvider
 import cz.matee.appreviewzz.core.usecase.AppService
@@ -50,6 +51,7 @@ import cz.matee.appreviewzz.core.usecase.MfaService
 import cz.matee.appreviewzz.core.usecase.OrganizationService
 import cz.matee.appreviewzz.core.usecase.PublishReplyUseCase
 import cz.matee.appreviewzz.core.usecase.RatingsInsights
+import cz.matee.appreviewzz.core.usecase.RefreshStoreRepliesUseCase
 import cz.matee.appreviewzz.core.usecase.ReviewInbox
 import cz.matee.appreviewzz.crypto.Argon2PasswordHasher
 import cz.matee.appreviewzz.crypto.CredentialVault
@@ -62,6 +64,7 @@ import cz.matee.appreviewzz.jobs.DeliveryJobs
 import cz.matee.appreviewzz.jobs.IngestJobs
 import cz.matee.appreviewzz.jobs.MaintenanceJobs
 import cz.matee.appreviewzz.jobs.RatingsJobs
+import cz.matee.appreviewzz.jobs.RefreshRepliesJobs
 import cz.matee.appreviewzz.jobs.ReplyJobs
 import cz.matee.appreviewzz.persistence.Database
 import cz.matee.appreviewzz.persistence.repository.ExposedAppDataKeyRepository
@@ -176,6 +179,9 @@ class Components(
     private val appStore: AppStoreConnector by lazy { AppStoreConnector(storeClients.appStore) }
 
     val reviewSources: List<ReviewSource> by lazy { listOf(googlePlay, appStore) }
+
+    /** Dohledání jedné recenze umí zatím jen Google Play — ASC vrací historii celou. */
+    val reviewRefreshSources: List<ReviewRefreshSource> by lazy { listOf(googlePlay) }
 
     /**
      * Zdroje hodnocení. Pro každou platformu dva: oficiální data a veřejný listing. Neslouží
@@ -297,6 +303,20 @@ class Components(
             audit = audit,
             sources = reviewSources,
         )
+    }
+
+    val refreshStoreReplies: RefreshStoreRepliesUseCase by lazy {
+        RefreshStoreRepliesUseCase(
+            apps = apps,
+            credentials = credentials,
+            reviews = reviews,
+            secrets = vault,
+            sources = reviewRefreshSources,
+        )
+    }
+
+    val refreshRepliesJobs: RefreshRepliesJobs by lazy {
+        RefreshRepliesJobs(refresh = refreshStoreReplies, apps = apps)
     }
 
     /**

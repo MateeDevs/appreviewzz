@@ -28,6 +28,37 @@ class GooglePlayConnectorTest :
     FunSpec({
         val context = StoreContext(appIdentifier = PACKAGE_NAME, credential = TestServiceAccount.payload())
 
+        test("dotáhne jednu recenzi po ID i s odpovědí, kterou napsal někdo v Play Console") {
+            // Tohle je jediná cesta, jak se o takové odpovědi dozvědět: reviews.list vrací ~týden zpět.
+            val engine =
+                RecordingEngine { request ->
+                    respond(fixture("review-single.json"), headers = jsonHeaders)
+                        .takeIf { request.url.encodedPath.endsWith("/reviews/gp:AOqpTOFakeReviewIdentifier1") }
+                }
+            val connector = GooglePlayConnector(engine.client())
+
+            val review = connector.fetchReview(context, "gp:AOqpTOFakeReviewIdentifier1")
+
+            review.shouldNotBeNull()
+            review.starRating shouldBe 1
+            review.developerResponseBody shouldContain "můžete nám prosím upřesnit"
+            review.developerResponseAt shouldBe Instant.fromEpochSeconds(1756211100)
+            engine.requests.last().method shouldBe HttpMethod.Get
+        }
+
+        test("recenze, kterou store nezná, je null — ne výjimka") {
+            val engine =
+                RecordingEngine {
+                    respond(
+                        """{"error":{"code":404,"message":"Review not found.","status":"NOT_FOUND"}}""",
+                        status = HttpStatusCode.NotFound,
+                        headers = jsonHeaders,
+                    )
+                }
+
+            GooglePlayConnector(engine.client()).fetchReview(context, "gp:smazana") shouldBe null
+        }
+
         test("stáhne a normalizuje recenze napříč stránkami") {
             val engine =
                 RecordingEngine { request ->

@@ -1,0 +1,23 @@
+{
+  "reviewId": "gp:AOqpTOFakeReviewIdentifier1",
+  "authorName": "Vladimír K.",
+  "comments": [
+    {
+      "userComment": {
+        "text": "S kartou poslední dobou nejde platit v obchodech.",
+        "lastModified": { "seconds": "1755549540", "nanos": 0 },
+        "starRating": 1,
+        "reviewerLanguage": "cs",
+        "appVersionCode": 2012183263,
+        "appVersionName": "3.72.0",
+        "deviceMetadata": { "productName": "Redmi Note 10 Pro", "manufacturer": "Xiaomi" }
+      }
+    },
+    {
+      "developerComment": {
+        "text": "Dobrý den, můžete nám prosím upřesnit, ve kterých provozovnách to bylo?",
+        "lastModified": { "seconds": "1756211100", "nanos": 0 }
+      }
+    }
+  ]
+}

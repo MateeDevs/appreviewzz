@@ -144,6 +144,15 @@ internal class FakeReviewRepository(
         states: Set<ReviewState>,
         limit: Int,
     ): List<Review> = unused()
+
+    override fun listAwaitingStoreReply(
+        orgId: OrganizationId,
+        appId: AppId,
+        platform: Platform,
+        submittedAfter: Instant,
+        submittedBefore: Instant,
+        limit: Int,
+    ): List<Review> = unused()
 }
 
 internal class FakeChannelRepository(

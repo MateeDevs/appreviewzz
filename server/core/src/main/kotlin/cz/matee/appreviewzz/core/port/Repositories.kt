@@ -453,6 +453,24 @@ interface ReviewRepository {
         limit: Int = 100,
     ): List<Review>
 
+    /**
+     * Recenze, které u nás čekají na odpověď a o žádné odpovědi ze storu zatím nevíme.
+     * Podklad pro dohledání odpovědí napsaných mimo systém; od nejnovější, protože u čerstvé
+     * recenze je šance na odpověď největší a limit tak ořezává ten nejméně zajímavý konec.
+     *
+     * Rozsah je ohraničený z obou stran schválně. Horní mez drží dohledávání **mimo okno
+     * ingestu**: kdyby sáhlo na recenzi, kterou ingest ještě vidí, přepsalo by otisk obsahu
+     * dřív než on a editace od autora by se do kanálu už neposlala.
+     */
+    fun listAwaitingStoreReply(
+        orgId: OrganizationId,
+        appId: AppId,
+        platform: Platform,
+        submittedAfter: Instant,
+        submittedBefore: Instant,
+        limit: Int,
+    ): List<Review>
+
     fun updateState(
         orgId: OrganizationId,
         id: ReviewId,

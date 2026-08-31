@@ -121,6 +121,28 @@ interface ReviewSource {
     suspend fun validate(context: StoreContext): ValidationOutcome
 }
 
+/**
+ * Dotažení **jedné konkrétní** recenze podle jejího ID ve storu.
+ *
+ * Existuje kvůli Google Play: `reviews.list` vrací jen ~týden zpět, takže odpověď, kterou
+ * někdo napíše v Play Console později, projde ingestu pod rukama a recenze u nás zůstane
+ * navždy „čeká na odpověď". `reviews.get` tohle okno **nemá** — ověřeno proti ostrému API
+ * na dva roky staré recenzi; dokumentace omezení uvádí jen u výpisu. ID recenze už v
+ * databázi máme, takže na dohledání stačí.
+ *
+ * Schválně jiné rozhraní než [ReviewSource]: App Store Connect tohle nepotřebuje, protože
+ * historii vrací celou.
+ */
+interface ReviewRefreshSource {
+    val platform: Platform
+
+    /** `null`, když store recenzi nezná — smazaná autorem, nebo klíč od jiného účtu. */
+    suspend fun fetchReview(
+        context: StoreContext,
+        storeReviewId: String,
+    ): ObservedReview?
+}
+
 /** Publikace odpovědi zpět do storu. */
 interface ReplyTarget {
     val platform: Platform
