@@ -181,6 +181,8 @@ class AppStoreConnectorTest :
 
             val outcome = connector.validate(context)
             outcome.valid shouldBe false
+            // Hláška musí říct obojí: co si má člověk ověřit (Issuer ID) a co může chybět (role).
+            outcome.message.shouldNotBeNull() shouldContain "Issuer ID"
             outcome.message.shouldNotBeNull() shouldContain "Customer Support"
         }
 

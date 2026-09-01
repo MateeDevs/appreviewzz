@@ -741,7 +741,7 @@ function CredentialsCard({
           hint={
             type === 'gp'
               ? 'JSON service accountu z Play Console → Setup → API access. Stačí právo číst recenze a odpovídat na ně.'
-              : '.p8 z App Store Connect → Users and Access → Integrations. Stačí role Customer Support.'
+              : '.p8 z App Store Connect → Users and Access → Integrations. Stačí role na čtení recenzí (Customer Support, případně Admin).'
           }
         >
           <input

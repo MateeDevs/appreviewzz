@@ -304,8 +304,10 @@ class AppStoreConnector(
     ): String =
         when (error.kind) {
             StoreErrorKind.AUTH ->
-                "Klíč nemá přístup k aplikaci $appId. Musí mít roli Customer Support (víc nechceme) " +
-                    "a u týmového klíče musí sedět Issuer ID."
+                // Tatáž věta jako v dialogu napojení (console/src/components/connectStoreCopy.ts):
+                // role u týmového klíče se jmenuje v různých účtech různě, tak ji nediktujeme.
+                "Klíč nemá přístup k aplikaci $appId. Zkontroluj Issuer ID; když sedí, chybí klíči " +
+                    "role na čtení recenzí (Customer Support, případně Admin)."
             StoreErrorKind.NOT_FOUND ->
                 "Aplikace s ID $appId v tomhle účtu není. Zkontroluj Apple ID aplikace v App Store Connect."
             StoreErrorKind.RATE_LIMITED, StoreErrorKind.TRANSIENT ->
