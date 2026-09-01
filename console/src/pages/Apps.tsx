@@ -84,12 +84,28 @@ function AppStatus({ org, app }: { org: string; app: App }) {
   if (!app.enabled) return <Badge tone="warn">vypnutá</Badge>
   if (app.setup.ready) return <Badge tone="ok">sleduje se</Badge>
 
+  // Klíč, který čeká na ověření, není nedodělek klienta: udělal, co měl, a čeká se na store.
+  // Kdyby se to schovalo pod „čeká na nastavení", šel by to hledat mezi svoje úkoly.
+  if (waitingOnly(app)) {
+    return (
+      <div className="setup-status">
+        <Badge tone="warn">čeká na ověření klíče</Badge>
+        <p className="muted">Klíč je nahraný, ověřujeme přístup ke storu. Zkoušíme to sami každou čtvrthodinu.</p>
+      </div>
+    )
+  }
+
   return (
     <div className="setup-status">
       <Badge tone="warn">čeká na nastavení</Badge>
       <SetupTodos org={org} app={app} />
     </div>
   )
+}
+
+/** Appce nechybí nic, co by doplnil klient — jen se čeká, až klíč projde ověřením. */
+function waitingOnly(app: App): boolean {
+  return app.setup.gaps.length > 0 && app.setup.gaps.every((gap) => gap === 'STORE_KEY_WAITING')
 }
 
 /** Co zbývá doplnit. Každá položka je odkaz na svou sekci v detailu appky. */
@@ -328,8 +344,14 @@ export function AppDetailPage() {
         </p>
         {app.enabled && !app.setup.ready ? (
           <div className="row" style={{ marginTop: '0.6rem' }}>
-            <Badge tone="warn">čeká na nastavení</Badge>
-            <SetupTodos org={org} app={app} />
+            {waitingOnly(app) ? (
+              <Badge tone="warn">čeká na ověření klíče</Badge>
+            ) : (
+              <>
+                <Badge tone="warn">čeká na nastavení</Badge>
+                <SetupTodos org={org} app={app} />
+              </>
+            )}
           </div>
         ) : null}
       </div>

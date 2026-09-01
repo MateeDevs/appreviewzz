@@ -96,9 +96,11 @@ export interface AppSetup {
   ready: boolean
   gaps: SetupGap[]
   platformsWithoutKey: Platform[]
+  /** Store má klíč, ale ten ještě neprošel ověřením — čeká se na store, ne na klienta. */
+  platformsWaitingForKey: Platform[]
 }
 
-export type SetupGap = 'STORE_KEY' | 'CHANNEL'
+export type SetupGap = 'STORE_KEY' | 'STORE_KEY_WAITING' | 'CHANNEL'
 
 /** Co server vyčetl z jednoho odkazu na store. `name` chybí, když store neodpověděl. */
 export interface ResolvedStore {

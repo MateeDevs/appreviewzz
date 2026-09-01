@@ -166,7 +166,7 @@ class CredentialRoutesTest :
             }
         }
 
-        "přiřazení klíče zavře díru v nastavení appky" {
+        "díru v nastavení zavře až ověřený klíč, ne pouhé přiřazení" {
             testApplication {
                 consoleModule(mailer, fakes = fakes)
                 val (owner, appId) = ownerWithApp(mailer)
@@ -174,8 +174,17 @@ class CredentialRoutesTest :
 
                 owner.postJson("/api/orgs/$SLUG/apps/$appId/credentials", """{"credentialId":"$credentialId"}""")
 
-                // Klíč je připojený, takže zbývá jediné, co appce brání v provozu — kanál.
-                owner.get("/api/orgs/$SLUG/apps/$appId").bodyAsText() shouldContain "\"gaps\":[\"CHANNEL\"]"
+                // Připojený, ale neověřený klíč je vlastní stav: čeká se na store, ne na klienta.
+                // Kdyby se tvářil jako hotovo, klient by čekal na recenze, které nemají odkud přijít.
+                var body = owner.get("/api/orgs/$SLUG/apps/$appId").bodyAsText()
+                body shouldContain "\"gaps\":[\"STORE_KEY_WAITING\",\"CHANNEL\"]"
+                body shouldContain "\"platformsWaitingForKey\":[\"ANDROID\"]"
+
+                fakes.googlePlay.outcome = ValidationOutcome(valid = true)
+                owner.postJson("/api/orgs/$SLUG/apps/$appId/credentials/$credentialId/validate", "{}")
+
+                body = owner.get("/api/orgs/$SLUG/apps/$appId").bodyAsText()
+                body shouldContain "\"gaps\":[\"CHANNEL\"]"
             }
         }
 
