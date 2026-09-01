@@ -18,13 +18,17 @@ import {
   useValidateCredential,
 } from '../api/hooks'
 import { Badge, Card, ErrorBox, Field, Loading, Modal, When } from '../components/ui'
+import { ConnectStoreWizard } from '../components/ConnectStoreWizard'
 import { RatingsChart } from '../components/RatingsChart'
-import type { App, ChannelCheck, RatingsSeries, ResolvedStore, StoreResolution } from '../api/types'
+import type { App, ChannelCheck, Platform, RatingsSeries, ResolvedStore, StoreResolution } from '../api/types'
 
 export function AppsPage() {
   const { org = '' } = useParams()
   const apps = useApps(org)
   const [adding, setAdding] = useState(false)
+  // Napojení storu se otevírá i z výpisu: pilulka „chybí klíč ke Google Play" je nejkratší
+  // cesta k dialogu, který ten klíč obstará.
+  const [connect, setConnect] = useState<{ app: App; platform: Platform } | null>(null)
 
   return (
     <div className="stack">
@@ -54,7 +58,7 @@ export function AppsPage() {
                   </td>
                   <td className="small muted">{app.gpPackageName ?? app.ascAppId}</td>
                   <td>
-                    <AppStatus org={org} app={app} />
+                    <AppStatus org={org} app={app} onConnect={(platform) => setConnect({ app, platform })} />
                   </td>
                 </tr>
               ))}
@@ -68,7 +72,16 @@ export function AppsPage() {
         </div>
       </Card>
 
-      {adding ? <AddAppDialog org={org} onClose={() => setAdding(false)} /> : null}
+      {adding ? (
+        <AddAppDialog
+          org={org}
+          onClose={() => setAdding(false)}
+          onConnect={(app, platform) => setConnect({ app, platform })}
+        />
+      ) : null}
+      {connect ? (
+        <ConnectStoreWizard org={org} app={connect.app} platform={connect.platform} onClose={() => setConnect(null)} />
+      ) : null}
     </div>
   )
 }
@@ -80,7 +93,7 @@ export function AppsPage() {
  * ani kam psát — a klient marně čeká na zprávy. Proto se nedodělané nastavení hlásí dřív
  * než zapnutí a rovnou nabídne, co doplnit.
  */
-function AppStatus({ org, app }: { org: string; app: App }) {
+function AppStatus({ org, app, onConnect }: { org: string; app: App; onConnect: (platform: Platform) => void }) {
   if (!app.enabled) return <Badge tone="warn">vypnutá</Badge>
   if (app.setup.ready) return <Badge tone="ok">sleduje se</Badge>
 
@@ -98,7 +111,7 @@ function AppStatus({ org, app }: { org: string; app: App }) {
   return (
     <div className="setup-status">
       <Badge tone="warn">čeká na nastavení</Badge>
-      <SetupTodos org={org} app={app} />
+      <SetupTodos org={org} app={app} onConnect={onConnect} />
     </div>
   )
 }
@@ -108,16 +121,27 @@ function waitingOnly(app: App): boolean {
   return app.setup.gaps.length > 0 && app.setup.gaps.every((gap) => gap === 'STORE_KEY_WAITING')
 }
 
-/** Co zbývá doplnit. Každá položka je odkaz na svou sekci v detailu appky. */
-function SetupTodos({ org, app }: { org: string; app: App }) {
+/**
+ * Co zbývá doplnit. Chybějící klíč otevírá rovnou dialog pro ten store — poslat člověka
+ * na kartu s klíči by ho postavilo před formulář, přes který právě nechceme, aby šel.
+ * Zbytek zůstává odkazem na svou sekci v detailu appky.
+ */
+function SetupTodos({ org, app, onConnect }: { org: string; app: App; onConnect: (platform: Platform) => void }) {
   return (
     <div className="setup-todo">
-      {setupTodos(app).map((todo) => (
-        <Link key={todo.label} className="setup-todo-item" to={`/${org}/aplikace/${app.id}#${todo.section}`}>
-          <span aria-hidden="true">+</span>
-          {todo.label}
-        </Link>
-      ))}
+      {setupTodos(app).map((todo) =>
+        todo.platform != null ? (
+          <button key={todo.label} type="button" className="setup-todo-item" onClick={() => onConnect(todo.platform!)}>
+            <span aria-hidden="true">+</span>
+            {todo.label}
+          </button>
+        ) : (
+          <Link key={todo.label} className="setup-todo-item" to={`/${org}/aplikace/${app.id}#${todo.section}`}>
+            <span aria-hidden="true">+</span>
+            {todo.label}
+          </Link>
+        ),
+      )}
     </div>
   )
 }
@@ -126,11 +150,14 @@ function SetupTodos({ org, app }: { org: string; app: App }) {
  * Chybějící nastavení po položkách. Klíč se dělí po storech — „chybí klíč" u appky na obou
  * platformách neřekne, který z nich se čeká, a klient pak doplní ten, co už má.
  */
-function setupTodos(app: App): Array<{ label: string; section: string }> {
-  const todos = app.setup.platformsWithoutKey.map((platform) => ({
-    label: platform === 'ANDROID' ? 'klíč ke Google Play' : 'klíč k App Storu',
-    section: 'klice',
-  }))
+function setupTodos(app: App): Array<{ label: string; section: string; platform?: Platform }> {
+  const todos: Array<{ label: string; section: string; platform?: Platform }> = app.setup.platformsWithoutKey.map(
+    (platform) => ({
+      label: platform === 'ANDROID' ? 'klíč ke Google Play' : 'klíč k App Storu',
+      section: 'klice',
+      platform,
+    }),
+  )
   // Pojistka pro případ, že by server hlásil chybějící klíč bez konkrétního storu.
   if (todos.length === 0 && app.setup.gaps.includes('STORE_KEY')) {
     todos.push({ label: 'klíč ke storu', section: 'klice' })
@@ -172,7 +199,16 @@ function useSetupFocus(id: string): string | undefined {
  * rozhodnutí: který název použít. Odkazy se ověřují průběžně, aby se překlep poznal dřív,
  * než klient dialog potvrdí.
  */
-function AddAppDialog({ org, onClose }: { org: string; onClose: () => void }) {
+function AddAppDialog({
+  org,
+  onClose,
+  onConnect,
+}: {
+  org: string
+  onClose: () => void
+  /** Přidaná appka ještě nemá klíč — nabídneme napojení rovnou, než na ně klient zapomene. */
+  onConnect: (app: App, platform: Platform) => void
+}) {
   const create = useCreateApp(org)
   const resolve = useResolveStoreLinks(org)
   const resolveLinks = resolve.mutate
@@ -229,7 +265,14 @@ function AddAppDialog({ org, onClose }: { org: string; onClose: () => void }) {
               gpPackageName: current?.googlePlay?.identifier || null,
               ascAppId: current?.appStore?.identifier || null,
             },
-            { onSuccess: onClose },
+            {
+              onSuccess: (app) => {
+                onClose()
+                // Appka bez klíče nedělá nic. Navazujeme proto rovnou na store, který
+                // klient vyplnil — Google Play má přednost, protože ho zvládneme skoro celý.
+                onConnect(app, app.gpPackageName ? 'ANDROID' : 'IOS')
+              },
+            },
           )
         }}
       >
@@ -331,6 +374,7 @@ export function AppDetailPage() {
   const { org = '', appId = '' } = useParams()
   const apps = useApps(org)
   const app = apps.data?.find((item) => item.id === appId)
+  const [connect, setConnect] = useState<Platform | null>(null)
 
   if (apps.isPending) return <Loading />
   if (!app) return <ErrorBox error={new Error('Taková aplikace tu není.')} />
@@ -349,7 +393,7 @@ export function AppDetailPage() {
             ) : (
               <>
                 <Badge tone="warn">čeká na nastavení</Badge>
-                <SetupTodos org={org} app={app} />
+                <SetupTodos org={org} app={app} onConnect={setConnect} />
               </>
             )}
           </div>
@@ -357,8 +401,9 @@ export function AppDetailPage() {
       </div>
       <AppSettingsCard org={org} appId={appId} />
       <RatingsCard org={org} appId={appId} />
-      <CredentialsCard org={org} appId={appId} />
+      <CredentialsCard org={org} appId={appId} onConnect={setConnect} />
       <ChannelsCard org={org} appId={appId} />
+      {connect ? <ConnectStoreWizard org={org} app={app} platform={connect} onClose={() => setConnect(null)} /> : null}
     </div>
   )
 }
@@ -552,7 +597,15 @@ function sourceLabel(source: string): string {
   }
 }
 
-function CredentialsCard({ org, appId }: { org: string; appId: string }) {
+function CredentialsCard({
+  org,
+  appId,
+  onConnect,
+}: {
+  org: string
+  appId: string
+  onConnect: (platform: Platform) => void
+}) {
   const focus = useSetupFocus('klice')
   const credentials = useCredentials(org)
   const add = useAddCredential(org)
@@ -572,6 +625,16 @@ function CredentialsCard({ org, appId }: { org: string; appId: string }) {
   return (
     <Card id="klice" className={focus} title="Klíče ke storu">
       <ErrorBox error={credentials.error} />
+      {/* Napojení přes dialog je hlavní cesta: u Google Play za klienta vyrobí service
+          account, u App Storu ho provede konzolí Applu a aplikace vybere ze seznamu. */}
+      <div className="row" style={{ marginBottom: '1rem' }}>
+        <button type="button" onClick={() => onConnect('ANDROID')}>
+          Připojit Google Play
+        </button>
+        <button type="button" onClick={() => onConnect('IOS')}>
+          Připojit App Store
+        </button>
+      </div>
       {storeKeys.length === 0 ? (
         <p className="muted">Zatím žádný klíč — bez něj nemáme čím recenze stáhnout.</p>
       ) : (
@@ -588,7 +651,7 @@ function CredentialsCard({ org, appId }: { org: string; appId: string }) {
             {storeKeys.map((credential) => (
               <tr key={credential.id}>
                 <td>
-                  {credential.label}
+                  {credential.label} {credential.origin === 'PROVISIONED' ? <Badge>spravovaný námi</Badge> : null}
                   <div className="small muted">{credential.hint}</div>
                 </td>
                 <td className="small muted">{credential.fingerprint}</td>
@@ -638,8 +701,11 @@ function CredentialsCard({ org, appId }: { org: string; appId: string }) {
       {result ? <div className="notice" style={{ marginTop: '0.75rem' }}>{result}</div> : null}
       <ErrorBox error={attach.error ?? validate.error} />
 
-      <h3 style={{ marginTop: '1.25rem' }}>Nahrát klíč</h3>
-      <form
+      {/* Ruční nahrání zůstává pro dva případy, které dialog neobslouží: enterprise s vlastním
+          service accountem a individuální (ne týmový) klíč z App Store Connect. */}
+      <details className="optional" style={{ marginTop: '1.25rem' }}>
+        <summary>Pokročilé: nahrát vlastní klíč</summary>
+        <form
         onSubmit={(event) => {
           event.preventDefault()
           add.mutate(
@@ -706,7 +772,8 @@ function CredentialsCard({ org, appId }: { org: string; appId: string }) {
             Klíč se zašifruje ještě před uložením a z vaultu už ven nevyjde — ve výpisu uvidíš jen otisk.
           </p>
         </div>
-      </form>
+        </form>
+      </details>
     </Card>
   )
 }

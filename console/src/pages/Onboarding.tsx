@@ -1,12 +1,18 @@
+import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useApps, useCredentials, useHealth, useMe } from '../api/hooks'
 import { Card, ErrorBox, Loading } from '../components/ui'
+import { ConnectStoreWizard } from '../components/ConnectStoreWizard'
+import type { App, Platform } from '../api/types'
 
 interface Step {
   title: string
   done: boolean
   detail: string
+  /** Odkaz do sekce, kde se krok dodělá. Krok s vlastním dialogem má místo něj [Step.connect]. */
   action?: { label: string; to: string }
+  /** Krok, který se odbaví dialogem — klíč ke storu si klient nikam neopisuje. */
+  connect?: { label: string; platform: Platform }
 }
 
 /**
@@ -22,6 +28,7 @@ export function OnboardingPage() {
   const apps = useApps(org)
   const credentials = useCredentials(org)
   const health = useHealth(org)
+  const [connect, setConnect] = useState<{ app?: App; platform: Platform } | null>(null)
 
   if (apps.isPending || credentials.isPending || health.isPending) return <Loading />
 
@@ -58,8 +65,12 @@ export function OnboardingPage() {
           ? 'Klíč je nahraný a ověřený proti storu.'
           : storeKeys.length > 0
             ? 'Klíč je nahraný, ale ještě neověřený — ověření řekne hned, jestli má potřebná práva.'
-            : 'Nahraj service account z Google Play, nebo .p8 klíč z App Store Connect. Stačí právo číst recenze a odpovídat na ně.',
-      action: { label: 'Nahrát a ověřit klíč', to: appPath },
+            : 'Google Play napojíš jednou pozvánkou — service account vyrobíme my. K App Storu tě provedeme konzolí Applu.',
+      connect: {
+        label: 'Připojit store',
+        // Bez appky dialog začne jejím přidáním; s appkou rovnou tím, co jí chybí.
+        platform: firstApp == null || firstApp.gpPackageName ? 'ANDROID' : 'IOS',
+      },
     },
     {
       title: 'Slack',
@@ -118,6 +129,10 @@ export function OnboardingPage() {
         ))}
       </div>
 
+      {connect ? (
+        <ConnectStoreWizard org={org} app={connect.app} platform={connect.platform} onClose={() => setConnect(null)} />
+      ) : null}
+
       {steps.map((step) => (
         <Card key={step.title}>
           <div className="spread">
@@ -125,7 +140,17 @@ export function OnboardingPage() {
               {step.done ? '✓ ' : ''}
               {step.title}
             </h2>
-            {step.action ? <Link to={step.action.to}>{step.action.label}</Link> : null}
+            {step.connect ? (
+              <button
+                type="button"
+                className="link"
+                onClick={() => setConnect({ app: firstApp, platform: step.connect!.platform })}
+              >
+                {step.connect.label}
+              </button>
+            ) : step.action ? (
+              <Link to={step.action.to}>{step.action.label}</Link>
+            ) : null}
           </div>
           <p className="muted" style={{ marginTop: '0.5rem', marginBottom: 0 }}>
             {step.detail}
