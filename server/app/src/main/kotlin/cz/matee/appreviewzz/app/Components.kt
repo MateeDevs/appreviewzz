@@ -56,6 +56,7 @@ import cz.matee.appreviewzz.core.usecase.PlatformConfig
 import cz.matee.appreviewzz.core.usecase.PublishReplyUseCase
 import cz.matee.appreviewzz.core.usecase.RatingsInsights
 import cz.matee.appreviewzz.core.usecase.RefreshStoreRepliesUseCase
+import cz.matee.appreviewzz.core.usecase.RevalidateCredentialsUseCase
 import cz.matee.appreviewzz.core.usecase.ReviewInbox
 import cz.matee.appreviewzz.crypto.AppSecretBox
 import cz.matee.appreviewzz.crypto.Argon2PasswordHasher
@@ -70,6 +71,7 @@ import cz.matee.appreviewzz.jobs.MaintenanceJobs
 import cz.matee.appreviewzz.jobs.RatingsJobs
 import cz.matee.appreviewzz.jobs.RefreshRepliesJobs
 import cz.matee.appreviewzz.jobs.ReplyJobs
+import cz.matee.appreviewzz.jobs.RevalidateCredentialsJobs
 import cz.matee.appreviewzz.persistence.Database
 import cz.matee.appreviewzz.persistence.repository.ExposedAppDataKeyRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedAppRepository
@@ -328,6 +330,23 @@ class Components(
 
     val refreshRepliesJobs: RefreshRepliesJobs by lazy {
         RefreshRepliesJobs(refresh = refreshStoreReplies, apps = apps)
+    }
+
+    /**
+     * Doověřování klíčů, které zatím nefungují (F onboarding). Hlídá hlavně pozvánku service
+     * accountu do Play Console — klient jinak musí u dialogu sedět, než se práva propíšou.
+     */
+    val revalidateCredentials: RevalidateCredentialsUseCase by lazy {
+        RevalidateCredentialsUseCase(
+            apps = apps,
+            credentials = credentials,
+            secrets = vault,
+            sources = reviewSources,
+        )
+    }
+
+    val revalidateCredentialsJobs: RevalidateCredentialsJobs by lazy {
+        RevalidateCredentialsJobs(revalidate = revalidateCredentials)
     }
 
     /**

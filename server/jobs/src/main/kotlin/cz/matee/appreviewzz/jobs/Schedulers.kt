@@ -37,6 +37,7 @@ fun buildScheduler(
     ratingsJobs: RatingsJobs? = null,
     maintenanceJobs: MaintenanceJobs? = null,
     refreshRepliesJobs: RefreshRepliesJobs? = null,
+    revalidateCredentialsJobs: RevalidateCredentialsJobs? = null,
     config: SchedulerConfig = SchedulerConfig(),
 ): Scheduler {
     logger.info { "Scheduler: ${config.threads} vláken, polling po ${config.pollingInterval}" }
@@ -48,6 +49,7 @@ fun buildScheduler(
             ratingsJobs?.sweepTask,
             maintenanceJobs?.cleanupTask,
             refreshRepliesJobs?.refreshTask,
+            revalidateCredentialsJobs?.revalidateTask,
         )
     val knownTasks =
         listOfNotNull(jobs.ingestTask, deliveryJobs?.deliverTask, replyJobs?.publishTask, ratingsJobs?.ratingsTask)

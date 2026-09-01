@@ -60,6 +60,7 @@ fun runWorker(
             ratingsJobs = components.ratingsJobs(),
             maintenanceJobs = components.maintenanceJobs,
             refreshRepliesJobs = components.refreshRepliesJobs,
+            revalidateCredentialsJobs = components.revalidateCredentialsJobs,
             config =
                 SchedulerConfig(
                     threads = config.worker.schedulerThreads,
@@ -69,7 +70,10 @@ fun runWorker(
     // Zastavit scheduler dřív než pool: běžící úloha musí stihnout dopsat výsledek do databáze.
     Runtime.getRuntime().addShutdownHook(Thread(scheduler::stop, "scheduler-shutdown"))
     scheduler.start()
-    logger.info { "Worker started — ingest, doručování, denní přehledy, dohledání odpovědí a noční úklid registrované" }
+    logger.info {
+        "Worker started — ingest, doručování, denní přehledy, dohledání odpovědí, revalidace klíčů " +
+            "a noční úklid registrované"
+    }
 
     embeddedServer(
         Netty,
