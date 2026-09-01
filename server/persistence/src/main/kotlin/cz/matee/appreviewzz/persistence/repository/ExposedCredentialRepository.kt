@@ -53,6 +53,7 @@ class ExposedCredentialRepository(
                 it[ciphertext] = credential.ciphertext
                 it[fingerprint] = credential.fingerprint
                 it[hint] = credential.hint
+                it[origin] = credential.origin
                 it[validationStatus] = ValidationStatus.UNKNOWN
                 it[createdAt] = now
                 it[updatedAt] = now
@@ -64,6 +65,7 @@ class ExposedCredentialRepository(
                 label = credential.label,
                 fingerprint = credential.fingerprint,
                 hint = credential.hint,
+                origin = credential.origin,
                 validationStatus = ValidationStatus.UNKNOWN,
                 validationError = null,
                 validatedAt = null,

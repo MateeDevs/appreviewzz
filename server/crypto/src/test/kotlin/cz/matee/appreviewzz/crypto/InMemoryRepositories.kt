@@ -73,6 +73,7 @@ class InMemoryCredentialRepository(
                 label = credential.label,
                 fingerprint = credential.fingerprint,
                 hint = credential.hint,
+                origin = credential.origin,
                 validationStatus = ValidationStatus.UNKNOWN,
                 validationError = null,
                 validatedAt = null,

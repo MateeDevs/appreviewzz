@@ -1,6 +1,7 @@
 package cz.matee.appreviewzz.app
 
 import cz.matee.appreviewzz.core.model.CredentialMeta
+import cz.matee.appreviewzz.core.model.CredentialOrigin
 import cz.matee.appreviewzz.core.model.CredentialPurpose
 import cz.matee.appreviewzz.core.model.CredentialType
 import cz.matee.appreviewzz.core.model.ValidationStatus
@@ -52,6 +53,8 @@ data class CredentialResponse(
     val label: String,
     val fingerprint: String,
     val hint: String?,
+    /** PROVISIONED = service account jsme vyrobili my; console u něj nenabízí rotaci payloadu. */
+    val origin: CredentialOrigin,
     val validationStatus: ValidationStatus,
     val validationError: String?,
     val validatedAt: String?,
@@ -190,6 +193,7 @@ private fun CredentialMeta.toResponse() =
         label = label,
         fingerprint = fingerprint,
         hint = hint,
+        origin = origin,
         validationStatus = validationStatus,
         validationError = validationError,
         validatedAt = validatedAt?.toString(),

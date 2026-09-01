@@ -114,6 +114,7 @@ internal fun ResultRow.toCredentialMeta(): CredentialMeta =
         label = this[Credentials.label],
         fingerprint = this[Credentials.fingerprint],
         hint = this[Credentials.hint],
+        origin = this[Credentials.origin],
         validationStatus = this[Credentials.validationStatus],
         validationError = this[Credentials.validationError],
         validatedAt = this[Credentials.validatedAt],

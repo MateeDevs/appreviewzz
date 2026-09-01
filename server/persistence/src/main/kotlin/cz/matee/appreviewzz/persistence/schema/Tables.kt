@@ -3,6 +3,7 @@ package cz.matee.appreviewzz.persistence.schema
 import cz.matee.appreviewzz.core.model.ActorType
 import cz.matee.appreviewzz.core.model.BackupStatus
 import cz.matee.appreviewzz.core.model.ChannelType
+import cz.matee.appreviewzz.core.model.CredentialOrigin
 import cz.matee.appreviewzz.core.model.CredentialPurpose
 import cz.matee.appreviewzz.core.model.CredentialType
 import cz.matee.appreviewzz.core.model.MessageStatus
@@ -163,6 +164,7 @@ internal object Credentials : Table("credential") {
     val ciphertext = binary("ciphertext")
     val fingerprint = text("fingerprint")
     val hint = text("hint").nullable()
+    val origin = enumerationByName<CredentialOrigin>("origin", ENUM_LENGTH)
     val validationStatus = enumerationByName<ValidationStatus>("validation_status", ENUM_LENGTH)
     val validationError = text("validation_error").nullable()
     val validatedAt = instant("validated_at").nullable()

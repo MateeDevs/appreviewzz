@@ -86,6 +86,7 @@ data class CredentialMeta(
     val fingerprint: String,
     /** Neutrální nápověda pro člověka v consoli — issuer ID, client_email, název workspace. */
     val hint: String?,
+    val origin: CredentialOrigin,
     val validationStatus: ValidationStatus,
     val validationError: String?,
     val validatedAt: Instant?,

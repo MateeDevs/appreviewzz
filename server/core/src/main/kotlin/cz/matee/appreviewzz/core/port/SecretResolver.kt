@@ -2,6 +2,7 @@ package cz.matee.appreviewzz.core.port
 
 import cz.matee.appreviewzz.core.model.CredentialId
 import cz.matee.appreviewzz.core.model.CredentialMeta
+import cz.matee.appreviewzz.core.model.CredentialOrigin
 import cz.matee.appreviewzz.core.model.CredentialType
 import cz.matee.appreviewzz.core.model.OrganizationId
 import cz.matee.appreviewzz.core.model.SecretPayload
@@ -32,6 +33,7 @@ interface CredentialStore : SecretResolver {
         label: String,
         payload: SecretPayload,
         hint: String? = null,
+        origin: CredentialOrigin = CredentialOrigin.UPLOADED,
     ): CredentialMeta
 
     /** `null`, když credential v organizaci není. */

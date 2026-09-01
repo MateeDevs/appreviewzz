@@ -11,6 +11,7 @@ import cz.matee.appreviewzz.core.model.ChannelId
 import cz.matee.appreviewzz.core.model.ChannelType
 import cz.matee.appreviewzz.core.model.CredentialId
 import cz.matee.appreviewzz.core.model.CredentialMeta
+import cz.matee.appreviewzz.core.model.CredentialOrigin
 import cz.matee.appreviewzz.core.model.CredentialPurpose
 import cz.matee.appreviewzz.core.model.CredentialType
 import cz.matee.appreviewzz.core.model.DataKeyId
@@ -266,6 +267,7 @@ data class NewCredential(
     val ciphertext: ByteArray,
     val fingerprint: String,
     val hint: String? = null,
+    val origin: CredentialOrigin = CredentialOrigin.UPLOADED,
 ) {
     // ByteArray v data class: equals/hashCode musí být ruční, jinak se porovnává reference.
     override fun equals(other: Any?): Boolean =
@@ -278,11 +280,12 @@ data class NewCredential(
                     dataKeyId == other.dataKeyId &&
                     ciphertext.contentEquals(other.ciphertext) &&
                     fingerprint == other.fingerprint &&
-                    hint == other.hint
+                    hint == other.hint &&
+                    origin == other.origin
             )
 
     override fun hashCode(): Int =
-        listOf(id, type, label, dataKeyId, ciphertext.contentHashCode(), fingerprint, hint)
+        listOf(id, type, label, dataKeyId, ciphertext.contentHashCode(), fingerprint, hint, origin)
             .fold(7) { acc, part -> 31 * acc + part.hashCode() }
 }
 

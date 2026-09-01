@@ -5,6 +5,7 @@ import cz.matee.appreviewzz.core.model.App
 import cz.matee.appreviewzz.core.model.AppId
 import cz.matee.appreviewzz.core.model.CredentialId
 import cz.matee.appreviewzz.core.model.CredentialMeta
+import cz.matee.appreviewzz.core.model.CredentialOrigin
 import cz.matee.appreviewzz.core.model.CredentialPurpose
 import cz.matee.appreviewzz.core.model.CredentialType
 import cz.matee.appreviewzz.core.model.OrgRole
@@ -73,17 +74,18 @@ class CredentialService(
         label: String,
         payload: SecretPayload,
         hint: String?,
+        origin: CredentialOrigin = CredentialOrigin.UPLOADED,
     ): CredentialMeta {
         requireRole(actor, OrgRole.ADMIN)
         val trimmed = label.trim().ifEmpty { throw ConsoleException(ConsoleFailure.INVALID_INPUT, "Klíč potřebuje štítek") }
 
-        val meta = vault.store(organization.id, type, trimmed, payload, hint)
+        val meta = vault.store(organization.id, type, trimmed, payload, hint, origin)
         audit(
             organization.id,
             actor,
             "credential.created",
             meta.id.toString(),
-            mapOf("type" to meta.type.name, "fingerprint" to meta.fingerprint),
+            mapOf("type" to meta.type.name, "fingerprint" to meta.fingerprint, "origin" to origin.name),
         )
         logger.info { "Credential ${meta.id} (${meta.type}) uložený v organizaci ${organization.slug}" }
         return meta

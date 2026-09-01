@@ -43,6 +43,16 @@ enum class CredentialType {
     TEAMS_BOT_REF,
 }
 
+/**
+ * Odkud se klíč vzal. U Google Play service account vyrábíme my a klient ho jen pozve
+ * do Play Console — takový klíč nemá smysl nabízet k rotaci payloadu a v consoli patří
+ * označit jako spravovaný.
+ */
+enum class CredentialOrigin {
+    UPLOADED,
+    PROVISIONED,
+}
+
 /** K čemu je credential u konkrétní appky přiřazený — jeden klíč může umět víc věcí. */
 enum class CredentialPurpose {
     REVIEWS,

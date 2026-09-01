@@ -2,6 +2,7 @@ package cz.matee.appreviewzz.crypto
 
 import cz.matee.appreviewzz.core.model.CredentialId
 import cz.matee.appreviewzz.core.model.CredentialMeta
+import cz.matee.appreviewzz.core.model.CredentialOrigin
 import cz.matee.appreviewzz.core.model.CredentialType
 import cz.matee.appreviewzz.core.model.DataKeyId
 import cz.matee.appreviewzz.core.model.OrgDataKey
@@ -55,6 +56,7 @@ class CredentialVault(
         label: String,
         payload: SecretPayload,
         hint: String?,
+        origin: CredentialOrigin,
     ): CredentialMeta {
         val credentialId = CredentialId(Uuid.random())
         val dataKey = activeDataKey(orgId)
@@ -74,6 +76,7 @@ class CredentialVault(
                 ciphertext = ciphertext,
                 fingerprint = payload.fingerprint(),
                 hint = hint,
+                origin = origin,
             ),
         )
     }
@@ -105,6 +108,7 @@ class CredentialVault(
                 ciphertext = ciphertext,
                 fingerprint = payload.fingerprint(),
                 hint = hint ?: current.hint,
+                origin = current.origin,
             ),
         )
     }

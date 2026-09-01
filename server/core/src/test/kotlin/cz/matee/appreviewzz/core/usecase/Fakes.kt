@@ -5,6 +5,7 @@ import cz.matee.appreviewzz.core.model.AppId
 import cz.matee.appreviewzz.core.model.AuditEntry
 import cz.matee.appreviewzz.core.model.CredentialId
 import cz.matee.appreviewzz.core.model.CredentialMeta
+import cz.matee.appreviewzz.core.model.CredentialOrigin
 import cz.matee.appreviewzz.core.model.CredentialPurpose
 import cz.matee.appreviewzz.core.model.CredentialType
 import cz.matee.appreviewzz.core.model.DataKeyId
@@ -81,6 +82,7 @@ internal object Ingest {
             label = "klíč",
             fingerprint = "sha256:abcd",
             hint = null,
+            origin = CredentialOrigin.UPLOADED,
             validationStatus = status,
             validationError = null,
             validatedAt = null,

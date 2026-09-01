@@ -113,12 +113,16 @@ export interface StoreResolution {
   appStore: ResolvedStore | null
 }
 
+/** PROVISIONED = service account jsme vyrobili my, klient ho jen pozval do Play Console. */
+export type CredentialOrigin = 'UPLOADED' | 'PROVISIONED'
+
 export interface Credential {
   id: string
   type: CredentialType
   label: string
   fingerprint: string
   hint: string | null
+  origin: CredentialOrigin
   validationStatus: ValidationStatus
   validationError: string | null
   validatedAt: string | null
