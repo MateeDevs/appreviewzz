@@ -2,24 +2,32 @@ package cz.matee.appreviewzz.app
 
 import cz.matee.appreviewzz.app.cli.StoreKeyFixtures
 import cz.matee.appreviewzz.app.cli.TestDatabase
+import cz.matee.appreviewzz.connectors.googleplay.GcpIamProvisioner
+import cz.matee.appreviewzz.connectors.googleplay.googleHttpClient
 import cz.matee.appreviewzz.core.model.Platform
 import cz.matee.appreviewzz.core.port.StoreConnectorException
 import cz.matee.appreviewzz.core.port.StoreErrorKind
 import cz.matee.appreviewzz.core.port.ValidationOutcome
 import io.kotest.core.spec.style.StringSpec
+import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
 import io.ktor.client.request.get
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.headersOf
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import java.nio.file.Files
+import java.util.Base64
 import kotlin.io.path.readText
 
 private const val OWNER = "vlastnik@example.com"
@@ -44,6 +52,36 @@ private suspend fun HttpClient.addGooglePlayKey(label: String = "Play SA"): Http
 
 private fun String.jsonValue(field: String): String =
     checkNotNull(Regex(""""$field":"([^"]+)"""").find(this)) { "V odpovědi chybí $field: $this" }.groupValues[1]
+
+/**
+ * IAM API na mocku. Vrací účet a k němu klíč (base64 service account JSON) — přesně to,
+ * co dělá `iam.googleapis.com`, aby se testovala i cesta „dekóduj a ulož do vaultu".
+ */
+private fun fakeIam(email: String = "arz-matee@test-project.iam.gserviceaccount.com"): GcpIamProvisioner {
+    val key = Base64.getEncoder().encodeToString(serviceAccountJson.toByteArray())
+    val engine =
+        MockEngine { request ->
+            val body =
+                when {
+                    // Provisioner se nejdřív přihlásí — bez tokenu se k IAM vůbec nedostane.
+                    request.url.host == "oauth2.googleapis.com" -> """{"access_token":"ya29.test","expires_in":3600}"""
+                    request.url.encodedPath.endsWith("/keys") -> """{"privateKeyData":"$key"}"""
+                    else -> """{"email":"$email"}"""
+                }
+            respond(body, headers = headersOf(HttpHeaders.ContentType, "application/json"))
+        }
+    return GcpIamProvisioner(googleHttpClient(engine))
+}
+
+/** Provisioner je nastavený až s projektem i klíčem — bez nich má endpoint hlásit nenastaveno. */
+private fun provisionerEnv(): (String) -> String? =
+    { name ->
+        when (name) {
+            "GCP_PROVISIONER_PROJECT" -> "test-project"
+            "GCP_PROVISIONER_KEY" -> serviceAccountJson
+            else -> null
+        }
+    }
 
 private suspend fun ApplicationTestBuilder.ownerWithApp(mailer: RecordingMailer): Pair<HttpClient, String> {
     val owner = browser()
@@ -275,6 +313,51 @@ class CredentialRoutesTest :
                 val response = owner.postJson("/api/orgs/$SLUG/apps/$iosApp/credentials/$credentialId/validate", "{}")
                 response.status shouldBe HttpStatusCode.BadRequest
                 response.bodyAsText() shouldContain "ANDROID"
+            }
+        }
+
+        "spravovaný service account vznikne jednou a druhé volání vrátí tentýž účet" {
+            testApplication {
+                consoleModule(mailer, fakes = fakes, platformEnv = provisionerEnv(), gcpProvisioner = fakeIam())
+                val (owner, _) = ownerWithApp(mailer)
+
+                val first = owner.postJson("/api/orgs/$SLUG/credentials/provision-gp", "{}")
+                first.status shouldBe HttpStatusCode.OK
+                val body = first.bodyAsText()
+                body shouldContain "PROVISIONED"
+                // E-mail k pozvání do Play Console musí jít ven celý, jinak ho klient nemá odkud vzít.
+                body.jsonValue("hint") shouldBe "arz-matee@test-project.iam.gserviceaccount.com"
+                // Payload klíče ven nesmí ani u účtu, který jsme vyrobili my.
+                body shouldNotContain "PRIVATE KEY"
+
+                val again = owner.postJson("/api/orgs/$SLUG/credentials/provision-gp", "{}")
+                again.bodyAsText().jsonValue("id") shouldBe body.jsonValue("id")
+
+                val listed = owner.get("/api/orgs/$SLUG/credentials").bodyAsText()
+                listed.split("\"id\"") shouldHaveSize 2
+            }
+        }
+
+        "bez nastaveného provisioneru endpoint řekne, že to není naše chyba" {
+            testApplication {
+                consoleModule(mailer, fakes = fakes, gcpProvisioner = fakeIam())
+                val (owner, _) = ownerWithApp(mailer)
+
+                val response = owner.postJson("/api/orgs/$SLUG/credentials/provision-gp", "{}")
+
+                response.status shouldBe HttpStatusCode.Conflict
+                response.bodyAsText() shouldContain "Pokročilé"
+            }
+        }
+
+        "service account členovi nevyrobíme" {
+            testApplication {
+                consoleModule(mailer, fakes = fakes, platformEnv = provisionerEnv(), gcpProvisioner = fakeIam())
+                val (owner, _) = ownerWithApp(mailer)
+                owner.postJson("/api/orgs/$SLUG/invitations", """{"email":"$COLLEAGUE","role":"MEMBER"}""")
+                val member = joinViaInvitation(mailer, COLLEAGUE)
+
+                member.postJson("/api/orgs/$SLUG/credentials/provision-gp", "{}").status shouldBe HttpStatusCode.Forbidden
             }
         }
     })

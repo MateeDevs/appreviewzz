@@ -76,6 +76,11 @@ class ConsoleWiring(
     val platform: PlatformAdminService? = null,
     /** Jak často se stahují recenze. Sem se ptá i přehled v platformní sekci. */
     val ingest: IngestPolicy = IngestPolicy.fixed(),
+    /**
+     * Výroba service accountů pro Google Play. `null` = instalace bez provisioneru; dialog
+     * pak řekne, že automatické napojení není nastavené, a nabídne ruční nahrání klíče.
+     */
+    val googlePlayProvisioning: GooglePlayProvisioning? = null,
 )
 
 /**

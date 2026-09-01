@@ -77,6 +77,7 @@ fun runApi(
             audit = components.audit,
             platform = components.platformAdmin,
             ingest = components.platformConfig,
+            googlePlayProvisioning = components.googlePlayProvisioning,
             enqueueReply = { reply ->
                 components.replyJobs.enqueue(
                     queue,

@@ -98,7 +98,7 @@ private fun ConsoleFailure.status(): HttpStatusCode =
         ConsoleFailure.INVALID_INPUT -> HttpStatusCode.BadRequest
         // Ověření e-mailu chybí, ne oprávnění: 403 s vlastním kódem, ať console ví, co nabídnout.
         ConsoleFailure.EMAIL_NOT_VERIFIED, ConsoleFailure.FORBIDDEN -> HttpStatusCode.Forbidden
-        ConsoleFailure.SLUG_TAKEN, ConsoleFailure.LAST_OWNER -> HttpStatusCode.Conflict
+        ConsoleFailure.SLUG_TAKEN, ConsoleFailure.LAST_OWNER, ConsoleFailure.NOT_CONFIGURED -> HttpStatusCode.Conflict
         ConsoleFailure.NOT_FOUND -> HttpStatusCode.NotFound
         ConsoleFailure.INVITATION_INVALID -> HttpStatusCode.BadRequest
     }

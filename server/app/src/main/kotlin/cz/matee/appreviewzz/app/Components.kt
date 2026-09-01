@@ -24,6 +24,7 @@ import cz.matee.appreviewzz.connectors.appstore.AppStoreListingLookup
 import cz.matee.appreviewzz.connectors.appstore.AppStoreListingRatingsSource
 import cz.matee.appreviewzz.connectors.appstore.ITunesRatingsSource
 import cz.matee.appreviewzz.connectors.appstore.appStoreHttpClient
+import cz.matee.appreviewzz.connectors.googleplay.GcpIamProvisioner
 import cz.matee.appreviewzz.connectors.googleplay.GooglePlayConnector
 import cz.matee.appreviewzz.connectors.googleplay.PlayReportingRatingsSource
 import cz.matee.appreviewzz.connectors.googleplay.PlayStoreListingLookup
@@ -540,6 +541,21 @@ class Components(
             channels = channels,
             vault = vault,
             sources = reviewSources,
+            audit = audit,
+        )
+    }
+
+    /**
+     * Výroba service accountů pro Google Play (onboarding). Sahá na vault i na HTTP klienta
+     * Googlu, takže vzniká líně; jestli je provisioner opravdu nastavený, se pozná až při
+     * volání — klíč se dá doplnit za běhu bez restartu.
+     */
+    val googlePlayProvisioning: GooglePlayProvisioning by lazy {
+        GooglePlayProvisioning(
+            provisioner = GcpIamProvisioner(storeClients.googlePlay),
+            config = platformConfig,
+            vault = vault,
+            credentials = credentials,
             audit = audit,
         )
     }

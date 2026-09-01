@@ -1,6 +1,7 @@
 package cz.matee.appreviewzz.app
 
 import cz.matee.appreviewzz.app.cli.TestDatabase
+import cz.matee.appreviewzz.connectors.googleplay.GcpIamProvisioner
 import cz.matee.appreviewzz.core.message.RatingsDigest
 import cz.matee.appreviewzz.core.message.ReviewNotification
 import cz.matee.appreviewzz.core.model.ChannelType
@@ -203,6 +204,8 @@ fun ApplicationTestBuilder.consoleModule(
     platformEnv: (String) -> String? = { null },
     fakes: ConsoleFakes =
         ConsoleFakes(FakeReviewSource(Platform.ANDROID), FakeReviewSource(Platform.IOS), FakeNotificationChannel()),
+    /** `null` = instalace bez provisioneru Google Play; dialog pak nabídne ruční nahrání. */
+    gcpProvisioner: GcpIamProvisioner? = null,
 ) {
     val exposed = TestDatabase.database.exposed
     val organizations = ExposedOrganizationRepository(exposed)
@@ -338,6 +341,16 @@ fun ApplicationTestBuilder.consoleModule(
                     platform = platformAdmin,
                     ingest = platformConfig,
                     enqueueReply = replyQueue,
+                    googlePlayProvisioning =
+                        gcpProvisioner?.let {
+                            GooglePlayProvisioning(
+                                provisioner = it,
+                                config = platformConfig,
+                                vault = vault,
+                                credentials = credentialRepository,
+                                audit = audit,
+                            )
+                        },
                 ),
         )
     }

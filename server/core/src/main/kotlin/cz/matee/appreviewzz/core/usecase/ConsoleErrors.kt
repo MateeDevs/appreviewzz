@@ -17,6 +17,12 @@ enum class ConsoleFailure {
 
     /** Poslední OWNER se nedá odebrat ani degradovat; organizace by zůstala bez správce. */
     LAST_OWNER,
+
+    /**
+     * Funkce existuje, ale provozovatel platformy ji ještě nenastavil (chybí klíč provisioneru).
+     * Klient s tím nic neudělá — console proto ukazuje jinou větu než u vlastní chyby.
+     */
+    NOT_CONFIGURED,
 }
 
 class ConsoleException(

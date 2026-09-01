@@ -97,6 +97,7 @@ object PlatformSettings {
     const val SECTION_INGEST = "Stahování recenzí"
     const val SECTION_AI = "AI návrhy odpovědí"
     const val SECTION_LIMITS = "Limity"
+    const val SECTION_GOOGLE_PLAY = "Napojení Google Play"
 
     /**
      * Jak často se stahují recenze aplikacím, které nemají výjimku. Není to preference
@@ -112,6 +113,14 @@ object PlatformSettings {
     const val AI_API_KEY = "ai.api_key"
 
     const val MAX_APPS_PER_ORG = "limits.max_apps_per_org"
+
+    /**
+     * Provisioner service accountů (onboarding Google Play). Bez těchhle dvou klíčů dialog
+     * „Připojit Google Play" jen řekne, že platforma není nastavená — ruční nahrání klíče
+     * funguje pořád.
+     */
+    const val GCP_PROVISIONER_PROJECT = "gcp.provisioner.project_id"
+    const val GCP_PROVISIONER_KEY = "gcp.provisioner.service_account_json"
 
     /** Providery zná továrna v modulu `ai`; katalog jen nabízí, z čeho se vybírá. */
     private val AI_PROVIDERS = listOf("none", "gemini")
@@ -175,6 +184,26 @@ object PlatformSettings {
                 default = "0",
                 min = 0,
                 max = MAX_APPS_CEILING,
+            ),
+            PlatformSettingDefinition(
+                key = GCP_PROVISIONER_PROJECT,
+                type = PlatformSettingType.TEXT,
+                section = SECTION_GOOGLE_PLAY,
+                label = "GCP projekt pro service accounty",
+                help =
+                    "Projekt, ve kterém vyrábíme service accounty zákazníkům. Musí v něm být zapnuté " +
+                        "androidpublisher.googleapis.com a iam.googleapis.com.",
+                envName = "GCP_PROVISIONER_PROJECT",
+            ),
+            PlatformSettingDefinition(
+                key = GCP_PROVISIONER_KEY,
+                type = PlatformSettingType.SECRET,
+                section = SECTION_GOOGLE_PLAY,
+                label = "Klíč provisioneru (service account JSON)",
+                help =
+                    "Service account s rolemi Service Account Admin a Service Account Key Admin nad tím " +
+                        "projektem. Uloží se zašifrovaný a zpátky ho nedostane nikdo.",
+                envName = "GCP_PROVISIONER_KEY",
             ),
         )
 

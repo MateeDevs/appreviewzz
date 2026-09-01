@@ -131,6 +131,24 @@ fun Route.credentialRoutes(console: ConsoleWiring) {
             io { credentials.delete(context.organization, context.actor, call.credentialIdParam()) }
             call.respond(HttpStatusCode.NoContent)
         }
+
+        /**
+         * Service account pro Google Play vyrobený námi. Idempotentní: druhé volání vrátí
+         * tentýž účet, takže klient může tlačítko zmáčknout znovu, aniž by v našem projektu
+         * přibýval účet, který nikdo nepozval.
+         */
+        post("/provision-gp") {
+            val context = call.orgContext(console.organizations, console.memberships)
+            val provisioning =
+                console.googlePlayProvisioning
+                    ?: throw ConsoleException(
+                        ConsoleFailure.NOT_CONFIGURED,
+                        "Automatické napojení Google Play zatím není na téhle instalaci nastavené. " +
+                            "Klíč jde nahrát ručně přes Pokročilé.",
+                    )
+            val meta = provisioning.provision(context.organization, context.actor)
+            call.respond(meta.toResponse())
+        }
     }
 
     route("/orgs/{org}/apps/{app}/credentials") {
