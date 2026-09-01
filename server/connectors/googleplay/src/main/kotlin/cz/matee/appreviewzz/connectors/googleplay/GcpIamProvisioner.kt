@@ -7,6 +7,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.bearerAuth
+import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -16,9 +17,12 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
+import kotlinx.coroutines.delay
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.util.Base64
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 
 private val logger = KotlinLogging.logger {}
 
@@ -52,6 +56,8 @@ class GcpIamProvisioner(
     private val httpClient: HttpClient,
     private val oauth: GoogleOAuth = GoogleOAuth(httpClient),
     private val baseUrl: String = IAM_BASE_URL,
+    /** Prodleva mezi pokusy o klíč. Testy si ji nulují, ať nečekají na propsání účtu. */
+    private val retryDelay: Duration = KEY_RETRY_DELAY,
 ) {
     /**
      * Založí service account pojmenovaný podle organizace a hned k němu vyrobí klíč.
@@ -68,7 +74,15 @@ class GcpIamProvisioner(
     ): ProvisionedServiceAccount {
         val token = oauth.accessToken(provisioner, CLOUD_PLATFORM_SCOPE)
         val account = createAccount(token, projectId, orgSlug, displayName)
-        val key = createKey(token, projectId, account.email)
+        val key =
+            try {
+                createKey(token, projectId, account)
+            } catch (error: StoreConnectorException) {
+                // Účet bez klíče je k ničemu a jméno by blokoval: další pokus by kvůli němu
+                // založil `…-1` a v projektu by přibývaly mrtvé účty, dokud nedojde kvóta.
+                deleteAccount(token, projectId, account.email)
+                throw error
+            }
         logger.info { "Service account ${account.email} vyrobený pro organizaci $orgSlug v projektu $projectId" }
         return ProvisionedServiceAccount(account.email, key)
     }
@@ -108,32 +122,90 @@ class GcpIamProvisioner(
         )
     }
 
+    /**
+     * Klíč k právě založenému účtu.
+     *
+     * **IAM je eventually consistent**: `POST serviceAccounts` vrátí 200, ale účet ještě chvíli
+     * pro další volání neexistuje a klíč spadne na 404. Ověřeno proti ostrému API, ne z
+     * dokumentace. Proto se čeká a zkouší znovu — a adresuje se `uniqueId`, který se propisuje
+     * dřív než e-mail.
+     *
+     * Smyčka musí skončit **prvním** úspěchem: účet unese jen deset klíčů a jedenáctý pokus
+     * vrací `FAILED_PRECONDITION`, tedy hlášku, ze které původní příčinu nikdo nevyčte.
+     */
     private suspend fun createKey(
         token: String,
         projectId: String,
-        email: String,
+        account: IamServiceAccountDto,
     ): SecretPayload {
-        val response =
-            request {
-                httpClient.post("$baseUrl/v1/projects/$projectId/serviceAccounts/$email/keys") {
-                    bearerAuth(token)
-                    contentType(ContentType.Application.Json)
-                    setBody(CreateIamKeyRequest())
+        val reference = account.uniqueId ?: account.email
+        var attempt = 0
+        var response: HttpResponse? = null
+
+        while (response == null) {
+            if (attempt > 0) delay(retryDelay)
+            response =
+                try {
+                    request {
+                        httpClient.post("$baseUrl/v1/projects/$projectId/serviceAccounts/$reference/keys") {
+                            bearerAuth(token)
+                            contentType(ContentType.Application.Json)
+                            setBody(CreateIamKeyRequest())
+                        }
+                    }
+                } catch (error: StoreConnectorException) {
+                    if (error.kind != StoreErrorKind.NOT_FOUND) throw error
+                    attempt++
+                    if (attempt >= KEY_ATTEMPTS) {
+                        throw StoreConnectorException(
+                            StoreErrorKind.TRANSIENT,
+                            "Service account ${account.email} se ani po " +
+                                "${KEY_ATTEMPTS * retryDelay.inWholeSeconds} s nepropsal do IAM",
+                            error,
+                        )
+                    }
+                    logger.info {
+                        "Service account ${account.email} se ještě nepropsal, zkouším klíč znovu ($attempt/$KEY_ATTEMPTS)"
+                    }
+                    null
                 }
-            }
+        }
+
         val encoded =
             response.body<IamServiceAccountKeyDto>().privateKeyData
-                ?: throw StoreConnectorException(StoreErrorKind.TRANSIENT, "IAM nevrátil obsah klíče service accountu $email")
+                ?: throw StoreConnectorException(
+                    StoreErrorKind.TRANSIENT,
+                    "IAM nevrátil obsah klíče service accountu ${account.email}",
+                )
         val decoded =
             try {
                 Base64.getDecoder().decode(encoded).toString(Charsets.UTF_8)
             } catch (error: IllegalArgumentException) {
-                throw StoreConnectorException(StoreErrorKind.TRANSIENT, "Klíč service accountu $email nejde dekódovat", error)
+                throw StoreConnectorException(
+                    StoreErrorKind.TRANSIENT,
+                    "Klíč service accountu ${account.email} nejde dekódovat",
+                    error,
+                )
             }
         // Ověření, že je to opravdu service account JSON: chybu chceme tady, ne až prvním
         // ingestem. Objekt zahazujeme, do vaultu jde původní text.
         GoogleServiceAccount.parse(SecretPayload(decoded))
         return SecretPayload(decoded)
+    }
+
+    /** Úklid po nepovedeném založení. Selhání mazání se jen loguje — původní chyba je důležitější. */
+    private suspend fun deleteAccount(
+        token: String,
+        projectId: String,
+        email: String,
+    ) {
+        runCatching {
+            request {
+                httpClient.delete("$baseUrl/v1/projects/$projectId/serviceAccounts/$email") { bearerAuth(token) }
+            }
+        }.onFailure { error ->
+            logger.warn(error) { "Nepovedený service account $email se nepodařilo uklidit — smaž ho v projektu $projectId ručně" }
+        }
     }
 
     /** Ověření, že provisioner na projekt vůbec vidí — bez toho by se chyba ukázala až klientovi. */
@@ -182,6 +254,10 @@ class GcpIamProvisioner(
         private const val DISPLAY_NAME_LIMIT = 100
         private const val COLLISION_ATTEMPTS = 5
         private const val ERROR_DETAIL_LIMIT = 300
+
+        /** Zhruba půl minuty čekání na propsání účtu — v praxi to bývá jedna vteřina. */
+        private const val KEY_ATTEMPTS = 12
+        private val KEY_RETRY_DELAY = 2500.milliseconds
 
         /**
          * Slug organizace na `accountId`, který IAM přijme: malá písmena, číslice a pomlčky,

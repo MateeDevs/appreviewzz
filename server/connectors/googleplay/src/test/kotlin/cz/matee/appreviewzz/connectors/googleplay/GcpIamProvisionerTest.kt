@@ -12,12 +12,14 @@ import io.kotest.matchers.string.shouldStartWith
 import io.ktor.client.engine.mock.respond
 import io.ktor.client.engine.mock.toByteArray
 import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.util.Base64
+import kotlin.time.Duration
 
 private val jsonHeaders = headersOf(HttpHeaders.ContentType, "application/json")
 private const val PROJECT = "appreviewzz-connect"
@@ -126,6 +128,75 @@ class GcpIamProvisionerTest :
 
             error.kind shouldBe StoreErrorKind.AUTH
             error.message.orEmpty() shouldContain "iam.serviceAccounts.create"
+        }
+
+        test("právě založený účet ještě IAM nevidí — klíč se zkusí znovu, a jen jednou uspěje") {
+            val email = "arz-islegrow@$PROJECT.iam.gserviceaccount.com"
+            var keyCalls = 0
+            val engine =
+                RecordingEngine { request ->
+                    when {
+                        request.url.encodedPath.endsWith("/keys") -> {
+                            keyCalls++
+                            // IAM je eventually consistent: účet po založení chvíli „neexistuje".
+                            if (keyCalls == 1) {
+                                respond(
+                                    """{"error":{"code":404,"message":"Service account does not exist."}}""",
+                                    status = HttpStatusCode.NotFound,
+                                    headers = jsonHeaders,
+                                )
+                            } else {
+                                respond(keyResponse(email), headers = jsonHeaders)
+                            }
+                        }
+
+                        request.url.encodedPath.endsWith("/serviceAccounts") ->
+                            respond("""{"email":"$email","uniqueId":"123456789"}""", headers = jsonHeaders)
+
+                        else -> null
+                    }
+                }
+
+            val account =
+                GcpIamProvisioner(engine.client(), retryDelay = Duration.ZERO)
+                    .provision(provisionerAccount, PROJECT, "islegrow", "IsleGrow")
+
+            account.email shouldBe email
+            // Účet unese deset klíčů; kdyby smyčka pokračovala i po úspěchu, jedenáctý pokus
+            // by vrátil FAILED_PRECONDITION a původní příčinu by z hlášky nikdo nevyčetl.
+            keyCalls shouldBe 2
+            // Klíč se adresuje přes uniqueId — ten se propisuje dřív než e-mail.
+            engine.requests
+                .last { it.url.encodedPath.endsWith("/keys") }
+                .url.encodedPath shouldContain "/123456789/keys"
+        }
+
+        test("když se účet nepropíše vůbec, uklidí se po sobě místo mrtvého účtu v projektu") {
+            val engine =
+                RecordingEngine { request ->
+                    when {
+                        request.url.encodedPath.endsWith("/keys") ->
+                            respond(
+                                """{"error":{"code":404,"message":"Service account does not exist."}}""",
+                                status = HttpStatusCode.NotFound,
+                                headers = jsonHeaders,
+                            )
+
+                        request.url.encodedPath.endsWith("/serviceAccounts") ->
+                            respond("""{"email":"a@b.iam.gserviceaccount.com","uniqueId":"1"}""", headers = jsonHeaders)
+
+                        else -> respond("{}", headers = jsonHeaders)
+                    }
+                }
+
+            shouldThrow<StoreConnectorException> {
+                GcpIamProvisioner(engine.client(), retryDelay = Duration.ZERO)
+                    .provision(provisionerAccount, PROJECT, "islegrow", "IsleGrow")
+            }
+
+            // Bez úklidu by účet blokoval jméno a další pokus by založil `…-1`; v projektu
+            // by přibývaly mrtvé účty, dokud nedojde kvóta.
+            engine.requests.count { it.method == HttpMethod.Delete } shouldBe 1
         }
 
         test("accountId ze slugu splní meze IAM: 6–30 znaků a začíná písmenem") {
