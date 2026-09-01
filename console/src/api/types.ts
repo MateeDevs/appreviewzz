@@ -128,6 +128,13 @@ export interface Credential {
   validatedAt: string | null
 }
 
+/** Aplikace, kterou klíč vidí ve storu — položka výběru v dialogu napojení. */
+export interface StoreApp {
+  identifier: string
+  name: string
+  bundleId: string | null
+}
+
 export interface Channel {
   id: string
   type: 'SLACK' | 'TEAMS'

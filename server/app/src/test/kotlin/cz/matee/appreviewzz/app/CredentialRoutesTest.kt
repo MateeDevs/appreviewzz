@@ -5,6 +5,7 @@ import cz.matee.appreviewzz.app.cli.TestDatabase
 import cz.matee.appreviewzz.connectors.googleplay.GcpIamProvisioner
 import cz.matee.appreviewzz.connectors.googleplay.googleHttpClient
 import cz.matee.appreviewzz.core.model.Platform
+import cz.matee.appreviewzz.core.port.StoreApp
 import cz.matee.appreviewzz.core.port.StoreConnectorException
 import cz.matee.appreviewzz.core.port.StoreErrorKind
 import cz.matee.appreviewzz.core.port.ValidationOutcome
@@ -358,6 +359,70 @@ class CredentialRoutesTest :
                 val member = joinViaInvitation(mailer, COLLEAGUE)
 
                 member.postJson("/api/orgs/$SLUG/credentials/provision-gp", "{}").status shouldBe HttpStatusCode.Forbidden
+            }
+        }
+
+        "výpis aplikací z App Store zároveň klíč označí za ověřený" {
+            testApplication {
+                consoleModule(mailer, fakes = fakes)
+                val (owner, _) = ownerWithApp(mailer)
+                val credentialId =
+                    owner
+                        .postJson(
+                            "/api/orgs/$SLUG/credentials",
+                            """{"type":"asc","label":"ASC","content":${json(
+                                appStoreKey,
+                            )},"keyId":"ABCD123456","issuerId":"69a6de70-0000-47e3-e053-5b8c7c11a4d1"}""",
+                        ).bodyAsText()
+                        .jsonValue("id")
+                fakes.appStoreCatalog.apps =
+                    listOf(
+                        StoreApp("1234567890", "IsleGrow", "cz.matee.islegrow"),
+                        StoreApp("1234567891", "IsleGrow Pro", "cz.matee.islegrow.pro"),
+                    )
+
+                val response = owner.get("/api/orgs/$SLUG/credentials/$credentialId/store-apps")
+
+                response.status shouldBe HttpStatusCode.OK
+                response.bodyAsText() shouldContain "cz.matee.islegrow.pro"
+                // Klíč se právě prokázal — bez tohohle by console hned po výběru appek
+                // tvrdila „čeká na ověření".
+                owner.get("/api/orgs/$SLUG/credentials").bodyAsText() shouldContain "\"validationStatus\":\"VALID\""
+            }
+        }
+
+        "klíč, který App Store odmítne, se označí za neplatný a hláška jde ven" {
+            testApplication {
+                consoleModule(mailer, fakes = fakes)
+                val (owner, _) = ownerWithApp(mailer)
+                val credentialId =
+                    owner
+                        .postJson(
+                            "/api/orgs/$SLUG/credentials",
+                            """{"type":"asc","label":"ASC","content":${json(appStoreKey)},"keyId":"ABCD123456"}""",
+                        ).bodyAsText()
+                        .jsonValue("id")
+                fakes.appStoreCatalog.failWith =
+                    StoreConnectorException(StoreErrorKind.AUTH, "Zkontroluj Issuer ID nahoře na stránce Integrations.")
+
+                val response = owner.get("/api/orgs/$SLUG/credentials/$credentialId/store-apps")
+
+                response.status shouldBe HttpStatusCode.BadRequest
+                response.bodyAsText() shouldContain "Issuer ID"
+                owner.get("/api/orgs/$SLUG/credentials").bodyAsText() shouldContain "\"validationStatus\":\"INVALID\""
+            }
+        }
+
+        "aplikace z Google Play se vypsat nedají — store to neumí" {
+            testApplication {
+                consoleModule(mailer, fakes = fakes)
+                val (owner, _) = ownerWithApp(mailer)
+                val credentialId = owner.addGooglePlayKey().bodyAsText().jsonValue("id")
+
+                val response = owner.get("/api/orgs/$SLUG/credentials/$credentialId/store-apps")
+
+                response.status shouldBe HttpStatusCode.BadRequest
+                response.bodyAsText() shouldContain "ANDROID"
             }
         }
     })

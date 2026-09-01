@@ -107,6 +107,31 @@ interface AppListingSource {
     suspend fun fetchName(identifier: String): String?
 }
 
+/**
+ * Aplikace, kterou klíč vidí v účtu storu. `identifier` je to, čím se appka jmenuje v našem
+ * modelu ([cz.matee.appreviewzz.core.model.App.storeIdentifier]) — u App Store Connect
+ * tedy Apple ID aplikace.
+ */
+data class StoreApp(
+    val identifier: String,
+    val name: String,
+    val bundleId: String?,
+)
+
+/**
+ * Výpis aplikací, na které klíč dosáhne. Existuje kvůli onboardingu: týmový klíč App Store
+ * Connect vidí všechny aplikace týmu, takže si klient místo opisování Apple ID z konzole
+ * jen odklikne appky ze seznamu.
+ *
+ * Google Play nic takového nemá (žádný endpoint na výpis účtu) — proto vlastní rozhraní
+ * a ne metoda na [ReviewSource], kterou by polovina konektorů musela odmítat.
+ */
+interface StoreAppCatalog {
+    val platform: Platform
+
+    suspend fun listApps(credential: SecretPayload): List<StoreApp>
+}
+
 /** Zdroj recenzí jednoho storu. Přidání dalšího storu je implementace tohohle rozhraní. */
 interface ReviewSource {
     val platform: Platform

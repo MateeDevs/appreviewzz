@@ -20,8 +20,11 @@ import cz.matee.appreviewzz.core.port.ChannelRepository
 import cz.matee.appreviewzz.core.port.CredentialRepository
 import cz.matee.appreviewzz.core.port.CredentialStore
 import cz.matee.appreviewzz.core.port.ReviewSource
+import cz.matee.appreviewzz.core.port.StoreApp
+import cz.matee.appreviewzz.core.port.StoreAppCatalog
 import cz.matee.appreviewzz.core.port.StoreConnectorException
 import cz.matee.appreviewzz.core.port.StoreContext
+import cz.matee.appreviewzz.core.port.StoreErrorKind
 import cz.matee.appreviewzz.core.port.ValidationOutcome
 import cz.matee.appreviewzz.core.port.auditEntry
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -49,6 +52,8 @@ class CredentialService(
     private val vault: CredentialStore,
     private val sources: List<ReviewSource>,
     private val audit: AuditLogRepository,
+    /** Storů, které umí vypsat aplikace účtu, je zatím jediný — App Store Connect. */
+    private val catalogs: List<StoreAppCatalog> = emptyList(),
     private val clock: Clock = Clock.System,
 ) {
     fun list(
@@ -243,6 +248,49 @@ class CredentialService(
             mapOf("app" to appId.toString()),
         )
         return outcome
+    }
+
+    /**
+     * Aplikace, na které klíč dosáhne — vstup do výběru appek při onboardingu.
+     *
+     * Úspěšné volání je zároveň důkaz, že klíč funguje, takže se rovnou zapíše jako ověřený:
+     * jinak by klient hned po výběru appek koukal na „klíč zatím neověřený", i když se právě
+     * prokázal. Naopak selhání ověření zapisuje jen u chyby oprávnění — výpadek App Store
+     * o klíči nic neříká.
+     */
+    suspend fun listStoreApps(
+        organization: Organization,
+        actor: OrgActor,
+        credentialId: CredentialId,
+    ): List<StoreApp> {
+        requireRole(actor, OrgRole.ADMIN)
+        val meta = get(organization.id, credentialId)
+        val platform =
+            platformOf(meta.type)
+                ?: throw ConsoleException(ConsoleFailure.INVALID_INPUT, "Klíč typu ${meta.type.name} k žádnému storu nepatří")
+        val catalog =
+            catalogs.firstOrNull { it.platform == platform }
+                ?: throw ConsoleException(
+                    ConsoleFailure.INVALID_INPUT,
+                    "$platform aplikace nevypisuje — jejich seznam se z API storu zjistit nedá",
+                )
+
+        return try {
+            catalog.listApps(vault.load(organization.id, credentialId)).also {
+                credentials.recordValidation(organization.id, credentialId, ValidationStatus.VALID, null, clock.now())
+            }
+        } catch (error: StoreConnectorException) {
+            if (error.kind == StoreErrorKind.AUTH) {
+                credentials.recordValidation(
+                    organization.id,
+                    credentialId,
+                    ValidationStatus.INVALID,
+                    error.message,
+                    clock.now(),
+                )
+            }
+            throw ConsoleException(ConsoleFailure.INVALID_INPUT, error.message ?: "Store seznam aplikací nevrátil")
+        }
     }
 
     private fun app(

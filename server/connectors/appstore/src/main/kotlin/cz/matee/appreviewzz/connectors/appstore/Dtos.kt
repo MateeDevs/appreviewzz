@@ -66,6 +66,25 @@ internal data class ReviewResponseAttributesDto(
 )
 
 @Serializable
+internal data class AppsResponse(
+    val data: List<AppDto> = emptyList(),
+    val links: PagedLinksDto? = null,
+)
+
+@Serializable
+internal data class AppDto(
+    val id: String,
+    val attributes: AppAttributesDto? = null,
+)
+
+@Serializable
+internal data class AppAttributesDto(
+    val name: String? = null,
+    val bundleId: String? = null,
+    val primaryLocale: String? = null,
+)
+
+@Serializable
 internal data class AppStoreVersionsResponse(
     val data: List<AppStoreVersionDto> = emptyList(),
     val links: PagedLinksDto? = null,

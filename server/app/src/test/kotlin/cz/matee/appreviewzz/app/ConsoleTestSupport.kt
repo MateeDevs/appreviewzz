@@ -7,6 +7,7 @@ import cz.matee.appreviewzz.core.message.ReviewNotification
 import cz.matee.appreviewzz.core.model.ChannelType
 import cz.matee.appreviewzz.core.model.ObservedReview
 import cz.matee.appreviewzz.core.model.Platform
+import cz.matee.appreviewzz.core.model.SecretPayload
 import cz.matee.appreviewzz.core.port.ChannelException
 import cz.matee.appreviewzz.core.port.ChannelTarget
 import cz.matee.appreviewzz.core.port.ConnectivityNotice
@@ -16,6 +17,8 @@ import cz.matee.appreviewzz.core.port.OutgoingMail
 import cz.matee.appreviewzz.core.port.PostedMessage
 import cz.matee.appreviewzz.core.port.ReplyRendering
 import cz.matee.appreviewzz.core.port.ReviewSource
+import cz.matee.appreviewzz.core.port.StoreApp
+import cz.matee.appreviewzz.core.port.StoreAppCatalog
 import cz.matee.appreviewzz.core.port.StoreConnectorException
 import cz.matee.appreviewzz.core.port.StoreContext
 import cz.matee.appreviewzz.core.port.ValidationOutcome
@@ -125,6 +128,19 @@ class FakeReviewSource(
     }
 }
 
+/** Výpis aplikací účtu bez App Store Connect — test si řekne, co má klíč „vidět". */
+class FakeStoreAppCatalog(
+    override val platform: Platform = Platform.IOS,
+) : StoreAppCatalog {
+    var apps: List<StoreApp> = emptyList()
+    var failWith: StoreConnectorException? = null
+
+    override suspend fun listApps(credential: SecretPayload): List<StoreApp> {
+        failWith?.let { throw it }
+        return apps
+    }
+}
+
 class FakeNotificationChannel(
     override val type: ChannelType = ChannelType.SLACK,
 ) : NotificationChannel {
@@ -173,6 +189,7 @@ class ConsoleFakes(
     val googlePlay: FakeReviewSource,
     val appStore: FakeReviewSource,
     val slack: FakeNotificationChannel,
+    val appStoreCatalog: FakeStoreAppCatalog = FakeStoreAppCatalog(),
 )
 
 /** Fronta odpovědí bez plánovače: test si přečte, co by se publikovalo. */
@@ -271,6 +288,7 @@ fun ApplicationTestBuilder.consoleModule(
             vault = vault,
             sources = listOf(fakes.googlePlay, fakes.appStore),
             audit = audit,
+            catalogs = listOf(fakes.appStoreCatalog),
         )
     val reviewInbox =
         ReviewInbox(

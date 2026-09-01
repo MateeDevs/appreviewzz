@@ -2,10 +2,13 @@ package cz.matee.appreviewzz.connectors.appstore
 
 import cz.matee.appreviewzz.core.model.ObservedReview
 import cz.matee.appreviewzz.core.model.Platform
+import cz.matee.appreviewzz.core.model.SecretPayload
 import cz.matee.appreviewzz.core.model.storeReplyMaxLength
 import cz.matee.appreviewzz.core.port.PublishedReply
 import cz.matee.appreviewzz.core.port.ReplyTarget
 import cz.matee.appreviewzz.core.port.ReviewSource
+import cz.matee.appreviewzz.core.port.StoreApp
+import cz.matee.appreviewzz.core.port.StoreAppCatalog
 import cz.matee.appreviewzz.core.port.StoreConnectorException
 import cz.matee.appreviewzz.core.port.StoreContext
 import cz.matee.appreviewzz.core.port.StoreErrorKind
@@ -52,7 +55,8 @@ class AppStoreConnector(
     /** Kolik posledních verzí se prochází kvůli doplnění verze k recenzi. */
     private val versionWindow: Int = DEFAULT_VERSION_WINDOW,
 ) : ReviewSource,
-    ReplyTarget {
+    ReplyTarget,
+    StoreAppCatalog {
     override val platform: Platform = Platform.IOS
 
     /** Apple přijme odpověď do 5 970 znaků; delší vrací jako chybu požadavku. */
@@ -117,6 +121,52 @@ class AppStoreConnector(
         } catch (error: StoreConnectorException) {
             ValidationOutcome(valid = false, message = validationMessage(error, context.appIdentifier))
         }
+
+    /**
+     * Aplikace, které klíč vidí. Týmový klíč jich vrací celý tým — proto stránkování;
+     * `limit` je maximum, které ASC dovolí.
+     *
+     * Chyby se překládají tady, ne u volajícího: rozdíl mezi „špatné Issuer ID" a „klíč nemá
+     * roli" pozná jen ten, kdo ví, co které HTTP číslo v App Store Connect znamená.
+     */
+    override suspend fun listApps(credential: SecretPayload): List<StoreApp> {
+        val key = AscApiKey.parse(credential)
+        val collected = mutableListOf<StoreApp>()
+        var url: String? = "$baseUrl/v1/apps"
+        var page = 0
+
+        while (url != null && page < MAX_PAGES) {
+            val requestUrl = url
+            val isFirstPage = page == 0
+            val response =
+                try {
+                    request(key) {
+                        httpClient.get(requestUrl) {
+                            bearerAuth(tokens.bearerToken(key))
+                            if (isFirstPage) {
+                                parameter("fields[apps]", "name,bundleId,primaryLocale")
+                                parameter("limit", PAGE_SIZE)
+                            }
+                        }
+                    }
+                } catch (error: StoreConnectorException) {
+                    throw StoreConnectorException(error.kind, catalogMessage(error), error)
+                }
+            val body = response.body<AppsResponse>()
+            collected +=
+                body.data.map { app ->
+                    StoreApp(
+                        identifier = app.id,
+                        // Bez názvu by v seznamu zbyla holá čísla; bundle ID appku pozná stejně dobře.
+                        name = app.attributes?.name ?: app.attributes?.bundleId ?: app.id,
+                        bundleId = app.attributes?.bundleId,
+                    )
+                }
+            url = body.links?.next
+            page++
+        }
+        return collected
+    }
 
     override suspend fun publishReply(
         context: StoreContext,
@@ -258,6 +308,21 @@ class AppStoreConnector(
                     "a u týmového klíče musí sedět Issuer ID."
             StoreErrorKind.NOT_FOUND ->
                 "Aplikace s ID $appId v tomhle účtu není. Zkontroluj Apple ID aplikace v App Store Connect."
+            StoreErrorKind.RATE_LIMITED, StoreErrorKind.TRANSIENT ->
+                "App Store Connect teď neodpovídá, zkus to za chvíli znovu."
+            StoreErrorKind.INVALID_REQUEST -> error.message ?: "App Store Connect požadavek odmítl."
+        }
+
+    /**
+     * Hlášky pro dialog „Vyberte aplikace". Klient v tu chvíli právě opsal dvě ID a nahrál
+     * soubor — potřebuje vědět, které z toho je špatně, ne že „App Store vrátil 401".
+     */
+    private fun catalogMessage(error: StoreConnectorException): String =
+        when (error.kind) {
+            StoreErrorKind.AUTH ->
+                "App Store Connect klíč nepřijal. Zkontroluj Issuer ID (je nahoře na stránce Integrations) " +
+                    "a jestli klíč nebyl mezitím zrušený. Když sedí obojí, chybí klíči role na čtení recenzí."
+            StoreErrorKind.NOT_FOUND -> "App Store Connect ten účet nezná — nejspíš je klíč z jiného týmu."
             StoreErrorKind.RATE_LIMITED, StoreErrorKind.TRANSIENT ->
                 "App Store Connect teď neodpovídá, zkus to za chvíli znovu."
             StoreErrorKind.INVALID_REQUEST -> error.message ?: "App Store Connect požadavek odmítl."

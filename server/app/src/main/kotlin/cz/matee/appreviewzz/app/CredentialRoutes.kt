@@ -60,6 +60,17 @@ data class CredentialResponse(
     val validatedAt: String?,
 )
 
+/**
+ * Aplikace, kterou klíč vidí ve storu. Console z toho staví seznam k odkliknutí — proto
+ * i bundle ID: dvě appky téhož týmu se často jmenují skoro stejně.
+ */
+@Serializable
+data class StoreAppResponse(
+    val identifier: String,
+    val name: String,
+    val bundleId: String?,
+)
+
 @Serializable
 data class AttachCredentialRequest(
     val credentialId: String,
@@ -130,6 +141,21 @@ fun Route.credentialRoutes(console: ConsoleWiring) {
             val context = call.orgContext(console.organizations, console.memberships)
             io { credentials.delete(context.organization, context.actor, call.credentialIdParam()) }
             call.respond(HttpStatusCode.NoContent)
+        }
+
+        /**
+         * Aplikace, na které klíč dosáhne. Týmový klíč App Store Connect vidí celý tým, takže
+         * si klient appky odklikne místo opisování Apple ID z konzole Applu.
+         */
+        get("/{credential}/store-apps") {
+            val context = call.orgContext(console.organizations, console.memberships)
+            val apps =
+                credentials.listStoreApps(
+                    organization = context.organization,
+                    actor = context.actor,
+                    credentialId = call.credentialIdParam(),
+                )
+            call.respond(apps.map { StoreAppResponse(it.identifier, it.name, it.bundleId) })
         }
 
         /**

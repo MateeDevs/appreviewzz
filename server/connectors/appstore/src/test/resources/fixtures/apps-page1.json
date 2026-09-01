@@ -1,0 +1,26 @@
+{
+  "data": [
+    {
+      "type": "apps",
+      "id": "1234567890",
+      "attributes": {
+        "name": "IsleGrow",
+        "bundleId": "cz.matee.islegrow",
+        "primaryLocale": "cs-CZ"
+      }
+    },
+    {
+      "type": "apps",
+      "id": "1234567891",
+      "attributes": {
+        "name": "IsleGrow Pro",
+        "bundleId": "cz.matee.islegrow.pro",
+        "primaryLocale": "cs-CZ"
+      }
+    }
+  ],
+  "links": {
+    "self": "https://api.appstoreconnect.apple.com/v1/apps",
+    "next": "https://api.appstoreconnect.apple.com/v1/apps?cursor=DALEJ"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "data": [
+    {
+      "type": "apps",
+      "id": "1234567892",
+      "attributes": {
+        "bundleId": "cz.matee.bezjmena",
+        "primaryLocale": "en-US"
+      }
+    }
+  ],
+  "links": {
+    "self": "https://api.appstoreconnect.apple.com/v1/apps?cursor=DALEJ"
+  }
+}

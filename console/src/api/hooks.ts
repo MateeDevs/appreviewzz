@@ -23,6 +23,7 @@ import type {
   Review,
   ReviewDetail,
   ReviewState,
+  StoreApp,
   StoreResolution,
   TotpSetup,
 } from './types'
@@ -266,6 +267,28 @@ export function useAttachCredential(org: string) {
         purpose: input.purpose ?? 'REVIEWS',
       }),
     onSuccess: () => client.invalidateQueries(),
+  })
+}
+
+/** Service account pro Google Play vyrobený námi. Idempotentní — druhé volání vrátí týž účet. */
+export function useProvisionGooglePlay(org: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: () => api.post<Credential>(`/api/orgs/${org}/credentials/provision-gp`),
+    onSuccess: () => client.invalidateQueries({ queryKey: ['credentials', org] }),
+  })
+}
+
+/**
+ * Aplikace, na které klíč dosáhne. Volá se až po nahrání klíče — a je to zároveň jeho
+ * ověření, takže po úspěchu je potřeba přenačíst i seznam klíčů.
+ */
+export function useStoreApps(org: string, credentialId: string) {
+  return useQuery({
+    queryKey: ['store-apps', org, credentialId],
+    queryFn: () => api.get<StoreApp[]>(`/api/orgs/${org}/credentials/${credentialId}/store-apps`),
+    enabled: credentialId !== '',
+    retry: false,
   })
 }
 

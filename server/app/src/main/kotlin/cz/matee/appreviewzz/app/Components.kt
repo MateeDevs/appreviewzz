@@ -542,6 +542,8 @@ class Components(
             vault = vault,
             sources = reviewSources,
             audit = audit,
+            // Výpis aplikací účtu umí jen App Store Connect; Play takový endpoint nemá.
+            catalogs = listOf(appStore),
         )
     }
 

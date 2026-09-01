@@ -229,6 +229,45 @@ class AppStoreConnectorTest :
                 connector(HttpStatusCode.ServiceUnavailable).fetchReviews(context)
             }.isRetryable shouldBe true
         }
+
+        test("vypíše aplikace, na které klíč dosáhne, přes všechny stránky") {
+            val engine =
+                RecordingEngine { request ->
+                    when {
+                        !request.url.encodedPath.endsWith("/v1/apps") -> null
+                        request.url.parameters["cursor"] == "DALEJ" -> respond(fixture("apps-page2.json"), headers = jsonHeaders)
+                        else -> respond(fixture("apps-page1.json"), headers = jsonHeaders)
+                    }
+                }
+
+            val apps = AppStoreConnector(engine.client()).listApps(TestAscKey.teamKey())
+
+            apps shouldHaveSize 3
+            apps.first().identifier shouldBe "1234567890"
+            apps.first().name shouldBe "IsleGrow"
+            apps.first().bundleId shouldBe "cz.matee.islegrow"
+            // Appka bez názvu (Apple ho u rozpracovaných nevrací) se pozná podle bundle ID —
+            // v seznamu k odklikání je holé číslo k ničemu.
+            apps.last().name shouldBe "cz.matee.bezjmena"
+
+            val first = engine.requests.first()
+            first.url.parameters["fields[apps]"] shouldBe "name,bundleId,primaryLocale"
+        }
+
+        test("špatné Issuer ID se pozná podle věty, ne podle HTTP kódu") {
+            val engine =
+                RecordingEngine {
+                    respond(fixture("error-forbidden.json"), status = HttpStatusCode.Unauthorized, headers = jsonHeaders)
+                }
+
+            val error =
+                shouldThrow<StoreConnectorException> {
+                    AppStoreConnector(engine.client()).listApps(TestAscKey.teamKey())
+                }
+
+            error.kind shouldBe StoreErrorKind.AUTH
+            error.message.orEmpty() shouldContain "Issuer ID"
+        }
     })
 
 /** Odpovídá jako App Store Connect: listing verzí, recenze per verze a plochý výpis recenzí. */
