@@ -9,7 +9,14 @@
 
 export const googlePlayCopy = {
   title: 'Připojit Google Play',
-  consoleUrl: 'https://play.google.com/console/',
+  /*
+   * Rovnou na stránku s uživateli, ne na rozcestník Play Console. Developer account do
+   * adresy doplňovat neumíme (ID neznáme), ale Google si ho na téhle cestě dosadí sám —
+   * `/console/users-and-permissions` přesměruje na `/console/developers/users-and-permissions`
+   * a přihlašovací obrazovka cestu nese s sebou v `continue`, takže i nepřihlášený klient
+   * skončí na správné stránce. Do samotného dialogu Invite new user zalinkovat nejde.
+   */
+  consoleUrl: 'https://play.google.com/console/users-and-permissions',
 
   app: {
     heading: 'Která aplikace?',
@@ -23,15 +30,15 @@ export const googlePlayCopy = {
       'do Play Console, ať vidí na recenze.',
     emailLabel: 'E-mail účtu k pozvání',
     steps: [
-      'V Play Console otevři Users and permissions → Invite new user.',
-      'Vlož e-mail výše a přepni se na záložku App permissions.',
+      'Klikni na Otevřít Users and permissions — Play Console naskočí rovnou na té stránce.',
+      'Dej Invite new user, vlož e-mail výše a přepni se na záložku App permissions.',
       'Vyber svou aplikaci a zaškrtni View app information (read-only) a Reply to reviews.',
       'Potvrď tlačítkem Invite user.',
     ],
     note:
       'Víc práv nepotřebujeme a nechceme: číst recenze a odpovídat na ně. Účet pozvánku ' +
       'nepotvrzuje, takže se po odeslání nic dalšího nečeká.',
-    openConsole: 'Otevřít Play Console',
+    openConsole: 'Otevřít Users and permissions',
   },
 
   check: {

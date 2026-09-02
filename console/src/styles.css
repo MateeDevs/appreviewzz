@@ -530,6 +530,19 @@ code {
 }
 
 /*
+ * Pilulka je jednou odkazem (sekce v detailu) a podruhé tlačítkem (otevírá dialog).
+ * Element na ní nesmí být poznat, takže tlačítku sebereme vzhled, který dědí po `button`:
+ * plné pozadí, tučnější písmo i propad při stisku. Hover a background se musí přebít přes
+ * `button.…`, jinak vyhraje specifičtější `button:hover:not(:disabled)`.
+ */
+button.setup-todo-item {
+  background: none;
+  font-weight: inherit;
+}
+button.setup-todo-item:hover:not(:disabled) { background: var(--accent-soft); }
+button.setup-todo-item:active:not(:disabled) { transform: none; }
+
+/*
  * Doskok z odkazu „chybí klíč". Po scrollu se přes kartu rozlije vlna a rámeček krátce
  * zesílí — jinak člověk přijde na stránku plnou karet a neví, kam koukat.
  *
