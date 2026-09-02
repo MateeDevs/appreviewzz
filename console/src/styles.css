@@ -372,6 +372,44 @@ button.link:hover:not(:disabled) { background: none; color: var(--accent-hover);
 .modal-head { padding-bottom: 0.85rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border); }
 .modal-head h2 { margin: 0; }
 
+/*
+ * Rozcestí v dialogu: dvě čtvercové dlaždice vedle sebe.
+ *
+ * Čtverec je tu proto, že se vybírá jednou a naslepo — dlaždice musí unést název, větu
+ * o tom, co klient dostane, a podmínku, kterou za to zaplatí. Text je zarovnaný doleva,
+ * ne na střed: čtou se to tři různě dlouhé odstavce, ne nápis na tlačítku.
+ */
+.choices { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+button.choice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 0.3rem;
+  aspect-ratio: 1;
+  padding: 1.15rem;
+  text-align: left;
+  white-space: normal;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-weight: inherit;
+}
+button.choice:hover:not(:disabled) { background: var(--accent-soft); border-color: var(--accent); }
+button.choice:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 2px; }
+.choice svg { width: 26px; height: 26px; color: var(--accent); margin-bottom: 0.35rem; }
+.choice-title { font-size: 1.02rem; font-weight: 600; line-height: 1.3; }
+.choice-lead { font-size: 0.88rem; line-height: 1.45; color: var(--muted); }
+/* Podmínka drží dole, aby se dlaždice daly srovnat očima na jednom řádku. */
+.choice-detail { margin-top: auto; font-size: 0.8rem; line-height: 1.4; color: var(--faint); }
+
+@media (max-width: 560px) {
+  .choices { grid-template-columns: 1fr; }
+  button.choice { aspect-ratio: auto; gap: 0.25rem; }
+  .choice-detail { margin-top: 0.35rem; }
+}
+
 /* Nabídnutý název ze storu — klikací návrh, ne další pole k vyplnění. */
 .chips { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.45rem; }
 .chip {

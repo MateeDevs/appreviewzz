@@ -13,6 +13,7 @@ import {
 } from '../api/hooks'
 import type { App, Credential, Platform, StoreApp } from '../api/types'
 import { Badge, ErrorBox, Field, Loading, Modal } from './ui'
+import { IconReviews, IconStar } from './icons'
 import { appStoreCopy, googlePlayCopy, isIssuerId, keyIdFromFileName } from './connectStoreCopy'
 
 /**
@@ -104,33 +105,62 @@ function Steplist({ items }: { items: readonly string[] }) {
 
 // ---------------------------------------------------------------- Google Play
 
-type GooglePlayStep = 'app' | 'invite' | 'check'
+type GooglePlayStep = 'app' | 'scope' | 'invite' | 'check' | 'reporting'
+
+/** Co má klient sledovat — a tím pádem, o jak široká práva si v Play Console říká. */
+type GooglePlayScope = 'reviews' | 'ratings'
+
+const GP_STEP_TITLES: Record<GooglePlayStep, string> = {
+  app: 'Aplikace',
+  scope: 'Rozsah',
+  invite: 'Pozvánka',
+  check: 'Kontrola pozvánky',
+  reporting: 'Hodnocení',
+}
 
 function GooglePlayWizard({ org, app, onClose }: { org: string; app?: App; onClose: () => void }) {
   const [target, setTarget] = useState<App | undefined>(app)
   const [credentialId, setCredentialId] = useState<string | null>(null)
-  const [step, setStep] = useState<GooglePlayStep>(app ? 'invite' : 'app')
-  const titles = app ? ['Pozvánka', 'Kontrola'] : ['Aplikace', 'Pozvánka', 'Kontrola']
-  const index = step === 'app' ? 0 : (step === 'invite' ? 0 : 1) + (app ? 0 : 1)
+  const [scope, setScope] = useState<GooglePlayScope | null>(null)
+  const [step, setStep] = useState<GooglePlayStep>(app ? 'scope' : 'app')
+
+  // Kroky se skládají podle rozsahu: bucket na hodnocení řeší jen ten, kdo si o hodnocení
+  // řekl. Ukazatel se tím po výběru prodlouží — a to je záměr, klient hned vidí, do čeho jde.
+  const order: GooglePlayStep[] = [
+    ...(app ? [] : (['app'] as const)),
+    'scope',
+    'invite',
+    'check',
+    ...(scope === 'ratings' ? (['reporting'] as const) : []),
+  ]
 
   return (
     <Modal title={googlePlayCopy.title} onClose={onClose}>
-      <Steps titles={titles} current={index} />
+      <Steps titles={order.map((key) => GP_STEP_TITLES[key])} current={Math.max(0, order.indexOf(step))} />
       {step === 'app' ? (
         <PickApp
           org={org}
           platform="ANDROID"
           onPicked={(picked) => {
             setTarget(picked)
-            setStep('invite')
+            setStep('scope')
           }}
           onClose={onClose}
         />
       ) : null}
-      {step === 'invite' && target ? (
+      {step === 'scope' ? (
+        <GooglePlayScopePick
+          onPick={(picked) => {
+            setScope(picked)
+            setStep('invite')
+          }}
+        />
+      ) : null}
+      {step === 'invite' && target && scope ? (
         <GooglePlayInvite
           org={org}
           app={target}
+          scope={scope}
           onDone={(id) => {
             setCredentialId(id)
             setStep('check')
@@ -139,9 +169,48 @@ function GooglePlayWizard({ org, app, onClose }: { org: string; app?: App; onClo
         />
       ) : null}
       {step === 'check' && target && credentialId ? (
-        <GooglePlayCheck org={org} app={target} credentialId={credentialId} onClose={onClose} />
+        <GooglePlayCheck
+          org={org}
+          app={target}
+          credentialId={credentialId}
+          onNext={scope === 'ratings' ? () => setStep('reporting') : undefined}
+          onClose={onClose}
+        />
       ) : null}
+      {step === 'reporting' && target ? <GooglePlayReporting org={org} app={target} onClose={onClose} /> : null}
     </Modal>
+  )
+}
+
+/**
+ * Rozcestí na začátku: dvě dlaždice místo zaškrtávátka.
+ *
+ * Není to volba funkce, je to volba práv. Klient se podle ní za chvíli proklikává cizí
+ * konzolí a přenastavovat pozvánku zpětně je horší než si tu odpovědět hned.
+ */
+function GooglePlayScopePick({ onPick }: { onPick: (scope: GooglePlayScope) => void }) {
+  const scopes: GooglePlayScope[] = ['reviews', 'ratings']
+
+  return (
+    <div className="stack">
+      <div>
+        <h3>{googlePlayCopy.scope.heading}</h3>
+        <p className="muted">{googlePlayCopy.scope.lead}</p>
+      </div>
+      <div className="choices">
+        {scopes.map((key) => {
+          const copy = googlePlayCopy.scope[key]
+          return (
+            <button key={key} type="button" className="choice" onClick={() => onPick(key)}>
+              {key === 'reviews' ? <IconReviews /> : <IconStar />}
+              <span className="choice-title">{copy.title}</span>
+              <span className="choice-lead">{copy.lead}</span>
+              <span className="choice-detail">{copy.detail}</span>
+            </button>
+          )
+        })}
+      </div>
+    </div>
   )
 }
 
@@ -155,11 +224,13 @@ function GooglePlayWizard({ org, app, onClose }: { org: string; app?: App; onClo
 function GooglePlayInvite({
   org,
   app,
+  scope,
   onDone,
   onClose,
 }: {
   org: string
   app: App
+  scope: GooglePlayScope
   onDone: (credentialId: string) => void
   onClose: () => void
 }) {
@@ -204,8 +275,8 @@ function GooglePlayInvite({
         <CopyValue value={credential.hint} />
       </Field>
 
-      <Steplist items={googlePlayCopy.invite.steps} />
-      <p className="small muted">{googlePlayCopy.invite.note}</p>
+      <Steplist items={googlePlayCopy.invite.steps[scope]} />
+      <p className="small muted">{googlePlayCopy.invite.note[scope]}</p>
 
       <ErrorBox error={attach.error} />
       <div className="row">
@@ -236,11 +307,14 @@ function GooglePlayCheck({
   org,
   app,
   credentialId,
+  onNext,
   onClose,
 }: {
   org: string
   app: App
   credentialId: string
+  /** Další krok, pokud si klient řekl i o hodnocení. Jinak kontrolou dialog končí. */
+  onNext?: () => void
   onClose: () => void
 }) {
   const validate = useValidateCredential(org)
@@ -295,12 +369,18 @@ function GooglePlayCheck({
           přesně ten rozdíl, podle kterého klient pozná, co v Play Console udělal jinak. */}
       {state !== 'ok' && message ? <p className="small muted">{message}</p> : null}
 
-      <ReportingBucket org={org} app={app} />
-
       <div className="row">
-        <button type="button" onClick={onClose}>
-          {state === 'ok' ? 'Hotovo' : 'Zavřít'}
-        </button>
+        {/* Na bucket se dá jít i s pozvánkou, která ještě neprošla: obojí čeká na tytéž
+            propagovaná práva a klient by se sem jinak musel vracet. */}
+        {onNext ? (
+          <button type="button" onClick={onNext}>
+            Pokračovat
+          </button>
+        ) : (
+          <button type="button" onClick={onClose}>
+            {state === 'ok' ? 'Hotovo' : 'Zavřít'}
+          </button>
+        )}
         {state === 'waiting' ? (
           <button
             type="button"
@@ -318,48 +398,56 @@ function GooglePlayCheck({
   )
 }
 
-/** Nepovinné: oficiální hodnocení a historie z exportu Play Console. */
-function ReportingBucket({ org, app }: { org: string; app: App }) {
+/**
+ * Bucket s exportem hodnocení — samostatný krok, ne rozklikávací „nepovinné" v kontrole.
+ *
+ * Klient si o hodnocení řekl na začátku, takže tady už jen dokončuje, do čeho šel. Prázdné
+ * pole se neukládá — kdo si export v Play Console teprve vygeneruje, odejde přes „Doplním
+ * později" a adresu dopíše v detailu aplikace.
+ */
+function GooglePlayReporting({ org, app, onClose }: { org: string; app: App; onClose: () => void }) {
   const update = useUpdateApp(org)
   const [value, setValue] = useState(app.gpReportingBucket ?? '')
-  const [saved, setSaved] = useState(false)
   const invalid = value.trim() !== '' && !value.trim().startsWith('gs://')
 
   return (
-    <details className="optional">
-      <summary>{googlePlayCopy.reporting.heading}</summary>
-      <p className="muted">{googlePlayCopy.reporting.lead}</p>
+    <div className="stack">
+      <div>
+        <h3>{googlePlayCopy.reporting.heading}</h3>
+        <p className="muted">{googlePlayCopy.reporting.lead}</p>
+      </div>
+
       <Steplist items={googlePlayCopy.reporting.steps} />
       <Field label={googlePlayCopy.reporting.fieldLabel} hint={googlePlayCopy.reporting.fieldHint}>
         <input
           value={value}
-          onChange={(event) => {
-            setValue(event.target.value)
-            setSaved(false)
-          }}
+          onChange={(event) => setValue(event.target.value)}
           placeholder="gs://pubsite_prod_rev_01234567890123456789"
         />
       </Field>
       {invalid ? <div className="error">{googlePlayCopy.reporting.invalid}</div> : null}
       <p className="small muted">{googlePlayCopy.reporting.note}</p>
       <ErrorBox error={update.error} />
+
       <div className="row">
         <button
           type="button"
-          className="secondary"
-          disabled={invalid || update.isPending}
+          disabled={invalid || value.trim() === '' || update.isPending}
           onClick={() =>
             update.mutate(
-              { id: app.id, body: { gpReportingBucket: value.trim() === '' ? null : value.trim() } },
-              { onSuccess: () => setSaved(true) },
+              { id: app.id, body: { gpReportingBucket: value.trim() } },
+              { onSuccess: onClose },
             )
           }
         >
-          Uložit
+          Uložit a dokončit
         </button>
-        {saved ? <span className="small muted">Uloženo.</span> : null}
+        <button type="button" className="secondary" onClick={onClose}>
+          Doplním později
+        </button>
       </div>
-    </details>
+      <p className="small muted">{googlePlayCopy.reporting.later}</p>
+    </div>
   )
 }
 

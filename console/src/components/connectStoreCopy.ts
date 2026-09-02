@@ -23,26 +23,66 @@ export const googlePlayCopy = {
     hint: 'Vlož odkaz na stránku appky v Play Storu; package name si vytáhneme sami.',
   },
 
+  /*
+   * Rozsah se vybírá dřív než pozvánka, protože rozhoduje o právech, která si klient
+   * v Play Console naklikne: recenze stačí přiřadit k jedné aplikaci, hodnocení vydá
+   * Google jen účtu s právem na celý účet. Doptat se až u bucketu by znamenalo poslat
+   * člověka pozvánku přenastavit.
+   */
+  scope: {
+    heading: 'Co budeme sledovat?',
+    lead: 'Podle toho se liší práva, o která si v Play Console řekneme.',
+    reviews: {
+      title: 'Jen recenze',
+      lead: 'Nové recenze chodí do kanálu a odpovídat na ně jde od nás.',
+      detail: 'Právo stačí k jedné aplikaci.',
+    },
+    ratings: {
+      title: 'Recenze i hodnocení',
+      lead: 'Navíc oficiální hvězdičky z Play Console a jejich historie.',
+      detail: 'Vyžaduje právo na celý účet a export z Cloud Storage.',
+    },
+  },
+
   invite: {
     heading: 'Pozvěte náš účet do Play Console',
     lead:
       'Účet jsme právě vyrobili — nic v Google Cloudu zakládat nemusíš. Zbývá ho pozvat ' +
       'do Play Console, ať vidí na recenze.',
     emailLabel: 'E-mail účtu k pozvání',
-    steps: [
-      'Klikni na Otevřít Users and permissions — Play Console naskočí rovnou na té stránce.',
-      'Dej Invite new user, vlož e-mail výše a přepni se na záložku App permissions.',
-      'Vyber svou aplikaci a zaškrtni View app information (read-only) a Reply to reviews.',
-      'Potvrď tlačítkem Invite user.',
-    ],
-    note:
-      'Víc práv nepotřebujeme a nechceme: číst recenze a odpovídat na ně. Účet pozvánku ' +
-      'nepotvrzuje, takže se po odeslání nic dalšího nečeká.',
+    /*
+     * Dvě verze návodu, ne jedna s poznámkou „a pokud chceš i hodnocení, tak…". Klient
+     * kliká podle kroků a záložka App permissions versus Account permissions je první
+     * rozcestí — přehlédnutá výjimka uprostřed odstavce ho stojí druhé kolo v konzoli.
+     */
+    steps: {
+      reviews: [
+        'Klikni na Otevřít Users and permissions — Play Console naskočí rovnou na té stránce.',
+        'Dej Invite new user, vlož e-mail výše a přepni se na záložku App permissions.',
+        'Vyber svou aplikaci a zaškrtni View app information (read-only) a Reply to reviews.',
+        'Potvrď tlačítkem Invite user.',
+      ],
+      ratings: [
+        'Klikni na Otevřít Users and permissions — Play Console naskočí rovnou na té stránce.',
+        'Dej Invite new user, vlož e-mail výše a zůstaň na záložce Account permissions.',
+        'Zaškrtni View app information and download bulk reports (read-only) a Reply to reviews.',
+        'Nech to na celý účet, nepřepínej se na App permissions — u jedné aplikace hodnocení nedostaneme.',
+        'Potvrď tlačítkem Invite user.',
+      ],
+    },
+    note: {
+      reviews:
+        'Víc práv nepotřebujeme a nechceme: číst recenze a odpovídat na ně. Účet pozvánku ' +
+        'nepotvrzuje, takže se po odeslání nic dalšího nečeká.',
+      ratings:
+        'Práva zůstávají čtecí — jen platí pro celý účet, protože oficiální hodnocení Google ' +
+        'jinak nevydá. Účet pozvánku nepotvrzuje, takže se po odeslání nic dalšího nečeká.',
+    },
     openConsole: 'Otevřít Users and permissions',
   },
 
   check: {
-    heading: 'Kontrola přístupu',
+    heading: 'Kontrola pozvánky',
     lead: 'Až pozvánku odešleš, zkusíme se do storu přihlásit.',
     checking: 'Zkoušíme přístup…',
     ok: 'Hotovo — recenze začnou chodit při nejbližším stahování.',
@@ -56,8 +96,8 @@ export const googlePlayCopy = {
   reporting: {
     heading: 'Historie a oficiální hodnocení',
     lead:
-      'Nepovinné. Bez tohohle bereme hodnocení z veřejného výpisu ve storu; s ním čteme ' +
-      'oficiální čísla z Play Console včetně rozpadu po hvězdách.',
+      'Poslední krok. Hodnocení přes API nechodí — čtou se z exportu, který Play Console ' +
+      'ukládá do Cloud Storage. Bez něj bereme hvězdičky z veřejného výpisu ve storu.',
     steps: [
       'Play Console → Download reports → Reviews.',
       'Nahoře je Copy Cloud Storage URI — zkopíruj ho.',
@@ -65,9 +105,10 @@ export const googlePlayCopy = {
     fieldLabel: 'Cloud Storage URI',
     fieldHint: 'Začíná gs://pubsite_prod_rev_…',
     note:
-      'Vyžaduje, aby náš účet měl View app information jako account-level (Global) oprávnění ' +
-      'a u bucketu roli Storage Object Viewer.',
+      'U bucketu ještě přidej našemu účtu roli Storage Object Viewer — oprávnění z Play ' +
+      'Console na Cloud Storage nedosáhnou.',
     invalid: 'Čekáme adresu, která začíná gs://.',
+    later: 'Doplnit to jde i později v detailu aplikace.',
   },
 } as const
 

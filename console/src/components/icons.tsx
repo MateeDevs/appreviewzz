@@ -39,6 +39,15 @@ export function IconReviews() {
   )
 }
 
+/** Hvězdička k volbě „i hodnocení" — vyplněná, aby vedle obrysové bubliny nezmizela. */
+export function IconStar() {
+  return (
+    <Icon>
+      <path d="M12 3.2l2.7 5.5 6 .9-4.35 4.25 1.03 6-5.38-2.83L6.62 19.85l1.03-6L3.3 9.6l6-.9z" fill="currentColor" />
+    </Icon>
+  )
+}
+
 export function IconApps() {
   return (
     <Icon>
