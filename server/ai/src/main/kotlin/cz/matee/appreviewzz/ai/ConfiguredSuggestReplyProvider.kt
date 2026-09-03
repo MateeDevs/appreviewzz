@@ -41,7 +41,7 @@ class ConfiguredSuggestReplyProvider(
     private fun provider(): SuggestReplyProvider {
         val signature =
             Signature(
-                provider = config.text(PlatformSettings.AI_PROVIDER) ?: SuggestReplyProviders.NONE,
+                provider = config.text(PlatformSettings.AI_PROVIDER) ?: AiProviders.NONE,
                 model = config.text(PlatformSettings.AI_MODEL),
                 keyFingerprint = config.secretFingerprint(PlatformSettings.AI_API_KEY),
             )
@@ -49,7 +49,7 @@ class ConfiguredSuggestReplyProvider(
 
         val built =
             try {
-                SuggestReplyProviders.fromConfig(
+                AiProviders.fromConfig(
                     provider = signature.provider,
                     apiKey = config.secret(PlatformSettings.AI_API_KEY)?.value,
                     model = signature.model,

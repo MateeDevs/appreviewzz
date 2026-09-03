@@ -1,5 +1,7 @@
 package cz.matee.appreviewzz.app
 
+import cz.matee.appreviewzz.ai.ANALYSIS_TIMEOUT_MILLIS
+import cz.matee.appreviewzz.ai.ConfiguredReviewAnalysisProvider
 import cz.matee.appreviewzz.ai.ConfiguredSuggestReplyProvider
 import cz.matee.appreviewzz.ai.aiHttpClient
 import cz.matee.appreviewzz.backup.BackupRetention
@@ -37,6 +39,7 @@ import cz.matee.appreviewzz.core.port.PasswordHasher
 import cz.matee.appreviewzz.core.port.RatingsSource
 import cz.matee.appreviewzz.core.port.ReplyTarget
 import cz.matee.appreviewzz.core.port.ReportingBucketProbe
+import cz.matee.appreviewzz.core.port.ReviewAnalysisProvider
 import cz.matee.appreviewzz.core.port.ReviewRefreshSource
 import cz.matee.appreviewzz.core.port.ReviewSource
 import cz.matee.appreviewzz.core.port.SuggestReplyProvider
@@ -158,6 +161,9 @@ class Components(
     private val storeClients by storeClientsDelegate
 
     private val aiClientDelegate = lazy { aiHttpClient() }
+
+    /** Rozbor běží v dávkách a odpovídá dlouho — vlastní klient s delším timeoutem. */
+    private val analysisClientDelegate = lazy { aiHttpClient(requestTimeoutMillis = ANALYSIS_TIMEOUT_MILLIS) }
     private val slackClientDelegate = lazy { slackHttpClient() }
     private val teamsClientDelegate = lazy { teamsHttpClient() }
 
@@ -229,6 +235,14 @@ class Components(
      */
     val suggestions: SuggestReplyProvider by lazy {
         ConfiguredSuggestReplyProvider(config = platformConfig, httpClient = { aiClientDelegate.value })
+    }
+
+    /**
+     * Rozbory recenzí (F8). Sdílí provider i klíč s návrhy odpovědí, liší se jen modelem —
+     * bez AI se recenze doručí jako dnes, jen bez štítků a bez týdenního rozboru.
+     */
+    val analysis: ReviewAnalysisProvider by lazy {
+        ConfiguredReviewAnalysisProvider(config = platformConfig, httpClient = { analysisClientDelegate.value })
     }
 
     /**

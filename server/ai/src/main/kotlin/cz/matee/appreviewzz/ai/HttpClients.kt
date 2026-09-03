@@ -12,7 +12,10 @@ import kotlinx.serialization.json.Json
  * HTTP klient pro AI providera. Timeout je krátký schválně: návrh odpovědi je pohodlí navíc,
  * takže radši zpráva bez návrhu než recenze, která visí minutu ve frontě doručení.
  */
-fun aiHttpClient(engine: HttpClientEngine = CIO.create()): HttpClient =
+fun aiHttpClient(
+    engine: HttpClientEngine = CIO.create(),
+    requestTimeoutMillis: Long = REQUEST_TIMEOUT_MILLIS,
+): HttpClient =
     HttpClient(engine) {
         expectSuccess = false
         install(ContentNegotiation) {
@@ -25,10 +28,17 @@ fun aiHttpClient(engine: HttpClientEngine = CIO.create()): HttpClient =
             )
         }
         install(HttpTimeout) {
-            requestTimeoutMillis = REQUEST_TIMEOUT_MILLIS
+            this.requestTimeoutMillis = requestTimeoutMillis
             connectTimeoutMillis = CONNECT_TIMEOUT_MILLIS
         }
     }
 
 private const val REQUEST_TIMEOUT_MILLIS = 20_000L
+
+/**
+ * Rozbor recenzí jede v dávkách po patnácti a je to dlouhá odpověď — dvacet vteřin jako
+ * u návrhu odpovědi by dávku utnulo uprostřed. Doručení to nezdrží: rozbor běží mimo
+ * horkou cestu do kanálu.
+ */
+const val ANALYSIS_TIMEOUT_MILLIS = 60_000L
 private const val CONNECT_TIMEOUT_MILLIS = 5_000L

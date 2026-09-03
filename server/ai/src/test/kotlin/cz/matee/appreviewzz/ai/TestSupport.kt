@@ -2,6 +2,9 @@ package cz.matee.appreviewzz.ai
 
 import cz.matee.appreviewzz.core.model.MessageLocale
 import cz.matee.appreviewzz.core.model.Platform
+import cz.matee.appreviewzz.core.port.AnalysisItem
+import cz.matee.appreviewzz.core.port.AnalysisRequest
+import cz.matee.appreviewzz.core.port.CustomTopic
 import cz.matee.appreviewzz.core.port.ReplySuggestionRequest
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -59,3 +62,27 @@ internal fun geminiResponse(text: String): String =
     """.trimIndent()
 
 private fun quoted(value: String): String = "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+
+internal fun analysisItem(
+    id: String = "r1",
+    platform: Platform = Platform.ANDROID,
+    stars: Int = 2,
+    title: String? = null,
+    body: String? = "Po updatu to pořád padá.",
+    appVersion: String? = "3.2.0",
+): AnalysisItem = AnalysisItem(id = id, platform = platform, starRating = stars, title = title, body = body, appVersion = appVersion)
+
+internal fun analysisRequest(
+    items: List<AnalysisItem> = listOf(analysisItem()),
+    instructions: String? = null,
+    customTopics: List<CustomTopic> = emptyList(),
+    translateTo: String? = null,
+): AnalysisRequest =
+    AnalysisRequest(
+        appName = "IsleGrow",
+        instructions = instructions,
+        teamLocale = MessageLocale.CS,
+        customTopics = customTopics,
+        items = items,
+        translateTo = translateTo,
+    )

@@ -2,6 +2,7 @@ package cz.matee.appreviewzz.ai
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonObject
 
 /** Podmnožina Gemini `generateContent` API, kterou používáme (v1beta). */
 @Serializable
@@ -27,6 +28,13 @@ internal data class GenerationConfig(
     val temperature: Double,
     val maxOutputTokens: Int,
     val thinkingConfig: ThinkingConfig? = null,
+    /** `application/json` u structured outputu; `null` (běžný text) u návrhů odpovědí. */
+    val responseMimeType: String? = null,
+    /**
+     * JSON schema odpovědi. Není zadarmo jen na oko: díky němu nemá model jak vrátit téma,
+     * které v taxonomii není, takže parsování nemusí hádat, co s neznámou hodnotou.
+     */
+    val responseJsonSchema: JsonObject? = null,
 )
 
 /**
@@ -53,6 +61,30 @@ internal data class Candidate(
 @Serializable
 internal data class PromptFeedback(
     val blockReason: String? = null,
+)
+
+/** Odpověď rozboru: model vrací jeden objekt na recenzi, každý se svým `id`. */
+@Serializable
+internal data class AnalysisPayload(
+    val items: List<AnalysisItemPayload> = emptyList(),
+)
+
+@Serializable
+internal data class AnalysisItemPayload(
+    val id: String,
+    val sentiment: String,
+    val type: String,
+    val urgency: String,
+    val language: String? = null,
+    val translation: String? = null,
+    val topics: List<AnalysisTopicPayload> = emptyList(),
+)
+
+@Serializable
+internal data class AnalysisTopicPayload(
+    val key: String,
+    val sentiment: String,
+    val quote: String? = null,
 )
 
 @Serializable
