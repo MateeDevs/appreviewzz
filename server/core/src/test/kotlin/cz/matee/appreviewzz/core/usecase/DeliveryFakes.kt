@@ -109,6 +109,12 @@ internal class FakeReviewRepository(
 
     fun put(review: Review): Review = review.also { reviews += it }
 
+    /** Autor recenzi přepsal: stejné ID, jiný otisk obsahu. */
+    fun replace(review: Review): Review {
+        reviews.removeAll { it.id == review.id }
+        return put(review)
+    }
+
     override fun findById(
         orgId: OrganizationId,
         id: ReviewId,
