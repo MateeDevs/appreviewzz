@@ -5,6 +5,7 @@ import cz.matee.appreviewzz.core.model.MessageLocale
 import cz.matee.appreviewzz.core.model.OrgRole
 import cz.matee.appreviewzz.core.model.Platform
 import cz.matee.appreviewzz.core.port.AppListingSource
+import cz.matee.appreviewzz.core.port.ReportingBucketStatus
 import cz.matee.appreviewzz.core.port.StoreConnectorException
 import cz.matee.appreviewzz.core.usecase.AppDraft
 import cz.matee.appreviewzz.core.usecase.AppInputs
@@ -220,8 +221,40 @@ fun Route.appRoutes(console: ConsoleWiring) {
             io { apps.delete(context.organization, context.actor, call.appIdParam()) }
             call.respond(HttpStatusCode.NoContent)
         }
+
+        /**
+         * Zkouška reportingového bucketu. Neprošlá zkouška **není chyba requestu**: klient má
+         * dostat větu o tom, co v Cloud Storage chybí, ne pětistovku — proto vždy 200 a stav
+         * ve výsledku. Nic se tu neukládá, bucket se nastavuje `PATCH`em jako každé jiné pole.
+         */
+        post("/{app}/reporting-bucket/check") {
+            val context = call.orgContext(console.organizations, console.memberships)
+            val request = call.receive<CheckReportingBucketRequest>()
+            val outcome =
+                console.credentials.checkReportingBucket(
+                    organization = context.organization,
+                    actor = context.actor,
+                    appId = call.appIdParam(),
+                    bucket = request.bucket,
+                )
+            call.respond(ReportingBucketCheckResponse(outcome.status, outcome.worthSaving, outcome.message))
+        }
     }
 }
+
+/** Bucket k ověření tak, jak ho klient zkopíroval — `gs://` prefix i bez něj. */
+@Serializable
+data class CheckReportingBucketRequest(
+    val bucket: String,
+)
+
+@Serializable
+data class ReportingBucketCheckResponse(
+    val status: ReportingBucketStatus,
+    /** Hodnotu má smysl uložit i tehdy, když export ještě nevznikl. */
+    val worthSaving: Boolean,
+    val message: String,
+)
 
 private fun App.toResponse(
     effectiveInterval: Int,

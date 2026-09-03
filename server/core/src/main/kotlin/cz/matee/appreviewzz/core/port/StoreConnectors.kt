@@ -93,6 +93,55 @@ data class RatingsContext(
 )
 
 /**
+ * Jak dopadl pokus sáhnout do reportingového bucketu. Není to `valid/invalid`, protože
+ * „do bucketu vidíme, ale export tam není" je jiná situace než „nemáme oprávnění" — klient
+ * podle toho dělá jiný krok a u prvního má smysl hodnotu i tak uložit.
+ */
+enum class ReportingBucketStatus {
+    /** Export hodnocení pro tuhle appku v bucketu leží a čteme ho. */
+    OK,
+
+    /** Do bucketu se dostaneme, ale hledaný export v něm není. */
+    NO_EXPORT,
+
+    /** Bucket existuje, ale náš účet k němu nemá práva (nebo se ještě nepropsala). */
+    DENIED,
+
+    /** Takový bucket není — typicky překlep nebo useknuté URI. */
+    MISSING,
+
+    /** Cloud Storage teď neodpovídá. O nastavení to neříká nic. */
+    UNAVAILABLE,
+}
+
+/** Výsledek ověření bucketu i s větou pro klienta. Zpráva jde do console tak, jak je. */
+data class ReportingBucketCheck(
+    val status: ReportingBucketStatus,
+    val message: String,
+) {
+    /** Nastavení dává smysl uložit i u [ReportingBucketStatus.NO_EXPORT] — export může přibýt. */
+    val worthSaving: Boolean get() = status == ReportingBucketStatus.OK || status == ReportingBucketStatus.NO_EXPORT
+}
+
+/**
+ * Ověření reportingového bucketu ještě u dialogu, ne až prvním nočním během.
+ *
+ * Bucket klient opisuje z cizí konzole a k datům se kromě správného jména musí dostat i **náš**
+ * service account — na to Play Console právy nedosáhne, roli na bucketu přidává člověk zvlášť.
+ * To jsou dvě věci na dvou místech, takže je to nejčastější místo, kde onboarding tiše skončí
+ * u scrapu, aniž by o tom kdokoli věděl.
+ */
+interface ReportingBucketProbe {
+    val platform: Platform
+
+    suspend fun checkAccess(
+        bucket: String,
+        appIdentifier: String,
+        credential: SecretPayload,
+    ): ReportingBucketCheck
+}
+
+/**
  * Veřejný listing appky ve storu — to málo, co jde zjistit bez klíče, když si klient
  * v consoli přidává aplikaci: **jak se jmenuje**.
  *

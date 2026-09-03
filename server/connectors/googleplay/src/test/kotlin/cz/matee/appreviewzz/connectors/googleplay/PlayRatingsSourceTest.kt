@@ -4,6 +4,7 @@ import cz.matee.appreviewzz.core.model.ObservedRatings
 import cz.matee.appreviewzz.core.model.Platform
 import cz.matee.appreviewzz.core.model.RatingSource
 import cz.matee.appreviewzz.core.port.RatingsContext
+import cz.matee.appreviewzz.core.port.ReportingBucketStatus
 import cz.matee.appreviewzz.core.port.StoreConnectorException
 import cz.matee.appreviewzz.core.port.StoreErrorKind
 import io.kotest.assertions.throwables.shouldThrow
@@ -137,6 +138,92 @@ class PlayRatingsSourceTest :
                     .fetchRatings(context(bucket = "gs://$BUCKET/"))
                     .single()
                     .average!! shouldBe (4.3210 plusOrMinus 0.0001)
+            }
+        }
+
+        context("zkouška bucketu při onboardingu") {
+            suspend fun probe(engine: RecordingEngine) =
+                PlayReportingRatingsSource(engine.client(), clock = fixedClock)
+                    .checkAccess(BUCKET, PACKAGE, TestServiceAccount.payload())
+
+            test("export pro appku v bucketu leží — hotovo") {
+                val engine =
+                    RecordingEngine { request ->
+                        if (request.url.encodedPath.endsWith("/o")) respond(fixture("gcs-listing.json"), headers = jsonHeaders) else null
+                    }
+
+                val outcome = probe(engine)
+
+                outcome.status shouldBe ReportingBucketStatus.OK
+                outcome.worthSaving shouldBe true
+                // Ptáme se rovnou na prefix téhle appky; obecný výpis stojí druhé volání navíc.
+                engine.requests.mapNotNull { it.url.parameters["prefix"] } shouldBe listOf("stats/ratings/ratings_${PACKAGE}_")
+            }
+
+            test("cizí bucket pozná podle toho, že exporty tam jsou, ale ne pro tuhle appku") {
+                val engine =
+                    RecordingEngine { request ->
+                        when (request.url.parameters["prefix"]) {
+                            "stats/ratings/ratings_${PACKAGE}_" -> respond(fixture("gcs-listing-empty.json"), headers = jsonHeaders)
+                            "stats/ratings/" -> respond(fixture("gcs-listing.json"), headers = jsonHeaders)
+                            else -> null
+                        }
+                    }
+
+                val outcome = probe(engine)
+
+                outcome.status shouldBe ReportingBucketStatus.NO_EXPORT
+                // Hodnotu má smysl uložit i tak: export může přibýt, tohle je varování, ne stopka.
+                outcome.worthSaving shouldBe true
+                outcome.message shouldContain "jinému vývojářskému účtu"
+            }
+
+            test("prázdný bucket mluví o čekání na export, ne o cizím účtu") {
+                val engine =
+                    RecordingEngine { request ->
+                        if (request.url.encodedPath.endsWith("/o")) {
+                            respond(fixture("gcs-listing-empty.json"), headers = jsonHeaders)
+                        } else {
+                            null
+                        }
+                    }
+
+                val outcome = probe(engine)
+
+                outcome.status shouldBe ReportingBucketStatus.NO_EXPORT
+                outcome.message shouldContain "jednou denně"
+            }
+
+            test("chybějící role řekne, kterému účtu ji přidat") {
+                val engine =
+                    RecordingEngine { request ->
+                        if (request.url.encodedPath.endsWith("/o")) respondError(HttpStatusCode.Forbidden) else null
+                    }
+
+                val outcome = probe(engine)
+
+                outcome.status shouldBe ReportingBucketStatus.DENIED
+                outcome.worthSaving shouldBe false
+                outcome.message shouldContain "Storage Object Viewer"
+                outcome.message shouldContain TestServiceAccount.CLIENT_EMAIL
+            }
+
+            test("neexistující bucket je překlep, ne chybějící právo") {
+                val engine =
+                    RecordingEngine { request ->
+                        if (request.url.encodedPath.endsWith("/o")) respondError(HttpStatusCode.NotFound) else null
+                    }
+
+                probe(engine).status shouldBe ReportingBucketStatus.MISSING
+            }
+
+            test("výpadek Cloud Storage o nastavení nic neříká") {
+                val engine =
+                    RecordingEngine { request ->
+                        if (request.url.encodedPath.endsWith("/o")) respondError(HttpStatusCode.ServiceUnavailable) else null
+                    }
+
+                probe(engine).status shouldBe ReportingBucketStatus.UNAVAILABLE
             }
         }
 

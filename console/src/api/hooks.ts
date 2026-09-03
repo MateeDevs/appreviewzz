@@ -20,6 +20,7 @@ import type {
   PlatformSetting,
   RatingsRunResult,
   RatingsSeries,
+  ReportingBucketCheck,
   Review,
   ReviewDetail,
   ReviewState,
@@ -312,6 +313,22 @@ export function useValidateCredential(org: string) {
         `/api/orgs/${org}/apps/${input.appId}/credentials/${input.credentialId}/validate`,
       ),
     onSuccess: () => client.invalidateQueries({ queryKey: ['credentials', org] }),
+  })
+}
+
+/**
+ * Zkouška reportingového bucketu: dosáhne na něj klíč aplikace?
+ *
+ * Odděleně od uložení schválně — bucket se ukládá `PATCH`em jako každé jiné pole a zkouška
+ * je informace navíc. Neúspěch je normální odpověď, ne chyba: práva v Cloud Storage se
+ * propisují se zpožděním a klient to má vidět jako „zatím ne", ne jako rozbitý formulář.
+ */
+export function useCheckReportingBucket(org: string) {
+  return useMutation({
+    mutationFn: (input: { appId: string; bucket: string }) =>
+      api.post<ReportingBucketCheck>(`/api/orgs/${org}/apps/${input.appId}/reporting-bucket/check`, {
+        bucket: input.bucket,
+      }),
   })
 }
 

@@ -159,6 +159,16 @@ export interface ChannelCheck {
   hint?: string | null
 }
 
+/** Jak dopadla zkouška reportingového bucketu. Zrcadlí `ReportingBucketStatus` na serveru. */
+export type ReportingBucketStatus = 'OK' | 'NO_EXPORT' | 'DENIED' | 'MISSING' | 'UNAVAILABLE'
+
+export interface ReportingBucketCheck {
+  status: ReportingBucketStatus
+  /** Uložit hodnotu má smysl i tehdy, když export v bucketu zatím není. */
+  worthSaving: boolean
+  message: string
+}
+
 export interface SlackConnection {
   credentialId: string
   workspace: string

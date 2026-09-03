@@ -4,6 +4,7 @@ import {
   useAddCredential,
   useApps,
   useAttachCredential,
+  useCheckReportingBucket,
   useCreateApp,
   useProvisionGooglePlay,
   useResolveStoreLinks,
@@ -11,7 +12,7 @@ import {
   useUpdateApp,
   useValidateCredential,
 } from '../api/hooks'
-import type { App, Credential, Platform, StoreApp } from '../api/types'
+import type { App, Credential, Platform, ReportingBucketCheck, StoreApp } from '../api/types'
 import { Badge, ErrorBox, Field, Loading, Modal } from './ui'
 import { IconReviews, IconStar } from './icons'
 import { appStoreCopy, googlePlayCopy, isIssuerId, keyIdFromFileName } from './connectStoreCopy'
@@ -372,14 +373,40 @@ function GooglePlayCheck({
 /**
  * Bucket s exportem hodnocení — samostatný krok, ne rozklikávací „nepovinné" v kontrole.
  *
- * Klient si o hodnocení řekl na začátku, takže tady už jen dokončuje, do čeho šel. Prázdné
- * pole se neukládá — kdo si export v Play Console teprve vygeneruje, odejde přes „Doplním
- * později" a adresu dopíše v detailu aplikace.
+ * Adresa se **zkouší, ne jen ukládá**: bucket je jediné nastavení, u kterého ani správně
+ * opsaná hodnota nestačí — roli Storage Object Viewer přidává člověk v Cloud Storage a Play
+ * Console na ni nedosáhne. Bez zkoušky by se to poznalo až tím, že hvězdičky tiše jedou
+ * z veřejného výpisu místo z oficiálního exportu.
+ *
+ * Prázdné pole se neukládá — kdo si export v Play Console teprve vygeneruje, odejde přes
+ * „Doplním později" a adresu dopíše v detailu aplikace.
  */
 function GooglePlayReporting({ org, app, onClose }: { org: string; app: App; onClose: () => void }) {
   const update = useUpdateApp(org)
+  const check = useCheckReportingBucket(org)
   const [value, setValue] = useState(app.gpReportingBucket ?? '')
-  const invalid = value.trim() !== '' && !value.trim().startsWith('gs://')
+  const [outcome, setOutcome] = useState<ReportingBucketCheck | null>(null)
+  const [saved, setSaved] = useState(false)
+  const bucket = value.trim()
+  const invalid = bucket !== '' && !bucket.startsWith('gs://')
+  const busy = check.isPending || update.isPending
+
+  const save = async () => {
+    await update.mutateAsync({ id: app.id, body: { gpReportingBucket: bucket } })
+    setSaved(true)
+  }
+
+  const checkAndSave = async () => {
+    setSaved(false)
+    const result = await check.mutateAsync({ appId: app.id, bucket })
+    setOutcome(result)
+    // Uložit se dá i to, co zkouškou neprošlo — ale ne za zády klienta: tady se ukládá jen
+    // adresa, ke které se dostaneme, o zbytku rozhodne „Uložit i tak".
+    if (!result.worthSaving) return
+    await save()
+    // Když export sedí, není co dořešit a dialog nemá důvod držet klienta u sebe.
+    if (result.status === 'OK') onClose()
+  }
 
   return (
     <div className="stack">
@@ -392,29 +419,56 @@ function GooglePlayReporting({ org, app, onClose }: { org: string; app: App; onC
       <Field label={googlePlayCopy.reporting.fieldLabel} hint={googlePlayCopy.reporting.fieldHint}>
         <input
           value={value}
-          onChange={(event) => setValue(event.target.value)}
+          onChange={(event) => {
+            setValue(event.target.value)
+            setOutcome(null)
+          }}
           placeholder="gs://pubsite_prod_rev_01234567890123456789"
         />
       </Field>
       {invalid ? <div className="error">{googlePlayCopy.reporting.invalid}</div> : null}
       <p className="small muted">{googlePlayCopy.reporting.note}</p>
-      <ErrorBox error={update.error} />
+
+      {check.isPending ? <Loading what={googlePlayCopy.reporting.checking} /> : null}
+      {/* Hlášku vypisujeme doslova ze serveru: rozdíl mezi „nemáme práva" a „export tu není"
+          je přesně ten, podle kterého klient pozná, kam v Google Cloudu jít. */}
+      {outcome && !check.isPending ? (
+        <div className="notice">
+          <Badge tone={outcome.status === 'OK' ? 'ok' : outcome.worthSaving ? 'warn' : 'bad'}>
+            {outcome.status === 'OK' ? 'funguje' : outcome.worthSaving ? 'zatím bez dat' : 'nedosáhli jsme'}
+          </Badge>{' '}
+          {outcome.message}
+          {saved ? <p className="small muted">{googlePlayCopy.reporting.saved}</p> : null}
+        </div>
+      ) : null}
+
+      <ErrorBox error={update.error ?? check.error} />
 
       <div className="row">
-        <button
-          type="button"
-          disabled={invalid || value.trim() === '' || update.isPending}
-          onClick={() =>
-            update.mutate(
-              { id: app.id, body: { gpReportingBucket: value.trim() } },
-              { onSuccess: onClose },
-            )
-          }
-        >
-          Uložit a dokončit
-        </button>
+        {outcome && !outcome.worthSaving ? (
+          <>
+            <button type="button" disabled={busy} onClick={() => void checkAndSave()}>
+              {googlePlayCopy.reporting.retry}
+            </button>
+            {/* Překlep v názvu ukládat nemá smysl; chybějící právo ano — to se doplní za minutu. */}
+            {outcome.status !== 'MISSING' ? (
+              <button
+                type="button"
+                className="secondary"
+                disabled={busy}
+                onClick={() => void save().then(onClose)}
+              >
+                {googlePlayCopy.reporting.saveAnyway}
+              </button>
+            ) : null}
+          </>
+        ) : (
+          <button type="button" disabled={invalid || bucket === '' || busy} onClick={() => void checkAndSave()}>
+            Uložit a dokončit
+          </button>
+        )}
         <button type="button" className="secondary" onClick={onClose}>
-          Doplním později
+          {saved ? 'Zavřít' : 'Doplním později'}
         </button>
       </div>
       <p className="small muted">{googlePlayCopy.reporting.later}</p>

@@ -19,6 +19,9 @@ import cz.matee.appreviewzz.core.port.AuditLogRepository
 import cz.matee.appreviewzz.core.port.ChannelRepository
 import cz.matee.appreviewzz.core.port.CredentialRepository
 import cz.matee.appreviewzz.core.port.CredentialStore
+import cz.matee.appreviewzz.core.port.ReportingBucketCheck
+import cz.matee.appreviewzz.core.port.ReportingBucketProbe
+import cz.matee.appreviewzz.core.port.ReportingBucketStatus
 import cz.matee.appreviewzz.core.port.ReviewSource
 import cz.matee.appreviewzz.core.port.StoreApp
 import cz.matee.appreviewzz.core.port.StoreAppCatalog
@@ -54,6 +57,8 @@ class CredentialService(
     private val audit: AuditLogRepository,
     /** Storů, které umí vypsat aplikace účtu, je zatím jediný — App Store Connect. */
     private val catalogs: List<StoreAppCatalog> = emptyList(),
+    /** Reportingový bucket má zatím jediný store — Google Play. */
+    private val bucketProbes: List<ReportingBucketProbe> = emptyList(),
     private val clock: Clock = Clock.System,
 ) {
     fun list(
@@ -292,6 +297,58 @@ class CredentialService(
             throw ConsoleException(ConsoleFailure.INVALID_INPUT, error.message ?: "Store seznam aplikací nevrátil")
         }
     }
+
+    /**
+     * Sáhne klíčem aplikace do reportingového bucketu — jinými slovy odpoví na otázku, kterou
+     * si klient u dialogu klade sám: „stačí tohle, aby chodily oficiální hvězdičky?"
+     *
+     * Bucket je jediné nastavení, které samo o sobě nic neznamená: práva k němu se udělují
+     * v Cloud Storage, ne v Play Console, takže i po správně vyřízené pozvánce může zůstat
+     * zavřený. Bez tohohle by se to poznalo až tím, že hodnocení tiše jedou ze scrapu.
+     *
+     * Selhání konektoru je výsledek, ne chyba requestu — stejně jako u [validate].
+     */
+    suspend fun checkReportingBucket(
+        organization: Organization,
+        actor: OrgActor,
+        appId: AppId,
+        bucket: String,
+    ): ReportingBucketCheck {
+        requireRole(actor, OrgRole.ADMIN)
+        val app = app(organization.id, appId)
+        val platform = Platform.ANDROID
+        val name = AppInputs.reportingBucket(bucket, "gpReportingBucket")
+        val identifier =
+            app.storeIdentifier(platform)
+                ?: throw ConsoleException(ConsoleFailure.INVALID_INPUT, "Aplikace ${app.name} nemá package name v Google Play")
+        val probe =
+            bucketProbes.firstOrNull { it.platform == platform }
+                ?: throw ConsoleException(ConsoleFailure.INVALID_INPUT, "Pro $platform není zaregistrovaný konektor")
+        // Ratings klíč je ten, kterým bude bucket číst job; když appka žádný nemá, čte se
+        // recenzní — přesně tak, jak to dělá denní přehled.
+        val credential =
+            credentialFor(app.orgId, appId, CredentialPurpose.RATINGS)
+                ?: credentialFor(app.orgId, appId, CredentialPurpose.REVIEWS)
+                ?: throw ConsoleException(
+                    ConsoleFailure.INVALID_INPUT,
+                    "Aplikace ${app.name} nemá připojený klíč ke Google Play, takže není čím do bucketu sáhnout",
+                )
+
+        val outcome =
+            try {
+                probe.checkAccess(name, identifier, vault.load(organization.id, credential))
+            } catch (error: StoreConnectorException) {
+                ReportingBucketCheck(ReportingBucketStatus.UNAVAILABLE, error.message ?: "Cloud Storage neodpovědělo")
+            }
+        logger.info { "Bucket $name pro appku $appId: ${outcome.status}" }
+        return outcome
+    }
+
+    private fun credentialFor(
+        orgId: OrganizationId,
+        appId: AppId,
+        purpose: CredentialPurpose,
+    ): CredentialId? = credentials.findForApp(orgId, appId, purpose, CredentialType.GP_SERVICE_ACCOUNT)?.id
 
     private fun app(
         orgId: OrganizationId,

@@ -5,11 +5,14 @@ import cz.matee.appreviewzz.app.cli.TestDatabase
 import cz.matee.appreviewzz.connectors.googleplay.GcpIamProvisioner
 import cz.matee.appreviewzz.connectors.googleplay.googleHttpClient
 import cz.matee.appreviewzz.core.model.Platform
+import cz.matee.appreviewzz.core.port.ReportingBucketCheck
+import cz.matee.appreviewzz.core.port.ReportingBucketStatus
 import cz.matee.appreviewzz.core.port.StoreApp
 import cz.matee.appreviewzz.core.port.StoreConnectorException
 import cz.matee.appreviewzz.core.port.StoreErrorKind
 import cz.matee.appreviewzz.core.port.ValidationOutcome
 import io.kotest.core.spec.style.StringSpec
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.collections.shouldNotContain
@@ -256,6 +259,64 @@ class CredentialRoutesTest :
                 rotated.bodyAsText() shouldContain "novy@isle-grow"
                 // Ověření platilo pro jiný obsah, takže se zahazuje.
                 rotated.bodyAsText() shouldContain "\"validationStatus\":\"UNKNOWN\""
+            }
+        }
+
+        "zkouška bucketu sáhne do Cloud Storage klíčem té appky" {
+            testApplication {
+                consoleModule(mailer, fakes = fakes)
+                val (owner, appId) = ownerWithApp(mailer)
+                val credentialId = owner.addGooglePlayKey().bodyAsText().jsonValue("id")
+                owner.postJson("/api/orgs/$SLUG/apps/$appId/credentials", """{"credentialId":"$credentialId"}""")
+
+                val response =
+                    owner.postJson(
+                        "/api/orgs/$SLUG/apps/$appId/reporting-bucket/check",
+                        """{"bucket":"gs://pubsite_prod_rev_01234567890123456789/"}""",
+                    )
+
+                response.status shouldBe HttpStatusCode.OK
+                response.bodyAsText() shouldContain "\"status\":\"OK\""
+                // Konektor dostal holé jméno bucketu a package name appky — `gs://` řeší doména.
+                fakes.bucketProbe.asked.single() shouldBe ("pubsite_prod_rev_01234567890123456789" to "cz.matee.test")
+            }
+        }
+
+        "bucket, ke kterému nemáme práva, není chyba požadavku" {
+            testApplication {
+                consoleModule(mailer, fakes = fakes)
+                val (owner, appId) = ownerWithApp(mailer)
+                val credentialId = owner.addGooglePlayKey().bodyAsText().jsonValue("id")
+                owner.postJson("/api/orgs/$SLUG/apps/$appId/credentials", """{"credentialId":"$credentialId"}""")
+                fakes.bucketProbe.outcome =
+                    ReportingBucketCheck(ReportingBucketStatus.DENIED, "Účet zatím nemá roli Storage Object Viewer")
+
+                val response =
+                    owner.postJson(
+                        "/api/orgs/$SLUG/apps/$appId/reporting-bucket/check",
+                        """{"bucket":"pubsite_prod_rev_01234567890123456789"}""",
+                    )
+
+                // Klient má číst větu o chybějící roli, ne pětistovku — proto 200 a stav uvnitř.
+                response.status shouldBe HttpStatusCode.OK
+                response.bodyAsText() shouldContain "\"worthSaving\":false"
+                response.bodyAsText() shouldContain "Storage Object Viewer"
+            }
+        }
+
+        "bez připojeného klíče není čím do bucketu sáhnout" {
+            testApplication {
+                consoleModule(mailer, fakes = fakes)
+                val (owner, appId) = ownerWithApp(mailer)
+
+                val response =
+                    owner.postJson(
+                        "/api/orgs/$SLUG/apps/$appId/reporting-bucket/check",
+                        """{"bucket":"pubsite_prod_rev_01234567890123456789"}""",
+                    )
+
+                response.status shouldBe HttpStatusCode.BadRequest
+                fakes.bucketProbe.asked.shouldBeEmpty()
             }
         }
 

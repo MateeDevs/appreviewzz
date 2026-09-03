@@ -5,6 +5,7 @@ import {
   useApps,
   useAttachCredential,
   useChannels,
+  useCheckReportingBucket,
   useConnectSlack,
   useCreateApp,
   useCreateChannel,
@@ -27,6 +28,7 @@ import type {
   Credential,
   Platform,
   RatingsSeries,
+  ReportingBucketCheck,
   ResolvedStore,
   StoreResolution,
 } from '../api/types'
@@ -417,6 +419,46 @@ export function AppDetailPage() {
   )
 }
 
+/**
+ * Zkouška bucketu mimo průvodce: dosáhne na něj klíč aplikace?
+ *
+ * Uložením se nic neověří — práva k bucketu se udělují v Cloud Storage, ne v Play Console,
+ * takže tady se dá odpověď dostat hned místo čekání, jestli ráno dorazí oficiální hvězdičky.
+ * Ukládá se dál formulářem; tohle je jen dotaz.
+ */
+function ReportingBucketProbe({ org, appId, bucket }: { org: string; appId: string; bucket: string }) {
+  const check = useCheckReportingBucket(org)
+  const [outcome, setOutcome] = useState<ReportingBucketCheck | null>(null)
+  const value = bucket.trim()
+
+  return (
+    <div className="stack">
+      <div className="row">
+        <button
+          type="button"
+          className="secondary"
+          disabled={value === '' || check.isPending}
+          onClick={() => {
+            setOutcome(null)
+            check.mutate({ appId, bucket: value }, { onSuccess: setOutcome })
+          }}
+        >
+          {check.isPending ? 'Zkoušíme…' : 'Vyzkoušet bucket'}
+        </button>
+      </div>
+      {outcome ? (
+        <div className="notice">
+          <Badge tone={outcome.status === 'OK' ? 'ok' : outcome.worthSaving ? 'warn' : 'bad'}>
+            {outcome.status === 'OK' ? 'funguje' : outcome.worthSaving ? 'zatím bez dat' : 'nedosáhli jsme'}
+          </Badge>{' '}
+          {outcome.message}
+        </div>
+      ) : null}
+      <ErrorBox error={check.error} />
+    </div>
+  )
+}
+
 function AppSettingsCard({ org, appId }: { org: string; appId: string }) {
   const apps = useApps(org)
   const update = useUpdateApp(org)
@@ -471,6 +513,7 @@ function AppSettingsCard({ org, appId }: { org: string; appId: string }) {
             />
           </Field>
         ) : null}
+        {app.gpPackageName ? <ReportingBucketProbe org={org} appId={appId} bucket={values.gpReportingBucket ?? ''} /> : null}
         <Field label="Jazyk zpráv">
           <select value={values.locale} onChange={(e) => set('locale', e.target.value)}>
             <option value="cs">čeština</option>

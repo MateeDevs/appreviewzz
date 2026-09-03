@@ -36,6 +36,7 @@ import cz.matee.appreviewzz.core.port.NotificationChannel
 import cz.matee.appreviewzz.core.port.PasswordHasher
 import cz.matee.appreviewzz.core.port.RatingsSource
 import cz.matee.appreviewzz.core.port.ReplyTarget
+import cz.matee.appreviewzz.core.port.ReportingBucketProbe
 import cz.matee.appreviewzz.core.port.ReviewRefreshSource
 import cz.matee.appreviewzz.core.port.ReviewSource
 import cz.matee.appreviewzz.core.port.SuggestReplyProvider
@@ -563,6 +564,7 @@ class Components(
             audit = audit,
             // Výpis aplikací účtu umí jen App Store Connect; Play takový endpoint nemá.
             catalogs = listOf(appStore),
+            bucketProbes = ratingsSources.filterIsInstance<ReportingBucketProbe>(),
         )
     }
 

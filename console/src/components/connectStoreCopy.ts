@@ -108,6 +108,11 @@ export const googlePlayCopy = {
       'U bucketu ještě přidej našemu účtu roli Storage Object Viewer — oprávnění z Play ' +
       'Console na Cloud Storage nedosáhnou.',
     invalid: 'Čekáme adresu, která začíná gs://.',
+    checking: 'Zkoušíme, jestli na bucket dosáhneme…',
+    /** Uložit adresu, na kterou účet zatím nedosáhne, je legitimní: práva se dají doplnit potom. */
+    saveAnyway: 'Uložit i tak',
+    retry: 'Zkusit znovu',
+    saved: 'Adresu jsme uložili. Hodnocení se rozjedou, jakmile bude export dostupný.',
     later: 'Doplnit to jde i později v detailu aplikace.',
   },
 } as const

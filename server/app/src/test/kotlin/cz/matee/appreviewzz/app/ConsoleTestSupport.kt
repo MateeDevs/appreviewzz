@@ -16,6 +16,9 @@ import cz.matee.appreviewzz.core.port.NotificationChannel
 import cz.matee.appreviewzz.core.port.OutgoingMail
 import cz.matee.appreviewzz.core.port.PostedMessage
 import cz.matee.appreviewzz.core.port.ReplyRendering
+import cz.matee.appreviewzz.core.port.ReportingBucketCheck
+import cz.matee.appreviewzz.core.port.ReportingBucketProbe
+import cz.matee.appreviewzz.core.port.ReportingBucketStatus
 import cz.matee.appreviewzz.core.port.ReviewSource
 import cz.matee.appreviewzz.core.port.StoreApp
 import cz.matee.appreviewzz.core.port.StoreAppCatalog
@@ -141,6 +144,23 @@ class FakeStoreAppCatalog(
     }
 }
 
+/** Sonda do reportingového bucketu. Test si nastaví, co Cloud Storage „odpoví". */
+class FakeReportingBucketProbe(
+    override val platform: Platform = Platform.ANDROID,
+) : ReportingBucketProbe {
+    var outcome: ReportingBucketCheck = ReportingBucketCheck(ReportingBucketStatus.OK, "Export vidíme.")
+    val asked = mutableListOf<Pair<String, String>>()
+
+    override suspend fun checkAccess(
+        bucket: String,
+        appIdentifier: String,
+        credential: SecretPayload,
+    ): ReportingBucketCheck {
+        asked += bucket to appIdentifier
+        return outcome
+    }
+}
+
 class FakeNotificationChannel(
     override val type: ChannelType = ChannelType.SLACK,
 ) : NotificationChannel {
@@ -190,6 +210,7 @@ class ConsoleFakes(
     val appStore: FakeReviewSource,
     val slack: FakeNotificationChannel,
     val appStoreCatalog: FakeStoreAppCatalog = FakeStoreAppCatalog(),
+    val bucketProbe: FakeReportingBucketProbe = FakeReportingBucketProbe(),
 )
 
 /** Fronta odpovědí bez plánovače: test si přečte, co by se publikovalo. */
@@ -289,6 +310,7 @@ fun ApplicationTestBuilder.consoleModule(
             sources = listOf(fakes.googlePlay, fakes.appStore),
             audit = audit,
             catalogs = listOf(fakes.appStoreCatalog),
+            bucketProbes = listOf(fakes.bucketProbe),
         )
     val reviewInbox =
         ReviewInbox(

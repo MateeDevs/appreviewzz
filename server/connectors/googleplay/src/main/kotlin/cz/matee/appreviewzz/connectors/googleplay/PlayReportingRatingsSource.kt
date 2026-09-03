@@ -3,8 +3,12 @@ package cz.matee.appreviewzz.connectors.googleplay
 import cz.matee.appreviewzz.core.model.ObservedRatings
 import cz.matee.appreviewzz.core.model.Platform
 import cz.matee.appreviewzz.core.model.RatingSource
+import cz.matee.appreviewzz.core.model.SecretPayload
 import cz.matee.appreviewzz.core.port.RatingsContext
 import cz.matee.appreviewzz.core.port.RatingsSource
+import cz.matee.appreviewzz.core.port.ReportingBucketCheck
+import cz.matee.appreviewzz.core.port.ReportingBucketProbe
+import cz.matee.appreviewzz.core.port.ReportingBucketStatus
 import cz.matee.appreviewzz.core.port.StoreConnectorException
 import cz.matee.appreviewzz.core.port.StoreErrorKind
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -56,18 +60,14 @@ class PlayReportingRatingsSource(
     private val oauth: GoogleOAuth = GoogleOAuth(httpClient),
     private val clock: Clock = Clock.System,
     private val baseUrl: String = GCS_BASE_URL,
-) : RatingsSource {
+) : RatingsSource,
+    ReportingBucketProbe {
     override val platform: Platform = Platform.ANDROID
 
     override val priority: Int = OFFICIAL_PRIORITY
 
     override suspend fun fetchRatings(context: RatingsContext): List<ObservedRatings> {
-        val bucket =
-            context.reportingBucket
-                ?.trim()
-                ?.trimEnd('/')
-                ?.removePrefix("gs://")
-                ?.takeIf { it.isNotEmpty() }
+        val bucket = normalizeBucket(context.reportingBucket)
         val credential = context.credential
         if (bucket == null || credential == null) {
             logger.debug { "Play reporting pro ${context.appIdentifier} přeskočen: chybí bucket nebo klíč" }
@@ -102,6 +102,72 @@ class PlayReportingRatingsSource(
     }
 
     /**
+     * Ověření bucketu při onboardingu: dosáhne náš účet na export hodnocení téhle appky?
+     *
+     * Ptáme se na dva prefixy, protože „prázdný výpis" má dvě různé příčiny a klient s nimi
+     * dělá něco jiného: **bucket jiného účtu** (exporty tam jsou, jen ne pro tuhle appku)
+     * versus **appka bez hodnocení nebo čerstvý export** (v bucketu není nic). Jedním výpisem
+     * by z obojího vyšla tatáž nicneříkající věta.
+     */
+    override suspend fun checkAccess(
+        bucket: String,
+        appIdentifier: String,
+        credential: SecretPayload,
+    ): ReportingBucketCheck {
+        val name =
+            normalizeBucket(bucket)
+                ?: return ReportingBucketCheck(ReportingBucketStatus.MISSING, "Adresa bucketu je prázdná.")
+        val account = GoogleServiceAccount.parse(credential)
+
+        return try {
+            val token = oauth.accessToken(account, STORAGE_SCOPE)
+            val forApp = listObjects(name, "stats/ratings/ratings_${appIdentifier}_", token)
+            if (forApp.isNotEmpty()) {
+                return ReportingBucketCheck(
+                    ReportingBucketStatus.OK,
+                    "Export hodnocení pro $appIdentifier v bucketu vidíme — oficiální hvězdičky budou chodit.",
+                )
+            }
+
+            val anything = listObjects(name, "stats/ratings/", token)
+            if (anything.isNotEmpty()) {
+                ReportingBucketCheck(
+                    ReportingBucketStatus.NO_EXPORT,
+                    "Do bucketu se dostaneme, ale export pro $appIdentifier v něm není. " +
+                        "Nejspíš patří jinému vývojářskému účtu, než pod kterým je aplikace vydaná.",
+                )
+            } else {
+                ReportingBucketCheck(
+                    ReportingBucketStatus.NO_EXPORT,
+                    "Do bucketu se dostaneme, ale žádný export hodnocení v něm zatím není. " +
+                        "Play Console ho doplňuje jednou denně a u aplikace bez hodnocení nevznikne vůbec.",
+                )
+            }
+        } catch (error: StoreConnectorException) {
+            val status =
+                when (error.kind) {
+                    StoreErrorKind.AUTH -> ReportingBucketStatus.DENIED
+                    StoreErrorKind.NOT_FOUND -> ReportingBucketStatus.MISSING
+                    else -> ReportingBucketStatus.UNAVAILABLE
+                }
+            val detail =
+                when (status) {
+                    // K bucketu se práva z Play Console nepropíšou: roli tam přidává člověk
+                    // zvlášť a chvíli trvá, než ji Cloud Storage vidí.
+                    ReportingBucketStatus.DENIED ->
+                        "Účet ${account.clientEmail} k bucketu $name zatím nemá přístup — přidej mu roli " +
+                            "Storage Object Viewer. Po přidání se právo propisuje pár minut."
+
+                    ReportingBucketStatus.MISSING ->
+                        "Bucket $name neexistuje — zkontroluj, že je adresa zkopírovaná celá."
+
+                    else -> "Cloud Storage teď neodpovídá, o nastavení to nic neříká: ${error.message}"
+                }
+            ReportingBucketCheck(status, detail)
+        }
+    }
+
+    /**
      * `YYYYMM` aktuálního a předchozího měsíce v UTC. Na zóně tu nezáleží: bereme oba měsíce
      * právě proto, aby na přelomu nebylo co pokazit.
      */
@@ -111,11 +177,20 @@ class PlayReportingRatingsSource(
         return listOf(previous, today.year to today.month.number).map { (year, month) -> "%04d%02d".format(year, month) }
     }
 
-    private suspend fun downloadOverview(
+    /** Jméno bucketu tak, jak ho čekají volání GCS: bez `gs://`, bez koncového lomítka. */
+    private fun normalizeBucket(raw: String?): String? =
+        raw
+            ?.trim()
+            ?.removePrefix("gs://")
+            ?.trimEnd('/')
+            ?.takeIf { it.isNotEmpty() }
+
+    /** Výpis objektů daného prefixu. Prázdný seznam znamená „nic takového tam neleží". */
+    private suspend fun listObjects(
         bucket: String,
         prefix: String,
         token: String,
-    ): List<PlayOverviewRow> {
+    ): List<GcsObject> {
         val listing =
             try {
                 httpClient.get("$baseUrl/storage/v1/b/$bucket/o") {
@@ -127,13 +202,15 @@ class PlayReportingRatingsSource(
                 throw StoreConnectorException(StoreErrorKind.TRANSIENT, "Cloud Storage je nedostupné", error)
             }
         if (!listing.status.isSuccess()) throw listing.status.toConnectorException(bucket)
+        return listing.body<GcsListing>().items
+    }
 
-        val media =
-            listing
-                .body<GcsListing>()
-                .items
-                .firstOrNull()
-                ?.mediaLink ?: return emptyList()
+    private suspend fun downloadOverview(
+        bucket: String,
+        prefix: String,
+        token: String,
+    ): List<PlayOverviewRow> {
+        val media = listObjects(bucket, prefix, token).firstOrNull()?.mediaLink ?: return emptyList()
         val download =
             try {
                 httpClient.get(media) { bearerAuth(token) }
