@@ -21,6 +21,10 @@ object AppInputs {
     const val MIN_INGEST_INTERVAL = PlatformSettings.MIN_ALLOWED_INTERVAL
     const val MAX_INGEST_INTERVAL = PlatformSettings.MAX_ALLOWED_INTERVAL
 
+    /** ISO dny v týdnu; zrcadlí `CHECK` na `app.weekly_digest_day`. */
+    const val MIN_WEEKLY_DAY = 1
+    const val MAX_WEEKLY_DAY = 7
+
     fun locale(
         raw: String,
         field: String,
@@ -48,6 +52,20 @@ object AppInputs {
             invalid(field, "musí být mezi $MIN_INGEST_INTERVAL a $MAX_INGEST_INTERVAL minutami")
         }
         return minutes
+    }
+
+    /**
+     * Den týdenního rozboru jako ISO číslo dne (1 = pondělí). Číslo, ne název dne, protože
+     * stejnou hodnotu bere cron i databáze a překlad na jméno patří až do konzole.
+     */
+    fun weeklyDigestDay(
+        day: Int,
+        field: String,
+    ): Int {
+        if (day !in MIN_WEEKLY_DAY..MAX_WEEKLY_DAY) {
+            invalid(field, "musí být mezi $MIN_WEEKLY_DAY (pondělí) a $MAX_WEEKLY_DAY (neděle)")
+        }
+        return day
     }
 
     fun digestAt(

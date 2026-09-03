@@ -86,6 +86,8 @@ export interface App {
   ingestIntervalMinutes: number
   ingestIntervalSource: 'PLATFORM' | 'APP'
   dailyDigestAt: string
+  /** ISO den v týdnu (1 = pondělí), kdy chodí týdenní rozbor recenzí. */
+  weeklyDigestDay: number
   enabled: boolean
   /** Co appce chybí, aby recenze tekly — počítá server, console to jen ukazuje. */
   setup: AppSetup
@@ -148,6 +150,8 @@ export interface Channel {
   locale: 'CS' | 'EN'
   deliverReviews: boolean
   deliverRatings: boolean
+  /** Týdenní rozbory a alerty na výkyv. */
+  deliverAnalyses: boolean
   enabled: boolean
 }
 

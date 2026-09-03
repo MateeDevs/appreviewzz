@@ -48,6 +48,7 @@ class ExposedAppRepository(
                     aiInstructions = app.aiInstructions,
                     ingestIntervalMinutes = app.ingestIntervalMinutes,
                     dailyDigestAt = app.dailyDigestAt,
+                    weeklyDigestDay = app.weeklyDigestDay,
                     enabled = true,
                     createdAt = clock.now(),
                 )
@@ -64,6 +65,7 @@ class ExposedAppRepository(
                 it[aiInstructions] = created.aiInstructions
                 it[ingestIntervalMinutes] = created.ingestIntervalMinutes
                 it[dailyDigestAt] = created.dailyDigestAt
+                it[weeklyDigestDay] = created.weeklyDigestDay.toShort()
                 it[enabled] = true
                 it[createdAt] = created.createdAt
                 it[updatedAt] = created.createdAt
@@ -143,6 +145,7 @@ class ExposedAppRepository(
                     it[aiInstructions] = settings.aiInstructions
                     it[ingestIntervalMinutes] = settings.ingestIntervalMinutes
                     it[dailyDigestAt] = settings.dailyDigestAt
+                    it[weeklyDigestDay] = settings.weeklyDigestDay.toShort()
                     it[enabled] = settings.enabled
                 }
             if (updated == 0) null else findById(orgId, id)
@@ -184,6 +187,7 @@ class ExposedChannelRepository(
                     locale = channel.locale,
                     deliverReviews = channel.deliverReviews,
                     deliverRatings = channel.deliverRatings,
+                    deliverAnalyses = channel.deliverAnalyses,
                     enabled = true,
                 )
             val now = clock.now()
@@ -198,6 +202,7 @@ class ExposedChannelRepository(
                 it[locale] = created.locale.code
                 it[deliverReviews] = created.deliverReviews
                 it[deliverRatings] = created.deliverRatings
+                it[deliverAnalyses] = created.deliverAnalyses
                 it[enabled] = true
                 it[createdAt] = now
                 it[updatedAt] = now
@@ -236,6 +241,22 @@ class ExposedChannelRepository(
         transaction(database) {
             Channels.update({ (Channels.orgId eq orgId) and (Channels.id eq id) }) {
                 it[Channels.enabled] = enabled
+            } > 0
+        }
+
+    override fun setDeliveries(
+        orgId: OrganizationId,
+        id: ChannelId,
+        deliverReviews: Boolean,
+        deliverRatings: Boolean,
+        deliverAnalyses: Boolean,
+    ): Boolean =
+        transaction(database) {
+            Channels.update({ (Channels.orgId eq orgId) and (Channels.id eq id) }) {
+                it[Channels.deliverReviews] = deliverReviews
+                it[Channels.deliverRatings] = deliverRatings
+                it[Channels.deliverAnalyses] = deliverAnalyses
+                it[updatedAt] = clock.now()
             } > 0
         }
 

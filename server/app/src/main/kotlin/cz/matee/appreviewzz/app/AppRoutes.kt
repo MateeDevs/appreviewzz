@@ -40,6 +40,7 @@ data class CreateAppRequest(
     val aiInstructions: String? = null,
     val ingestIntervalMinutes: Int? = null,
     val dailyDigestAt: String? = null,
+    val weeklyDigestDay: Int? = null,
 )
 
 @Serializable
@@ -53,6 +54,8 @@ data class UpdateAppRequest(
     val aiInstructions: String? = null,
     val ingestIntervalMinutes: Int? = null,
     val dailyDigestAt: String? = null,
+    /** ISO den v týdnu (1 = pondělí), kdy chodí týdenní rozbor recenzí. */
+    val weeklyDigestDay: Int? = null,
     val enabled: Boolean? = null,
 )
 
@@ -101,6 +104,7 @@ data class AppResponse(
     val ingestIntervalMinutes: Int,
     val ingestIntervalSource: IngestIntervalSource,
     val dailyDigestAt: String,
+    val weeklyDigestDay: Int,
     val enabled: Boolean,
     /** Co appce chybí, aby recenze tekly. Console podle toho odliší „sledujeme" od „čeká na nastavení". */
     val setup: AppSetupResponse,
@@ -163,6 +167,7 @@ fun Route.appRoutes(console: ConsoleWiring) {
                                 aiInstructions = request.aiInstructions,
                                 ingestIntervalMinutes = request.ingestIntervalMinutes,
                                 dailyDigestAt = request.dailyDigestAt,
+                                weeklyDigestDay = request.weeklyDigestDay,
                             ),
                     )
                 }
@@ -209,6 +214,7 @@ fun Route.appRoutes(console: ConsoleWiring) {
                                 aiInstructions = request.aiInstructions,
                                 ingestIntervalMinutes = request.ingestIntervalMinutes,
                                 dailyDigestAt = request.dailyDigestAt,
+                                weeklyDigestDay = request.weeklyDigestDay,
                                 enabled = request.enabled,
                             ),
                     )
@@ -274,6 +280,7 @@ private fun App.toResponse(
     ingestIntervalSource =
         if (ingestIntervalMinutes == null) IngestIntervalSource.PLATFORM else IngestIntervalSource.APP,
     dailyDigestAt = dailyDigestAt.toString(),
+    weeklyDigestDay = weeklyDigestDay,
     enabled = enabled,
     setup =
         AppSetupResponse(

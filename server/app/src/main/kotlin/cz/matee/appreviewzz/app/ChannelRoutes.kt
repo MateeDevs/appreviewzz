@@ -43,6 +43,7 @@ data class CreateChannelRequest(
     val locale: String? = null,
     val deliverReviews: Boolean = true,
     val deliverRatings: Boolean = true,
+    val deliverAnalyses: Boolean = true,
 )
 
 @Serializable
@@ -55,12 +56,17 @@ data class ChannelResponse(
     val locale: MessageLocale,
     val deliverReviews: Boolean,
     val deliverRatings: Boolean,
+    val deliverAnalyses: Boolean,
     val enabled: Boolean,
 )
 
+/** Vynechané pole znamená „nech, jak je" — console posílá jen to, co člověk přepnul. */
 @Serializable
 data class UpdateChannelRequest(
-    val enabled: Boolean,
+    val enabled: Boolean? = null,
+    val deliverReviews: Boolean? = null,
+    val deliverRatings: Boolean? = null,
+    val deliverAnalyses: Boolean? = null,
 )
 
 @Serializable
@@ -339,6 +345,7 @@ fun Route.channelRoutes(console: ConsoleWiring) {
                                 locale = request.locale,
                                 deliverReviews = request.deliverReviews,
                                 deliverRatings = request.deliverRatings,
+                                deliverAnalyses = request.deliverAnalyses,
                             ),
                     )
                 }
@@ -348,7 +355,20 @@ fun Route.channelRoutes(console: ConsoleWiring) {
         patch("/{channel}") {
             val context = call.orgContext(console.organizations, console.memberships)
             val request = call.receive<UpdateChannelRequest>()
-            io { channels.setEnabled(context.organization, context.actor, call.channelIdParam(), request.enabled) }
+            val channelId = call.channelIdParam()
+            io {
+                request.enabled?.let { channels.setEnabled(context.organization, context.actor, channelId, it) }
+                if (request.deliverReviews != null || request.deliverRatings != null || request.deliverAnalyses != null) {
+                    channels.setDeliveries(
+                        organization = context.organization,
+                        actor = context.actor,
+                        id = channelId,
+                        deliverReviews = request.deliverReviews,
+                        deliverRatings = request.deliverRatings,
+                        deliverAnalyses = request.deliverAnalyses,
+                    )
+                }
+            }
             call.respond(HttpStatusCode.NoContent)
         }
 
@@ -411,5 +431,6 @@ private fun Channel.toResponse() =
         locale = locale,
         deliverReviews = deliverReviews,
         deliverRatings = deliverRatings,
+        deliverAnalyses = deliverAnalyses,
         enabled = enabled,
     )

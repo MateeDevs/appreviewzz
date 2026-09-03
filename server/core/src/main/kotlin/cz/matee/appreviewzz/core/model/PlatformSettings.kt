@@ -95,7 +95,7 @@ class PlatformSettingException(
 
 object PlatformSettings {
     const val SECTION_INGEST = "Stahování recenzí"
-    const val SECTION_AI = "AI návrhy odpovědí"
+    const val SECTION_AI = "AI návrhy odpovědí a rozbory"
     const val SECTION_LIMITS = "Limity"
     const val SECTION_GOOGLE_PLAY = "Napojení Google Play"
 
@@ -110,6 +110,13 @@ object PlatformSettings {
 
     const val AI_PROVIDER = "ai.provider"
     const val AI_MODEL = "ai.model"
+
+    /**
+     * Model pro rozbory recenzí (F8). Odděleně od [AI_MODEL], protože tagování je jiná úloha:
+     * výstup je strukturovaný JSON podle schématu, takže na něj stačí levnější model —
+     * a při desítkách tisíc recenzí je ten rozdíl v ceně to podstatné.
+     */
+    const val AI_ANALYSIS_MODEL = "ai.analysis_model"
     const val AI_API_KEY = "ai.api_key"
 
     const val MAX_APPS_PER_ORG = "limits.max_apps_per_org"
@@ -166,6 +173,17 @@ object PlatformSettings {
                 label = "Model",
                 help = "Prázdné = výchozí model providera.",
                 envName = "AI_MODEL",
+            ),
+            PlatformSettingDefinition(
+                key = AI_ANALYSIS_MODEL,
+                type = PlatformSettingType.TEXT,
+                section = SECTION_AI,
+                label = "Model pro rozbory recenzí",
+                help =
+                    "Model pro rozbory recenzí; levnější než model návrhů, protože výstup je " +
+                        "strukturovaný. Provider a klíč se sdílejí s návrhy odpovědí.",
+                default = "gemini-2.5-flash-lite",
+                envName = "AI_ANALYSIS_MODEL",
             ),
             PlatformSettingDefinition(
                 key = AI_API_KEY,

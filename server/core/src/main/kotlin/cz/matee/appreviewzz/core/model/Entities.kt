@@ -9,6 +9,8 @@ data class Organization(
     val name: String,
     val slug: String,
     val createdAt: Instant,
+    /** Plán se zatím nevynucuje — rozhoduje jen o tom, komu se generuje měsíční report. */
+    val plan: OrgPlan = OrgPlan.STARTER,
 )
 
 data class User(
@@ -54,6 +56,8 @@ data class App(
      */
     val ingestIntervalMinutes: Int?,
     val dailyDigestAt: LocalTime,
+    /** ISO den v týdnu (1 = pondělí), kdy chodí týdenní rozbor; čas se bere z [dailyDigestAt]. */
+    val weeklyDigestDay: Int = 1,
     val enabled: Boolean,
     val createdAt: Instant,
 ) {
@@ -105,6 +109,8 @@ data class Channel(
     val locale: MessageLocale,
     val deliverReviews: Boolean,
     val deliverRatings: Boolean,
+    /** Týdenní rozbory a alerty na výkyv (F8) — třetí druh zprávy vedle recenzí a hodnocení. */
+    val deliverAnalyses: Boolean = true,
     val enabled: Boolean,
 )
 
@@ -225,3 +231,59 @@ data class BackupRun(
     val checksum: String?,
     val error: String?,
 )
+
+/**
+ * Výklad jedné recenze (F8): co v ní je, ne jen že přišla.
+ *
+ * Váže se na **znění** recenze — `contentHash` je otisk textu, ze kterého vznikl. Když
+ * autor recenzi přepíše, otisk se rozejde a výklad se počítá znovu; totéž po změně
+ * taxonomie. Bez toho by v grafu ležela vedle sebe čísla ze dvou různých pravítek.
+ */
+data class ReviewInsight(
+    val reviewId: ReviewId,
+    val orgId: OrganizationId,
+    val appId: AppId,
+    val contentHash: String,
+    val taxonomyVersion: String,
+    val promptVersion: String,
+    /** Model, který výklad vyrobil; `"rules"` u recenzí bez textu (sentiment z hvězd). */
+    val model: String,
+    val sentiment: OverallSentiment,
+    val type: ReviewType,
+    val urgency: Urgency,
+    /** Jazyk textu podle modelu (BCP-47). Store hlásí jazyk zařízení, což je něco jiného. */
+    val language: String?,
+    /** Překlad do jazyka týmu (F8.3); `null`, dokud se překládání nezapne. */
+    val translation: String?,
+    val topics: List<TopicMention>,
+    val analyzedAt: Instant,
+)
+
+/**
+ * Jedno téma v recenzi. Multi-label je záměr: jedna recenze mluví o ceně i o pádech
+ * a sentiment se liší téma od tématu, takže součet podílů přesahuje 100 %.
+ */
+data class TopicMention(
+    /** Klíč základní taxonomie, nebo `custom:<uuid>` u vlastního tématu aplikace. */
+    val key: String,
+    val sentiment: TopicSentiment,
+    /** Doslovný úryvek recenze ověřený jako podřetězec; `null`, když se ověřit nedal. */
+    val quote: String?,
+)
+
+/**
+ * Vlastní téma aplikace. Popis jde doslova do promptu, proto anglicky — model taguje
+ * v původním jazyce recenze proti anglické taxonomii.
+ */
+data class AppTopic(
+    val id: AppTopicId,
+    val orgId: OrganizationId,
+    val appId: AppId,
+    val name: String,
+    val description: String,
+    val enabled: Boolean,
+    val createdAt: Instant,
+) {
+    /** Klíč, pod kterým téma vystupuje ve výkladu i ve filtrech. */
+    val key: String get() = Topic.CUSTOM_PREFIX + id.value
+}

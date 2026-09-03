@@ -38,6 +38,7 @@ data class ChannelDraft(
     val locale: String? = null,
     val deliverReviews: Boolean = true,
     val deliverRatings: Boolean = true,
+    val deliverAnalyses: Boolean = true,
 )
 
 /** Výsledek ověření jednoho kanálu. `hint` je věta, co s tím — ta je na tom to cenné. */
@@ -102,6 +103,7 @@ class ChannelService(
                     locale = draft.locale?.let { AppInputs.locale(it, "locale") } ?: app.locale,
                     deliverReviews = draft.deliverReviews,
                     deliverRatings = draft.deliverRatings,
+                    deliverAnalyses = draft.deliverAnalyses,
                 ),
             )
         audit(
@@ -126,6 +128,35 @@ class ChannelService(
             throw ConsoleException(ConsoleFailure.NOT_FOUND, "Takový kanál tu není")
         }
         audit(organization.id, actor, "channel.enabled_changed", id.toString(), mapOf("enabled" to enabled.toString()))
+    }
+
+    /**
+     * Které druhy zpráv do kanálu chodí. `null` znamená „nech, jak je" — console posílá
+     * jen přepnutou hodnotu a zbytek nemá důvod přepisovat.
+     */
+    fun setDeliveries(
+        organization: Organization,
+        actor: OrgActor,
+        id: ChannelId,
+        deliverReviews: Boolean?,
+        deliverRatings: Boolean?,
+        deliverAnalyses: Boolean?,
+    ) {
+        requireRole(actor, OrgRole.ADMIN)
+        val current =
+            channels.findById(organization.id, id)
+                ?: throw ConsoleException(ConsoleFailure.NOT_FOUND, "Takový kanál tu není")
+        val reviews = deliverReviews ?: current.deliverReviews
+        val ratings = deliverRatings ?: current.deliverRatings
+        val analyses = deliverAnalyses ?: current.deliverAnalyses
+        channels.setDeliveries(organization.id, id, reviews, ratings, analyses)
+        audit(
+            organization.id,
+            actor,
+            "channel.deliveries_changed",
+            id.toString(),
+            mapOf("recenze" to reviews.toString(), "hodnocení" to ratings.toString(), "rozbory" to analyses.toString()),
+        )
     }
 
     fun delete(

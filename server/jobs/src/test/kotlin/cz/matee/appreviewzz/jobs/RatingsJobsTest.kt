@@ -116,6 +116,7 @@ class RatingsJobsTest :
                 aiInstructions = app.aiInstructions,
                 ingestIntervalMinutes = app.ingestIntervalMinutes,
                 dailyDigestAt = digestAt,
+                weeklyDigestDay = app.weeklyDigestDay,
                 enabled = true,
             ),
         )

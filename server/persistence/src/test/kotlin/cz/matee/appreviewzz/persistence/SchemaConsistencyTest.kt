@@ -1,6 +1,8 @@
 package cz.matee.appreviewzz.persistence
 
+import cz.matee.appreviewzz.persistence.schema.AnalysisDigests
 import cz.matee.appreviewzz.persistence.schema.AppCredentials
+import cz.matee.appreviewzz.persistence.schema.AppTopics
 import cz.matee.appreviewzz.persistence.schema.Apps
 import cz.matee.appreviewzz.persistence.schema.AuditLogs
 import cz.matee.appreviewzz.persistence.schema.BackupRuns
@@ -13,6 +15,8 @@ import cz.matee.appreviewzz.persistence.schema.OrgMembers
 import cz.matee.appreviewzz.persistence.schema.Organizations
 import cz.matee.appreviewzz.persistence.schema.RatingSnapshots
 import cz.matee.appreviewzz.persistence.schema.Replies
+import cz.matee.appreviewzz.persistence.schema.ReviewInsightTopics
+import cz.matee.appreviewzz.persistence.schema.ReviewInsights
 import cz.matee.appreviewzz.persistence.schema.ReviewMessages
 import cz.matee.appreviewzz.persistence.schema.ReviewRevisions
 import cz.matee.appreviewzz.persistence.schema.Reviews
@@ -46,6 +50,10 @@ class SchemaConsistencyTest :
                 Reviews,
                 ReviewRevisions,
                 ReviewMessages,
+                ReviewInsights,
+                ReviewInsightTopics,
+                AppTopics,
+                AnalysisDigests,
                 Replies,
                 RatingSnapshots,
                 AuditLogs,

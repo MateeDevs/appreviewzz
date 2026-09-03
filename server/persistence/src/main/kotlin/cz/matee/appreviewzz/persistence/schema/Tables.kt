@@ -7,13 +7,18 @@ import cz.matee.appreviewzz.core.model.CredentialOrigin
 import cz.matee.appreviewzz.core.model.CredentialPurpose
 import cz.matee.appreviewzz.core.model.CredentialType
 import cz.matee.appreviewzz.core.model.MessageStatus
+import cz.matee.appreviewzz.core.model.OrgPlan
 import cz.matee.appreviewzz.core.model.OrgRole
+import cz.matee.appreviewzz.core.model.OverallSentiment
 import cz.matee.appreviewzz.core.model.Platform
 import cz.matee.appreviewzz.core.model.PlatformRole
 import cz.matee.appreviewzz.core.model.RatingSource
 import cz.matee.appreviewzz.core.model.ReplySource
 import cz.matee.appreviewzz.core.model.ReplyStatus
 import cz.matee.appreviewzz.core.model.ReviewState
+import cz.matee.appreviewzz.core.model.ReviewType
+import cz.matee.appreviewzz.core.model.TopicSentiment
+import cz.matee.appreviewzz.core.model.Urgency
 import cz.matee.appreviewzz.core.model.UserTokenPurpose
 import cz.matee.appreviewzz.core.model.ValidationStatus
 import kotlinx.serialization.builtins.MapSerializer
@@ -37,6 +42,7 @@ internal object Organizations : Table("organization") {
     val id = organizationId("id")
     val name = text("name")
     val slug = text("slug")
+    val plan = enumerationByName<OrgPlan>("plan", ENUM_LENGTH)
     val createdAt = instant("created_at")
     val updatedAt = instant("updated_at")
 
@@ -187,6 +193,7 @@ internal object Apps : Table("app") {
     val aiInstructions = text("ai_instructions").nullable()
     val ingestIntervalMinutes = integer("ingest_interval_minutes").nullable()
     val dailyDigestAt = time("daily_digest_at")
+    val weeklyDigestDay = short("weekly_digest_day")
     val enabled = bool("enabled")
     val createdAt = instant("created_at")
     val updatedAt = instant("updated_at")
@@ -213,6 +220,7 @@ internal object Channels : Table("channel") {
     val locale = text("locale")
     val deliverReviews = bool("deliver_reviews")
     val deliverRatings = bool("deliver_ratings")
+    val deliverAnalyses = bool("deliver_analyses")
     val enabled = bool("enabled")
     val createdAt = instant("created_at")
     val updatedAt = instant("updated_at")
@@ -324,6 +332,61 @@ internal object RatingSnapshots : Table("rating_snapshot") {
     val collectedAt = instant("collected_at")
 
     override val primaryKey = PrimaryKey(id)
+}
+
+/**
+ * Výklad recenze (F8). Klíčem je recenze, ne vlastní ID: jedna recenze má nejvýš jeden
+ * platný výklad a přeanalyzování ten starý nahradí.
+ */
+internal object ReviewInsights : Table("review_insight") {
+    val reviewId = reviewId()
+    val orgId = organizationId()
+    val appId = appId()
+    val contentHash = text("content_hash")
+    val taxonomyVersion = text("taxonomy_version")
+    val promptVersion = text("prompt_version")
+    val model = text("model")
+    val sentiment = enumerationByName<OverallSentiment>("sentiment", ENUM_LENGTH)
+
+    // `type` je v Exposed Table zabrané, proto jiné jméno property (sloupec zůstává "type").
+    val reviewType = enumerationByName<ReviewType>("type", ENUM_LENGTH)
+    val urgency = enumerationByName<Urgency>("urgency", ENUM_LENGTH)
+    val language = text("language").nullable()
+    val translation = text("translation").nullable()
+    val analyzedAt = instant("analyzed_at")
+
+    override val primaryKey = PrimaryKey(reviewId)
+}
+
+internal object ReviewInsightTopics : Table("review_insight_topic") {
+    val reviewId = reviewId()
+    val topicKey = text("topic_key")
+    val sentiment = enumerationByName<TopicSentiment>("sentiment", ENUM_LENGTH)
+    val quote = text("quote").nullable()
+
+    override val primaryKey = PrimaryKey(reviewId, topicKey)
+}
+
+internal object AppTopics : Table("app_topic") {
+    val id = appTopicId("id")
+    val orgId = organizationId()
+    val appId = appId()
+    val name = text("name")
+    val description = text("description")
+    val enabled = bool("enabled")
+    val createdAt = instant("created_at")
+
+    override val primaryKey = PrimaryKey(id)
+}
+
+internal object AnalysisDigests : Table("analysis_digest") {
+    val orgId = organizationId()
+    val appId = appId()
+    val channelId = channelId()
+    val periodStart = date("period_start")
+    val sentAt = instant("sent_at")
+
+    override val primaryKey = PrimaryKey(channelId, periodStart)
 }
 
 internal object AuditLogs : Table("audit_log") {

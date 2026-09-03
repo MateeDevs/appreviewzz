@@ -22,6 +22,7 @@ import cz.matee.appreviewzz.core.model.CredentialPurpose
 import cz.matee.appreviewzz.core.model.CredentialType
 import cz.matee.appreviewzz.core.model.FailedJob
 import cz.matee.appreviewzz.core.model.MessageLocale
+import cz.matee.appreviewzz.core.model.OrgPlan
 import cz.matee.appreviewzz.core.model.OrgRole
 import cz.matee.appreviewzz.core.model.Organization
 import cz.matee.appreviewzz.core.model.OrganizationId
@@ -94,7 +95,23 @@ class SeedCommands(
             out("Zatím žádná organizace — založ ji příkazem `org create --name …`")
             return
         }
-        organizations.forEach { out("${it.id}  ${it.slug.padEnd(SLUG_COLUMN)}  ${it.name}") }
+        organizations.forEach {
+            out("${it.id}  ${it.slug.padEnd(SLUG_COLUMN)}  ${it.plan.name.lowercase().padEnd(PLAN_COLUMN)}  ${it.name}")
+        }
+    }
+
+    /**
+     * Plán organizace. Plán se ve fázích rozborů **nevynucuje** — rozhoduje jen o tom, komu
+     * se generuje měsíční klientský report. Proto CLI a ne console: je to naše obchodní
+     * rozhodnutí, ne klientovo nastavení.
+     */
+    fun orgPlan(args: Arguments) {
+        val organization = organization(args)
+        val plan = orgPlan(args.required("plan"))
+        components.organizations.updatePlan(organization.id, plan)
+            ?: throw CommandException("Organizaci ${organization.slug} se plán nepovedlo změnit")
+        audit(organization.id, "org.plan_changed", "organization", organization.id.toString(), mapOf("plan" to plan.name))
+        out("Organizace ${organization.slug} je na plánu ${plan.name.lowercase()}")
     }
 
     fun userAdd(args: Arguments) {
@@ -996,6 +1013,7 @@ class SeedCommands(
         const val DEFAULT_JOB_LIMIT = 50
         const val HISTORY_LIMIT = 5
         const val SLUG_COLUMN = 24
+        const val PLAN_COLUMN = 8
         const val STORES_COLUMN = 15
         const val ENABLED_COLUMN = 8
         const val TYPE_COLUMN = 18
@@ -1046,6 +1064,10 @@ private fun <T> usage(block: () -> T): T =
     } catch (error: ConsoleException) {
         throw UsageException(error.message.orEmpty(), error)
     }
+
+private fun orgPlan(raw: String): OrgPlan =
+    OrgPlan.entries.firstOrNull { it.name.equals(raw, ignoreCase = true) }
+        ?: throw UsageException("--plan zná ${OrgPlan.entries.joinToString { it.name.lowercase() }}")
 
 private fun orgRole(raw: String): OrgRole =
     OrgRole.entries.firstOrNull { it.name.equals(raw, ignoreCase = true) }

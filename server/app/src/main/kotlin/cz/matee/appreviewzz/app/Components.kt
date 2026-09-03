@@ -74,8 +74,10 @@ import cz.matee.appreviewzz.jobs.RefreshRepliesJobs
 import cz.matee.appreviewzz.jobs.ReplyJobs
 import cz.matee.appreviewzz.jobs.RevalidateCredentialsJobs
 import cz.matee.appreviewzz.persistence.Database
+import cz.matee.appreviewzz.persistence.repository.ExposedAnalysisDigestRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedAppDataKeyRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedAppRepository
+import cz.matee.appreviewzz.persistence.repository.ExposedAppTopicRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedAuditLogRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedBackupRunRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedChannelRepository
@@ -92,6 +94,7 @@ import cz.matee.appreviewzz.persistence.repository.ExposedPlatformStatsRepositor
 import cz.matee.appreviewzz.persistence.repository.ExposedRatingSnapshotRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedRatingsDigestRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedReplyRepository
+import cz.matee.appreviewzz.persistence.repository.ExposedReviewInsightRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedReviewMessageRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedReviewRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedSessionRepository
@@ -130,6 +133,10 @@ class Components(
     val backupRuns = ExposedBackupRunRepository(exposed)
     val ratingSnapshots = ExposedRatingSnapshotRepository(exposed)
     val ratingsDigests = ExposedRatingsDigestRepository(exposed)
+
+    val reviewInsights = ExposedReviewInsightRepository(exposed)
+    val appTopics = ExposedAppTopicRepository(exposed)
+    val analysisDigests = ExposedAnalysisDigestRepository(exposed)
 
     val sessions = ExposedSessionRepository(exposed)
     val userTokens = ExposedUserTokenRepository(exposed)

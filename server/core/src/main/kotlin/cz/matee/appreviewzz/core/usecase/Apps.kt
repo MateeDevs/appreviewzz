@@ -34,6 +34,8 @@ data class AppDraft(
     val aiInstructions: String? = null,
     val ingestIntervalMinutes: Int? = null,
     val dailyDigestAt: String? = null,
+    /** ISO den v týdnu (1 = pondělí) pro týdenní rozbor recenzí. */
+    val weeklyDigestDay: Int? = null,
     val enabled: Boolean? = null,
 )
 
@@ -119,6 +121,8 @@ class AppService(
                     ingestIntervalMinutes = intervalOverride(actor, draft),
                     dailyDigestAt =
                         draft.dailyDigestAt?.let { AppInputs.digestAt(it, "dailyDigestAt") } ?: defaults.dailyDigestAt,
+                    weeklyDigestDay =
+                        draft.weeklyDigestDay?.let { AppInputs.weeklyDigestDay(it, "weeklyDigestDay") } ?: defaults.weeklyDigestDay,
                 ),
             )
         audit(organization.id, actor, "app.created", app.id.toString(), mapOf("name" to app.name))
@@ -152,6 +156,8 @@ class AppService(
                 aiInstructions = draft.aiInstructions?.takeIf { it.isNotBlank() },
                 ingestIntervalMinutes = intervalOverride(actor, draft) ?: current.ingestIntervalMinutes,
                 dailyDigestAt = draft.dailyDigestAt?.let { AppInputs.digestAt(it, "dailyDigestAt") } ?: current.dailyDigestAt,
+                weeklyDigestDay =
+                    draft.weeklyDigestDay?.let { AppInputs.weeklyDigestDay(it, "weeklyDigestDay") } ?: current.weeklyDigestDay,
                 enabled = draft.enabled ?: current.enabled,
             )
         val updated =

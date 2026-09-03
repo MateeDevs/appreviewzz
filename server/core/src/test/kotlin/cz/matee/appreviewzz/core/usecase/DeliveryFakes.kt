@@ -181,6 +181,14 @@ internal class FakeChannelRepository(
         enabled: Boolean,
     ): Boolean = unused()
 
+    override fun setDeliveries(
+        orgId: OrganizationId,
+        id: ChannelId,
+        deliverReviews: Boolean,
+        deliverRatings: Boolean,
+        deliverAnalyses: Boolean,
+    ): Boolean = unused()
+
     override fun delete(
         orgId: OrganizationId,
         id: ChannelId,

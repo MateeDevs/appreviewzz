@@ -1,6 +1,7 @@
 package cz.matee.appreviewzz.persistence.repository
 
 import cz.matee.appreviewzz.core.model.App
+import cz.matee.appreviewzz.core.model.AppTopic
 import cz.matee.appreviewzz.core.model.AuditEntry
 import cz.matee.appreviewzz.core.model.BackupRun
 import cz.matee.appreviewzz.core.model.Channel
@@ -14,11 +15,14 @@ import cz.matee.appreviewzz.core.model.Organization
 import cz.matee.appreviewzz.core.model.RatingSnapshot
 import cz.matee.appreviewzz.core.model.Reply
 import cz.matee.appreviewzz.core.model.Review
+import cz.matee.appreviewzz.core.model.ReviewInsight
 import cz.matee.appreviewzz.core.model.ReviewMessage
+import cz.matee.appreviewzz.core.model.TopicMention
 import cz.matee.appreviewzz.core.model.User
 import cz.matee.appreviewzz.core.model.UserAccount
 import cz.matee.appreviewzz.core.model.UserSession
 import cz.matee.appreviewzz.persistence.schema.AppCredentials
+import cz.matee.appreviewzz.persistence.schema.AppTopics
 import cz.matee.appreviewzz.persistence.schema.Apps
 import cz.matee.appreviewzz.persistence.schema.AuditLogs
 import cz.matee.appreviewzz.persistence.schema.BackupRuns
@@ -31,6 +35,8 @@ import cz.matee.appreviewzz.persistence.schema.OrgMembers
 import cz.matee.appreviewzz.persistence.schema.Organizations
 import cz.matee.appreviewzz.persistence.schema.RatingSnapshots
 import cz.matee.appreviewzz.persistence.schema.Replies
+import cz.matee.appreviewzz.persistence.schema.ReviewInsightTopics
+import cz.matee.appreviewzz.persistence.schema.ReviewInsights
 import cz.matee.appreviewzz.persistence.schema.ReviewMessages
 import cz.matee.appreviewzz.persistence.schema.Reviews
 import cz.matee.appreviewzz.persistence.schema.UserSessions
@@ -43,6 +49,7 @@ internal fun ResultRow.toOrganization(): Organization =
         name = this[Organizations.name],
         slug = this[Organizations.slug],
         createdAt = this[Organizations.createdAt],
+        plan = this[Organizations.plan],
     )
 
 internal fun ResultRow.toUser(): User =
@@ -135,6 +142,7 @@ internal fun ResultRow.toApp(): App =
         aiInstructions = this[Apps.aiInstructions],
         ingestIntervalMinutes = this[Apps.ingestIntervalMinutes],
         dailyDigestAt = this[Apps.dailyDigestAt],
+        weeklyDigestDay = this[Apps.weeklyDigestDay].toInt(),
         enabled = this[Apps.enabled],
         createdAt = this[Apps.createdAt],
     )
@@ -151,6 +159,7 @@ internal fun ResultRow.toChannel(): Channel =
         locale = MessageLocale.ofCode(this[Channels.locale]),
         deliverReviews = this[Channels.deliverReviews],
         deliverRatings = this[Channels.deliverRatings],
+        deliverAnalyses = this[Channels.deliverAnalyses],
         enabled = this[Channels.enabled],
     )
 
@@ -224,6 +233,43 @@ internal fun ResultRow.toRatingSnapshot(): RatingSnapshot =
         histogram = this[RatingSnapshots.histogram].orEmpty(),
         source = this[RatingSnapshots.ratingSource],
         collectedAt = this[RatingSnapshots.collectedAt],
+    )
+
+/** Výklad bez témat; ta se dotahují zvlášť, protože jsou v druhé tabulce. */
+internal fun ResultRow.toReviewInsight(topics: List<TopicMention>): ReviewInsight =
+    ReviewInsight(
+        reviewId = this[ReviewInsights.reviewId],
+        orgId = this[ReviewInsights.orgId],
+        appId = this[ReviewInsights.appId],
+        contentHash = this[ReviewInsights.contentHash],
+        taxonomyVersion = this[ReviewInsights.taxonomyVersion],
+        promptVersion = this[ReviewInsights.promptVersion],
+        model = this[ReviewInsights.model],
+        sentiment = this[ReviewInsights.sentiment],
+        type = this[ReviewInsights.reviewType],
+        urgency = this[ReviewInsights.urgency],
+        language = this[ReviewInsights.language],
+        translation = this[ReviewInsights.translation],
+        topics = topics,
+        analyzedAt = this[ReviewInsights.analyzedAt],
+    )
+
+internal fun ResultRow.toTopicMention(): TopicMention =
+    TopicMention(
+        key = this[ReviewInsightTopics.topicKey],
+        sentiment = this[ReviewInsightTopics.sentiment],
+        quote = this[ReviewInsightTopics.quote],
+    )
+
+internal fun ResultRow.toAppTopic(): AppTopic =
+    AppTopic(
+        id = this[AppTopics.id],
+        orgId = this[AppTopics.orgId],
+        appId = this[AppTopics.appId],
+        name = this[AppTopics.name],
+        description = this[AppTopics.description],
+        enabled = this[AppTopics.enabled],
+        createdAt = this[AppTopics.createdAt],
     )
 
 internal fun ResultRow.toAuditEntry(): AuditEntry =

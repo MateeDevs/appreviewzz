@@ -99,6 +99,12 @@ private val COMMANDS =
             run = { _ -> orgList() },
         ),
         Command(
+            name = "org plan",
+            options = setOf("org", "plan"),
+            usage = "org plan --org <slug|ID> --plan starter|insights|agency",
+            run = { args -> orgPlan(args) },
+        ),
+        Command(
             name = "user add",
             options = setOf("org", "email", "name", "role"),
             usage = "user add --org <slug|ID> --email <e-mail> [--name <jméno>] [--role owner|admin|member]",

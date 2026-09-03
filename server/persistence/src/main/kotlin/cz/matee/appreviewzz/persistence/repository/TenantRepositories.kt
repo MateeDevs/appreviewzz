@@ -3,6 +3,7 @@ package cz.matee.appreviewzz.persistence.repository
 import cz.matee.appreviewzz.core.model.DataKeyId
 import cz.matee.appreviewzz.core.model.OrgDataKey
 import cz.matee.appreviewzz.core.model.OrgMembership
+import cz.matee.appreviewzz.core.model.OrgPlan
 import cz.matee.appreviewzz.core.model.OrgRole
 import cz.matee.appreviewzz.core.model.Organization
 import cz.matee.appreviewzz.core.model.OrganizationId
@@ -79,6 +80,19 @@ class ExposedOrganizationRepository(
     override fun list(): List<Organization> =
         transaction(database) {
             Organizations.selectAll().orderBy(Organizations.name to SortOrder.ASC).map { it.toOrganization() }
+        }
+
+    override fun updatePlan(
+        id: OrganizationId,
+        plan: OrgPlan,
+    ): Organization? =
+        transaction(database) {
+            val updated =
+                Organizations.update({ Organizations.id eq id }) {
+                    it[Organizations.plan] = plan
+                    it[updatedAt] = clock.now()
+                }
+            if (updated == 0) null else findById(id)
         }
 }
 

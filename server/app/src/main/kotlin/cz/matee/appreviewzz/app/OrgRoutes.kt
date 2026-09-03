@@ -1,6 +1,7 @@
 package cz.matee.appreviewzz.app
 
 import cz.matee.appreviewzz.core.model.InvitationId
+import cz.matee.appreviewzz.core.model.OrgPlan
 import cz.matee.appreviewzz.core.model.OrgRole
 import cz.matee.appreviewzz.core.model.Organization
 import cz.matee.appreviewzz.core.model.SecretPayload
@@ -29,6 +30,8 @@ data class OrganizationResponse(
     val slug: String,
     val name: String,
     val role: OrgRole,
+    /** Plán se nevynucuje; console podle něj jen ukáže, co je navíc v placených plánech. */
+    val plan: OrgPlan,
 )
 
 @Serializable
@@ -191,4 +194,5 @@ fun Route.orgRoutes(console: ConsoleWiring) {
     }
 }
 
-private fun Organization.toResponse(role: OrgRole) = OrganizationResponse(id = id.toString(), slug = slug, name = name, role = role)
+private fun Organization.toResponse(role: OrgRole) =
+    OrganizationResponse(id = id.toString(), slug = slug, name = name, role = role, plan = plan)

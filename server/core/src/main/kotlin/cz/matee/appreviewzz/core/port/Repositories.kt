@@ -4,6 +4,8 @@ import cz.matee.appreviewzz.core.model.ActorType
 import cz.matee.appreviewzz.core.model.App
 import cz.matee.appreviewzz.core.model.AppDataKey
 import cz.matee.appreviewzz.core.model.AppId
+import cz.matee.appreviewzz.core.model.AppTopic
+import cz.matee.appreviewzz.core.model.AppTopicId
 import cz.matee.appreviewzz.core.model.AuditEntry
 import cz.matee.appreviewzz.core.model.BackupRun
 import cz.matee.appreviewzz.core.model.Channel
@@ -20,9 +22,11 @@ import cz.matee.appreviewzz.core.model.MessageLocale
 import cz.matee.appreviewzz.core.model.ObservedReview
 import cz.matee.appreviewzz.core.model.OrgDataKey
 import cz.matee.appreviewzz.core.model.OrgMembership
+import cz.matee.appreviewzz.core.model.OrgPlan
 import cz.matee.appreviewzz.core.model.OrgRole
 import cz.matee.appreviewzz.core.model.Organization
 import cz.matee.appreviewzz.core.model.OrganizationId
+import cz.matee.appreviewzz.core.model.OverallSentiment
 import cz.matee.appreviewzz.core.model.Platform
 import cz.matee.appreviewzz.core.model.PlatformRole
 import cz.matee.appreviewzz.core.model.RatingSnapshot
@@ -34,9 +38,13 @@ import cz.matee.appreviewzz.core.model.ReplyStatus
 import cz.matee.appreviewzz.core.model.Review
 import cz.matee.appreviewzz.core.model.ReviewChange
 import cz.matee.appreviewzz.core.model.ReviewId
+import cz.matee.appreviewzz.core.model.ReviewInsight
 import cz.matee.appreviewzz.core.model.ReviewMessage
 import cz.matee.appreviewzz.core.model.ReviewMessageId
 import cz.matee.appreviewzz.core.model.ReviewState
+import cz.matee.appreviewzz.core.model.ReviewType
+import cz.matee.appreviewzz.core.model.TopicMention
+import cz.matee.appreviewzz.core.model.Urgency
 import cz.matee.appreviewzz.core.model.User
 import cz.matee.appreviewzz.core.model.UserAccount
 import cz.matee.appreviewzz.core.model.UserId
@@ -68,6 +76,15 @@ interface OrganizationRepository {
     fun findBySlug(slug: String): Organization?
 
     fun list(): List<Organization>
+
+    /**
+     * Změna plánu. Volá to **jen CLI** — plán se ve fázích F8.1–F8.3 nevynucuje a nastavuje
+     * ho provozovatel, ne klient sám na sobě.
+     */
+    fun updatePlan(
+        id: OrganizationId,
+        plan: OrgPlan,
+    ): Organization?
 }
 
 interface UserRepository {
@@ -158,6 +175,8 @@ data class NewApp(
     /** Výjimka od platformní výchozí hodnoty; `null` (běžný stav) = platí platforma. */
     val ingestIntervalMinutes: Int? = null,
     val dailyDigestAt: LocalTime = LocalTime(8, 30),
+    /** ISO den v týdnu pro týdenní rozbor; pondělí je den, kdy tým plánuje. */
+    val weeklyDigestDay: Int = 1,
 )
 
 /** Kompletní nastavení appky — update je nahrazení celku, ne patch po polích. */
@@ -170,6 +189,7 @@ data class AppSettings(
     val aiInstructions: String?,
     val ingestIntervalMinutes: Int?,
     val dailyDigestAt: LocalTime,
+    val weeklyDigestDay: Int,
     val enabled: Boolean,
 )
 
@@ -391,6 +411,7 @@ data class NewChannel(
     val locale: MessageLocale = MessageLocale.CS,
     val deliverReviews: Boolean = true,
     val deliverRatings: Boolean = true,
+    val deliverAnalyses: Boolean = true,
 )
 
 interface ChannelRepository {
@@ -413,6 +434,18 @@ interface ChannelRepository {
         orgId: OrganizationId,
         id: ChannelId,
         enabled: Boolean,
+    ): Boolean
+
+    /**
+     * Které druhy zpráv do kanálu chodí. Odděleně od [setEnabled], protože vypnutý kanál
+     * je provozní stav („teď nic neposílej"), kdežto tohle je klientova volba obsahu.
+     */
+    fun setDeliveries(
+        orgId: OrganizationId,
+        id: ChannelId,
+        deliverReviews: Boolean,
+        deliverRatings: Boolean,
+        deliverAnalyses: Boolean,
     ): Boolean
 
     fun delete(
@@ -660,6 +693,131 @@ interface RatingsDigestRepository {
         appId: AppId,
         channelId: ChannelId,
         date: LocalDate,
+        sentAt: Instant,
+    ): Boolean
+
+    fun lastSent(
+        orgId: OrganizationId,
+        channelId: ChannelId,
+    ): LocalDate?
+}
+
+/** Výklad k zápisu. `analyzedAt` dodává volající z hodin, aby šel v testech zmrazit. */
+data class NewReviewInsight(
+    val reviewId: ReviewId,
+    val appId: AppId,
+    val contentHash: String,
+    val taxonomyVersion: String,
+    val promptVersion: String,
+    val model: String,
+    val sentiment: OverallSentiment,
+    val type: ReviewType,
+    val urgency: Urgency,
+    val language: String? = null,
+    val translation: String? = null,
+    val topics: List<TopicMention> = emptyList(),
+)
+
+/** Kolik recenzí aplikace má platný výklad a kolik ne. Podklad pro stavovou lištu a backfill. */
+data class InsightCoverage(
+    val analyzed: Int,
+    val missing: Int,
+)
+
+/**
+ * Výklady recenzí (F8). Zápis je upsert podle `review_id`: jedna recenze má nejvýš jeden
+ * výklad a přeanalyzování ten starý nahradí — historie výkladů by se k ničemu nepoužila.
+ */
+interface ReviewInsightRepository {
+    fun upsert(
+        orgId: OrganizationId,
+        insight: NewReviewInsight,
+        analyzedAt: Instant,
+    ): ReviewInsight
+
+    fun findByReview(
+        orgId: OrganizationId,
+        reviewId: ReviewId,
+    ): ReviewInsight?
+
+    /** Výklady k seznamu recenzí najednou — inbox jinak dělá N+1 dotaz na každý řádek. */
+    fun findByReviews(
+        orgId: OrganizationId,
+        reviewIds: Collection<ReviewId>,
+    ): Map<ReviewId, ReviewInsight>
+
+    /**
+     * Recenze, které výklad potřebují: buď žádný nemají, nebo je jejich výklad neplatný —
+     * recenzi někdo editoval (jiný `content_hash`) nebo se změnila taxonomie. Od nejnovější,
+     * protože při doplňování historie je čerstvá recenze ta, kterou klient hledá dřív.
+     */
+    fun listMissing(
+        orgId: OrganizationId,
+        appId: AppId,
+        taxonomyVersion: String,
+        limit: Int,
+    ): List<Review>
+
+    fun coverage(
+        orgId: OrganizationId,
+        appId: AppId,
+        taxonomyVersion: String,
+    ): InsightCoverage
+}
+
+/** Vlastní téma aplikace, jak ho zadává člověk. Popis je anglicky — jde do promptu. */
+data class NewAppTopic(
+    val appId: AppId,
+    val name: String,
+    val description: String,
+)
+
+interface AppTopicRepository {
+    fun create(
+        orgId: OrganizationId,
+        topic: NewAppTopic,
+    ): AppTopic
+
+    fun findById(
+        orgId: OrganizationId,
+        id: AppTopicId,
+    ): AppTopic?
+
+    fun listByApp(
+        orgId: OrganizationId,
+        appId: AppId,
+    ): List<AppTopic>
+
+    /** Jen zapnutá témata — tenhle seznam se skládá do promptu a do JSON schématu. */
+    fun listEnabled(
+        orgId: OrganizationId,
+        appId: AppId,
+    ): List<AppTopic>
+
+    fun update(
+        orgId: OrganizationId,
+        id: AppTopicId,
+        name: String,
+        description: String,
+        enabled: Boolean,
+    ): AppTopic?
+
+    fun delete(
+        orgId: OrganizationId,
+        id: AppTopicId,
+    ): Boolean
+}
+
+/**
+ * Které týdny už rozbor odešel. Stejný důvod jako u [RatingsDigestRepository]: zápis je
+ * rezervace před odesláním, ne stopa po něm.
+ */
+interface AnalysisDigestRepository {
+    fun claim(
+        orgId: OrganizationId,
+        appId: AppId,
+        channelId: ChannelId,
+        periodStart: LocalDate,
         sentAt: Instant,
     ): Boolean
 

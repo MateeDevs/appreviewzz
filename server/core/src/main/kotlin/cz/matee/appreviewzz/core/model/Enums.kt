@@ -159,3 +159,48 @@ enum class BackupStatus {
     SUCCEEDED,
     FAILED,
 }
+
+/**
+ * Celková nálada recenze (F8). `MIXED` je vlastní hodnota, ne průměr — smíšených recenzí
+ * je zhruba pětina a průměrování by z „skvělá appka, ale pořád padá" udělalo neutrální nic.
+ */
+enum class OverallSentiment {
+    POSITIVE,
+    NEGATIVE,
+    MIXED,
+    NEUTRAL,
+}
+
+/** Sentiment jednoho tématu v recenzi. Bez `MIXED`: uvnitř jednoho tématu se nemá kam vejít. */
+enum class TopicSentiment {
+    POSITIVE,
+    NEGATIVE,
+    NEUTRAL,
+}
+
+/** Co recenze po produktovém týmu chce. Odpovídá tomu, komu se má úkol předat. */
+enum class ReviewType {
+    BUG,
+    FEATURE_REQUEST,
+    COMPLAINT,
+    PRAISE,
+    QUESTION,
+    OTHER,
+}
+
+/** Jak moc to hoří. `HIGH` je to, co v kanálu dostane vykřičník. */
+enum class Urgency {
+    LOW,
+    MEDIUM,
+    HIGH,
+}
+
+/**
+ * Plán organizace. Ve fázích F8.1–F8.3 se **nevynucuje** — jen se ukládá a rozhoduje o tom,
+ * komu se generuje měsíční report. Vynucení je samostatné rozhodnutí spolu s billingem.
+ */
+enum class OrgPlan {
+    STARTER,
+    INSIGHTS,
+    AGENCY,
+}

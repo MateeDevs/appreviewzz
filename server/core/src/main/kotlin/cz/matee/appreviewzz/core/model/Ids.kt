@@ -101,3 +101,14 @@ value class BackupRunId(
 ) {
     override fun toString(): String = value.toString()
 }
+
+@JvmInline
+value class AppTopicId(
+    val value: Uuid,
+) {
+    override fun toString(): String = value.toString()
+
+    companion object {
+        fun parse(raw: String): AppTopicId = AppTopicId(Uuid.parse(raw))
+    }
+}
