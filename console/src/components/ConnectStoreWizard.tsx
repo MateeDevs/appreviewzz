@@ -50,19 +50,6 @@ export function ConnectStoreWizard({
   )
 }
 
-/** Ukazatel kroků. Tentýž tvar jako v průvodci nastavením, aby to bylo poznat na první pohled. */
-function Steps({ titles, current }: { titles: string[]; current: number }) {
-  return (
-    <div className="steps">
-      {titles.map((title, index) => (
-        <span key={title} className={index === current ? 'step current' : index < current ? 'step done' : 'step'}>
-          {index < current ? '✓' : index + 1}. {title}
-        </span>
-      ))}
-    </div>
-  )
-}
-
 /**
  * Hodnota, kterou má člověk přenést do cizí konzole. Monospace, protože se čte znak po znaku,
  * a tlačítko, protože ručně opsaný e-mail service accountu je nejlepší způsob, jak si pozvánku
@@ -110,33 +97,17 @@ type GooglePlayStep = 'app' | 'scope' | 'invite' | 'check' | 'reporting'
 /** Co má klient sledovat — a tím pádem, o jak široká práva si v Play Console říká. */
 type GooglePlayScope = 'reviews' | 'ratings'
 
-const GP_STEP_TITLES: Record<GooglePlayStep, string> = {
-  app: 'Aplikace',
-  scope: 'Rozsah',
-  invite: 'Pozvánka',
-  check: 'Kontrola pozvánky',
-  reporting: 'Hodnocení',
-}
-
 function GooglePlayWizard({ org, app, onClose }: { org: string; app?: App; onClose: () => void }) {
   const [target, setTarget] = useState<App | undefined>(app)
   const [credentialId, setCredentialId] = useState<string | null>(null)
   const [scope, setScope] = useState<GooglePlayScope | null>(null)
   const [step, setStep] = useState<GooglePlayStep>(app ? 'scope' : 'app')
 
-  // Kroky se skládají podle rozsahu: bucket na hodnocení řeší jen ten, kdo si o hodnocení
-  // řekl. Ukazatel se tím po výběru prodlouží — a to je záměr, klient hned vidí, do čeho jde.
-  const order: GooglePlayStep[] = [
-    ...(app ? [] : (['app'] as const)),
-    'scope',
-    'invite',
-    'check',
-    ...(scope === 'ratings' ? (['reporting'] as const) : []),
-  ]
-
+  // Ukazatel kroků tu není schválně: kolik kroků klienta čeká, se rozhoduje až podle
+  // rozsahu a bucket si vezme jen část lidí — pilulky by slibovaly cestu, kterou dopředu
+  // neznáme. Každý krok si proto říká sám, co je zač a co bude dál.
   return (
     <Modal title={googlePlayCopy.title} onClose={onClose}>
-      <Steps titles={order.map((key) => GP_STEP_TITLES[key])} current={Math.max(0, order.indexOf(step))} />
       {step === 'app' ? (
         <PickApp
           org={org}
@@ -458,12 +429,9 @@ type AppStoreStep = 'create' | 'upload' | 'pick'
 function AppStoreWizard({ org, app, onClose }: { org: string; app?: App; onClose: () => void }) {
   const [step, setStep] = useState<AppStoreStep>('create')
   const [credentialId, setCredentialId] = useState<string | null>(null)
-  const titles = ['Klíč', 'Nahrání', 'Aplikace']
-  const index = step === 'create' ? 0 : step === 'upload' ? 1 : 2
 
   return (
     <Modal title={appStoreCopy.title} onClose={onClose}>
-      <Steps titles={titles} current={index} />
       {step === 'create' ? <AppStoreCreate onDone={() => setStep('upload')} onClose={onClose} /> : null}
       {step === 'upload' ? (
         <AppStoreUpload
