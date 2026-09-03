@@ -112,6 +112,8 @@ data class AppSetupResponse(
     val platformsWithoutKey: List<Platform>,
     /** Store má klíč, ale ten ještě neprošel ověřením — typicky čekání na Play Console. */
     val platformsWaitingForKey: List<Platform>,
+    /** Klíče, které appka používá — console podle nich pozná, který z klíčů organizace je přiřazený. */
+    val credentialIds: List<String>,
 )
 
 /** Odkud se vzal interval stahování: platformní výchozí hodnota, nebo výjimka pro tuhle appku. */
@@ -246,6 +248,7 @@ private fun App.toResponse(
             gaps = setup.gaps,
             platformsWithoutKey = setup.platformsWithoutKey,
             platformsWaitingForKey = setup.platformsWaitingForKey,
+            credentialIds = setup.credentialIds.map { it.toString() },
         ),
 )
 

@@ -4,6 +4,7 @@ import cz.matee.appreviewzz.core.port.StoreConnectorException
 import cz.matee.appreviewzz.core.port.StoreErrorKind
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.inspectors.forAll
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
@@ -23,6 +24,7 @@ import kotlin.time.Duration
 
 private val jsonHeaders = headersOf(HttpHeaders.ContentType, "application/json")
 private const val PROJECT = "appreviewzz-connect"
+private const val ORG = "3f2b9c14-0000-4000-8000-000000000001"
 
 /** Klíč, jaký vrací IAM: service account JSON zabalený v base64. */
 private fun keyResponse(email: String): String {
@@ -56,6 +58,7 @@ class GcpIamProvisionerTest :
                 GcpIamProvisioner(engine.client()).provision(
                     provisioner = provisionerAccount,
                     projectId = PROJECT,
+                    orgId = ORG,
                     orgSlug = "islegrow",
                     displayName = "IsleGrow s.r.o.",
                 )
@@ -74,7 +77,7 @@ class GcpIamProvisionerTest :
                 ?.content shouldBe "IsleGrow s.r.o."
         }
 
-        test("obsazené jméno účtu není chyba — zkusí se další") {
+        test("jméno obsazené cizí organizací není chyba — zkusí se další") {
             val email = "arz-islegrow-1@$PROJECT.iam.gserviceaccount.com"
             var attempts = 0
             val engine =
@@ -94,12 +97,20 @@ class GcpIamProvisionerTest :
                             }
                         }
 
+                        // Účet toho jména patří někomu jinému — jeho klíč by pustil cizí
+                        // organizaci do našich recenzí, takže se neadoptuje.
+                        request.url.encodedPath.contains("/serviceAccounts/") ->
+                            respond(
+                                """{"email":"arz-islegrow@$PROJECT.iam.gserviceaccount.com","description":"jina-organizace"}""",
+                                headers = jsonHeaders,
+                            )
+
                         else -> null
                     }
                 }
 
             val account =
-                GcpIamProvisioner(engine.client()).provision(provisionerAccount, PROJECT, "islegrow", "IsleGrow")
+                GcpIamProvisioner(engine.client()).provision(provisionerAccount, PROJECT, ORG, "islegrow", "IsleGrow")
 
             account.email shouldBe email
             engine.requests.filter { it.url.encodedPath.endsWith("/serviceAccounts") } shouldHaveSize 2
@@ -109,6 +120,77 @@ class GcpIamProvisionerTest :
                 .jsonObject["accountId"]
                 ?.jsonPrimitive
                 ?.content shouldBe "arz-islegrow-1"
+        }
+
+        test("účet, který organizaci už patří, se adoptuje — stejný e-mail a nový klíč") {
+            val email = "arz-islegrow@$PROJECT.iam.gserviceaccount.com"
+            val engine =
+                RecordingEngine { request ->
+                    when {
+                        // Výpis klíčů (GET) versus vydání nového (POST) — obojí končí na /keys.
+                        request.method == HttpMethod.Get && request.url.encodedPath.endsWith("/keys") ->
+                            respond(
+                                """{"keys":[{"name":"projects/$PROJECT/serviceAccounts/$email/keys/stary"}]}""",
+                                headers = jsonHeaders,
+                            )
+
+                        request.url.encodedPath.endsWith("/keys") -> respond(keyResponse(email), headers = jsonHeaders)
+                        request.url.encodedPath.endsWith("/serviceAccounts") ->
+                            respond(
+                                """{"error":{"code":409,"message":"already exists"}}""",
+                                status = HttpStatusCode.Conflict,
+                                headers = jsonHeaders,
+                            )
+
+                        request.url.encodedPath.contains("/serviceAccounts/") ->
+                            respond("""{"email":"$email","uniqueId":"1","description":"$ORG"}""", headers = jsonHeaders)
+
+                        else -> null
+                    }
+                }
+
+            val account =
+                GcpIamProvisioner(engine.client()).provision(provisionerAccount, PROJECT, ORG, "islegrow", "IsleGrow")
+
+            // Tentýž e-mail: klient ho má pozvaný v Play Console a pozvánku nemá řešit znovu.
+            account.email shouldBe email
+            // Zakládat se nic dalšího nesmí — jinak by v projektu přibývaly účty `…-1`.
+            engine.requests.filter { it.url.encodedPath.endsWith("/serviceAccounts") } shouldHaveSize 1
+            // Starý klíč, který jsme klientovi kdysi vydali, musí přestat platit.
+            engine.requests.count { it.method == HttpMethod.Delete } shouldBe 1
+            engine.requests
+                .last { it.method == HttpMethod.Delete }
+                .url.encodedPath shouldEndWith "/keys/stary"
+        }
+
+        test("zneplatnění klíčů účet nemaže — pozvánka v Play Console má přežít") {
+            val email = "arz-islegrow@$PROJECT.iam.gserviceaccount.com"
+            val engine =
+                RecordingEngine { request ->
+                    when {
+                        request.method == HttpMethod.Get && request.url.encodedPath.endsWith("/keys") ->
+                            respond(
+                                """{"keys":[{"name":"projects/$PROJECT/serviceAccounts/$email/keys/a"},""" +
+                                    """{"name":"projects/$PROJECT/serviceAccounts/$email/keys/b"}]}""",
+                                headers = jsonHeaders,
+                            )
+
+                        request.method == HttpMethod.Delete -> respond("{}", headers = jsonHeaders)
+                        else -> null
+                    }
+                }
+
+            GcpIamProvisioner(engine.client()).revokeKeys(provisionerAccount, PROJECT, email)
+
+            engine.requests.count { it.method == HttpMethod.Delete } shouldBe 2
+            // Jen klíče: `DELETE …/serviceAccounts/{email}` by smazal účet i s pozvánkou.
+            engine.requests.filter { it.method == HttpMethod.Delete }.forAll {
+                it.url.encodedPath shouldContain "/keys/"
+            }
+            // Systémové klíče Googlu smazat nejde — do výpisu se proto nesmí dostat.
+            engine.requests
+                .first { it.method == HttpMethod.Get }
+                .url.parameters["keyTypes"] shouldBe "USER_MANAGED"
         }
 
         test("odebraná role provisioneru je chyba oprávnění, ne pád") {
@@ -123,7 +205,7 @@ class GcpIamProvisionerTest :
 
             val error =
                 shouldThrow<StoreConnectorException> {
-                    GcpIamProvisioner(engine.client()).provision(provisionerAccount, PROJECT, "islegrow", "IsleGrow")
+                    GcpIamProvisioner(engine.client()).provision(provisionerAccount, PROJECT, ORG, "islegrow", "IsleGrow")
                 }
 
             error.kind shouldBe StoreErrorKind.AUTH
@@ -159,7 +241,7 @@ class GcpIamProvisionerTest :
 
             val account =
                 GcpIamProvisioner(engine.client(), retryDelay = Duration.ZERO)
-                    .provision(provisionerAccount, PROJECT, "islegrow", "IsleGrow")
+                    .provision(provisionerAccount, PROJECT, ORG, "islegrow", "IsleGrow")
 
             account.email shouldBe email
             // Účet unese deset klíčů; kdyby smyčka pokračovala i po úspěchu, jedenáctý pokus
@@ -191,12 +273,61 @@ class GcpIamProvisionerTest :
 
             shouldThrow<StoreConnectorException> {
                 GcpIamProvisioner(engine.client(), retryDelay = Duration.ZERO)
-                    .provision(provisionerAccount, PROJECT, "islegrow", "IsleGrow")
+                    .provision(provisionerAccount, PROJECT, ORG, "islegrow", "IsleGrow")
             }
 
             // Bez úklidu by účet blokoval jméno a další pokus by založil `…-1`; v projektu
             // by přibývaly mrtvé účty, dokud nedojde kvóta.
             engine.requests.count { it.method == HttpMethod.Delete } shouldBe 1
+        }
+
+        test("značka vlastníka se doplní jen účtu, který ji nemá") {
+            val email = "arz-islegrow@$PROJECT.iam.gserviceaccount.com"
+            var description: String? = null
+            val engine =
+                RecordingEngine { request ->
+                    when (request.method) {
+                        HttpMethod.Get ->
+                            respond(
+                                """{"email":"$email","displayName":"IsleGrow"""" +
+                                    (description?.let { ""","description":"$it"""" } ?: "") + "}",
+                                headers = jsonHeaders,
+                            )
+
+                        else -> {
+                            description = ORG
+                            respond("""{"email":"$email","description":"$ORG"}""", headers = jsonHeaders)
+                        }
+                    }
+                }
+            val provisioner = GcpIamProvisioner(engine.client())
+
+            provisioner.markOwner(provisionerAccount, PROJECT, email, ORG) shouldBe true
+            // Podruhé už není co dělat — příkaz musí jít pustit opakovaně.
+            provisioner.markOwner(provisionerAccount, PROJECT, email, ORG) shouldBe false
+
+            val patch = engine.requests.single { it.method == HttpMethod.Patch }
+            val body = Json.parseToJsonElement(String(patch.body.toByteArray())).jsonObject
+            body["updateMask"]?.jsonPrimitive?.content shouldBe "description"
+            body["serviceAccount"]
+                ?.jsonObject
+                ?.get("description")
+                ?.jsonPrimitive
+                ?.content shouldBe ORG
+        }
+
+        test("cizí značku nepřepíšeme — účet by se přebral jiné organizaci") {
+            val email = "arz-islegrow@$PROJECT.iam.gserviceaccount.com"
+            val engine =
+                RecordingEngine { respond("""{"email":"$email","description":"jina-organizace"}""", headers = jsonHeaders) }
+
+            val error =
+                shouldThrow<StoreConnectorException> {
+                    GcpIamProvisioner(engine.client()).markOwner(provisionerAccount, PROJECT, email, ORG)
+                }
+
+            error.kind shouldBe StoreErrorKind.INVALID_REQUEST
+            engine.requests.none { it.method == HttpMethod.Patch } shouldBe true
         }
 
         test("accountId ze slugu splní meze IAM: 6–30 znaků a začíná písmenem") {

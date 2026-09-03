@@ -10,7 +10,9 @@ import cz.matee.appreviewzz.core.port.StoreConnectorException
 import cz.matee.appreviewzz.core.port.StoreErrorKind
 import cz.matee.appreviewzz.core.port.ValidationOutcome
 import io.kotest.core.spec.style.StringSpec
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldHaveSize
+import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
@@ -21,6 +23,7 @@ import io.ktor.client.request.get
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import io.ktor.server.testing.ApplicationTestBuilder
@@ -58,14 +61,23 @@ private fun String.jsonValue(field: String): String =
  * IAM API na mocku. Vrací účet a k němu klíč (base64 service account JSON) — přesně to,
  * co dělá `iam.googleapis.com`, aby se testovala i cesta „dekóduj a ulož do vaultu".
  */
-private fun fakeIam(email: String = "arz-matee@test-project.iam.gserviceaccount.com"): GcpIamProvisioner {
+private fun fakeIam(
+    email: String = "arz-matee@test-project.iam.gserviceaccount.com",
+    /** Zaznamenané volání IAM: `METODA cesta`. Testy podle nich poznají, co jsme účtu udělali. */
+    calls: MutableList<String> = mutableListOf(),
+): GcpIamProvisioner {
     val key = Base64.getEncoder().encodeToString(serviceAccountJson.toByteArray())
     val engine =
         MockEngine { request ->
+            if (request.url.host != "oauth2.googleapis.com") calls += "${request.method.value} ${request.url.encodedPath}"
             val body =
                 when {
                     // Provisioner se nejdřív přihlásí — bez tokenu se k IAM vůbec nedostane.
                     request.url.host == "oauth2.googleapis.com" -> """{"access_token":"ya29.test","expires_in":3600}"""
+                    // Výpis klíčů (GET) a vydání nového (POST) končí stejnou cestou.
+                    request.method == HttpMethod.Get && request.url.encodedPath.endsWith("/keys") ->
+                        """{"keys":[{"name":"projects/test-project/serviceAccounts/$email/keys/stary"}]}"""
+
                     request.url.encodedPath.endsWith("/keys") -> """{"privateKeyData":"$key"}"""
                     else -> """{"email":"$email"}"""
                 }
@@ -345,6 +357,36 @@ class CredentialRoutesTest :
 
                 val listed = owner.get("/api/orgs/$SLUG/credentials").bodyAsText()
                 listed.split("\"id\"") shouldHaveSize 2
+            }
+        }
+
+        "smazání spravovaného klíče zneplatní klíče v IAM, ale účet nechá být" {
+            testApplication {
+                val calls = mutableListOf<String>()
+                consoleModule(
+                    mailer,
+                    fakes = fakes,
+                    platformEnv = provisionerEnv(),
+                    gcpProvisioner = fakeIam(calls = calls),
+                )
+                val (owner, _) = ownerWithApp(mailer)
+
+                val provisioned = owner.postJson("/api/orgs/$SLUG/credentials/provision-gp", "{}").bodyAsText()
+                calls.clear()
+
+                owner
+                    .deleteSigned("/api/orgs/$SLUG/credentials/${provisioned.jsonValue("id")}")
+                    .status shouldBe HttpStatusCode.NoContent
+
+                val account = "/v1/projects/test-project/serviceAccounts/arz-matee@test-project.iam.gserviceaccount.com"
+                // Klíč, který jsme klientovi vydali, musí přestat platit i na straně Googlu.
+                calls shouldContain "DELETE $account/keys/stary"
+                // Účet ale zůstává: klient ho má pozvaný v Play Console a při dalším napojení
+                // dostane tentýž e-mail, takže pozvánku znovu vyřizovat nemusí.
+                calls shouldNotContain "DELETE $account"
+
+                val again = owner.postJson("/api/orgs/$SLUG/credentials/provision-gp", "{}").bodyAsText()
+                again.jsonValue("hint") shouldBe provisioned.jsonValue("hint")
             }
         }
 

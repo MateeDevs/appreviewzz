@@ -139,7 +139,15 @@ fun Route.credentialRoutes(console: ConsoleWiring) {
 
         delete("/{credential}") {
             val context = call.orgContext(console.organizations, console.memberships)
-            io { credentials.delete(context.organization, context.actor, call.credentialIdParam()) }
+            val id = call.credentialIdParam()
+            // Nejdřív smazat: `delete` hlídá roli i to, jestli klíč nedrží nějaký kanál.
+            // Teprve když projde, má smysl sahat na účet v IAM.
+            val meta = io { credentials.get(context.organization.id, id) }
+            io { credentials.delete(context.organization, context.actor, id) }
+            // Spravovanému účtu zneplatníme klíče, ale sám účet v našem projektu zůstane:
+            // klient ho má pozvaného v Play Console a při dalším napojení dostane tentýž
+            // e-mail, takže pozvánku znovu vyřizovat nemusí.
+            console.googlePlayProvisioning?.revokeKeys(context.organization, meta)
             call.respond(HttpStatusCode.NoContent)
         }
 

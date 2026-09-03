@@ -10,6 +10,7 @@ import {
   useCreateChannel,
   useCredentials,
   useDeleteChannel,
+  useDeleteCredential,
   useRatings,
   useResolveStoreLinks,
   useRunRatings,
@@ -20,7 +21,15 @@ import {
 import { Badge, Card, ErrorBox, Field, Loading, Modal, When } from '../components/ui'
 import { ConnectStoreWizard } from '../components/ConnectStoreWizard'
 import { RatingsChart } from '../components/RatingsChart'
-import type { App, ChannelCheck, Platform, RatingsSeries, ResolvedStore, StoreResolution } from '../api/types'
+import type {
+  App,
+  ChannelCheck,
+  Credential,
+  Platform,
+  RatingsSeries,
+  ResolvedStore,
+  StoreResolution,
+} from '../api/types'
 
 export function AppsPage() {
   const { org = '' } = useParams()
@@ -401,7 +410,7 @@ export function AppDetailPage() {
       </div>
       <AppSettingsCard org={org} appId={appId} />
       <RatingsCard org={org} appId={appId} />
-      <CredentialsCard org={org} appId={appId} onConnect={setConnect} />
+      <CredentialsCard org={org} app={app} onConnect={setConnect} />
       <ChannelsCard org={org} appId={appId} />
       {connect ? <ConnectStoreWizard org={org} app={app} platform={connect} onClose={() => setConnect(null)} /> : null}
     </div>
@@ -597,20 +606,72 @@ function sourceLabel(source: string): string {
   }
 }
 
+/**
+ * Potvrzení před smazáním klíče.
+ *
+ * Mazání klíče je jediná akce v kartě, po které appka přestane sledovat recenze, takže se
+ * na ni ptáme. Text říká i to, co se **nestane**: u spravovaného účtu zůstává pozvánka
+ * v Play Console v platnosti, protože účet nemažeme — kdo si store napojí znovu, dostane
+ * tentýž e-mail a v cizí konzoli už nic řešit nemusí.
+ */
+function RemoveCredentialDialog({
+  credential,
+  pending,
+  onClose,
+  onConfirm,
+}: {
+  credential: Credential
+  pending: boolean
+  onClose: () => void
+  onConfirm: () => void
+}) {
+  const managed = credential.origin === 'PROVISIONED'
+
+  return (
+    <Modal title="Odebrat klíč" onClose={onClose}>
+      <div className="stack">
+        <p>
+          Opravdu odebrat <strong>{credential.label}</strong>? Aplikace, které ho používají, spadnou zpátky do „čeká na
+          nastavení" a přestanou stahovat recenze.
+        </p>
+        <p className="small muted">
+          {managed
+            ? 'Účet ' +
+              (credential.hint ?? '') +
+              ' v Play Console rušit nemusíš — necháme ho být a jen zneplatníme klíč. Když store napojíš znovu, ' +
+              'dostaneš tentýž e-mail a pozvánka bude platit dál.'
+            : 'Klíč u nás smažeme; v konzoli storu ho zruš sám, ať nikde nezůstane platný.'}
+        </p>
+        <div className="row">
+          <button type="button" className="danger" disabled={pending} onClick={onConfirm}>
+            Odebrat klíč
+          </button>
+          <button type="button" className="secondary" onClick={onClose}>
+            Nechat
+          </button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
 function CredentialsCard({
   org,
-  appId,
+  app,
   onConnect,
 }: {
   org: string
-  appId: string
+  app: App
   onConnect: (platform: Platform) => void
 }) {
+  const appId = app.id
   const focus = useSetupFocus('klice')
   const credentials = useCredentials(org)
   const add = useAddCredential(org)
   const attach = useAttachCredential(org)
   const validate = useValidateCredential(org)
+  const remove = useDeleteCredential(org)
+  const [removing, setRemoving] = useState<Credential | null>(null)
   const [type, setType] = useState('gp')
   const [label, setLabel] = useState('')
   const [content, setContent] = useState('')
@@ -668,13 +729,21 @@ function CredentialsCard({
                 </td>
                 <td>
                   <div className="row">
-                    <button
-                      type="button"
-                      className="secondary"
-                      onClick={() => attach.mutate({ appId, credentialId: credential.id })}
-                    >
-                      Přiřadit k appce
-                    </button>
+                    {/* Organizace může mít pro tentýž store víc klíčů — spravovaný účet vedle
+                        vlastního enterprise klíče. Přiřazovat jde jen ten, který appka
+                        nepoužívá; u toho druhého by tlačítko nedělalo nic. */}
+                    {app.setup.credentialIds.includes(credential.id) ? (
+                      <span className="small muted">používá tahle appka</span>
+                    ) : (
+                      <button
+                        type="button"
+                        className="secondary"
+                        disabled={attach.isPending}
+                        onClick={() => attach.mutate({ appId, credentialId: credential.id })}
+                      >
+                        Přiřadit k appce
+                      </button>
+                    )}
                     <button
                       type="button"
                       className="secondary"
@@ -691,6 +760,9 @@ function CredentialsCard({
                     >
                       Ověřit proti storu
                     </button>
+                    <button type="button" className="danger" onClick={() => setRemoving(credential)}>
+                      Odebrat
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -699,7 +771,16 @@ function CredentialsCard({
         </table>
       )}
       {result ? <div className="notice" style={{ marginTop: '0.75rem' }}>{result}</div> : null}
-      <ErrorBox error={attach.error ?? validate.error} />
+      <ErrorBox error={attach.error ?? validate.error ?? remove.error} />
+
+      {removing ? (
+        <RemoveCredentialDialog
+          credential={removing}
+          pending={remove.isPending}
+          onClose={() => setRemoving(null)}
+          onConfirm={() => remove.mutate(removing.id, { onSuccess: () => setRemoving(null) })}
+        />
+      ) : null}
 
       {/* Ruční nahrání zůstává pro dva případy, které dialog neobslouží: enterprise s vlastním
           service accountem a individuální (ne týmový) klíč z App Store Connect. */}

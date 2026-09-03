@@ -58,6 +58,7 @@ class GooglePlayProvisioning(
                 provisioner.provision(
                     provisioner = settings.provisioner,
                     projectId = settings.projectId,
+                    orgId = organization.id.toString(),
                     orgSlug = organization.slug,
                     displayName = organization.name,
                 )
@@ -98,6 +99,74 @@ class GooglePlayProvisioning(
         )
         return meta
     }
+
+    /**
+     * Zneplatnění klíče, který jsme organizaci vydali — volá se po smazání záznamu z vaultu.
+     *
+     * Service account v našem projektu **zůstává**: klient ho má pozvaný v Play Console a
+     * pozvánka je to jediné, co po něm chceme. Bez klíčů je účet mrtvý, a když si store
+     * napojí znovu, dostane tentýž e-mail a pozvánka platí dál ([provision] účet adoptuje).
+     *
+     * Selhání se jen loguje: záznam už je pryč a klient s tím nic nezmůže. Sirotčí klíč
+     * v IAM je pak úklid na naší straně, ne chyba, kterou má vidět v consoli.
+     */
+    suspend fun revokeKeys(
+        organization: Organization,
+        meta: CredentialMeta,
+    ) {
+        if (meta.origin != CredentialOrigin.PROVISIONED || meta.type != CredentialType.GP_SERVICE_ACCOUNT) return
+        val email = meta.hint ?: return
+        try {
+            val settings = settings()
+            provisioner.revokeKeys(settings.provisioner, settings.projectId, email)
+            audit.append(
+                auditEntry(
+                    orgId = organization.id,
+                    action = "credential.revoked",
+                    actorType = ActorType.SYSTEM,
+                    targetType = "credential",
+                    targetId = meta.id.toString(),
+                    metadata = mapOf("account" to email),
+                ),
+            )
+        } catch (error: StoreConnectorException) {
+            logger.error(error) { "Klíče service accountu $email se nepodařilo zneplatnit — zruš je v IAM ručně" }
+        } catch (error: ConsoleException) {
+            logger.error(error) { "Klíče service accountu $email se nepodařilo zneplatnit — zruš je v IAM ručně" }
+        }
+    }
+
+    /**
+     * Doplnění značky vlastníka na spravované účty organizace — jednorázový úklid po
+     * zavedení adopce ([provision]).
+     *
+     * Účty vyrobené dřív značku nemají, takže by se při dalším napojení storu neadoptovaly:
+     * jméno by bylo obsazené, klient by dostal účet `…-1@…` a v Play Console by musel
+     * pozvat další e-mail. Pouští se přes CLI a dá se opakovat — už označený účet vrátí
+     * `added = false`.
+     */
+    suspend fun markOwner(organization: Organization): List<OwnerMark> {
+        val managed =
+            credentials
+                .listByOrg(organization.id, CredentialType.GP_SERVICE_ACCOUNT)
+                .filter { it.origin == CredentialOrigin.PROVISIONED }
+        if (managed.isEmpty()) return emptyList()
+
+        val settings = settings()
+        return managed.mapNotNull { meta ->
+            val email = meta.hint ?: return@mapNotNull null
+            OwnerMark(
+                email = email,
+                added = provisioner.markOwner(settings.provisioner, settings.projectId, email, organization.id.toString()),
+            )
+        }
+    }
+
+    /** Výsledek značkování jednoho účtu. `added = false` znamená, že značku už měl. */
+    data class OwnerMark(
+        val email: String,
+        val added: Boolean,
+    )
 
     /** Spravovaný účet organizace, pokud už existuje. Hledá se podle původu, ne podle štítku. */
     fun existing(organization: Organization): CredentialMeta? =

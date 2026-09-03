@@ -270,6 +270,18 @@ export function useAttachCredential(org: string) {
   })
 }
 
+/**
+ * Smazání klíče. Zneplatní se i na straně storu, takže po něm appka spadne zpátky do
+ * „čeká na nastavení" — proto se invaliduje všechno, ne jen seznam klíčů.
+ */
+export function useDeleteCredential(org: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (credentialId: string) => api.delete<void>(`/api/orgs/${org}/credentials/${credentialId}`),
+    onSuccess: () => client.invalidateQueries(),
+  })
+}
+
 /** Service account pro Google Play vyrobený námi. Idempotentní — druhé volání vrátí týž účet. */
 export function useProvisionGooglePlay(org: string) {
   const client = useQueryClient()

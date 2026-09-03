@@ -98,6 +98,8 @@ export interface AppSetup {
   platformsWithoutKey: Platform[]
   /** Store má klíč, ale ten ještě neprošel ověřením — čeká se na store, ne na klienta. */
   platformsWaitingForKey: Platform[]
+  /** Klíče, které appka používá. Podle nich se pozná, který z klíčů organizace je přiřazený. */
+  credentialIds: string[]
 }
 
 export type SetupGap = 'STORE_KEY' | 'STORE_KEY_WAITING' | 'CHANNEL'

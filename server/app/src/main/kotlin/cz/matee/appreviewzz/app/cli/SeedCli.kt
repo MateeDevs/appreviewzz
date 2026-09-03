@@ -168,6 +168,12 @@ private val COMMANDS =
             run = { args -> credentialAttach(args) },
         ),
         Command(
+            name = "credential mark-managed",
+            options = setOf("org"),
+            usage = "credential mark-managed [--org <slug|ID>]  (bez --org projde všechny organizace)",
+            run = { args -> credentialMarkManaged(args) },
+        ),
+        Command(
             name = "credential validate",
             options = setOf("org", "app", "credential"),
             usage = "credential validate --org <slug|ID> --app <ID> --credential <ID>",

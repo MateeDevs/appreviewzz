@@ -1,6 +1,7 @@
 package cz.matee.appreviewzz.core.usecase
 
 import cz.matee.appreviewzz.core.model.App
+import cz.matee.appreviewzz.core.model.CredentialId
 import cz.matee.appreviewzz.core.model.CredentialPurpose
 import cz.matee.appreviewzz.core.model.CredentialType
 import cz.matee.appreviewzz.core.model.Platform
@@ -42,6 +43,13 @@ data class AppSetup(
     val platformsWithoutKey: List<Platform>,
     /** Které store má klíč, který ještě neprošel ověřením. */
     val platformsWaitingForKey: List<Platform> = emptyList(),
+    /**
+     * Klíče, které appka doopravdy používá. Console podle nich pozná, který ze záznamů
+     * v organizaci k appce patří — organizace jich může mít pro tentýž store víc
+     * (spravovaný účet vedle vlastního enterprise klíče) a nabízet „přiřadit" u toho,
+     * který už přiřazený je, je matoucí.
+     */
+    val credentialIds: List<CredentialId> = emptyList(),
 ) {
     val ready: Boolean get() = gaps.isEmpty()
 }
@@ -77,6 +85,7 @@ class AppSetupCheck(
                 },
             platformsWithoutKey = withoutKey,
             platformsWaitingForKey = waiting,
+            credentialIds = keys.values.filterNotNull().map { it.id },
         )
     }
 

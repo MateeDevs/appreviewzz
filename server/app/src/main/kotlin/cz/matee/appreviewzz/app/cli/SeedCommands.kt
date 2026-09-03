@@ -308,6 +308,37 @@ class SeedCommands(
     }
 
     /**
+     * Doplnění značky vlastníka na spravované service accounty Google Play.
+     *
+     * Jednorázový úklid po zavedení adopce účtů: účty vyrobené dřív nemají v `description`
+     * id organizace, takže by se při dalším napojení storu nepoznaly jako její a klient by
+     * dostal nový e-mail místo toho, který má pozvaný v Play Console. Bez `--org` projde
+     * všechny organizace a dá se pouštět opakovaně.
+     */
+    suspend fun credentialMarkManaged(args: Arguments) {
+        val organizations =
+            if (args.optional("org") == null) components.organizations.list() else listOf(organization(args))
+        var found = 0
+
+        organizations.forEach { organization ->
+            val marks =
+                try {
+                    components.googlePlayProvisioning.markOwner(organization)
+                } catch (error: StoreConnectorException) {
+                    throw CommandException("Účty organizace ${organization.slug} se nepodařilo označit: ${error.message}", error)
+                } catch (error: ConsoleException) {
+                    throw CommandException(error.message ?: "Provisioner Google Play není nastavený", error)
+                }
+            marks.forEach { mark ->
+                found++
+                out("${organization.slug}  ${mark.email}  ${if (mark.added) "označen" else "už označený"}")
+            }
+        }
+
+        if (found == 0) out("Žádný spravovaný service account k označení")
+    }
+
+    /**
      * Ověřovací volání do storu. Výsledek se zapisuje do credentialu i do audit logu — je to
      * tatáž cesta, kterou ve F3 použije onboarding wizard, jen bez UI.
      */
