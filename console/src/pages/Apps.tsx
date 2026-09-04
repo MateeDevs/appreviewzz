@@ -2,21 +2,27 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
 import {
   useAddCredential,
+  useAnalysisStatus,
   useApps,
   useAttachCredential,
+  useBackfillAnalysis,
   useChannels,
   useCheckReportingBucket,
   useConnectSlack,
   useCreateApp,
   useCreateChannel,
+  useCreateTopic,
   useCredentials,
   useDeleteChannel,
   useDeleteCredential,
+  useDeleteTopic,
   useRatings,
   useResolveStoreLinks,
   useRunRatings,
   useTestChannels,
+  useTopics,
   useUpdateApp,
+  useUpdateChannelDeliveries,
   useValidateCredential,
 } from '../api/hooks'
 import { Badge, Card, ErrorBox, Field, Loading, Modal, When } from '../components/ui'
@@ -24,6 +30,7 @@ import { ConnectStoreWizard } from '../components/ConnectStoreWizard'
 import { RatingsChart } from '../components/RatingsChart'
 import type {
   App,
+  Channel,
   ChannelCheck,
   Credential,
   Platform,
@@ -411,6 +418,7 @@ export function AppDetailPage() {
         ) : null}
       </div>
       <AppSettingsCard org={org} appId={appId} />
+      <AnalysisCard org={org} appId={appId} />
       <RatingsCard org={org} appId={appId} />
       <CredentialsCard org={org} app={app} onConnect={setConnect} />
       <ChannelsCard org={org} appId={appId} />
@@ -459,6 +467,9 @@ function ReportingBucketProbe({ org, appId, bucket }: { org: string; appId: stri
   )
 }
 
+/** ISO pořadí dnů — číslo se posílá na server, jméno vidí člověk. */
+const WEEK_DAYS = ['pondělí', 'úterý', 'středa', 'čtvrtek', 'pátek', 'sobota', 'neděle']
+
 function AppSettingsCard({ org, appId }: { org: string; appId: string }) {
   const apps = useApps(org)
   const update = useUpdateApp(org)
@@ -472,6 +483,7 @@ function AppSettingsCard({ org, appId }: { org: string; appId: string }) {
     locale: app.locale.toLowerCase(),
     timezone: app.timezone,
     dailyDigestAt: app.dailyDigestAt.slice(0, 5),
+    weeklyDigestDay: String(app.weeklyDigestDay),
     aiInstructions: app.aiInstructions ?? '',
   }
   const set = (key: string, value: string) => setDraft({ ...values, [key]: value })
@@ -490,6 +502,7 @@ function AppSettingsCard({ org, appId }: { org: string; appId: string }) {
                 locale: values.locale,
                 timezone: values.timezone,
                 dailyDigestAt: values.dailyDigestAt,
+                weeklyDigestDay: Number(values.weeklyDigestDay),
                 aiInstructions: values.aiInstructions === '' ? null : values.aiInstructions,
                 enabled: app.enabled,
               },
@@ -525,6 +538,15 @@ function AppSettingsCard({ org, appId }: { org: string; appId: string }) {
         </Field>
         <Field label="Čas denního přehledu">
           <input type="time" value={values.dailyDigestAt} onChange={(e) => set('dailyDigestAt', e.target.value)} />
+        </Field>
+        <Field label="Den týdenního rozboru" hint="Rozbor recenzí odejde v tenhle den ve stejný čas jako denní přehled.">
+          <select value={values.weeklyDigestDay} onChange={(e) => set('weeklyDigestDay', e.target.value)}>
+            {WEEK_DAYS.map((day, index) => (
+              <option key={day} value={index + 1}>
+                {day}
+              </option>
+            ))}
+          </select>
         </Field>
         {/* Watermark se nenastavuje, jen ukazuje: je to čas přidání appky a měnit ho zpětně
             by znamenalo buď zaplavit kanál historií, nebo zamlčet recenze, které už přišly. */}
@@ -902,6 +924,168 @@ function CredentialsCard({
   )
 }
 
+/**
+ * Rozbory recenzí (F8): kolik recenzí má výklad a co si k obecné taxonomii klient přidal.
+ *
+ * Stav výkladu je tu ta hlavní informace — když je stránka Rozbory prázdná, odpověď na
+ * „proč" je skoro vždycky tady.
+ */
+function AnalysisCard({ org, appId }: { org: string; appId: string }) {
+  const status = useAnalysisStatus(org, appId)
+  const backfill = useBackfillAnalysis(org, appId)
+  const topics = useTopics(org, appId)
+  const removeTopic = useDeleteTopic(org, appId)
+  const [adding, setAdding] = useState(false)
+
+  const custom = (topics.data ?? []).filter((topic) => topic.custom)
+  const total = status.data ? status.data.analyzed + status.data.missing : 0
+
+  return (
+    <Card title="Rozbory recenzí">
+      <ErrorBox error={status.error} />
+      {status.data ? (
+        <p className="small muted">
+          Výklad má {status.data.analyzed} z {total} recenzí
+          {status.data.missing > 0 ? ` — ${status.data.missing} čeká.` : '.'} Taxonomie {status.data.taxonomyVersion}.
+        </p>
+      ) : null}
+      <div className="row">
+        <button
+          type="button"
+          className="secondary"
+          disabled={backfill.isPending || status.data?.missing === 0}
+          onClick={() => backfill.mutate()}
+        >
+          {backfill.isPending ? 'Zařazuji…' : 'Doplnit za historii'}
+        </button>
+        <button type="button" className="secondary" onClick={() => setAdding(true)}>
+          Přidat vlastní téma
+        </button>
+      </div>
+      <ErrorBox error={backfill.error} />
+      {backfill.isSuccess ? (
+        <div className="notice" style={{ marginTop: '0.5rem' }}>
+          Doplňování běží na pozadí v dávkách. Za chvíli obnov stránku.
+        </div>
+      ) : null}
+
+      <h3 style={{ marginTop: '1.25rem' }}>Vlastní témata</h3>
+      {custom.length === 0 ? (
+        <p className="muted">
+          Zatím žádné. Vlastní téma se hodí na to, co obecná taxonomie nezná — třeba
+          synchronizaci s konkrétním zařízením nebo školní účty.
+        </p>
+      ) : (
+        <table>
+          <thead>
+            <tr>
+              <th>Téma</th>
+              <th>Popis pro AI</th>
+              <th>Za 30 dní</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {custom.map((topic) => (
+              <tr key={topic.key}>
+                <td>
+                  {topic.name}
+                  {topic.enabled ? null : <div className="small muted">vypnuté</div>}
+                </td>
+                <td className="small muted">{topic.description}</td>
+                <td>{topic.recentCount}</td>
+                <td>
+                  <button
+                    type="button"
+                    className="danger"
+                    onClick={() => removeTopic.mutate(topic.key.replace('custom:', ''))}
+                  >
+                    Smazat
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <ErrorBox error={removeTopic.error} />
+      {adding ? <AddTopicDialog org={org} appId={appId} onClose={() => setAdding(false)} /> : null}
+    </Card>
+  )
+}
+
+function AddTopicDialog({ org, appId, onClose }: { org: string; appId: string; onClose: () => void }) {
+  const create = useCreateTopic(org, appId)
+  const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
+
+  return (
+    <Modal title="Vlastní téma" onClose={onClose}>
+      <form
+        onSubmit={(event) => {
+          event.preventDefault()
+          create.mutate({ name, description }, { onSuccess: onClose })
+        }}
+      >
+        <Field label="Název" hint="Takhle se téma bude jmenovat ve filtru a v rozborech.">
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Garmin" required />
+        </Field>
+        <Field
+          label="Popis (anglicky)"
+          hint="Popis čte AI, proto anglicky — z něj pozná, co do tématu patří. Příklad: Problems syncing workouts from Garmin watches."
+        >
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Problems syncing workouts from Garmin watches."
+            required
+          />
+        </Field>
+        <div className="stack" style={{ marginTop: '1rem' }}>
+          <ErrorBox error={create.error} />
+          <div className="row">
+            <button type="submit" disabled={create.isPending}>
+              Přidat téma
+            </button>
+            <button type="button" className="secondary" onClick={onClose}>
+              Zrušit
+            </button>
+          </div>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+/**
+ * Co se do kanálu posílá. Tři nezávislé věci: jednotlivé recenze, denní přehled hodnocení
+ * a týdenní rozbor — a tým, který chce jen rozbory, si zbytek vypne.
+ */
+function DeliveryToggles({ org, appId, channel }: { org: string; appId: string; channel: Channel }) {
+  const update = useUpdateChannelDeliveries(org, appId)
+  const items: Array<{ label: string; key: 'deliverReviews' | 'deliverRatings' | 'deliverAnalyses' }> = [
+    { label: 'Recenze', key: 'deliverReviews' },
+    { label: 'Hodnocení', key: 'deliverRatings' },
+    { label: 'Rozbory', key: 'deliverAnalyses' },
+  ]
+
+  return (
+    <div className="row" style={{ gap: '0.5rem' }}>
+      {items.map((item) => (
+        <label key={item.key} className="small" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+          <input
+            type="checkbox"
+            checked={channel[item.key]}
+            disabled={update.isPending}
+            onChange={(event) => update.mutate({ id: channel.id, [item.key]: event.target.checked })}
+          />
+          {item.label}
+        </label>
+      ))}
+    </div>
+  )
+}
+
 function ChannelsCard({ org, appId }: { org: string; appId: string }) {
   const focus = useSetupFocus('kanaly')
   const channels = useChannels(org, appId)
@@ -928,6 +1112,7 @@ function ChannelsCard({ org, appId }: { org: string; appId: string }) {
             <tr>
               <th>Kanál</th>
               <th>Jazyk</th>
+              <th>Co chodí</th>
               <th>Stav</th>
               <th />
             </tr>
@@ -940,6 +1125,9 @@ function ChannelsCard({ org, appId }: { org: string; appId: string }) {
                   <div className="small muted">{channel.targetRef}</div>
                 </td>
                 <td className="small">{channel.locale.toLowerCase()}</td>
+                <td>
+                  <DeliveryToggles org={org} appId={appId} channel={channel} />
+                </td>
                 <td>{channel.enabled ? <Badge tone="ok">zapnutý</Badge> : <Badge tone="warn">vypnutý</Badge>}</td>
                 <td>
                   <button type="button" className="danger" onClick={() => remove.mutate(channel.id)}>

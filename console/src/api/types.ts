@@ -181,6 +181,49 @@ export interface SlackConnection {
   missingScopes: string[]
 }
 
+export type OverallSentiment = 'POSITIVE' | 'NEGATIVE' | 'MIXED' | 'NEUTRAL'
+export type TopicSentiment = 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL'
+export type ReviewType = 'BUG' | 'FEATURE_REQUEST' | 'COMPLAINT' | 'PRAISE' | 'QUESTION' | 'OTHER'
+export type Urgency = 'LOW' | 'MEDIUM' | 'HIGH'
+
+export interface TopicMention {
+  key: string
+  /** Český název tématu; u smazaného vlastního tématu zůstane klíč. */
+  name: string
+  sentiment: TopicSentiment
+  /** Doslovný úryvek recenze, ověřený serverem. `null`, když se ověřit nedal. */
+  quote: string | null
+}
+
+/** Výklad recenze (F8). Chybí, dokud ho AI nespočítá — nebo když AI není nastavená. */
+export interface ReviewInsight {
+  sentiment: OverallSentiment
+  type: ReviewType
+  urgency: Urgency
+  language: string | null
+  translation: string | null
+  topics: TopicMention[]
+}
+
+/** Téma pro výběr ve filtru a pro nastavení aplikace. */
+export interface TopicOption {
+  key: string
+  name: string
+  /** Skupina pro seskupení ve výběru; u vlastních témat `null`. */
+  group: string | null
+  description: string
+  custom: boolean
+  enabled: boolean
+  recentCount: number
+}
+
+export interface AnalysisStatus {
+  analyzed: number
+  missing: number
+  taxonomyVersion: string
+  queued: boolean
+}
+
 export interface Review {
   id: string
   platform: Platform
@@ -195,6 +238,7 @@ export interface Review {
   state: ReviewState
   developerResponseBody: string | null
   developerResponseAt: string | null
+  insight?: ReviewInsight | null
 }
 
 export interface Reply {

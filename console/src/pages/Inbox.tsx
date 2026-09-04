@@ -1,8 +1,24 @@
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { useApps, useReply, useReview, useReviews, useSetReviewState } from '../api/hooks'
+import { useApps, useReply, useReview, useReviews, useSetReviewState, useTopics } from '../api/hooks'
 import { Badge, Card, ErrorBox, Field, Loading, Stars, When } from '../components/ui'
-import type { ReviewState } from '../api/types'
+import type { ReviewInsight, ReviewState, ReviewType, TopicOption, Urgency } from '../api/types'
+
+/** Popisky typů recenzí. Server posílá klíč, konzole je česká — překlad patří sem. */
+const TYPE_LABELS: Record<ReviewType, string> = {
+  BUG: 'Chyba',
+  FEATURE_REQUEST: 'Přání funkce',
+  COMPLAINT: 'Stížnost',
+  PRAISE: 'Pochvala',
+  QUESTION: 'Dotaz',
+  OTHER: 'Ostatní',
+}
+
+const URGENCY_LABELS: Record<Urgency, string> = {
+  LOW: 'nízká',
+  MEDIUM: 'střední',
+  HIGH: 'naléhavé',
+}
 
 const FILTERS: { label: string; states: ReviewState[] }[] = [
   { label: 'Čeká na odpověď', states: ['NEW', 'UPDATED', 'NOTIFIED'] },
@@ -22,10 +38,19 @@ export function InboxPage() {
   const apps = useApps(org)
   const [appId, setAppId] = useState('')
   const [filter, setFilter] = useState(0)
+  const [topic, setTopic] = useState('')
+  const [type, setType] = useState<ReviewType | ''>('')
+  const [urgency, setUrgency] = useState<Urgency | ''>('')
   const [openReview, setOpenReview] = useState<string>('')
 
   const selected = appId || (apps.data?.[0]?.id ?? '')
-  const reviews = useReviews(org, selected, FILTERS[filter]?.states ?? [])
+  const reviews = useReviews(org, selected, {
+    states: FILTERS[filter]?.states ?? [],
+    topic,
+    type,
+    urgency,
+  })
+  const topics = useTopics(org, selected)
 
   if (apps.isPending) return <Loading />
   if (apps.data?.length === 0) {
@@ -63,6 +88,38 @@ export function InboxPage() {
             </button>
           ))}
         </div>
+        <div className="row" style={{ marginTop: '0.5rem' }}>
+          <TopicSelect topics={topics.data} value={topic} onChange={setTopic} />
+          <select value={type} onChange={(e) => setType(e.target.value as ReviewType | '')} style={{ width: 'auto' }}>
+            <option value="">Jakýkoli typ</option>
+            {Object.entries(TYPE_LABELS).map(([key, label]) => (
+              <option key={key} value={key}>
+                {label}
+              </option>
+            ))}
+          </select>
+          <select value={urgency} onChange={(e) => setUrgency(e.target.value as Urgency | '')} style={{ width: 'auto' }}>
+            <option value="">Jakákoli naléhavost</option>
+            {Object.entries(URGENCY_LABELS).map(([key, label]) => (
+              <option key={key} value={key}>
+                {label}
+              </option>
+            ))}
+          </select>
+          {topic || type || urgency ? (
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => {
+                setTopic('')
+                setType('')
+                setUrgency('')
+              }}
+            >
+              Zrušit filtry
+            </button>
+          ) : null}
+        </div>
       </Card>
 
       <Card>
@@ -82,6 +139,7 @@ export function InboxPage() {
               </div>
               <StateBadge state={review.state} />
             </div>
+            <InsightBadges insight={review.insight} />
             {review.title ? <div><strong>{review.title}</strong></div> : null}
             <p style={{ marginTop: '0.35rem' }}>{review.body ?? <span className="muted">(bez textu)</span>}</p>
             {review.developerResponseBody ? (
@@ -98,6 +156,61 @@ export function InboxPage() {
           </div>
         ))}
       </Card>
+    </div>
+  )
+}
+
+/**
+ * Výběr tématu. Základní taxonomie je seskupená, vlastní témata aplikace na konci —
+ * jinak by v seznamu dvaceti tří položek zapadla.
+ */
+function TopicSelect({
+  topics,
+  value,
+  onChange,
+}: {
+  topics: TopicOption[] | undefined
+  value: string
+  onChange: (key: string) => void
+}) {
+  const groups = new Map<string, TopicOption[]>()
+  topics?.forEach((item) => {
+    const key = item.group ?? 'Vlastní témata'
+    groups.set(key, [...(groups.get(key) ?? []), item])
+  })
+
+  return (
+    <select value={value} onChange={(e) => onChange(e.target.value)} style={{ width: 'auto' }}>
+      <option value="">Jakékoli téma</option>
+      {[...groups.entries()].map(([group, items]) => (
+        <optgroup key={group} label={group}>
+          {items.map((item) => (
+            <option key={item.key} value={item.key}>
+              {item.name}
+              {item.recentCount > 0 ? ` (${item.recentCount})` : ''}
+            </option>
+          ))}
+        </optgroup>
+      ))}
+    </select>
+  )
+}
+
+/**
+ * Štítky recenze. Barva podle sentimentu tématu, ne podle hvězd — pětihvězdičková recenze
+ * si klidně stěžuje na reklamy a právě to je ta informace navíc.
+ */
+function InsightBadges({ insight }: { insight?: ReviewInsight | null }) {
+  if (!insight) return null
+  return (
+    <div className="row" style={{ marginTop: '0.35rem', gap: '0.35rem' }}>
+      {insight.topics.map((topic) => (
+        <Badge key={topic.key} tone={topic.sentiment === 'NEGATIVE' ? 'bad' : topic.sentiment === 'POSITIVE' ? 'ok' : undefined}>
+          {topic.name}
+        </Badge>
+      ))}
+      <Badge>{TYPE_LABELS[insight.type]}</Badge>
+      {insight.urgency === 'HIGH' ? <Badge tone="warn">naléhavé</Badge> : null}
     </div>
   )
 }
@@ -119,6 +232,24 @@ function StateBadge({ state }: { state: ReviewState }) {
   }
 }
 
+/** Citáty jsou ověřené jako doslovný úryvek recenze — proto se dají ukázat jako citace. */
+function InsightDetail({ insight }: { insight: ReviewInsight }) {
+  const quotes = insight.topics.filter((topic) => topic.quote)
+  return (
+    <div className="notice" style={{ marginBottom: '0.75rem' }}>
+      <div className="small">
+        {TYPE_LABELS[insight.type]} · naléhavost {URGENCY_LABELS[insight.urgency]}
+        {insight.language ? ` · jazyk ${insight.language}` : ''}
+      </div>
+      {quotes.map((topic) => (
+        <div key={topic.key} className="small">
+          <strong>{topic.name}</strong>: „{topic.quote}"
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function ReplyForm({ org, reviewId }: { org: string; reviewId: string }) {
   const detail = useReview(org, reviewId)
   const reply = useReply(org)
@@ -128,6 +259,7 @@ function ReplyForm({ org, reviewId }: { org: string; reviewId: string }) {
 
   return (
     <div style={{ marginTop: '0.75rem' }}>
+      {detail.data?.review.insight ? <InsightDetail insight={detail.data.review.insight} /> : null}
       {detail.data && detail.data.replies.length > 0 ? (
         <div className="notice" style={{ marginBottom: '0.75rem' }}>
           {detail.data.replies.map((item) => (

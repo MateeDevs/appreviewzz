@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query'
 import { ApiError, api } from './client'
 import type {
+  AnalysisStatus,
   App,
   AuditEntry,
   Channel,
@@ -24,9 +25,12 @@ import type {
   Review,
   ReviewDetail,
   ReviewState,
+  ReviewType,
   StoreApp,
   StoreResolution,
+  TopicOption,
   TotpSetup,
+  Urgency,
 } from './types'
 
 /**
@@ -349,6 +353,20 @@ export function useCreateChannel(org: string, appId: string) {
   })
 }
 
+/** Které druhy zpráv do kanálu chodí. Vynechané pole se nemění. */
+export function useUpdateChannelDeliveries(org: string, appId: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (input: { id: string; deliverReviews?: boolean; deliverRatings?: boolean; deliverAnalyses?: boolean }) =>
+      api.patch<void>(`/api/orgs/${org}/apps/${appId}/channels/${input.id}`, {
+        deliverReviews: input.deliverReviews,
+        deliverRatings: input.deliverRatings,
+        deliverAnalyses: input.deliverAnalyses,
+      }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ['channels', org, appId] }),
+  })
+}
+
 export function useDeleteChannel(org: string, appId: string) {
   const client = useQueryClient()
   return useMutation({
@@ -372,12 +390,83 @@ export function useConnectSlack(org: string) {
   })
 }
 
-export function useReviews(org: string, appId: string, states: ReviewState[]) {
-  const filter = states.length > 0 ? `?state=${states.join(',')}` : ''
+/** Filtry inboxu; prázdná hodnota znamená „neomezuj", ne „nic nevrať". */
+export interface ReviewFilters {
+  states?: ReviewState[]
+  topic?: string
+  type?: ReviewType | ''
+  urgency?: Urgency | ''
+}
+
+export function useReviews(org: string, appId: string, filters: ReviewFilters = {}) {
+  const params = new URLSearchParams()
+  if (filters.states?.length) params.set('state', filters.states.join(','))
+  if (filters.topic) params.set('topic', filters.topic)
+  if (filters.type) params.set('type', filters.type)
+  if (filters.urgency) params.set('urgency', filters.urgency)
+  const query = params.toString() ? `?${params}` : ''
   return useQuery({
-    queryKey: ['reviews', org, appId, filter],
-    queryFn: () => api.get<Review[]>(`/api/orgs/${org}/apps/${appId}/reviews${filter}`),
+    queryKey: ['reviews', org, appId, query],
+    queryFn: () => api.get<Review[]>(`/api/orgs/${org}/apps/${appId}/reviews${query}`),
     enabled: appId !== '',
+  })
+}
+
+export function useTopics(org: string, appId: string) {
+  return useQuery({
+    queryKey: ['topics', org, appId],
+    queryFn: () => api.get<TopicOption[]>(`/api/orgs/${org}/apps/${appId}/topics`),
+    enabled: appId !== '',
+  })
+}
+
+export function useCreateTopic(org: string, appId: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (body: { name: string; description: string }) =>
+      api.post<TopicOption>(`/api/orgs/${org}/apps/${appId}/topics`, body),
+    onSuccess: () => client.invalidateQueries({ queryKey: ['topics', org, appId] }),
+  })
+}
+
+export function useUpdateTopic(org: string, appId: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (input: { id: string; name: string; description: string; enabled: boolean }) =>
+      api.patch<TopicOption>(`/api/orgs/${org}/apps/${appId}/topics/${input.id}`, {
+        name: input.name,
+        description: input.description,
+        enabled: input.enabled,
+      }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ['topics', org, appId] }),
+  })
+}
+
+export function useDeleteTopic(org: string, appId: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/api/orgs/${org}/apps/${appId}/topics/${id}`),
+    onSuccess: () => client.invalidateQueries({ queryKey: ['topics', org, appId] }),
+  })
+}
+
+export function useAnalysisStatus(org: string, appId: string) {
+  return useQuery({
+    queryKey: ['analysis-status', org, appId],
+    queryFn: () => api.get<AnalysisStatus>(`/api/orgs/${org}/apps/${appId}/analysis/status`),
+    enabled: appId !== '',
+  })
+}
+
+/** Doplnění výkladů za historii. Odpoví hned — backfill běží v dávkách na pozadí. */
+export function useBackfillAnalysis(org: string, appId: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: () => api.post<AnalysisStatus>(`/api/orgs/${org}/apps/${appId}/analysis/backfill`, {}),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ['analysis-status', org, appId] })
+      client.invalidateQueries({ queryKey: ['reviews', org, appId] })
+    },
   })
 }
 
