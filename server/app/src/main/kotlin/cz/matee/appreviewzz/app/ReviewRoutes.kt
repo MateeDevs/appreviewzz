@@ -99,6 +99,16 @@ data class AppTopicRequest(
     val enabled: Boolean = true,
 )
 
+/** Co ruční běh rozboru udělal. `skipped` je stav, ne chyba — proto 200, ne 4xx. */
+@Serializable
+data class WeeklyAnalysisRunResponse(
+    val skipped: String?,
+    val reviews: Int,
+    val sent: Int,
+    val alreadySent: Int,
+    val errors: List<String>,
+)
+
 @Serializable
 data class AnalysisStatusResponse(
     val analyzed: Int,
@@ -292,6 +302,28 @@ fun Route.reviewRoutes(console: ConsoleWiring) {
         get("/status") {
             val context = call.orgContext(console.organizations, console.memberships)
             call.respond(io { inbox.analysisStatus(context.organization.id, call.appIdParam()).toResponse() })
+        }
+
+        /**
+         * Ruční odeslání týdenního rozboru. Běží v požadavku, ne ve frontě: klient na to
+         * klikl proto, aby hned viděl, co do kanálu dorazilo.
+         */
+        post("/weekly/run") {
+            val context = call.orgContext(console.organizations, console.memberships)
+            requireRole(context.actor, OrgRole.ADMIN)
+            val weekly =
+                console.weeklyAnalysis
+                    ?: throw ConsoleException(ConsoleFailure.INVALID_INPUT, "Rozbory nejsou v tomhle procesu zapnuté")
+            val report = weekly.run(context.organization.id, call.appIdParam())
+            call.respond(
+                WeeklyAnalysisRunResponse(
+                    skipped = report.skipped?.name,
+                    reviews = report.aggregates?.reviews ?: 0,
+                    sent = report.deliveries.count { it.sent },
+                    alreadySent = report.deliveries.count { it.alreadySent },
+                    errors = report.deliveries.mapNotNull { it.error },
+                ),
+            )
         }
 
         /**

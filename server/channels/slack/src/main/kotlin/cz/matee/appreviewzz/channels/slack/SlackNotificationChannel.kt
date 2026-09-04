@@ -1,5 +1,6 @@
 package cz.matee.appreviewzz.channels.slack
 
+import cz.matee.appreviewzz.core.message.AnalysisDigest
 import cz.matee.appreviewzz.core.message.MessageCatalog
 import cz.matee.appreviewzz.core.message.MessageKey
 import cz.matee.appreviewzz.core.message.RatingsDigest
@@ -72,6 +73,17 @@ class SlackNotificationChannel(
             token = botToken(target),
             channel = target.conversationId,
             blocks = SlackBlocks.ratingsDigest(digest),
+            fallbackText = digest.fallbackText(),
+        )
+
+    override suspend fun postAnalysisDigest(
+        target: ChannelTarget,
+        digest: AnalysisDigest,
+    ): PostedMessage =
+        api.postMessage(
+            token = botToken(target),
+            channel = target.conversationId,
+            blocks = SlackBlocks.analysisDigest(digest),
             fallbackText = digest.fallbackText(),
         )
 

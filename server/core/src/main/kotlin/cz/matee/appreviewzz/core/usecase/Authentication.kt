@@ -1,6 +1,7 @@
 package cz.matee.appreviewzz.core.usecase
 
 import cz.matee.appreviewzz.core.message.AuthMails
+import cz.matee.appreviewzz.core.model.AppId
 import cz.matee.appreviewzz.core.model.MessageLocale
 import cz.matee.appreviewzz.core.model.OpaqueTokens
 import cz.matee.appreviewzz.core.model.SecretPayload
@@ -525,6 +526,20 @@ class ConsoleLinks(
         token: SecretPayload,
         origin: String? = null,
     ): String = "${base(origin)}/pozvanka?token=${token.value}"
+
+    /**
+     * Odkaz do inboxu, případně rovnou s filtrem tématu. Používá ho týdenní rozbor: z věty
+     * „Pády, 9 recenzí" má vést cesta k těm devíti recenzím, ne k seznamu všeho.
+     */
+    fun reviews(
+        orgSlug: String,
+        appId: AppId,
+        topicKey: String? = null,
+        origin: String? = null,
+    ): String {
+        val topic = topicKey?.let { "&topic=$it" }.orEmpty()
+        return "${base(origin)}/$orgSlug/recenze?app=$appId$topic"
+    }
 
     /** Základ odkazu pro požadavek přišlý z [origin] (`https://host[:port]`, nebo `null`). */
     fun base(origin: String?): String {

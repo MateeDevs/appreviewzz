@@ -64,6 +64,7 @@ import cz.matee.appreviewzz.core.usecase.RatingsInsights
 import cz.matee.appreviewzz.core.usecase.RefreshStoreRepliesUseCase
 import cz.matee.appreviewzz.core.usecase.RevalidateCredentialsUseCase
 import cz.matee.appreviewzz.core.usecase.ReviewInbox
+import cz.matee.appreviewzz.core.usecase.WeeklyAnalysisUseCase
 import cz.matee.appreviewzz.crypto.AppSecretBox
 import cz.matee.appreviewzz.crypto.Argon2PasswordHasher
 import cz.matee.appreviewzz.crypto.CredentialVault
@@ -80,6 +81,7 @@ import cz.matee.appreviewzz.jobs.RefreshRepliesJobs
 import cz.matee.appreviewzz.jobs.ReplyJobs
 import cz.matee.appreviewzz.jobs.RevalidateCredentialsJobs
 import cz.matee.appreviewzz.persistence.Database
+import cz.matee.appreviewzz.persistence.repository.ExposedAnalysisAggregateRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedAnalysisDigestRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedAppDataKeyRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedAppRepository
@@ -141,6 +143,7 @@ class Components(
     val ratingsDigests = ExposedRatingsDigestRepository(exposed)
 
     val reviewInsights = ExposedReviewInsightRepository(exposed)
+    val analysisAggregates = ExposedAnalysisAggregateRepository(exposed)
     val appTopics = ExposedAppTopicRepository(exposed)
     val analysisDigests = ExposedAnalysisDigestRepository(exposed)
 
@@ -448,8 +451,26 @@ class Components(
 
     val replyJobs: ReplyJobs by lazy { ReplyJobs(publish = publishReply, failedJobs = failedJobs) }
 
+    /** Týdenní rozbor recenzí do kanálu (F8). */
+    val weeklyAnalysis: WeeklyAnalysisUseCase by lazy {
+        WeeklyAnalysisUseCase(
+            apps = apps,
+            organizations = organizations,
+            channels = channels,
+            insights = reviewInsights,
+            aggregates = analysisAggregates,
+            appTopics = appTopics,
+            digests = analysisDigests,
+            secrets = vault,
+            links = consoleLinks,
+            notificationChannels = notificationChannels,
+        )
+    }
+
     /** Jedna instance: plánuje ji ingest, console i CLI, a scheduler ji musí znát jako úlohu. */
-    val analysisJobs: AnalysisJobs by lazy { AnalysisJobs(analyze = analyzeReviews, failedJobs = failedJobs) }
+    val analysisJobs: AnalysisJobs by lazy {
+        AnalysisJobs(analyze = analyzeReviews, failedJobs = failedJobs, weekly = weeklyAnalysis, apps = apps)
+    }
 
     /**
      * Ověření podpisu Slacku. `null` znamená nenastavený `SLACK_SIGNING_SECRET` — interactivity

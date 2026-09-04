@@ -256,6 +256,12 @@ private val COMMANDS =
             run = { args -> analysisStatus(args) },
         ),
         Command(
+            name = "analysis weekly run",
+            options = setOf("org", "app", "period-start"),
+            usage = "analysis weekly run --org <slug|ID> --app <ID> [--period-start YYYY-MM-DD]",
+            run = { args -> analysisWeeklyRun(args) },
+        ),
+        Command(
             name = "vault rotate",
             options = setOf("org"),
             usage = "vault rotate [--org <slug|ID>]",
@@ -287,13 +293,23 @@ private val COMMANDS =
         ),
     )
 
+/**
+ * Jméno příkazu je jedno až tři slova před první `--volbou`. Hledá se od nejdelšího:
+ * `analysis weekly run` se tak nesplete s hypotetickým `analysis weekly`.
+ */
 private fun resolve(argv: List<String>): Pair<Command, List<String>> {
-    val name = argv.take(2).takeWhile { !it.startsWith("--") }.joinToString(" ")
+    val words = argv.take(MAX_COMMAND_WORDS).takeWhile { !it.startsWith("--") }
     val command =
-        COMMANDS.firstOrNull { it.name == name }
-            ?: throw UsageException("Neznámý příkaz '${name.ifBlank { argv.first() }}'")
+        (words.size downTo 1)
+            .asSequence()
+            .map { size -> words.take(size).joinToString(" ") }
+            .mapNotNull { name -> COMMANDS.firstOrNull { it.name == name } }
+            .firstOrNull()
+            ?: throw UsageException("Neznámý příkaz '${words.joinToString(" ").ifBlank { argv.first() }}'")
     return command to argv.drop(command.name.split(' ').size)
 }
+
+private const val MAX_COMMAND_WORDS = 3
 
 private fun usage(): String =
     buildString {

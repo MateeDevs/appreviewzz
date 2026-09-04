@@ -51,6 +51,7 @@ fun buildScheduler(
             maintenanceJobs?.cleanupTask,
             refreshRepliesJobs?.refreshTask,
             revalidateCredentialsJobs?.revalidateTask,
+            analysisJobs?.weeklySweepTask,
         )
     val knownTasks =
         listOfNotNull(
@@ -59,6 +60,7 @@ fun buildScheduler(
             replyJobs?.publishTask,
             ratingsJobs?.ratingsTask,
             analysisJobs?.analyzeTask,
+            analysisJobs?.weeklyTask,
         )
     return Scheduler
         .create(dataSource, knownTasks)

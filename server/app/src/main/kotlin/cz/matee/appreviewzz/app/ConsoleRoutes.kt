@@ -27,6 +27,7 @@ import cz.matee.appreviewzz.core.usecase.OrganizationService
 import cz.matee.appreviewzz.core.usecase.PlatformAdminService
 import cz.matee.appreviewzz.core.usecase.RatingsInsights
 import cz.matee.appreviewzz.core.usecase.ReviewInbox
+import cz.matee.appreviewzz.core.usecase.WeeklyAnalysisUseCase
 import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.routing.route
@@ -92,6 +93,8 @@ class ConsoleWiring(
      * k plánovači; konzole pak tlačítko „Doplnit za historii" nenabídne.
      */
     val enqueueAnalysis: ((String, String) -> Boolean)? = null,
+    /** Týdenní rozbor pro tlačítko „Poslat teď"; `null` = proces bez kanálů. */
+    val weeklyAnalysis: WeeklyAnalysisUseCase? = null,
     val clock: Clock = Clock.System,
 ) {
     /**

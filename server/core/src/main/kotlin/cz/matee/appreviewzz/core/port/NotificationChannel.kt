@@ -1,5 +1,6 @@
 package cz.matee.appreviewzz.core.port
 
+import cz.matee.appreviewzz.core.message.AnalysisDigest
 import cz.matee.appreviewzz.core.message.RatingsDigest
 import cz.matee.appreviewzz.core.message.ReviewNotification
 import cz.matee.appreviewzz.core.model.ChannelType
@@ -106,6 +107,15 @@ interface NotificationChannel {
     suspend fun postRatingsDigest(
         target: ChannelTarget,
         digest: RatingsDigest,
+    ): PostedMessage
+
+    /**
+     * Týdenní rozbor recenzí (F8). Jako přehled hodnocení: kanál ji posílá sám od sebe,
+     * takže nemá formulář ani tlačítko — jen odkazy do konzole.
+     */
+    suspend fun postAnalysisDigest(
+        target: ChannelTarget,
+        digest: AnalysisDigest,
     ): PostedMessage
 
     /**

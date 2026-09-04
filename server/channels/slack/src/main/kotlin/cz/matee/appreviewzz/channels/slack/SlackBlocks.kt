@@ -1,5 +1,6 @@
 package cz.matee.appreviewzz.channels.slack
 
+import cz.matee.appreviewzz.core.message.AnalysisDigest
 import cz.matee.appreviewzz.core.message.MessageCatalog
 import cz.matee.appreviewzz.core.message.MessageKey
 import cz.matee.appreviewzz.core.message.PlatformRatings
@@ -115,6 +116,94 @@ internal object SlackBlocks {
                 add(context(escape("${catalog[MessageKey.DATE_LABEL]}: ${digest.formattedDate(digest.date)}")))
             },
         )
+    }
+
+    /**
+     * Týdenní rozbor recenzí (F8). Bez interaktivity: jediné tlačítko je odkaz do konzole,
+     * protože z tříčlenného seznamu problémů se nedá odpovědět — dá se z něj jen odejít
+     * na to, co je za ním.
+     */
+    fun analysisDigest(digest: AnalysisDigest): JsonArray {
+        val catalog = digest.catalog
+        return JsonArray(
+            buildList {
+                add(
+                    buildJsonObject {
+                        put("type", "header")
+                        putJsonObject("text") {
+                            put("type", "plain_text")
+                            put("text", "🔍 ${catalog[MessageKey.ANALYSIS_TITLE]} · ${digest.appName}".take(HEADER_LIMIT))
+                            put("emoji", true)
+                        }
+                    },
+                )
+                add(context(escape(digest.period())))
+
+                if (digest.aggregates.tooFewReviews) {
+                    add(section(escape(digest.tooFewLine())))
+                } else {
+                    add(section(moodSection(digest)))
+                    add(section(issuesSection(digest)))
+                    digest.quoteLine()?.let { add(section("> ${escape(it).take(QUOTE_LIMIT)}")) }
+                    improvedSection(digest)?.let { add(section(it)) }
+                }
+
+                add(section("*${escape(catalog[MessageKey.ANALYSIS_REPLIES])}*\n${escape(digest.repliesLine())}"))
+                digest.dataSinceLine(TIMEZONE_UTC)?.let { add(context(escape(it))) }
+                digest.consoleUrl?.let { url ->
+                    add(
+                        buildJsonObject {
+                            put("type", "actions")
+                            putJsonArray("elements") {
+                                add(
+                                    buildJsonObject {
+                                        put("type", "button")
+                                        putJsonObject("text") {
+                                            put("type", "plain_text")
+                                            put("text", catalog[MessageKey.ANALYSIS_OPEN])
+                                            put("emoji", true)
+                                        }
+                                        put("url", url)
+                                    },
+                                )
+                            }
+                        },
+                    )
+                }
+            },
+        )
+    }
+
+    private fun moodSection(digest: AnalysisDigest): String {
+        val catalog = digest.catalog
+        return buildList {
+            add("*${escape(catalog[MessageKey.ANALYSIS_MOOD])}*")
+            add(escape(digest.moodLine()))
+            add(digest.moodBar())
+            digest.moodChange()?.let { add("_${escape(it)}_") }
+        }.joinToString("\n").take(SECTION_TEXT_LIMIT)
+    }
+
+    private fun issuesSection(digest: AnalysisDigest): String {
+        val catalog = digest.catalog
+        val issues = digest.issues
+        if (issues.isEmpty()) return escape(catalog[MessageKey.ANALYSIS_NO_TOPICS])
+        return (
+            listOf("*${escape(catalog[MessageKey.ANALYSIS_TOP_ISSUES])}*") +
+                issues.map { "• ${escape(digest.topicLine(it))}" }
+        ).joinToString("\n").take(SECTION_TEXT_LIMIT)
+    }
+
+    private fun improvedSection(digest: AnalysisDigest): String? {
+        val catalog = digest.catalog
+        val lines =
+            digest.aggregates.improved.indices
+                .mapNotNull { digest.improvedLine(it) }
+                .take(IMPROVED_LIMIT)
+        if (lines.isEmpty()) return null
+        return (
+            listOf("*${escape(catalog[MessageKey.ANALYSIS_IMPROVED])}*") + lines.map { "• ${escape(it)}" }
+        ).joinToString("\n").take(SECTION_TEXT_LIMIT)
     }
 
     private fun platformSection(
@@ -338,4 +427,8 @@ internal object SlackBlocks {
     private const val LABEL_LIMIT = 2_000
     private const val INPUT_MAX_LENGTH = 3_000
     private const val ERROR_LIMIT = 500
+    private const val IMPROVED_LIMIT = 3
+
+    /** Zóna pro poznámku o stáří dat; rozbor je týdenní, takže na hodině nesejde. */
+    private const val TIMEZONE_UTC = "UTC"
 }

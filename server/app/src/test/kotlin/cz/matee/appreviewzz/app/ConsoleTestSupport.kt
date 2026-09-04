@@ -2,6 +2,7 @@ package cz.matee.appreviewzz.app
 
 import cz.matee.appreviewzz.app.cli.TestDatabase
 import cz.matee.appreviewzz.connectors.googleplay.GcpIamProvisioner
+import cz.matee.appreviewzz.core.message.AnalysisDigest
 import cz.matee.appreviewzz.core.message.RatingsDigest
 import cz.matee.appreviewzz.core.message.ReviewNotification
 import cz.matee.appreviewzz.core.model.ChannelType
@@ -167,6 +168,8 @@ class FakeReportingBucketProbe(
 class FakeNotificationChannel(
     override val type: ChannelType = ChannelType.SLACK,
 ) : NotificationChannel {
+    val analyses = mutableListOf<AnalysisDigest>()
+
     var failWith: ChannelException? = null
     val notices = mutableListOf<ConnectivityNotice>()
 
@@ -194,6 +197,14 @@ class FakeNotificationChannel(
         target: ChannelTarget,
         digest: RatingsDigest,
     ): PostedMessage = PostedMessage(target.conversationId, "1755600000.000300")
+
+    override suspend fun postAnalysisDigest(
+        target: ChannelTarget,
+        digest: AnalysisDigest,
+    ): PostedMessage {
+        analyses += digest
+        return PostedMessage(target.conversationId, "1755600000.000400")
+    }
 
     override suspend fun reportFailure(
         target: ChannelTarget,

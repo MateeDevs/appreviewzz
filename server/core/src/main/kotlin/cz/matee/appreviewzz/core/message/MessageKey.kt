@@ -83,6 +83,45 @@ enum class MessageKey(
         "Nové recenze aplikace {app} teď chodí sem. Odpovědět půjde rovnou z téhle zprávy.",
         "New reviews for {app} will arrive here. You will be able to reply straight from the message.",
     ),
+
+    // ------------------------------------------------------------------ týdenní rozbor (F8)
+    ANALYSIS_TITLE("Rozbor recenzí", "Review analysis"),
+    ANALYSIS_PERIOD("{from} – {to}", "{from} – {to}"),
+    ANALYSIS_MOOD("Nálada", "Mood"),
+    ANALYSIS_MOOD_LINE(
+        "{positive} % spokojených, {negative} % nespokojených z {reviews} recenzí (Ø {stars} ★)",
+        "{positive} % positive, {negative} % negative out of {reviews} reviews (avg {stars} ★)",
+    ),
+    ANALYSIS_MOOD_CHANGE("proti minulému týdnu o {points} b. {direction}", "{points} points {direction} week over week"),
+    ANALYSIS_UP("nahoru", "up"),
+    ANALYSIS_DOWN("dolů", "down"),
+    ANALYSIS_TOP_ISSUES("Co nejvíc bolí", "Biggest pain points"),
+    ANALYSIS_TOPIC_LINE(
+        "{name} — {count}× ({share} % recenzí), Ø {stars} ★",
+        "{name} — {count} mentions ({share} % of reviews), avg {stars} ★",
+    ),
+    ANALYSIS_TOPIC_NEW("nové", "new"),
+    ANALYSIS_TOPIC_GROWING("roste", "growing"),
+    ANALYSIS_TOPIC_FALLING("klesá", "falling"),
+    ANALYSIS_IMPROVED("Zlepšilo se", "Improved"),
+    ANALYSIS_IMPROVED_LINE("{name} — z {before}× na {after}×", "{name} — from {before} to {after}"),
+    ANALYSIS_REPLIES("Odpovídání", "Replies"),
+    ANALYSIS_REPLIES_LINE(
+        "Odpovězeno {share} % recenzí ({replied} z {total}), medián {hours} h",
+        "{share} % answered ({replied} of {total}), median {hours} h",
+    ),
+    ANALYSIS_REPLIES_NONE("Zatím jste neodpověděli na žádnou recenzi z tohoto období.", "No replies in this period yet."),
+    ANALYSIS_TOO_FEW(
+        "Málo recenzí na rozbor ({reviews} za týden) — přehled bude mít smysl až měsíčně.",
+        "Too few reviews to analyse ({reviews} this week) — a monthly overview will make more sense.",
+    ),
+    ANALYSIS_DATA_SINCE("Data od {date}.", "Data since {date}."),
+    ANALYSIS_NO_TOPICS("Žádné téma se za období neopakovalo natolik, aby stálo za zmínku.", "No topic came up often enough to report."),
+    ANALYSIS_OPEN("Otevřít rozbor", "Open analysis"),
+    ANALYSIS_VERSION_LINE(
+        "Verze {version} přinesla nové téma {name} ({count} recenzí).",
+        "Version {version} brought a new topic: {name} ({count} reviews).",
+    ),
     ;
 
     internal fun text(locale: MessageLocale): String =

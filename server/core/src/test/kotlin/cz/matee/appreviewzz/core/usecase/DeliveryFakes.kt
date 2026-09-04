@@ -1,5 +1,6 @@
 package cz.matee.appreviewzz.core.usecase
 
+import cz.matee.appreviewzz.core.message.AnalysisDigest
 import cz.matee.appreviewzz.core.message.RatingsDigest
 import cz.matee.appreviewzz.core.message.ReviewNotification
 import cz.matee.appreviewzz.core.model.AppId
@@ -286,6 +287,7 @@ internal class FakeNotificationChannel(
     val failures = mutableListOf<String>()
     val checks = mutableListOf<ConnectivityNotice>()
     val digests = mutableListOf<Pair<ChannelTarget, RatingsDigest>>()
+    val analyses = mutableListOf<Pair<ChannelTarget, AnalysisDigest>>()
 
     override suspend fun postReview(
         target: ChannelTarget,
@@ -311,6 +313,15 @@ internal class FakeNotificationChannel(
         failWith?.let { throw it }
         checks += notice
         return PostedMessage(target.conversationId, "1755600000.check${checks.size}")
+    }
+
+    override suspend fun postAnalysisDigest(
+        target: ChannelTarget,
+        digest: AnalysisDigest,
+    ): PostedMessage {
+        failWith?.let { throw it }
+        analyses += target to digest
+        return PostedMessage(target.conversationId, "1755600000.analysis")
     }
 
     override suspend fun postRatingsDigest(

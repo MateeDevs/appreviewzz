@@ -1,5 +1,6 @@
 package cz.matee.appreviewzz.channels.teams
 
+import cz.matee.appreviewzz.core.message.AnalysisDigest
 import cz.matee.appreviewzz.core.message.MessageCatalog
 import cz.matee.appreviewzz.core.message.MessageKey
 import cz.matee.appreviewzz.core.message.PlatformRatings
@@ -135,6 +136,71 @@ internal object TeamsCards {
                     ),
                 )
             },
+        )
+    }
+
+    /**
+     * Týdenní rozbor recenzí (F8). Bez formuláře: kanál ho posílá sám od sebe a jediná akce
+     * je odkaz do konzole.
+     */
+    fun analysisDigest(digest: AnalysisDigest): JsonObject {
+        val catalog = digest.catalog
+        return card(
+            buildJsonArray {
+                add(textBlock("🔍 ${catalog[MessageKey.ANALYSIS_TITLE]} · ${digest.appName}", size = "Large", weight = "Bolder"))
+                add(textBlock(digest.period(), subtle = true, size = "Small"))
+
+                if (digest.aggregates.tooFewReviews) {
+                    add(textBlock(digest.tooFewLine(), spacing = "Medium"))
+                } else {
+                    add(textBlock("**${catalog[MessageKey.ANALYSIS_MOOD]}**", separator = true, spacing = "Medium"))
+                    add(textBlock(digest.moodLine()))
+                    add(textBlock(digest.moodBar()))
+                    digest.moodChange()?.let { add(textBlock(it, subtle = true, size = "Small")) }
+
+                    add(textBlock("**${catalog[MessageKey.ANALYSIS_TOP_ISSUES]}**", separator = true, spacing = "Medium"))
+                    if (digest.issues.isEmpty()) {
+                        add(textBlock(catalog[MessageKey.ANALYSIS_NO_TOPICS], subtle = true))
+                    } else {
+                        digest.issues.forEach { add(textBlock("- ${digest.topicLine(it)}")) }
+                    }
+                    digest.quoteLine()?.let { quote ->
+                        add(
+                            buildJsonObject {
+                                put("type", "Container")
+                                put("style", "emphasis")
+                                put("separator", true)
+                                putJsonArray("items") { add(textBlock(quote.take(QUOTE_LIMIT), subtle = true)) }
+                            },
+                        )
+                    }
+
+                    val improved =
+                        digest.aggregates.improved.indices
+                            .mapNotNull { digest.improvedLine(it) }
+                            .take(IMPROVED_LIMIT)
+                    if (improved.isNotEmpty()) {
+                        add(textBlock("**${catalog[MessageKey.ANALYSIS_IMPROVED]}**", separator = true, spacing = "Medium"))
+                        improved.forEach { add(textBlock("- $it")) }
+                    }
+                }
+
+                add(textBlock("**${catalog[MessageKey.ANALYSIS_REPLIES]}**", separator = true, spacing = "Medium"))
+                add(textBlock(digest.repliesLine()))
+                digest.dataSinceLine(TIMEZONE_UTC)?.let { add(textBlock(it, subtle = true, size = "Small")) }
+            },
+            actions =
+                digest.consoleUrl?.let { url ->
+                    buildJsonArray {
+                        add(
+                            buildJsonObject {
+                                put("type", "Action.OpenUrl")
+                                put("title", catalog[MessageKey.ANALYSIS_OPEN])
+                                put("url", url)
+                            },
+                        )
+                    }
+                },
         )
     }
 
@@ -367,6 +433,10 @@ internal object TeamsCards {
     private const val MAX_STARS = 5
     private const val TEXT_LIMIT = 3_000
     private const val QUOTE_LIMIT = 1_000
+    private const val IMPROVED_LIMIT = 3
+
+    /** Zóna pro poznámku o stáří dat; rozbor je týdenní, takže na hodině nesejde. */
+    private const val TIMEZONE_UTC = "UTC"
     private const val INPUT_MAX_LENGTH = 6_000
     private const val ERROR_LIMIT = 500
 }

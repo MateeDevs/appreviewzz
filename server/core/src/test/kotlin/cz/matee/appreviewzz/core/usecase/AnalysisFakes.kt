@@ -3,19 +3,28 @@ package cz.matee.appreviewzz.core.usecase
 import cz.matee.appreviewzz.core.model.AppId
 import cz.matee.appreviewzz.core.model.AppTopic
 import cz.matee.appreviewzz.core.model.AppTopicId
+import cz.matee.appreviewzz.core.model.ChannelId
+import cz.matee.appreviewzz.core.model.Organization
 import cz.matee.appreviewzz.core.model.OrganizationId
 import cz.matee.appreviewzz.core.model.Review
 import cz.matee.appreviewzz.core.model.ReviewId
 import cz.matee.appreviewzz.core.model.ReviewInsight
+import cz.matee.appreviewzz.core.port.AnalysisAggregateRepository
+import cz.matee.appreviewzz.core.port.AnalysisDigestRepository
+import cz.matee.appreviewzz.core.port.AnalysisPeriod
 import cz.matee.appreviewzz.core.port.AnalysisRequest
 import cz.matee.appreviewzz.core.port.AnalysisResult
 import cz.matee.appreviewzz.core.port.AppTopicRepository
 import cz.matee.appreviewzz.core.port.InsightCoverage
 import cz.matee.appreviewzz.core.port.NewAppTopic
 import cz.matee.appreviewzz.core.port.NewReviewInsight
+import cz.matee.appreviewzz.core.port.OrganizationRepository
+import cz.matee.appreviewzz.core.port.ReplyStats
 import cz.matee.appreviewzz.core.port.ReviewAnalysis
 import cz.matee.appreviewzz.core.port.ReviewAnalysisProvider
 import cz.matee.appreviewzz.core.port.ReviewInsightRepository
+import cz.matee.appreviewzz.core.port.TopicQuote
+import kotlinx.datetime.LocalDate
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
 
@@ -180,3 +189,87 @@ internal class FakeAnalysisProvider(
 }
 
 private fun unusedAnalysis(): Nothing = error("Metoda se v testu rozborů nepoužívá")
+
+/** Agregace v paměti: test jí nadiktuje čísla, která by jinak spočítalo SQL. */
+internal class FakeAnalysisAggregateRepository(
+    private val current: AnalysisPeriod = AnalysisPeriod.EMPTY,
+    private val previous: AnalysisPeriod = AnalysisPeriod.EMPTY,
+    private val replies: ReplyStats = ReplyStats(total = 0, replied = 0, medianHours = null),
+    private val quote: TopicQuote? = null,
+    private val since: Instant? = null,
+) : AnalysisAggregateRepository {
+    val requestedPeriods = mutableListOf<Pair<Instant, Instant>>()
+
+    override fun aggregate(
+        orgId: OrganizationId,
+        appId: AppId,
+        from: Instant,
+        to: Instant,
+    ): AnalysisPeriod {
+        requestedPeriods += from to to
+        // Rozlišuje se podle hranice období, ne podle pořadí volání: use case se ptá dvakrát
+        // na běh a druhý běh by jinak dostal čísla předchozího týdne jako aktuální.
+        val latest = requestedPeriods.maxOf { it.first }
+        return if (from == latest) current else previous
+    }
+
+    override fun replyStats(
+        orgId: OrganizationId,
+        appId: AppId,
+        from: Instant,
+        to: Instant,
+    ): ReplyStats = replies
+
+    override fun dataSince(
+        orgId: OrganizationId,
+        appId: AppId,
+    ): Instant? = since
+
+    override fun topQuote(
+        orgId: OrganizationId,
+        appId: AppId,
+        topicKey: String,
+        from: Instant,
+        to: Instant,
+    ): TopicQuote? = quote
+}
+
+/** Rezervace týdne se stejnou unikátností jako databáze: (kanál, začátek období). */
+internal class FakeAnalysisDigestRepository : AnalysisDigestRepository {
+    private val claimed = mutableSetOf<Pair<ChannelId, LocalDate>>()
+
+    override fun claim(
+        orgId: OrganizationId,
+        appId: AppId,
+        channelId: ChannelId,
+        periodStart: LocalDate,
+        sentAt: Instant,
+    ): Boolean = claimed.add(channelId to periodStart)
+
+    override fun lastSent(
+        orgId: OrganizationId,
+        channelId: ChannelId,
+    ): LocalDate? = claimed.filter { it.first == channelId }.maxOfOrNull { it.second }
+}
+
+internal class FakeOrganizationRepository(
+    private val organizations: MutableList<Organization> = mutableListOf(),
+) : OrganizationRepository {
+    fun put(organization: Organization): Organization = organization.also { organizations += it }
+
+    override fun findById(id: OrganizationId): Organization? = organizations.firstOrNull { it.id == id }
+
+    override fun findBySlug(slug: String): Organization? = organizations.firstOrNull { it.slug == slug }
+
+    override fun list(): List<Organization> = organizations
+
+    override fun create(
+        name: String,
+        slug: String,
+    ): Organization = error("Zakládání organizace se v testu rozborů nepoužívá")
+
+    override fun updatePlan(
+        id: OrganizationId,
+        plan: cz.matee.appreviewzz.core.model.OrgPlan,
+    ): Organization? = error("Změna plánu se v testu rozborů nepoužívá")
+}

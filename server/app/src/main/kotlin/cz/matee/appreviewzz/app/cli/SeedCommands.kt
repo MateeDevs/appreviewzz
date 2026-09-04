@@ -9,6 +9,7 @@ import cz.matee.appreviewzz.backup.BackupToolException
 import cz.matee.appreviewzz.backup.StoredBackup
 import cz.matee.appreviewzz.channels.slack.SlackInstallStates
 import cz.matee.appreviewzz.channels.teams.TeamsInstall
+import cz.matee.appreviewzz.core.message.AnalysisDigest
 import cz.matee.appreviewzz.core.message.RatingsDigest
 import cz.matee.appreviewzz.core.model.ActorType
 import cz.matee.appreviewzz.core.model.App
@@ -52,6 +53,7 @@ import cz.matee.appreviewzz.core.usecase.RatingsSkipReason
 import cz.matee.appreviewzz.core.usecase.hintFor
 import cz.matee.appreviewzz.crypto.CredentialNotFoundException
 import cz.matee.appreviewzz.crypto.KeyManagementException
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 import java.io.IOException
 import java.nio.file.Path
@@ -505,6 +507,47 @@ class SeedCommands(
         }
         audit(organization.id, "analysis.backfill", "app", app.id.toString(), mapOf("vyloženo" to total.toString()))
         analysisStatusLine(organization.id, app.id)
+    }
+
+    /**
+     * Ruční spuštění týdenního rozboru. Užitečné hlavně při onboardingu: první rozbor je
+     * lepší vidět tady než v kanálu klienta.
+     */
+    suspend fun analysisWeeklyRun(args: Arguments) {
+        val organization = organization(args)
+        val app = app(organization.id, args)
+        val periodStart = args.optional("period-start")?.let { LocalDate.parse(it) }
+
+        val report = components.weeklyAnalysis.run(organization.id, app.id, periodStart)
+        audit(organization.id, "analysis.manual", "app", app.id.toString())
+
+        out("Týdenní rozbor ${app.name} (${app.id})")
+        // Čísla se vypisují i tehdy, když se nikam neposílala: při onboardingu je tohle jediný
+        // způsob, jak si rozbor prohlédnout ještě před kanálem.
+        report.aggregates?.let { summary ->
+            out("  období ${summary.periodStart} – ${summary.periodEnd}, recenzí ${summary.reviews}")
+            out(
+                "  nálada: ${AnalysisDigest.percent(summary.sentiment.positive)} % spokojených, " +
+                    "${AnalysisDigest.percent(summary.sentiment.negative)} % nespokojených",
+            )
+            summary.topics.take(AnalysisDigest.TOP_ISSUES).forEach {
+                out("  téma ${it.name}: ${it.count}× (${AnalysisDigest.percent(it.negativeShare)} % záporných)")
+            }
+            out("  odpovězeno ${summary.replies.replied} z ${summary.replies.total}")
+        }
+        report.skipped?.let {
+            out("  neodesláno: $it")
+            return
+        }
+        report.deliveries.forEach { delivery ->
+            val state =
+                when {
+                    delivery.sent -> "✓ odesláno"
+                    delivery.alreadySent -> "· za tenhle týden už odešlo"
+                    else -> "✗ ${delivery.error}"
+                }
+            out("  kanál ${delivery.channelId}: $state")
+        }
     }
 
     /** Kolik recenzí má platný výklad. První otázka, když se ptáš „proč je rozbor prázdný". */
