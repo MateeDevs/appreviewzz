@@ -1,5 +1,6 @@
 package cz.matee.appreviewzz.channels.teams
 
+import cz.matee.appreviewzz.core.message.ReviewInsightSummary
 import cz.matee.appreviewzz.core.message.ReviewNotification
 import cz.matee.appreviewzz.core.model.AppId
 import cz.matee.appreviewzz.core.model.MessageLocale
@@ -79,6 +80,7 @@ internal fun notification(
     suggestion: String? = "Mrzí nás to, chybu už opravujeme.",
     locale: MessageLocale = MessageLocale.CS,
     isUpdate: Boolean = false,
+    insight: ReviewInsightSummary? = null,
 ): ReviewNotification =
     ReviewNotification(
         review = review,
@@ -87,6 +89,7 @@ internal fun notification(
         locale = locale,
         suggestedReply = suggestion,
         isUpdate = isUpdate,
+        insight = insight,
     )
 
 internal class RecordingEngine(

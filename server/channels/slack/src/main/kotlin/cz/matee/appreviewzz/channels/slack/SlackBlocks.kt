@@ -188,8 +188,27 @@ internal object SlackBlocks {
                 val quoted = escape(previous).take(QUOTE_LIMIT).lineSequence().joinToString("\n") { "> $it" }
                 add(section("*${escape(catalog[MessageKey.YOU_ALREADY_REPLIED])}*\n$quoted"))
             }
+            insightContext(notification)?.let { add(it) }
             add(context(footer(notification)))
         }
+    }
+
+    /**
+     * Štítky z rozboru: o čem recenze je a jestli hoří. Bez výkladu se blok vynechá a zpráva
+     * vypadá přesně jako před F8 — instalace bez AI nesmí poznat rozdíl.
+     */
+    private fun insightContext(notification: ReviewNotification): JsonObject? {
+        val insight = notification.insight ?: return null
+        val catalog = notification.catalog
+        val parts =
+            buildList {
+                if (insight.topics.isNotEmpty()) {
+                    add(":label: " + insight.topics.joinToString(" · ") { escape(it) })
+                }
+                if (insight.isUrgent) add(":warning: ${escape(catalog[MessageKey.URGENT])}")
+            }
+        if (parts.isEmpty()) return null
+        return context(parts.joinToString(" · ").take(CONTEXT_TEXT_LIMIT))
     }
 
     private fun input(notification: ReviewNotification): JsonObject =
@@ -313,6 +332,9 @@ internal object SlackBlocks {
     private const val HEADER_LIMIT = 150
     private const val SECTION_TEXT_LIMIT = 3_000
     private const val QUOTE_LIMIT = 1_000
+
+    /** Kontextový blok Slacku spolkne 3 000 znaků; štítky se do toho vejdou i s rezervou. */
+    private const val CONTEXT_TEXT_LIMIT = 3_000
     private const val LABEL_LIMIT = 2_000
     private const val INPUT_MAX_LENGTH = 3_000
     private const val ERROR_LIMIT = 500

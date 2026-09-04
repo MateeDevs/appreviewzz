@@ -1,7 +1,10 @@
 package cz.matee.appreviewzz.channels.teams
 
+import cz.matee.appreviewzz.core.message.ReviewInsightSummary
 import cz.matee.appreviewzz.core.model.MessageLocale
 import cz.matee.appreviewzz.core.model.Platform
+import cz.matee.appreviewzz.core.model.ReviewType
+import cz.matee.appreviewzz.core.model.Urgency
 import cz.matee.appreviewzz.core.port.ReplyRendering
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -14,6 +17,28 @@ import kotlin.time.Instant
 
 class TeamsCardsTest :
     FunSpec({
+        test("štítky z rozboru jsou v kartě, naléhavost s vykřičníkem") {
+            val card =
+                TeamsCards.review(
+                    notification(
+                        insight =
+                            ReviewInsightSummary(
+                                topics = listOf("Pády", "Po aktualizaci"),
+                                type = ReviewType.BUG,
+                                urgency = Urgency.HIGH,
+                            ),
+                    ),
+                )
+
+            val rendered = card.toString()
+            rendered shouldContain "Pády · Po aktualizaci"
+            rendered shouldContain "naléhavé"
+        }
+
+        test("bez výkladu vypadá karta jako dřív") {
+            TeamsCards.review(notification()).toString() shouldNotContain "naléhavé"
+        }
+
         test("karta recenze má hvězdy, text, vstup s návrhem a tlačítko") {
             val card = TeamsCards.review(notification(review(stars = 2)))
 

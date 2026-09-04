@@ -68,6 +68,10 @@ enum class MessageKey(
     IOS_ONLY_LABEL("Jen iOS", "iOS Only"),
     RATINGS_OVERVIEW_TITLE("Přehled hodnocení pro aplikaci", "New Ratings Overview delivered for"),
 
+    /** Štítky z rozboru recenze (F8) — v n8n nic takového nebylo, recenze chodily bez výkladu. */
+    TOPICS_PREFIX("Témata", "Topics"),
+    URGENT("naléhavé", "urgent"),
+
     /** Recenzi autor po doručení přepsal — v n8n neexistovalo, protože editace zapadla. */
     REVIEW_UPDATED("Aktualizovaná recenze", "Updated review"),
     REPLY_FAILED_TITLE("Odpověď se nepodařilo odeslat", "Your reply could not be posted"),

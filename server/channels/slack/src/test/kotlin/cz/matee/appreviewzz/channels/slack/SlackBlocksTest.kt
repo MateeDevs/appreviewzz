@@ -1,8 +1,11 @@
 package cz.matee.appreviewzz.channels.slack
 
+import cz.matee.appreviewzz.core.message.ReviewInsightSummary
 import cz.matee.appreviewzz.core.message.ReviewNotification
 import cz.matee.appreviewzz.core.model.MessageLocale
 import cz.matee.appreviewzz.core.model.Platform
+import cz.matee.appreviewzz.core.model.ReviewType
+import cz.matee.appreviewzz.core.model.Urgency
 import cz.matee.appreviewzz.core.port.ReplyRendering
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
@@ -17,6 +20,49 @@ import kotlin.time.Instant
 
 class SlackBlocksTest :
     FunSpec({
+        test("štítky z rozboru jsou v kontextovém bloku a naléhavost má vykřičník") {
+            val blocks =
+                SlackBlocks.review(
+                    notification(
+                        insight =
+                            ReviewInsightSummary(
+                                topics = listOf("Pády", "Po aktualizaci"),
+                                type = ReviewType.BUG,
+                                urgency = Urgency.HIGH,
+                            ),
+                    ),
+                )
+
+            val rendered = blocks.render()
+            rendered shouldContain "Pády · Po aktualizaci"
+            rendered shouldContain "naléhavé"
+        }
+
+        test("bez výkladu vypadá zpráva přesně jako dřív") {
+            SlackBlocks.review(notification()).render() shouldNotContain "naléhavé"
+        }
+
+        test("dlouhý seznam témat se ořízne pod limit kontextového bloku") {
+            val blocks =
+                SlackBlocks.review(
+                    notification(
+                        insight =
+                            ReviewInsightSummary(
+                                topics = List(200) { "Velmi dlouhé jméno tématu číslo $it" },
+                                type = ReviewType.OTHER,
+                                urgency = Urgency.LOW,
+                            ),
+                    ),
+                )
+
+            blocks.ofType("context").forEach { block ->
+                block
+                    .getValue("elements")
+                    .jsonArray
+                    .forEach { element -> element.jsonObject.text("text")!!.length shouldBeLessThanOrEqual 3_000 }
+            }
+        }
+
         test("zpráva s recenzí má hlavičku, text, vstup s návrhem a tlačítko") {
             val blocks = SlackBlocks.review(notification())
 

@@ -218,8 +218,25 @@ internal object TeamsCards {
                     },
                 )
             }
+            insightBlock(notification)?.let { add(it) }
             add(textBlock(footer(notification), subtle = true, size = "Small", separator = true))
         }
+    }
+
+    /**
+     * Štítky z rozboru. Bez výkladu se blok vynechá — instalace bez AI má vidět přesně tutéž
+     * kartu jako před F8.
+     */
+    private fun insightBlock(notification: ReviewNotification): JsonObject? {
+        val insight = notification.insight ?: return null
+        val catalog = notification.catalog
+        val parts =
+            buildList {
+                if (insight.topics.isNotEmpty()) add("🏷 " + insight.topics.joinToString(" · "))
+                if (insight.isUrgent) add("⚠️ ${catalog[MessageKey.URGENT]}")
+            }
+        if (parts.isEmpty()) return null
+        return textBlock(parts.joinToString(" · ").take(TEXT_LIMIT), subtle = true, size = "Small", spacing = "Small")
     }
 
     private fun header(notification: ReviewNotification): JsonObject =
