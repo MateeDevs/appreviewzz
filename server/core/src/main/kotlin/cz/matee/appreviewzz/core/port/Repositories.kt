@@ -487,6 +487,25 @@ data class ReviewUpsertResult(
             }
 }
 
+/**
+ * Filtr inboxu. Vlastní typ, ne pět parametrů: filtry přibývají (F8 přidala témata, typ,
+ * naléhavost a náladu) a každý nový by jinak měnil podpis všem, kdo repozitář implementují.
+ *
+ * Prázdná množina znamená „neomezuj", ne „nic nevrať".
+ */
+data class ReviewFilter(
+    val states: Set<ReviewState> = emptySet(),
+    /** Klíče témat z taxonomie nebo vlastních témat aplikace; stačí, když sedí jedno. */
+    val topics: Set<String> = emptySet(),
+    val types: Set<ReviewType> = emptySet(),
+    val urgencies: Set<Urgency> = emptySet(),
+    val sentiments: Set<OverallSentiment> = emptySet(),
+) {
+    /** Filtry, které se dají zodpovědět jen z výkladu recenze. */
+    val needsInsight: Boolean
+        get() = topics.isNotEmpty() || types.isNotEmpty() || urgencies.isNotEmpty() || sentiments.isNotEmpty()
+}
+
 interface ReviewRepository {
     /**
      * Idempotentní zápis pozorované recenze. Dedup není seznam zpracovaných ID jako v n8n,
@@ -518,7 +537,7 @@ interface ReviewRepository {
     fun listByApp(
         orgId: OrganizationId,
         appId: AppId,
-        states: Set<ReviewState> = ReviewState.entries.toSet(),
+        filter: ReviewFilter = ReviewFilter(),
         limit: Int = 100,
     ): List<Review>
 
@@ -763,6 +782,16 @@ interface ReviewInsightRepository {
         appId: AppId,
         taxonomyVersion: String,
     ): InsightCoverage
+
+    /**
+     * Kolikrát se které téma objevilo od zadaného okamžiku. Počítá **zmínky**, ne recenze —
+     * jedna recenze mluví o víc tématech, takže součet přesahuje počet recenzí.
+     */
+    fun topicCounts(
+        orgId: OrganizationId,
+        appId: AppId,
+        since: Instant,
+    ): Map<String, Int>
 }
 
 /** Vlastní téma aplikace, jak ho zadává člověk. Popis je anglicky — jde do promptu. */

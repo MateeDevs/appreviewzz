@@ -24,7 +24,9 @@ import kotlinx.datetime.LocalDate
 import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
+import org.jetbrains.exposed.v1.core.count
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.neq
@@ -32,6 +34,7 @@ import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.core.statements.UpdateBuilder
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
@@ -168,6 +171,24 @@ class ExposedReviewInsightRepository(
                     }.count()
                     .toInt()
             InsightCoverage(analyzed = analyzed, missing = total - analyzed)
+        }
+
+    override fun topicCounts(
+        orgId: OrganizationId,
+        appId: AppId,
+        since: Instant,
+    ): Map<String, Int> =
+        transaction(database) {
+            val count = ReviewInsightTopics.topicKey.count()
+            ReviewInsights
+                .join(ReviewInsightTopics, JoinType.INNER, ReviewInsights.reviewId, ReviewInsightTopics.reviewId)
+                .select(ReviewInsightTopics.topicKey, count)
+                .where {
+                    (ReviewInsights.orgId eq orgId) and
+                        (ReviewInsights.appId eq appId) and
+                        (ReviewInsights.analyzedAt greaterEq since)
+                }.groupBy(ReviewInsightTopics.topicKey)
+                .associate { it[ReviewInsightTopics.topicKey] to it[count].toInt() }
         }
 
     private fun topicsOf(ids: List<ReviewId>): Map<ReviewId, List<TopicMention>> =

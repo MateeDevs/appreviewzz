@@ -80,9 +80,11 @@ fun buildScheduler(
 fun buildSchedulerClient(
     dataSource: DataSource,
     replyJobs: ReplyJobs,
+    /** Doplnění rozborů z konzole (F8); `null` = proces, který tlačítko nenabízí. */
+    analysisJobs: AnalysisJobs? = null,
 ): SchedulerClient =
     SchedulerClient.Builder
-        .create(AutoCommitDataSource(dataSource), listOf(replyJobs.publishTask))
+        .create(AutoCommitDataSource(dataSource), listOfNotNull(replyJobs.publishTask, analysisJobs?.analyzeTask))
         .serializer(JsonTaskSerializer)
         .build()
 

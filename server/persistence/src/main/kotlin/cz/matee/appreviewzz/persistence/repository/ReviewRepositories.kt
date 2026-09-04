@@ -19,25 +19,31 @@ import cz.matee.appreviewzz.core.model.ReviewState
 import cz.matee.appreviewzz.core.model.sha256Hex
 import cz.matee.appreviewzz.core.port.NewReply
 import cz.matee.appreviewzz.core.port.ReplyRepository
+import cz.matee.appreviewzz.core.port.ReviewFilter
 import cz.matee.appreviewzz.core.port.ReviewMessageRepository
 import cz.matee.appreviewzz.core.port.ReviewRepository
 import cz.matee.appreviewzz.core.port.ReviewUpsertOutcome
 import cz.matee.appreviewzz.core.port.ReviewUpsertResult
 import cz.matee.appreviewzz.persistence.schema.Channels
 import cz.matee.appreviewzz.persistence.schema.Replies
+import cz.matee.appreviewzz.persistence.schema.ReviewInsightTopics
+import cz.matee.appreviewzz.persistence.schema.ReviewInsights
 import cz.matee.appreviewzz.persistence.schema.ReviewMessages
 import cz.matee.appreviewzz.persistence.schema.ReviewRevisions
 import cz.matee.appreviewzz.persistence.schema.Reviews
 import org.jetbrains.exposed.v1.core.JoinType
+import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.inSubQuery
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.insertIgnore
+import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
@@ -164,16 +170,43 @@ class ExposedReviewRepository(
     override fun listByApp(
         orgId: OrganizationId,
         appId: AppId,
-        states: Set<ReviewState>,
+        filter: ReviewFilter,
         limit: Int,
     ): List<Review> =
         transaction(database) {
-            Reviews
+            // Bez filtru výkladu se na `review_insight` nesahá vůbec — inbox je nejčastější
+            // dotaz v consoli a join navíc by ho platil i ten, kdo štítky nepoužívá.
+            val source =
+                if (filter.needsInsight) {
+                    Reviews.join(ReviewInsights, JoinType.INNER, Reviews.id, ReviewInsights.reviewId)
+                } else {
+                    Reviews
+                }
+            source
                 .selectAll()
                 .where {
-                    (Reviews.orgId eq orgId) and
-                        (Reviews.appId eq appId) and
-                        (Reviews.state inList states.toList())
+                    var condition: Op<Boolean> = (Reviews.orgId eq orgId) and (Reviews.appId eq appId)
+                    val states = filter.states.ifEmpty { ReviewState.entries.toSet() }
+                    condition = condition and (Reviews.state inList states.toList())
+                    if (filter.types.isNotEmpty()) condition = condition and (ReviewInsights.reviewType inList filter.types.toList())
+                    if (filter.urgencies.isNotEmpty()) {
+                        condition = condition and (ReviewInsights.urgency inList filter.urgencies.toList())
+                    }
+                    if (filter.sentiments.isNotEmpty()) {
+                        condition = condition and (ReviewInsights.sentiment inList filter.sentiments.toList())
+                    }
+                    if (filter.topics.isNotEmpty()) {
+                        // Poddotaz, ne další join: recenze se třemi tématy by se jinak
+                        // ve výsledku objevila třikrát.
+                        condition =
+                            condition and
+                            Reviews.id.inSubQuery(
+                                ReviewInsightTopics
+                                    .select(ReviewInsightTopics.reviewId)
+                                    .where { ReviewInsightTopics.topicKey inList filter.topics.toList() },
+                            )
+                    }
+                    condition
                 }.orderBy(Reviews.submittedAt to SortOrder.DESC)
                 .limit(limit)
                 .map { it.toReview() }

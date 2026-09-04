@@ -46,6 +46,7 @@ import cz.matee.appreviewzz.core.port.SuggestReplyProvider
 import cz.matee.appreviewzz.core.usecase.AnalyzeReviewsUseCase
 import cz.matee.appreviewzz.core.usecase.AppService
 import cz.matee.appreviewzz.core.usecase.AppSetupCheck
+import cz.matee.appreviewzz.core.usecase.AppTopicService
 import cz.matee.appreviewzz.core.usecase.AuthPolicy
 import cz.matee.appreviewzz.core.usecase.AuthenticationService
 import cz.matee.appreviewzz.core.usecase.ChannelService
@@ -658,7 +659,14 @@ class Components(
             credentials = credentials,
             failedJobs = failedJobs,
             audit = audit,
+            insights = reviewInsights,
+            appTopics = appTopics,
         )
+    }
+
+    /** Vlastní témata aplikace pro rozbory (F8). */
+    val appTopicService: AppTopicService by lazy {
+        AppTopicService(topics = appTopics, apps = apps, audit = audit)
     }
 
     /** Vývoj hodnocení pro graf v consoli (F4.5). */

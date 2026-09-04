@@ -24,6 +24,7 @@ import cz.matee.appreviewzz.core.port.AuditLogRepository
 import cz.matee.appreviewzz.core.port.CredentialRepository
 import cz.matee.appreviewzz.core.port.NewApp
 import cz.matee.appreviewzz.core.port.NewCredential
+import cz.matee.appreviewzz.core.port.ReviewFilter
 import cz.matee.appreviewzz.core.port.ReviewRepository
 import cz.matee.appreviewzz.core.port.ReviewSource
 import cz.matee.appreviewzz.core.port.ReviewUpsertOutcome
@@ -312,7 +313,7 @@ internal class RecordingReviewRepository : ReviewRepository {
     override fun listByApp(
         orgId: OrganizationId,
         appId: AppId,
-        states: Set<ReviewState>,
+        filter: ReviewFilter,
         limit: Int,
     ): List<Review> = notUsed()
 

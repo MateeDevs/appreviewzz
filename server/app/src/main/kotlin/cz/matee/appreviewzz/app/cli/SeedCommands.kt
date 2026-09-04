@@ -39,6 +39,7 @@ import cz.matee.appreviewzz.core.port.ChannelTarget
 import cz.matee.appreviewzz.core.port.ConnectivityNotice
 import cz.matee.appreviewzz.core.port.NewApp
 import cz.matee.appreviewzz.core.port.NewChannel
+import cz.matee.appreviewzz.core.port.ReviewFilter
 import cz.matee.appreviewzz.core.port.StoreConnectorException
 import cz.matee.appreviewzz.core.port.StoreContext
 import cz.matee.appreviewzz.core.port.ValidationOutcome
@@ -838,7 +839,7 @@ class SeedCommands(
                 ?.toSet()
                 ?: ReviewState.entries.toSet()
 
-        val reviews = components.reviews.listByApp(organization.id, app.id, states, limit)
+        val reviews = components.reviews.listByApp(organization.id, app.id, ReviewFilter(states = states), limit)
         if (reviews.isEmpty()) {
             out("Aplikace ${app.name} zatím nemá uložené recenze")
             return

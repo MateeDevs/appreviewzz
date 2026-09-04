@@ -4,6 +4,8 @@ import cz.matee.appreviewzz.channels.slack.SlackInstallStates
 import cz.matee.appreviewzz.channels.slack.SlackOAuth
 import cz.matee.appreviewzz.channels.slack.SlackSignatureVerifier
 import cz.matee.appreviewzz.channels.teams.BotFrameworkAuthenticator
+import cz.matee.appreviewzz.core.model.AppId
+import cz.matee.appreviewzz.core.model.OrganizationId
 import cz.matee.appreviewzz.core.model.ReplySource
 import cz.matee.appreviewzz.jobs.ReplyJobData
 import cz.matee.appreviewzz.jobs.buildSchedulerClient
@@ -40,7 +42,7 @@ fun runApi(
     }
     // Klient fronty, ne plánovač: API úlohu jen zařadí, publikuje ji worker. Používá ho
     // webhook ze Slacku i odpovídání z console — obojí musí přežít nasazení nové verze.
-    val queue = buildSchedulerClient(database.asDataSource(), components.replyJobs)
+    val queue = buildSchedulerClient(database.asDataSource(), components.replyJobs, components.analysisJobs)
     val intake =
         verifier?.let {
             SlackReplyIntake(components.reviewMessages) { data -> components.replyJobs.enqueue(queue, data) }
@@ -72,12 +74,16 @@ fun runApi(
             organizations = components.organizations,
             memberships = components.memberships,
             reviews = components.reviewInbox,
+            appTopics = components.appTopicService,
             ratings = components.ratingsInsights,
             dailyRatings = components.dailyRatings,
             audit = components.audit,
             platform = components.platformAdmin,
             ingest = components.platformConfig,
             googlePlayProvisioning = components.googlePlayProvisioning,
+            enqueueAnalysis = { orgId, appId ->
+                components.analysisJobs.schedule(queue, OrganizationId.parse(orgId), AppId.parse(appId))
+            },
             enqueueReply = { reply ->
                 components.replyJobs.enqueue(
                     queue,

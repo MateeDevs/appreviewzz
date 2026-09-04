@@ -27,6 +27,7 @@ import cz.matee.appreviewzz.core.port.StoreContext
 import cz.matee.appreviewzz.core.port.ValidationOutcome
 import cz.matee.appreviewzz.core.usecase.AppService
 import cz.matee.appreviewzz.core.usecase.AppSetupCheck
+import cz.matee.appreviewzz.core.usecase.AppTopicService
 import cz.matee.appreviewzz.core.usecase.AuthPolicy
 import cz.matee.appreviewzz.core.usecase.AuthenticationService
 import cz.matee.appreviewzz.core.usecase.ChannelService
@@ -46,6 +47,7 @@ import cz.matee.appreviewzz.crypto.KekProvider
 import cz.matee.appreviewzz.crypto.KekProviders
 import cz.matee.appreviewzz.persistence.repository.ExposedAppDataKeyRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedAppRepository
+import cz.matee.appreviewzz.persistence.repository.ExposedAppTopicRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedAuditLogRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedChannelRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedCredentialRepository
@@ -61,6 +63,7 @@ import cz.matee.appreviewzz.persistence.repository.ExposedPlatformStatsRepositor
 import cz.matee.appreviewzz.persistence.repository.ExposedRatingSnapshotRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedRatingsDigestRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedReplyRepository
+import cz.matee.appreviewzz.persistence.repository.ExposedReviewInsightRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedReviewMessageRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedReviewRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedSessionRepository
@@ -225,6 +228,20 @@ class RecordingReplyQueue : (ConsoleReply) -> Boolean {
     }
 }
 
+/** Fronta doplnění rozborů. Druhé zařazení téže appky se nepočítá, stejně jako v plánovači. */
+class RecordingAnalysisQueue : (String, String) -> Boolean {
+    val queued = mutableListOf<Pair<String, String>>()
+
+    override fun invoke(
+        orgId: String,
+        appId: String,
+    ): Boolean {
+        val duplicate = queued.any { it.second == appId }
+        queued += orgId to appId
+        return !duplicate
+    }
+}
+
 fun ApplicationTestBuilder.consoleModule(
     mailer: RecordingMailer,
     policy: AuthPolicy = AuthPolicy(),
@@ -233,6 +250,7 @@ fun ApplicationTestBuilder.consoleModule(
     clock: Clock = Clock.System,
     slack: ConsoleSlack? = null,
     replyQueue: RecordingReplyQueue? = null,
+    analysisQueue: RecordingAnalysisQueue? = null,
     /** Výchozí allowlist je jen `console.test`, takže odkazy v testech nezávisí na hostiteli. */
     links: ConsoleLinks = ConsoleLinks(CONSOLE_URL),
     /**
@@ -312,6 +330,8 @@ fun ApplicationTestBuilder.consoleModule(
             catalogs = listOf(fakes.appStoreCatalog),
             bucketProbes = listOf(fakes.bucketProbe),
         )
+    val reviewInsights = ExposedReviewInsightRepository(exposed)
+    val appTopicRepository = ExposedAppTopicRepository(exposed)
     val reviewInbox =
         ReviewInbox(
             reviews = ExposedReviewRepository(exposed),
@@ -322,7 +342,10 @@ fun ApplicationTestBuilder.consoleModule(
             credentials = credentialRepository,
             failedJobs = ExposedFailedJobRepository(exposed),
             audit = audit,
+            insights = reviewInsights,
+            appTopics = appTopicRepository,
         )
+    val appTopicService = AppTopicService(topics = appTopicRepository, apps = appRepository, audit = audit)
     val channelService =
         ChannelService(
             channels = channelRepository,
@@ -375,12 +398,15 @@ fun ApplicationTestBuilder.consoleModule(
                     memberships = memberships,
                     slack = slack,
                     reviews = reviewInbox,
+                    appTopics = appTopicService,
                     ratings = ratingsInsights,
                     dailyRatings = dailyRatings,
                     audit = audit,
                     platform = platformAdmin,
                     ingest = platformConfig,
                     enqueueReply = replyQueue,
+                    enqueueAnalysis = analysisQueue,
+                    clock = clock,
                     googlePlayProvisioning =
                         gcpProvisioner?.let {
                             GooglePlayProvisioning(

@@ -1,16 +1,19 @@
 package cz.matee.appreviewzz.app
 
 import cz.matee.appreviewzz.core.model.AppId
+import cz.matee.appreviewzz.core.model.AppTopicId
 import cz.matee.appreviewzz.core.model.ChannelId
 import cz.matee.appreviewzz.core.model.CredentialId
 import cz.matee.appreviewzz.core.model.OrgRole
 import cz.matee.appreviewzz.core.model.Organization
+import cz.matee.appreviewzz.core.model.OrganizationId
 import cz.matee.appreviewzz.core.model.UserId
 import cz.matee.appreviewzz.core.port.AuditLogRepository
 import cz.matee.appreviewzz.core.port.MembershipRepository
 import cz.matee.appreviewzz.core.port.OrganizationRepository
 import cz.matee.appreviewzz.core.usecase.AppService
 import cz.matee.appreviewzz.core.usecase.AppSetupCheck
+import cz.matee.appreviewzz.core.usecase.AppTopicService
 import cz.matee.appreviewzz.core.usecase.AuthenticationService
 import cz.matee.appreviewzz.core.usecase.ChannelService
 import cz.matee.appreviewzz.core.usecase.ConsoleException
@@ -29,6 +32,7 @@ import io.ktor.server.application.ApplicationCall
 import io.ktor.server.routing.route
 import io.ktor.server.routing.routing
 import kotlinx.serialization.Serializable
+import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
 /**
@@ -44,6 +48,8 @@ class ConsoleWiring(
     val credentials: CredentialService,
     val channels: ChannelService,
     val reviews: ReviewInbox,
+    /** Vlastní témata aplikace (F8) — základní taxonomii klient nemění. */
+    val appTopics: AppTopicService,
     val ratings: RatingsInsights,
     val dailyRatings: DailyRatingsUseCase,
     val audit: AuditLogRepository,
@@ -81,7 +87,22 @@ class ConsoleWiring(
      * pak řekne, že automatické napojení není nastavené, a nabídne ruční nahrání klíče.
      */
     val googlePlayProvisioning: GooglePlayProvisioning? = null,
-)
+    /**
+     * Zařazení doplnění rozborů do fronty (org, app). `null` = proces bez přístupu
+     * k plánovači; konzole pak tlačítko „Doplnit za historii" nenabídne.
+     */
+    val enqueueAnalysis: ((String, String) -> Boolean)? = null,
+    val clock: Clock = Clock.System,
+) {
+    /**
+     * Názvy vlastních témat aplikace pro překlad klíčů ve výkladu. Jeden dotaz na požadavek,
+     * ne jeden na recenzi — inbox jich vypisuje padesát.
+     */
+    internal fun topicNames(
+        orgId: OrganizationId,
+        appId: AppId,
+    ): Map<String, String> = appTopics.list(orgId, appId).associate { it.key to it.name }
+}
 
 /**
  * Celé API console pod `/api`.
@@ -160,6 +181,8 @@ suspend fun ApplicationCall.orgContext(
 fun ApplicationCall.userIdParam(): UserId = UserId(uuidParam("userId", "Takový člen tu není"))
 
 fun ApplicationCall.appIdParam(): AppId = AppId(uuidParam("app", "Taková aplikace tu není"))
+
+fun ApplicationCall.appTopicIdParam(): AppTopicId = AppTopicId(uuidParam("topic", "Takové téma tu není"))
 
 fun ApplicationCall.credentialIdParam(): CredentialId = credentialIdOf(parameters["credential"].orEmpty())
 

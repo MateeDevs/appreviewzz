@@ -10,6 +10,7 @@ import cz.matee.appreviewzz.core.model.Review
 import cz.matee.appreviewzz.core.model.ReviewChange
 import cz.matee.appreviewzz.core.model.ReviewId
 import cz.matee.appreviewzz.core.model.ReviewState
+import cz.matee.appreviewzz.core.port.ReviewFilter
 import cz.matee.appreviewzz.core.port.ReviewRefreshSource
 import cz.matee.appreviewzz.core.port.ReviewRepository
 import cz.matee.appreviewzz.core.port.ReviewUpsertOutcome
@@ -255,7 +256,7 @@ private class RefreshReviewRepository : ReviewRepository {
     override fun listByApp(
         orgId: OrganizationId,
         appId: AppId,
-        states: Set<ReviewState>,
+        filter: ReviewFilter,
         limit: Int,
     ): List<Review> = error("Nepoužívá se")
 }

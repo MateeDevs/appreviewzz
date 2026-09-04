@@ -83,6 +83,17 @@ internal class FakeReviewInsightRepository(
         appId: AppId,
         taxonomyVersion: String,
     ): InsightCoverage = InsightCoverage(analyzed = stored.size, missing = listMissing(orgId, appId, taxonomyVersion, Int.MAX_VALUE).size)
+
+    override fun topicCounts(
+        orgId: OrganizationId,
+        appId: AppId,
+        since: Instant,
+    ): Map<String, Int> =
+        stored.values
+            .filter { it.orgId == orgId && it.appId == appId && it.analyzedAt >= since }
+            .flatMap { it.topics }
+            .groupingBy { it.key }
+            .eachCount()
 }
 
 internal class FakeAppTopicRepository(

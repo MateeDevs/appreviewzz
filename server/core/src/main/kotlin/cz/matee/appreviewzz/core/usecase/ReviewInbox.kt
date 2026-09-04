@@ -12,23 +12,61 @@ import cz.matee.appreviewzz.core.model.OrganizationId
 import cz.matee.appreviewzz.core.model.Reply
 import cz.matee.appreviewzz.core.model.Review
 import cz.matee.appreviewzz.core.model.ReviewId
+import cz.matee.appreviewzz.core.model.ReviewInsight
 import cz.matee.appreviewzz.core.model.ReviewMessage
 import cz.matee.appreviewzz.core.model.ReviewState
+import cz.matee.appreviewzz.core.model.Topic
+import cz.matee.appreviewzz.core.model.TopicGroup
 import cz.matee.appreviewzz.core.port.AppRepository
+import cz.matee.appreviewzz.core.port.AppTopicRepository
 import cz.matee.appreviewzz.core.port.AuditLogRepository
 import cz.matee.appreviewzz.core.port.ChannelRepository
 import cz.matee.appreviewzz.core.port.CredentialRepository
 import cz.matee.appreviewzz.core.port.FailedJobRepository
 import cz.matee.appreviewzz.core.port.ReplyRepository
+import cz.matee.appreviewzz.core.port.ReviewFilter
+import cz.matee.appreviewzz.core.port.ReviewInsightRepository
 import cz.matee.appreviewzz.core.port.ReviewMessageRepository
 import cz.matee.appreviewzz.core.port.ReviewRepository
 import cz.matee.appreviewzz.core.port.auditEntry
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Instant
+
+/** Recenze i s výkladem — inbox je ukazuje spolu a načíst je po jednom by bylo N+1. */
+data class InboxItem(
+    val review: Review,
+    val insight: ReviewInsight?,
+)
+
+/**
+ * Téma pro výběr ve filtru: jak se jmenuje, kam patří a kolikrát se objevilo. Počet je tam
+ * proto, aby klient ve výběru poznal, o čem jeho uživatelé doopravdy píšou.
+ */
+data class TopicOverview(
+    val key: String,
+    val name: String,
+    val group: TopicGroup?,
+    val descriptionEn: String,
+    /** Vlastní téma aplikace jde upravit i smazat, téma z taxonomie ne. */
+    val custom: Boolean,
+    val enabled: Boolean,
+    val recentCount: Int,
+)
+
+/** Kolik recenzí má platný výklad. Odpověď na „proč je rozbor prázdný". */
+data class AnalysisStatus(
+    val analyzed: Int,
+    val missing: Int,
+    val taxonomyVersion: String,
+    val queued: Boolean = false,
+)
 
 /** Recenze se vším, co se k ní váže — doručené zprávy a odpovědi. */
 data class ReviewDetail(
     val review: Review,
     val messages: List<ReviewMessage>,
     val replies: List<Reply>,
+    val insight: ReviewInsight? = null,
 )
 
 /**
@@ -65,15 +103,70 @@ class ReviewInbox(
     private val credentials: CredentialRepository,
     private val failedJobs: FailedJobRepository,
     private val audit: AuditLogRepository,
+    private val insights: ReviewInsightRepository,
+    private val appTopics: AppTopicRepository,
 ) {
     fun list(
         orgId: OrganizationId,
         appId: AppId,
-        states: Set<ReviewState>,
+        filter: ReviewFilter,
         limit: Int,
-    ): List<Review> {
+    ): List<InboxItem> {
         apps.findById(orgId, appId) ?: throw ConsoleException(ConsoleFailure.NOT_FOUND, "Taková aplikace tu není")
-        return reviews.listByApp(orgId, appId, states.ifEmpty { ReviewState.entries.toSet() }, limit.coerceIn(1, MAX_LIMIT))
+        val found = reviews.listByApp(orgId, appId, filter, limit.coerceIn(1, MAX_LIMIT))
+        val byReview = insights.findByReviews(orgId, found.map { it.id })
+        return found.map { InboxItem(it, byReview[it.id]) }
+    }
+
+    /**
+     * Témata pro filtr: celá taxonomie plus vlastní témata aplikace. Vrací se **všechna**,
+     * i ta s nulou — jinak by z výběru zmizelo téma, na které se klient zrovna ptá.
+     */
+    fun topics(
+        orgId: OrganizationId,
+        appId: AppId,
+        now: Instant,
+    ): List<TopicOverview> {
+        apps.findById(orgId, appId) ?: throw ConsoleException(ConsoleFailure.NOT_FOUND, "Taková aplikace tu není")
+        val counts = insights.topicCounts(orgId, appId, now.minus(RECENT_WINDOW))
+        val base =
+            Topic.entries.map {
+                TopicOverview(
+                    key = it.key,
+                    name = it.labelCs,
+                    group = it.group,
+                    descriptionEn = it.descriptionEn,
+                    custom = false,
+                    enabled = true,
+                    recentCount = counts[it.key] ?: 0,
+                )
+            }
+        val custom =
+            appTopics.listByApp(orgId, appId).map {
+                TopicOverview(
+                    key = it.key,
+                    name = it.name,
+                    group = null,
+                    descriptionEn = it.description,
+                    custom = true,
+                    enabled = it.enabled,
+                    recentCount = counts[it.key] ?: 0,
+                )
+            }
+        return base + custom
+    }
+
+    fun analysisStatus(
+        orgId: OrganizationId,
+        appId: AppId,
+    ): AnalysisStatus {
+        apps.findById(orgId, appId) ?: throw ConsoleException(ConsoleFailure.NOT_FOUND, "Taková aplikace tu není")
+        val coverage = insights.coverage(orgId, appId, Topic.TAXONOMY_VERSION)
+        return AnalysisStatus(
+            analyzed = coverage.analyzed,
+            missing = coverage.missing,
+            taxonomyVersion = Topic.TAXONOMY_VERSION,
+        )
     }
 
     fun detail(
@@ -85,6 +178,7 @@ class ReviewInbox(
             review = review,
             messages = messages.listByReview(orgId, id),
             replies = replies.listByReview(orgId, id),
+            insight = insights.findByReview(orgId, id),
         )
     }
 
@@ -131,7 +225,7 @@ class ReviewInbox(
         return OrgHealth(
             apps =
                 apps.listByOrg(orgId).map { app ->
-                    val recent = reviews.listByApp(orgId, app.id, ReviewState.entries.toSet(), HEALTH_SAMPLE)
+                    val recent = reviews.listByApp(orgId, app.id, ReviewFilter(), HEALTH_SAMPLE)
                     AppHealth(
                         app = app,
                         channels = channels.listByApp(orgId, app.id),
@@ -151,5 +245,8 @@ class ReviewInbox(
         const val HEALTH_SAMPLE = 50
         const val DLQ_LIMIT = 50
         val MANUAL_STATES = setOf(ReviewState.IGNORED, ReviewState.NEW)
+
+        /** Okno pro počty témat ve výběru — měsíc je to, co si klient pamatuje. */
+        val RECENT_WINDOW = 30.days
     }
 }

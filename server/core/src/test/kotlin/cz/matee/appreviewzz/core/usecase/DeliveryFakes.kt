@@ -35,6 +35,7 @@ import cz.matee.appreviewzz.core.port.ReplyRepository
 import cz.matee.appreviewzz.core.port.ReplySuggestion
 import cz.matee.appreviewzz.core.port.ReplySuggestionRequest
 import cz.matee.appreviewzz.core.port.ReplyTarget
+import cz.matee.appreviewzz.core.port.ReviewFilter
 import cz.matee.appreviewzz.core.port.ReviewMessageRepository
 import cz.matee.appreviewzz.core.port.ReviewRepository
 import cz.matee.appreviewzz.core.port.ReviewUpsertResult
@@ -147,7 +148,7 @@ internal class FakeReviewRepository(
     override fun listByApp(
         orgId: OrganizationId,
         appId: AppId,
-        states: Set<ReviewState>,
+        filter: ReviewFilter,
         limit: Int,
     ): List<Review> = unused()
 

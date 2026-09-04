@@ -75,18 +75,18 @@ class AnalysisJobs(
 
     /**
      * Zařadí dotagování appky. Instance je `appId`, takže se běhy neduplikují: když už jedna
-     * dávka čeká, druhý ingest jen potvrdí, že se na ni čeká.
+     * dávka čeká, druhý ingest jen potvrdí, že se na ni čeká. Vrací `false` právě v tom
+     * případě — konzole to říká větou, ne chybou.
      */
     fun schedule(
         client: SchedulerClient,
         orgId: OrganizationId,
         appId: AppId,
-    ) {
+    ): Boolean =
         client.scheduleIfNotExists(
             analyzeTask.instance(appId.toString(), AnalysisJobData(orgId.toString(), appId.toString())),
             Instant.now(),
         )
-    }
 
     /** Vrací `true`, když zbývá další dávka — pokračování zařídí completion handler. */
     private fun runAnalyze(instance: TaskInstance<AnalysisJobData>): Boolean {
