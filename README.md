@@ -197,6 +197,23 @@ jen s číslem zaokrouhleným tak, jak ho ukazuje store.
 Sémantika delty je vědomě jiná než ve starším n8n řešení —
 [ADR 0014](docs/adr/0014-ratings-delta-proti-minulemu-prehledu.md) říká proč.
 
+## Rozbory recenzí
+
+Každá recenze dostane při zpracování strukturovaný výklad: 1–4 témata z pevné taxonomie,
+sentiment u každého tématu zvlášť, celkovou náladu, typ a naléhavost. Štítky jsou hned
+v první zprávě v kanálu, v inboxu se podle nich dá filtrovat a jednou týdně z nich vznikne
+rozbor: co nejvíc bolí, co se zlepšilo, jak se odpovídá.
+
+**Čísla počítá databáze, ne model.** Model odpovídá jen na otázku „o čem je tahle recenze";
+podíly, trendy a mediány pak spočítá SQL a zpráva je šablona s doplněnými čísly. Citát
+u tématu se před uložením ověří jako doslovný úryvek recenze — když neprojde, neuloží se
+žádný. Proč to tak je, vysvětluje [ADR 0019](docs/adr/0019-rozbory-recenzi.md).
+
+Zapnutí je jedna volba v `/platforma` (`ai.provider`, `ai.api_key`, `ai.analysis_model`).
+Bez AI se nic nerozbije: recenze chodí jako dřív, jen bez štítků a bez rozboru. Provozní
+postupy — doplnění historie, přepnutí modelu, co dělat když AI padá — jsou
+v [runbooku](docs/runbooks/rozbory.md).
+
 ## Struktura repa
 
 ```
@@ -320,11 +337,12 @@ v obnovené databázi nečitelné.
 | **F4** | Teams bot, ratings pipeline, denní digesty a trendy | hotovo |
 | **F5** | Hardening: limity požadavků, ochrana proti přehrání, druhý faktor, redakce logů, threat model, sebe-audit ASVS L2 | probíhá |
 | **F6** | Migrace ze staršího n8n řešení a jeho vypnutí | |
+| **F8** | Rozbory recenzí: tagování do taxonomie, štítky v kanálu i v inboxu, týdenní rozbor | probíhá |
 
 ## Dokumentace
 
 - [ADR](docs/adr/) — architektonická rozhodnutí a jejich důvody
-- [Runbooky](docs/runbooks/) — provozní postupy (zálohy a obnova, alarm na vault klíč, správa platformy)
+- [Runbooky](docs/runbooks/) — provozní postupy (zálohy a obnova, alarm na vault klíč, správa platformy, rozbory recenzí)
 - [Slack App](docs/slack-app.md) — založení appky, oprávnění, připojení kanálu, řešení potíží
 - [Teams bot](docs/teams-bot.md) — založení Azure Bota, instalace do týmu, připojení kanálu
 - [Threat model](docs/threat-model.md) — co chráníme, před kým, a jaká zbytková rizika neseme

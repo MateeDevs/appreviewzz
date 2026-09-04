@@ -256,6 +256,18 @@ private val COMMANDS =
             run = { args -> analysisStatus(args) },
         ),
         Command(
+            name = "analysis export",
+            options = setOf("org", "app", "limit", "out"),
+            usage = "analysis export --org <slug|ID> --app <ID> --out <soubor.jsonl> [--limit <počet>]",
+            run = { args -> analysisExport(args) },
+        ),
+        Command(
+            name = "analysis eval",
+            options = setOf("file", "model", "app-name"),
+            usage = "analysis eval --file <gold.jsonl> [--model <model>] [--app-name <název>]",
+            run = { args -> analysisEval(args) },
+        ),
+        Command(
             name = "analysis weekly run",
             options = setOf("org", "app", "period-start"),
             usage = "analysis weekly run --org <slug|ID> --app <ID> [--period-start YYYY-MM-DD]",

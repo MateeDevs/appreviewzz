@@ -1,6 +1,7 @@
 package cz.matee.appreviewzz.app
 
 import cz.matee.appreviewzz.ai.ANALYSIS_TIMEOUT_MILLIS
+import cz.matee.appreviewzz.ai.AiProviders
 import cz.matee.appreviewzz.ai.ConfiguredReviewAnalysisProvider
 import cz.matee.appreviewzz.ai.ConfiguredSuggestReplyProvider
 import cz.matee.appreviewzz.ai.aiHttpClient
@@ -32,6 +33,7 @@ import cz.matee.appreviewzz.connectors.googleplay.PlayReportingRatingsSource
 import cz.matee.appreviewzz.connectors.googleplay.PlayStoreListingLookup
 import cz.matee.appreviewzz.connectors.googleplay.PlayStoreScrapeRatingsSource
 import cz.matee.appreviewzz.connectors.googleplay.googleHttpClient
+import cz.matee.appreviewzz.core.model.PlatformSettings
 import cz.matee.appreviewzz.core.model.SecretPayload
 import cz.matee.appreviewzz.core.port.Mailer
 import cz.matee.appreviewzz.core.port.NotificationChannel
@@ -285,6 +287,24 @@ class Components(
             SlackNotificationChannel(slackApi),
             teamsBot?.let { TeamsNotificationChannel(teamsApi, teamsTokens, it) },
         )
+    }
+
+    /**
+     * Provider rozborů pro evaluaci, volitelně na jiném modelu než jede v provozu. `null`
+     * znamená instalaci bez AI — CLI z toho udělá větu, ne výjimku.
+     */
+    fun analysisProvider(model: String? = null): ReviewAnalysisProvider? {
+        val provider = platformConfig.text(PlatformSettings.AI_PROVIDER) ?: AiProviders.NONE
+        if (provider.equals(AiProviders.NONE, ignoreCase = true)) return null
+        if (model == null) return analysis
+        return runCatching {
+            AiProviders.analysisFromConfig(
+                provider = provider,
+                apiKey = platformConfig.secret(PlatformSettings.AI_API_KEY)?.value,
+                model = model,
+                httpClient = { analysisClientDelegate.value },
+            )
+        }.getOrNull()
     }
 
     /** Tagování recenzí (F8) — před doručením i dávkově pro historii. */

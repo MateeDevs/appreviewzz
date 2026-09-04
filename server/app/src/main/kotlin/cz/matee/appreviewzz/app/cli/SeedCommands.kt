@@ -35,6 +35,9 @@ import cz.matee.appreviewzz.core.model.SecretPayload
 import cz.matee.appreviewzz.core.model.Slugs
 import cz.matee.appreviewzz.core.model.Topic
 import cz.matee.appreviewzz.core.model.ValidationStatus
+import cz.matee.appreviewzz.core.port.AnalysisItem
+import cz.matee.appreviewzz.core.port.AnalysisRequest
+import cz.matee.appreviewzz.core.port.AnalysisResult
 import cz.matee.appreviewzz.core.port.ChannelException
 import cz.matee.appreviewzz.core.port.ChannelTarget
 import cz.matee.appreviewzz.core.port.ConnectivityNotice
@@ -45,6 +48,7 @@ import cz.matee.appreviewzz.core.port.StoreConnectorException
 import cz.matee.appreviewzz.core.port.StoreContext
 import cz.matee.appreviewzz.core.port.ValidationOutcome
 import cz.matee.appreviewzz.core.port.auditEntry
+import cz.matee.appreviewzz.core.usecase.AnalyzeReviewsUseCase
 import cz.matee.appreviewzz.core.usecase.AppInputs
 import cz.matee.appreviewzz.core.usecase.ConsoleException
 import cz.matee.appreviewzz.core.usecase.PlatformActor
@@ -58,7 +62,9 @@ import kotlinx.datetime.LocalTime
 import java.io.IOException
 import java.nio.file.Path
 import kotlin.io.path.exists
+import kotlin.io.path.readLines
 import kotlin.io.path.readText
+import kotlin.io.path.writeText
 import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
@@ -547,6 +553,126 @@ class SeedCommands(
                     else -> "✗ ${delivery.error}"
                 }
             out("  kanál ${delivery.channelId}: $state")
+        }
+    }
+
+    /**
+     * Export recenzí k ruční anotaci. Stratifikovaně po hvězdách a platformách — náhodný
+     * vzorek by z appky se čtyřkovým průměrem vytáhl samé čtyřky a o jedničkách, kvůli kterým
+     * se to celé dělá, by neřekl nic.
+     */
+    fun analysisExport(args: Arguments) {
+        val organization = organization(args)
+        val app = app(organization.id, args)
+        val limit = args.int("limit") ?: DEFAULT_GOLD_SIZE
+        val target = Path.of(args.required("out"))
+
+        val reviews =
+            components.reviews
+                .listByApp(organization.id, app.id, ReviewFilter(), MAX_GOLD_CANDIDATES)
+                // Recenze bez textu se neanotují: jejich výklad počítají pravidla, ne model.
+                .filter { !it.title.isNullOrBlank() || !it.body.isNullOrBlank() }
+        val picked =
+            AnalysisEval.stratify(reviews, limit) { "${it.platform}:${it.starRating}" }
+
+        target.writeText(
+            picked.joinToString(separator = "\n", postfix = "\n") { review ->
+                AnalysisEval.toJsonLine(
+                    GoldReview(
+                        id = review.id.toString(),
+                        platform = review.platform,
+                        stars = review.starRating,
+                        title = review.title,
+                        body = review.body,
+                        version = review.appVersion,
+                        language = review.locale,
+                    ),
+                )
+            },
+        )
+        out("Zapsáno ${picked.size} recenzí do $target")
+        out("Vyplň topics, sentiment, type a urgency; návod je v docs/internal/gold-set-navod.md")
+    }
+
+    /**
+     * Evaluace modelu proti zlatému setu. Bez tohohle čísla je volba modelu dohad — a rozdíl
+     * mezi flash a flash-lite je při desítkách tisíc recenzí přesně ta částka, kvůli které
+     * se to měřit vyplatí.
+     */
+    suspend fun analysisEval(args: Arguments) {
+        val file = Path.of(args.required("file"))
+        if (!file.exists()) throw CommandException("Soubor $file neexistuje")
+        val gold = AnalysisEval.parse(file.readLines().asSequence()).filter { it.annotated }
+        if (gold.isEmpty()) throw CommandException("V souboru není ani jedna anotovaná recenze (chybí topics)")
+
+        val model = args.optional("model")
+        val provider =
+            components.analysisProvider(model)
+                ?: throw CommandException("AI není nastavená — nastav ai.provider a ai.api_key v platformní správě")
+
+        val predictions = mutableListOf<EvalPrediction>()
+        var failures = 0
+        gold.chunked(AnalyzeReviewsUseCase.BATCH_SIZE).forEach { batch ->
+            val result =
+                provider.analyze(
+                    AnalysisRequest(
+                        appName = args.optional("app-name") ?: "aplikace",
+                        instructions = null,
+                        teamLocale = MessageLocale.CS,
+                        customTopics = emptyList(),
+                        items =
+                            batch.map {
+                                AnalysisItem(
+                                    id = it.id,
+                                    platform = it.platform,
+                                    starRating = it.stars,
+                                    title = it.title,
+                                    body = it.body,
+                                    appVersion = it.version,
+                                )
+                            },
+                    ),
+                )
+            when (result) {
+                is AnalysisResult.Analyzed ->
+                    predictions +=
+                        result.items.map {
+                            EvalPrediction(
+                                id = it.id,
+                                topics = it.topics.map { topic -> topic.key }.toSet(),
+                                sentiment = it.sentiment.name,
+                                type = it.type.name,
+                                urgency = it.urgency.name,
+                            )
+                        }
+
+                is AnalysisResult.Failed -> {
+                    failures += batch.size
+                    out("  dávka selhala: ${result.message}")
+                }
+
+                AnalysisResult.Unavailable -> throw CommandException("AI provider není nastavený")
+            }
+        }
+
+        val evaluation = AnalysisEval.evaluate(gold, predictions)
+        out("Evaluace ${evaluation.items} recenzí (model ${model ?: "výchozí"})")
+        out("  mikro-F1 témat: ${percent(evaluation.microF1)}")
+        out(
+            "  sentiment: ${percent(evaluation.sentimentAccuracy)}, typ: ${percent(evaluation.typeAccuracy)}, " +
+                "naléhavost: ${percent(evaluation.urgencyAccuracy)}",
+        )
+        evaluation.annotatorKappa?.let { out("  shoda anotátorů (Cohenovo κ): ${"%.2f".format(it)}") }
+        if (evaluation.missing > 0) out("  model nevrátil ${evaluation.missing} recenzí")
+        if (failures > 0) out("  $failures recenzí nešlo vyhodnotit kvůli chybě AI")
+        out("")
+        out("  téma                  n    P      R      F1")
+        evaluation.topics.sortedByDescending { it.support }.forEach { score ->
+            out(
+                "  ${score.key.padEnd(TOPIC_COLUMN)} ${score.support.toString().padStart(4)}  " +
+                    "${percent(score.precision).padStart(5)}  ${percent(score.recall).padStart(5)}  " +
+                    percent(score.f1).padStart(5),
+            )
         }
     }
 
@@ -1110,6 +1236,13 @@ class SeedCommands(
 
         /** Pojistka proti nekonečnému doplňování, kdyby `hasMore` nikdy nezhaslo. */
         const val MAX_BACKFILL_ROUNDS = 100
+
+        /** Doporučená velikost zlatého setu; míň než tři sta a metriky jsou šum. */
+        const val DEFAULT_GOLD_SIZE = 300
+
+        /** Z kolika posledních recenzí se stratifikovaně vybírá — musí být řádově víc než limit. */
+        const val MAX_GOLD_CANDIDATES = 5_000
+        const val TOPIC_COLUMN = 20
         const val PLAN_COLUMN = 8
         const val STORES_COLUMN = 15
         const val ENABLED_COLUMN = 8
@@ -1161,6 +1294,9 @@ private fun <T> usage(block: () -> T): T =
     } catch (error: ConsoleException) {
         throw UsageException(error.message.orEmpty(), error)
     }
+
+/** Procenta jako celé číslo — desetinná místa u metrik jen předstírají přesnost. */
+private fun percent(value: Double): String = "${Math.round(value * 100)} %"
 
 private fun orgPlan(raw: String): OrgPlan =
     OrgPlan.entries.firstOrNull { it.name.equals(raw, ignoreCase = true) }
