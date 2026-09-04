@@ -3,11 +3,25 @@ package cz.matee.appreviewzz.core.message
 import cz.matee.appreviewzz.core.model.MessageLocale
 import cz.matee.appreviewzz.core.model.Platform
 import cz.matee.appreviewzz.core.model.Review
+import cz.matee.appreviewzz.core.model.ReviewType
+import cz.matee.appreviewzz.core.model.Urgency
 import cz.matee.appreviewzz.core.model.storeReplyMaxLength
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+
+/**
+ * Výklad recenze připravený pro zprávu do kanálu (F8): labely v jazyce kanálu, ne klíče.
+ * Kanálový modul tak nemusí znát taxonomii ani vlastní témata aplikace.
+ */
+data class ReviewInsightSummary(
+    val topics: List<String>,
+    val type: ReviewType,
+    val urgency: Urgency,
+) {
+    val isUrgent: Boolean get() = urgency == Urgency.HIGH
+}
 
 /**
  * Recenze připravená k vykreslení do kanálu — všechno, co Slack i Teams potřebují, spočítané
@@ -25,6 +39,8 @@ data class ReviewNotification(
     val suggestedReply: String?,
     /** Autor recenzi po doručení přepsal — zpráva to musí odlišit od první notifikace. */
     val isUpdate: Boolean = false,
+    /** Výklad recenze (F8); `null`, když AI není nastavená nebo selhala — zpráva jde i bez něj. */
+    val insight: ReviewInsightSummary? = null,
 ) {
     val catalog: MessageCatalog = MessageCatalog.of(locale)
 

@@ -13,6 +13,7 @@ import cz.matee.appreviewzz.core.port.AppTopicRepository
 import cz.matee.appreviewzz.core.port.InsightCoverage
 import cz.matee.appreviewzz.core.port.NewAppTopic
 import cz.matee.appreviewzz.core.port.NewReviewInsight
+import cz.matee.appreviewzz.core.port.ReviewAnalysis
 import cz.matee.appreviewzz.core.port.ReviewAnalysisProvider
 import cz.matee.appreviewzz.core.port.ReviewInsightRepository
 import kotlin.time.Instant
@@ -142,13 +143,27 @@ internal class FakeAnalysisProvider(
     private val results: MutableList<AnalysisResult> = mutableListOf(),
 ) : ReviewAnalysisProvider {
     val requests = mutableListOf<AnalysisRequest>()
+    private var echo: ((String) -> ReviewAnalysis)? = null
 
     fun answer(result: AnalysisResult) {
         results += result
     }
 
+    /**
+     * Odpověď složená z ID, která přišla — jako to dělá skutečný model. Testy tak nemusí
+     * znát ID recenze dřív, než ji založí.
+     */
+    fun echo(
+        model: String = "test-model",
+        analysis: (String) -> ReviewAnalysis,
+    ) {
+        echo = analysis
+        results += AnalysisResult.Analyzed(emptyList(), model)
+    }
+
     override suspend fun analyze(request: AnalysisRequest): AnalysisResult {
         requests += request
+        echo?.let { build -> return AnalysisResult.Analyzed(request.items.map { build(it.id) }, "test-model") }
         return if (results.isEmpty()) AnalysisResult.Unavailable else results.removeAt(0)
     }
 }

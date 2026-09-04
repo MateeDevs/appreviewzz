@@ -43,6 +43,7 @@ import cz.matee.appreviewzz.core.port.ReviewAnalysisProvider
 import cz.matee.appreviewzz.core.port.ReviewRefreshSource
 import cz.matee.appreviewzz.core.port.ReviewSource
 import cz.matee.appreviewzz.core.port.SuggestReplyProvider
+import cz.matee.appreviewzz.core.usecase.AnalyzeReviewsUseCase
 import cz.matee.appreviewzz.core.usecase.AppService
 import cz.matee.appreviewzz.core.usecase.AppSetupCheck
 import cz.matee.appreviewzz.core.usecase.AuthPolicy
@@ -68,6 +69,7 @@ import cz.matee.appreviewzz.crypto.CredentialVault
 import cz.matee.appreviewzz.crypto.KekProviders
 import cz.matee.appreviewzz.crypto.KekUsage
 import cz.matee.appreviewzz.crypto.MeteredKekProvider
+import cz.matee.appreviewzz.jobs.AnalysisJobs
 import cz.matee.appreviewzz.jobs.BackupJobs
 import cz.matee.appreviewzz.jobs.DeliveryJobs
 import cz.matee.appreviewzz.jobs.IngestJobs
@@ -281,6 +283,17 @@ class Components(
         )
     }
 
+    /** Tagování recenzí (F8) — před doručením i dávkově pro historii. */
+    val analyzeReviews: AnalyzeReviewsUseCase by lazy {
+        AnalyzeReviewsUseCase(
+            apps = apps,
+            reviews = reviews,
+            insights = reviewInsights,
+            appTopics = appTopics,
+            provider = analysis,
+        )
+    }
+
     val delivery: DeliverReviewUseCase by lazy {
         DeliverReviewUseCase(
             apps = apps,
@@ -289,6 +302,7 @@ class Components(
             messages = reviewMessages,
             secrets = vault,
             suggestions = suggestions,
+            analysis = analyzeReviews,
             notificationChannels = notificationChannels,
         )
     }
@@ -424,6 +438,7 @@ class Components(
             failedJobs = failedJobs,
             ingestPolicy = platformConfig,
             delivery = deliveryJobs,
+            analysis = analysisJobs,
             sweepInterval = Duration.ofSeconds(config.worker.sweepIntervalSeconds),
         )
 
@@ -431,6 +446,9 @@ class Components(
     val deliveryJobs: DeliveryJobs by lazy { DeliveryJobs(deliver = delivery, failedJobs = failedJobs) }
 
     val replyJobs: ReplyJobs by lazy { ReplyJobs(publish = publishReply, failedJobs = failedJobs) }
+
+    /** Jedna instance: plánuje ji ingest, console i CLI, a scheduler ji musí znát jako úlohu. */
+    val analysisJobs: AnalysisJobs by lazy { AnalysisJobs(analyze = analyzeReviews, failedJobs = failedJobs) }
 
     /**
      * Ověření podpisu Slacku. `null` znamená nenastavený `SLACK_SIGNING_SECRET` — interactivity

@@ -3,11 +3,19 @@ package cz.matee.appreviewzz.core.usecase
 import cz.matee.appreviewzz.core.model.ChannelType
 import cz.matee.appreviewzz.core.model.MessageLocale
 import cz.matee.appreviewzz.core.model.OrganizationId
+import cz.matee.appreviewzz.core.model.OverallSentiment
 import cz.matee.appreviewzz.core.model.ReviewState
+import cz.matee.appreviewzz.core.model.ReviewType
+import cz.matee.appreviewzz.core.model.Topic
+import cz.matee.appreviewzz.core.model.TopicMention
+import cz.matee.appreviewzz.core.model.TopicSentiment
+import cz.matee.appreviewzz.core.model.Urgency
+import cz.matee.appreviewzz.core.port.AnalysisResult
 import cz.matee.appreviewzz.core.port.ChannelErrorKind
 import cz.matee.appreviewzz.core.port.ChannelException
 import cz.matee.appreviewzz.core.port.NotificationChannel
 import cz.matee.appreviewzz.core.port.ReplySuggestion
+import cz.matee.appreviewzz.core.port.ReviewAnalysis
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldHaveSize
@@ -21,6 +29,10 @@ private val ORG = OrganizationId(Uuid.random())
 private class Fixture(
     suggestion: ReplySuggestion = ReplySuggestion.Suggested("Mrzí nás to, opravujeme.", "gemini-2.5-flash"),
     channels: List<NotificationChannel>? = null,
+    /** `null` = instalace bez rozborů; zpráva pak vypadá jako před F8. */
+    analysisResult: AnalysisResult? = null,
+    /** Výklad složený z ID recenze — jako ho vrací skutečný model. */
+    analysisEcho: ((String) -> ReviewAnalysis)? = null,
 ) {
     val apps = FakeAppRepository()
     val reviews = FakeReviewRepository()
@@ -28,7 +40,25 @@ private class Fixture(
     val messages = FakeReviewMessageRepository()
     val slack = FakeNotificationChannel()
     val suggestions = FakeSuggestProvider(suggestion)
+    val insights = FakeReviewInsightRepository()
     val app = apps.put(Ingest.app(ORG))
+
+    private val analysis =
+        if (analysisResult == null && analysisEcho == null) {
+            null
+        } else {
+            val provider = FakeAnalysisProvider()
+            analysisEcho?.let { provider.echo(analysis = it) }
+            // Doručení může sáhnout na výklad víckrát (retry, druhý kanál) — proto stejná odpověď dokola.
+            analysisResult?.let { result -> repeat(ANALYSIS_ANSWERS) { provider.answer(result) } }
+            AnalyzeReviewsUseCase(
+                apps = apps,
+                reviews = reviews,
+                insights = insights,
+                appTopics = FakeAppTopicRepository(),
+                provider = provider,
+            )
+        }
 
     val useCase =
         DeliverReviewUseCase(
@@ -38,13 +68,58 @@ private class Fixture(
             messages = messages,
             secrets = secretResolver("xoxb-token"),
             suggestions = suggestions,
+            analysis = analysis,
             notificationChannels = channels ?: listOf(slack),
             clock = fixedClock(Delivery.now),
         )
 }
 
+private const val ANALYSIS_ANSWERS = 5
+
 class DeliverReviewUseCaseTest :
     FunSpec({
+        test("zpráva nese štítky z výkladu recenze") {
+            val fixture =
+                Fixture(
+                    analysisEcho = { id ->
+                        ReviewAnalysis(
+                            id = id,
+                            sentiment = OverallSentiment.NEGATIVE,
+                            type = ReviewType.BUG,
+                            urgency = Urgency.HIGH,
+                            language = "cs",
+                            topics = listOf(TopicMention(Topic.CRASH.key, TopicSentiment.NEGATIVE, null)),
+                            translation = null,
+                        )
+                    },
+                )
+            val review = fixture.reviews.put(Delivery.review(ORG, fixture.app.id))
+            fixture.channelRepository.put(Delivery.channel(ORG, fixture.app.id))
+
+            fixture.useCase.deliver(ORG, review.id)
+
+            val insight =
+                fixture.slack.posted
+                    .single()
+                    .second.insight
+            insight?.topics shouldContainExactly listOf(Topic.CRASH.labelCs)
+            insight?.urgency shouldBe Urgency.HIGH
+        }
+
+        test("selhání rozboru recenzi nezdrží, jen odejde bez štítků") {
+            val fixture = Fixture(analysisResult = AnalysisResult.Failed("Gemini vrátilo 503"))
+            val review = fixture.reviews.put(Delivery.review(ORG, fixture.app.id))
+            fixture.channelRepository.put(Delivery.channel(ORG, fixture.app.id))
+
+            val report = fixture.useCase.deliver(ORG, review.id)
+
+            report.sent shouldHaveSize 1
+            fixture.slack.posted
+                .single()
+                .second.insight
+                .shouldBeNull()
+        }
+
         test("recenze odejde do kanálu i s návrhem a zpráva se zaznamená") {
             val fixture = Fixture()
             val review = fixture.reviews.put(Delivery.review(ORG, fixture.app.id))

@@ -244,6 +244,18 @@ private val COMMANDS =
             run = { args -> ratingsRun(args) },
         ),
         Command(
+            name = "analysis backfill",
+            options = setOf("org", "app"),
+            usage = "analysis backfill --org <slug|ID> --app <ID>",
+            run = { args -> analysisBackfill(args) },
+        ),
+        Command(
+            name = "analysis status",
+            options = setOf("org", "app"),
+            usage = "analysis status --org <slug|ID> --app <ID>",
+            run = { args -> analysisStatus(args) },
+        ),
+        Command(
             name = "vault rotate",
             options = setOf("org"),
             usage = "vault rotate [--org <slug|ID>]",

@@ -1,7 +1,9 @@
 package cz.matee.appreviewzz.core.usecase
 
+import cz.matee.appreviewzz.core.message.ReviewInsightSummary
 import cz.matee.appreviewzz.core.model.App
 import cz.matee.appreviewzz.core.model.AppId
+import cz.matee.appreviewzz.core.model.MessageLocale
 import cz.matee.appreviewzz.core.model.OrganizationId
 import cz.matee.appreviewzz.core.model.OverallSentiment
 import cz.matee.appreviewzz.core.model.Review
@@ -183,6 +185,22 @@ class AnalyzeReviewsUseCase(
             // Další běh má smysl jen tehdy, když se něco povedlo — jinak by se opakovalo selhání dokola.
             hasMore = pending.size >= limit && analyzed > 0,
             error = error,
+        )
+    }
+
+    /**
+     * Výklad přeložený do jazyka kanálu. Překlad klíčů na labely sedí tady, protože tady je
+     * po ruce seznam vlastních témat aplikace — kanálový modul taxonomii znát nemá.
+     */
+    fun summarize(
+        insight: ReviewInsight,
+        locale: MessageLocale,
+    ): ReviewInsightSummary {
+        val custom = appTopics.listByApp(insight.orgId, insight.appId).associate { it.key to it.name }
+        return ReviewInsightSummary(
+            topics = insight.topics.mapNotNull { Topic.ofKey(it.key)?.label(locale) ?: custom[it.key] },
+            type = insight.type,
+            urgency = insight.urgency,
         )
     }
 

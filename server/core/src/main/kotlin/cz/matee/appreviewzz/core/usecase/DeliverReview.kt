@@ -8,6 +8,7 @@ import cz.matee.appreviewzz.core.model.ChannelType
 import cz.matee.appreviewzz.core.model.OrganizationId
 import cz.matee.appreviewzz.core.model.Review
 import cz.matee.appreviewzz.core.model.ReviewId
+import cz.matee.appreviewzz.core.model.ReviewInsight
 import cz.matee.appreviewzz.core.model.ReviewState
 import cz.matee.appreviewzz.core.port.AppRepository
 import cz.matee.appreviewzz.core.port.ChannelErrorKind
@@ -112,6 +113,11 @@ class DeliverReviewUseCase(
     private val messages: ReviewMessageRepository,
     private val secrets: SecretResolver,
     private val suggestions: SuggestReplyProvider,
+    /**
+     * Rozbor recenze (F8). `null` u instalací a testů, které štítky neřeší — selhání i tak
+     * nikdy neblokuje doručení, nanejvýš zpráva odejde bez štítků.
+     */
+    private val analysis: AnalyzeReviewsUseCase? = null,
     notificationChannels: List<NotificationChannel>,
     private val clock: Clock = Clock.System,
 ) {
@@ -145,7 +151,8 @@ class DeliverReviewUseCase(
         if (targets.isEmpty()) return DeliveryReport(orgId, reviewId, skipped = DeliverySkipReason.NO_CHANNEL)
 
         val suggestion = suggest(app, review)
-        val deliveries = targets.map { channel -> deliverTo(app, review, channel, suggestion) }
+        val insight = analyze(orgId, reviewId)
+        val deliveries = targets.map { channel -> deliverTo(app, review, channel, suggestion, insight) }
         if (deliveries.any { it is ChannelDelivery.Sent } && review.state != ReviewState.NOTIFIED) {
             reviews.updateState(orgId, reviewId, ReviewState.NOTIFIED)
         }
@@ -164,11 +171,28 @@ class DeliverReviewUseCase(
         return report
     }
 
+    /**
+     * Výklad recenze před složením zprávy — štítky mají být hned v první notifikaci, ne až
+     * v konzoli. Selhání AI se **jen zaloguje**: recenze je to důležité, štítek je bonus.
+     */
+    private suspend fun analyze(
+        orgId: OrganizationId,
+        reviewId: ReviewId,
+    ): ReviewInsight? {
+        val useCase = analysis ?: return null
+        val outcome = useCase.ensureAnalyzed(orgId, reviewId)
+        if (outcome is AnalysisOutcome.Failed) {
+            logger.warn { "Recenze $reviewId jde do kanálu bez štítků: ${outcome.message}" }
+        }
+        return outcome.insightOrNull
+    }
+
     private suspend fun deliverTo(
         app: App,
         review: Review,
         channel: Channel,
         suggestion: ReplySuggestion,
+        insight: ReviewInsight?,
     ): ChannelDelivery {
         val implementation =
             channelByType[channel.type]
@@ -190,6 +214,7 @@ class DeliverReviewUseCase(
                 locale = channel.locale,
                 suggestedReply = (suggestion as? ReplySuggestion.Suggested)?.text,
                 isUpdate = review.state == ReviewState.UPDATED,
+                insight = insight?.let { analysis?.summarize(it, channel.locale) },
             )
 
         return try {

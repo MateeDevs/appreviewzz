@@ -27,10 +27,12 @@ import cz.matee.appreviewzz.core.model.OrgRole
 import cz.matee.appreviewzz.core.model.Organization
 import cz.matee.appreviewzz.core.model.OrganizationId
 import cz.matee.appreviewzz.core.model.PlatformRole
+import cz.matee.appreviewzz.core.model.PlatformSettings
 import cz.matee.appreviewzz.core.model.Review
 import cz.matee.appreviewzz.core.model.ReviewState
 import cz.matee.appreviewzz.core.model.SecretPayload
 import cz.matee.appreviewzz.core.model.Slugs
+import cz.matee.appreviewzz.core.model.Topic
 import cz.matee.appreviewzz.core.model.ValidationStatus
 import cz.matee.appreviewzz.core.port.ChannelException
 import cz.matee.appreviewzz.core.port.ChannelTarget
@@ -475,6 +477,54 @@ class SeedCommands(
         report.failures.firstOrNull()?.let { failure ->
             throw CommandException("Hodnocení ${failure.platform} selhala (${failure.kind}): ${failure.message}")
         }
+    }
+
+    /**
+     * Doplnění výkladů za historii. Běží rovnou, ne přes frontu: člověk u konzole chce vidět,
+     * kolik recenzí se vyložilo a co se pokazilo, ne že se něco naplánovalo.
+     */
+    suspend fun analysisBackfill(args: Arguments) {
+        val organization = organization(args)
+        val app = app(organization.id, args)
+
+        out("Rozbor recenzí ${app.name} (${app.id})")
+        var total = 0
+        var round = 0
+        while (round < MAX_BACKFILL_ROUNDS) {
+            val report = components.analyzeReviews.analyzeMissing(organization.id, app.id)
+            report.error?.let { throw CommandException(it) }
+            if (report.unavailable) {
+                out("  AI není nastavená — nastav ai.provider a ai.api_key v platformní správě")
+                return
+            }
+            total += report.analyzed
+            out("  dávka: vyloženo ${report.analyzed}, selhalo ${report.failed}, vynecháno ${report.skipped}")
+            if (!report.hasMore) break
+            round++
+        }
+        audit(organization.id, "analysis.backfill", "app", app.id.toString(), mapOf("vyloženo" to total.toString()))
+        analysisStatusLine(organization.id, app.id)
+    }
+
+    /** Kolik recenzí má platný výklad. První otázka, když se ptáš „proč je rozbor prázdný". */
+    fun analysisStatus(args: Arguments) {
+        val organization = organization(args)
+        val app = app(organization.id, args)
+        out("Rozbor recenzí ${app.name} (${app.id})")
+        analysisStatusLine(organization.id, app.id)
+    }
+
+    private fun analysisStatusLine(
+        orgId: OrganizationId,
+        appId: AppId,
+    ) {
+        val coverage = components.reviewInsights.coverage(orgId, appId, Topic.TAXONOMY_VERSION)
+        out("  výklad má ${coverage.analyzed} z ${coverage.analyzed + coverage.missing} recenzí")
+        out(
+            "  taxonomie ${Topic.TAXONOMY_VERSION}, model ${components.platformConfig.text(
+                PlatformSettings.AI_ANALYSIS_MODEL,
+            ) ?: "výchozí"}",
+        )
     }
 
     /**
@@ -1013,6 +1063,9 @@ class SeedCommands(
         const val DEFAULT_JOB_LIMIT = 50
         const val HISTORY_LIMIT = 5
         const val SLUG_COLUMN = 24
+
+        /** Pojistka proti nekonečnému doplňování, kdyby `hasMore` nikdy nezhaslo. */
+        const val MAX_BACKFILL_ROUNDS = 100
         const val PLAN_COLUMN = 8
         const val STORES_COLUMN = 15
         const val ENABLED_COLUMN = 8

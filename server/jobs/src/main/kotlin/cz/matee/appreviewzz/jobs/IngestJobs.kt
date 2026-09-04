@@ -90,6 +90,8 @@ class IngestJobs(
     private val ingestPolicy: IngestPolicy = IngestPolicy.fixed(),
     /** Doručení do kanálů; `null` znamená běh bez kanálů (testy, samotný ingest). */
     private val delivery: DeliveryJobs? = null,
+    /** Dotagování recenzí (F8); `null` u instalací a testů, které rozbory neřeší. */
+    private val analysis: AnalysisJobs? = null,
     private val clock: Clock = Clock.System,
     private val sweepInterval: Duration = DEFAULT_SWEEP_INTERVAL,
     private val retries: Int = DEFAULT_RETRIES,
@@ -163,6 +165,9 @@ class IngestJobs(
         // Doručuje se i z běhu, ve kterém jedna platforma selhala: recenze z té druhé už máme
         // a čekat s nimi na opravu cizího storu nedává smysl.
         delivery?.schedule(client, orgId, report.notifiable)
+        // Výklad se doplňuje i recenzím, které se nedoručují (potlačené, bez textu) — v podílech
+        // a trendech chybět nesmí, a doručení na ně nikdy nesáhne.
+        analysis?.schedule(client, orgId, AppId.parse(data.appId))
 
         when {
             report.appSkipped != null ->

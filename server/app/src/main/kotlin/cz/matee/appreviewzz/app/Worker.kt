@@ -61,6 +61,7 @@ fun runWorker(
             maintenanceJobs = components.maintenanceJobs,
             refreshRepliesJobs = components.refreshRepliesJobs,
             revalidateCredentialsJobs = components.revalidateCredentialsJobs,
+            analysisJobs = components.analysisJobs,
             config =
                 SchedulerConfig(
                     threads = config.worker.schedulerThreads,
