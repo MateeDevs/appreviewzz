@@ -48,6 +48,18 @@ export function IconStar() {
   )
 }
 
+/** Sloupce v grafu — rozbor je jediná sekce, která ukazuje čísla, ne položky. */
+export function IconAnalysis() {
+  return (
+    <Icon>
+      <path d="M3 21h18" />
+      <path d="M7 21V11" />
+      <path d="M12 21V4" />
+      <path d="M17 21v-6" />
+    </Icon>
+  )
+}
+
 export function IconApps() {
   return (
     <Icon>

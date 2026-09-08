@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useSearchParams } from 'react-router-dom'
 import { useApps, useReply, useReview, useReviews, useSetReviewState, useTopics } from '../api/hooks'
 import { Badge, Card, ErrorBox, Field, Loading, Stars, When } from '../components/ui'
 import type { ReviewInsight, ReviewState, ReviewType, TopicOption, Urgency } from '../api/types'
@@ -36,12 +36,24 @@ const FILTERS: { label: string; states: ReviewState[] }[] = [
 export function InboxPage() {
   const { org = '' } = useParams()
   const apps = useApps(org)
-  const [appId, setAppId] = useState('')
+  // Aplikace a téma jsou v adrese: z rozborů se sem chodí odkazem „ukaž mi těch devět
+  // recenzí o pádech" a ten musí jít poslat kolegovi.
+  const [params, setParams] = useSearchParams()
   const [filter, setFilter] = useState(0)
-  const [topic, setTopic] = useState('')
   const [type, setType] = useState<ReviewType | ''>('')
   const [urgency, setUrgency] = useState<Urgency | ''>('')
   const [openReview, setOpenReview] = useState<string>('')
+
+  const appId = params.get('app') ?? ''
+  const topic = params.get('topic') ?? ''
+  const setParam = (key: string, value: string) => {
+    const next = new URLSearchParams(params)
+    if (value) next.set(key, value)
+    else next.delete(key)
+    setParams(next, { replace: true })
+  }
+  const setAppId = (value: string) => setParam('app', value)
+  const setTopic = (value: string) => setParam('topic', value)
 
   const selected = appId || (apps.data?.[0]?.id ?? '')
   const reviews = useReviews(org, selected, {

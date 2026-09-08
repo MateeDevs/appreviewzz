@@ -5,6 +5,7 @@ import { Brand } from '../components/ui'
 import { PlatformDialog } from './Platform'
 import { SecurityDialog } from './Security'
 import {
+  IconAnalysis,
   IconApps,
   IconAudit,
   IconGuide,
@@ -40,6 +41,10 @@ export function OrgLayout() {
           <NavLink to={`/${org}/recenze`}>
             <IconReviews />
             Recenze
+          </NavLink>
+          <NavLink to={`/${org}/rozbory`}>
+            <IconAnalysis />
+            Rozbory
           </NavLink>
           <NavLink to={`/${org}/aplikace`}>
             <IconApps />

@@ -716,3 +716,27 @@ a.button:hover { background: var(--surface-2); border-color: var(--faint); text-
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Nálada v čase (F8). Barvy z odznaků, ať stránka a štítky u recenzí mluví stejně. */
+.mood-positive { fill: var(--ok); opacity: 0.75; }
+.mood-neutral { fill: var(--border-strong); }
+.mood-negative { fill: var(--error); opacity: 0.75; }
+.sparkline { width: 3rem; height: 1rem; display: block; }
+.spark-bar { fill: var(--muted); opacity: 0.6; }
+
+/* Podíl tématu jako pruh v tabulce — číslo v procentech vedle sebe lidi neporovnávají. */
+.share-bar { display: block; height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; min-width: 4rem; }
+.share-bar > span { display: block; height: 100%; background: var(--ok); }
+.share-bar > span.bad { background: var(--error); }
+
+/* Velké číslo nad blokem: nálada, počet recenzí, podíl odpovědí. */
+.metrics { display: flex; gap: 2rem; flex-wrap: wrap; }
+.metric-value { font-size: 1.7rem; font-weight: 600; line-height: 1.2; }
+.metric-label { font-size: 0.8rem; color: var(--muted); }
+.metric-delta { font-size: 0.85rem; }
+.metric-delta.up { color: var(--ok); }
+.metric-delta.down { color: var(--error); }
+
+/* Dva bloky vedle sebe; pod 900 px pod sebou, protože tabulky se do půlky nevejdou. */
+.cards-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.15rem; }
+@media (max-width: 900px) { .cards-2 { grid-template-columns: 1fr; } }

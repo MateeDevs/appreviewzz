@@ -1,5 +1,5 @@
 import { Link, useParams } from 'react-router-dom'
-import { useHealth } from '../api/hooks'
+import { useAnalysis, useHealth } from '../api/hooks'
 import { Badge, Card, ErrorBox, Loading, When } from '../components/ui'
 import type { AppHealth } from '../api/types'
 
@@ -65,6 +65,31 @@ export function DashboardPage() {
   )
 }
 
+/**
+ * Jedna řádka nálady na kartě aplikace. Vlastní dotaz na appku, ne společný pro celý
+ * přehled: karta se vykresluje i tam, kde rozbory nejsou zapnuté, a čekat kvůli tomu
+ * s celou stránkou by bylo horší než nechat řádku doskočit.
+ */
+function MoodLine({ org, appId }: { org: string; appId: string }) {
+  const analysis = useAnalysis(org, appId, { days: 30 })
+  if (analysis.isPending) return <span className="muted">…</span>
+  if (!analysis.data || analysis.data.reviews === 0) {
+    return <span className="muted">zatím není z čeho</span>
+  }
+  const { sentiment, previousSentiment, reviews } = analysis.data
+  const delta = previousSentiment ? Math.round((sentiment.negative - previousSentiment.negative) * 100) : 0
+  return (
+    <span>
+      <Link to={`/${org}/rozbory?app=${appId}`}>{Math.round(sentiment.positive * 100)} % spokojených</Link>{' '}
+      <span className="small muted">z {reviews} recenzí s textem</span>
+      {/* Roste podíl nespokojených = nálada jde dolů; znaménko se čte obráceně. */}
+      {delta !== 0 ? (
+        <span className={`small metric-delta ${delta > 0 ? 'down' : 'up'}`}> {delta > 0 ? '↓' : '↑'} {Math.abs(delta)} b.</span>
+      ) : null}
+    </span>
+  )
+}
+
 function AppHealthCard({ org, app }: { org: string; app: AppHealth }) {
   const channelsOk = app.channels.filter((channel) => channel.enabled && channel.hasCredential).length
   const invalidKeys = app.credentials.filter((credential) => credential.validationStatus === 'INVALID')
@@ -89,6 +114,12 @@ function AppHealthCard({ org, app }: { org: string; app: AppHealth }) {
           <tr>
             <th>Čeká na odpověď</th>
             <td>{app.pendingReviews}</td>
+          </tr>
+          <tr>
+            <th>Nálada 30 dní</th>
+            <td>
+              <MoodLine org={org} appId={app.appId} />
+            </td>
           </tr>
           <tr>
             <th>Kanály</th>

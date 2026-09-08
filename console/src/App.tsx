@@ -8,6 +8,7 @@ import {
   ResetPasswordPage,
   VerifyEmailPage,
 } from './pages/Auth'
+import { AnalysisPage } from './pages/Analysis'
 import { AppDetailPage, AppsPage } from './pages/Apps'
 import { AuditPage, TeamPage } from './pages/Team'
 import { DashboardPage } from './pages/Dashboard'
@@ -51,6 +52,7 @@ export function App() {
             <Route index element={<DashboardPage />} />
             <Route path="onboarding" element={<OnboardingPage />} />
             <Route path="recenze" element={<InboxPage />} />
+            <Route path="rozbory" element={<AnalysisPage />} />
             <Route path="aplikace" element={<AppsPage />} />
             <Route path="aplikace/:appId" element={<AppDetailPage />} />
             <Route path="tym" element={<TeamPage />} />
