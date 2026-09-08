@@ -11,6 +11,7 @@ import io.ktor.server.application.Application
 import io.ktor.server.application.install
 import io.ktor.server.plugins.callid.callId
 import io.ktor.server.plugins.statuspages.StatusPages
+import io.ktor.server.request.path
 import io.ktor.server.response.respond
 import kotlinx.serialization.Serializable
 
@@ -73,10 +74,16 @@ fun Application.installErrorHandling() {
             )
         }
         status(HttpStatusCode.NotFound) { call, status ->
+            // Veřejný report si svou 404 kreslí sám: je to stránka pro klienta s mrtvým
+            // odkazem, ne odpověď API. Bez téhle výjimky by mu StatusPages podstrčily JSON.
+            if (call.request.path().startsWith(PUBLIC_REPORT_PREFIX)) return@status
             call.respond(status, ErrorResponse(error = "not_found", requestId = call.callId))
         }
     }
 }
+
+/** Veřejná stránka měsíčního reportu — jediná cesta mimo `/api`, která vrací HTML i při 404. */
+private const val PUBLIC_REPORT_PREFIX = "/r/"
 
 /**
  * Mapa doménových důvodů na stavové kódy. `423 Locked` je schválně jiný kód než `401` —

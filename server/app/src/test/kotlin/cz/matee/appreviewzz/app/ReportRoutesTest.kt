@@ -92,8 +92,14 @@ class ReportRoutesTest :
 
                 owner.deleteSigned("/api/orgs/$SLUG/apps/$appId/reports/$reportId/share").status shouldBe HttpStatusCode.NoContent
 
-                owner.get("/r/$token").status shouldBe HttpStatusCode.NotFound
-                owner.get("/r/uplne-vymysleny-token").status shouldBe HttpStatusCode.NotFound
+                listOf(token, "uplne-vymysleny-token").forEach { dead ->
+                    val response = owner.get("/r/$dead")
+                    response.status shouldBe HttpStatusCode.NotFound
+                    // Odkaz otevírá klient bez účtu; JSON `{"error":"not_found"}` mu nic
+                    // neřekne. Zrušený i neexistující token vypadají stejně schválně —
+                    // rozlišovat je by z adresy udělalo nástroj na hledání zákazníků.
+                    response.bodyAsText() shouldContain "Report není k dispozici"
+                }
             }
         }
 
