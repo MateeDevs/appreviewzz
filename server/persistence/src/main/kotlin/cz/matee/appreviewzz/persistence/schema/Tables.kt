@@ -17,6 +17,7 @@ import cz.matee.appreviewzz.core.model.PlatformRole
 import cz.matee.appreviewzz.core.model.RatingSource
 import cz.matee.appreviewzz.core.model.ReplySource
 import cz.matee.appreviewzz.core.model.ReplyStatus
+import cz.matee.appreviewzz.core.model.ReportSnapshot
 import cz.matee.appreviewzz.core.model.ReviewState
 import cz.matee.appreviewzz.core.model.ReviewType
 import cz.matee.appreviewzz.core.model.TopicSentiment
@@ -399,6 +400,21 @@ internal object AnalysisDigests : Table("analysis_digest") {
     val sentAt = instant("sent_at")
 
     override val primaryKey = PrimaryKey(channelId, periodStart)
+}
+
+internal object InsightReports : Table("insight_report") {
+    val id = insightReportId("id")
+    val orgId = organizationId()
+    val appId = appId()
+    val periodStart = date("period_start")
+    val periodEnd = date("period_end")
+
+    // Zmrazený snímek, ne živý dotaz: odkaz poslaný klientovi musí za půl roku ukázat totéž.
+    val aggregates = jsonb("aggregates", schemaJson, ReportSnapshot.serializer())
+    val shareToken = text("share_token").nullable()
+    val createdAt = instant("created_at")
+
+    override val primaryKey = PrimaryKey(id)
 }
 
 internal object AnalysisAlerts : Table("analysis_alert") {

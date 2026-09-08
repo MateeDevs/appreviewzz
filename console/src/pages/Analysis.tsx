@@ -7,7 +7,11 @@ import {
   useApps,
   useBackfillAnalysis,
   useMe,
+  useGenerateReport,
+  useReports,
   useRunAnalysis,
+  useShareReport,
+  useUnshareReport,
   useVersionImpact,
 } from '../api/hooks'
 import { Badge, Card, Empty, ErrorBox, Loading } from '../components/ui'
@@ -366,7 +370,96 @@ function Overview({ org, appId, overview }: { org: string; appId: string; overvi
 
       <VersionImpactCard org={org} appId={appId} />
       <AlertsCard org={org} appId={appId} />
+      <ReportsCard org={org} appId={appId} />
     </>
+  )
+}
+
+/**
+ * Měsíční reporty pro klienta (C1).
+ *
+ * Report je zmrazený snímek: odkaz, který agentura pošle klientovi, ukáže za rok totéž co
+ * dnes. Přegenerování měsíce čísla přepíše — a je to jediná cesta, jak se změní.
+ */
+function ReportsCard({ org, appId }: { org: string; appId: string }) {
+  const reports = useReports(org, appId)
+  const generate = useGenerateReport(org, appId)
+  const share = useShareReport(org, appId)
+  const unshare = useUnshareReport(org, appId)
+  const [copied, setCopied] = useState('')
+
+  const copy = (url: string, id: string) => {
+    navigator.clipboard?.writeText(url).then(
+      () => setCopied(id),
+      // Bez schránky (starý prohlížeč, http) se odkaz aspoň ukáže k ručnímu zkopírování.
+      () => setCopied(''),
+    )
+  }
+
+  return (
+    <Card title="Měsíční reporty">
+      <div className="spread" style={{ marginBottom: '0.75rem' }}>
+        <p className="small muted" style={{ margin: 0 }}>
+          Stránka pro klienta se sdílitelným odkazem. V prohlížeči se dá uložit jako PDF.
+        </p>
+        <button type="button" className="secondary" onClick={() => generate.mutate(undefined)} disabled={generate.isPending}>
+          Vygenerovat minulý měsíc
+        </button>
+      </div>
+      <ErrorBox error={generate.error ?? share.error ?? unshare.error} />
+      {reports.isPending ? <Loading /> : null}
+      {reports.data?.length === 0 ? (
+        <Empty>Zatím žádný report. První se vygeneruje prvního dne příštího měsíce — nebo tlačítkem výš.</Empty>
+      ) : null}
+      {reports.data && reports.data.length > 0 ? (
+        <table>
+          <thead>
+            <tr>
+              <th>Období</th>
+              <th>Recenzí</th>
+              <th>Odkaz</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {reports.data.map((report) => (
+              <tr key={report.id}>
+                <td>
+                  {new Date(report.periodStart).toLocaleDateString('cs-CZ')} –{' '}
+                  {new Date(report.periodEnd).toLocaleDateString('cs-CZ')}
+                </td>
+                <td>{report.reviews}</td>
+                <td>
+                  {report.shareUrl ? (
+                    <>
+                      <a href={report.shareUrl} target="_blank" rel="noreferrer">
+                        Otevřít
+                      </a>{' '}
+                      <button type="button" className="link" onClick={() => copy(report.shareUrl as string, report.id)}>
+                        {copied === report.id ? 'zkopírováno' : 'zkopírovat odkaz'}
+                      </button>
+                    </>
+                  ) : (
+                    <span className="muted">nesdílí se</span>
+                  )}
+                </td>
+                <td>
+                  {report.shareUrl ? (
+                    <button type="button" className="secondary" onClick={() => unshare.mutate(report.id)}>
+                      Zrušit sdílení
+                    </button>
+                  ) : (
+                    <button type="button" className="secondary" onClick={() => share.mutate(report.id)}>
+                      Sdílet odkaz
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : null}
+    </Card>
   )
 }
 

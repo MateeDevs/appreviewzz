@@ -82,6 +82,8 @@ fun runApi(
             reviews = components.reviewInbox,
             appTopics = components.appTopicService,
             analysis = components.analysisInsights,
+            links = components.consoleLinks,
+            reports = components.monthlyReports,
             weeklyAnalysis = components.weeklyAnalysis,
             ratings = components.ratingsInsights,
             dailyRatings = components.dailyRatings,
@@ -217,6 +219,8 @@ fun Application.apiModule(
     }
     slackInstall?.let { slackInstallRoutes(it.oauth, it.states, it.store, it.redirectUri, hardening.replay.slackInstall) }
     console?.let { consoleRoutes(it, hardening.rateLimits) }
+    // Mimo `/api` a mimo session: odkaz na report se posílá klientovi, který u nás účet nemá.
+    console?.reports?.let { publicReportRoutes(it, hardening.rateLimits) }
     // Až po API: fallback bere všechno, co si nikdo jiný nevzal.
     consoleStaticRoutes()
 }

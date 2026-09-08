@@ -6,7 +6,10 @@ import cz.matee.appreviewzz.core.model.AppId
 import cz.matee.appreviewzz.core.model.AppTopic
 import cz.matee.appreviewzz.core.model.AppTopicId
 import cz.matee.appreviewzz.core.model.ChannelId
+import cz.matee.appreviewzz.core.model.InsightReport
+import cz.matee.appreviewzz.core.model.InsightReportId
 import cz.matee.appreviewzz.core.model.OrganizationId
+import cz.matee.appreviewzz.core.model.ReportSnapshot
 import cz.matee.appreviewzz.core.model.Review
 import cz.matee.appreviewzz.core.model.ReviewId
 import cz.matee.appreviewzz.core.model.ReviewInsight
@@ -15,6 +18,7 @@ import cz.matee.appreviewzz.core.port.AnalysisAlertRepository
 import cz.matee.appreviewzz.core.port.AnalysisDigestRepository
 import cz.matee.appreviewzz.core.port.AppTopicRepository
 import cz.matee.appreviewzz.core.port.InsightCoverage
+import cz.matee.appreviewzz.core.port.InsightReportRepository
 import cz.matee.appreviewzz.core.port.NewAnalysisAlert
 import cz.matee.appreviewzz.core.port.NewAppTopic
 import cz.matee.appreviewzz.core.port.NewReviewInsight
@@ -22,11 +26,13 @@ import cz.matee.appreviewzz.core.port.ReviewInsightRepository
 import cz.matee.appreviewzz.persistence.schema.AnalysisAlerts
 import cz.matee.appreviewzz.persistence.schema.AnalysisDigests
 import cz.matee.appreviewzz.persistence.schema.AppTopics
+import cz.matee.appreviewzz.persistence.schema.InsightReports
 import cz.matee.appreviewzz.persistence.schema.ReviewInsightTopics
 import cz.matee.appreviewzz.persistence.schema.ReviewInsights
 import cz.matee.appreviewzz.persistence.schema.Reviews
 import kotlinx.datetime.LocalDate
 import org.jetbrains.exposed.v1.core.JoinType
+import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.count
@@ -452,4 +458,117 @@ class ExposedAnalysisAlertRepository(
                     )
                 }
         }
+}
+
+/**
+ * Měsíční reporty (F8/C1).
+ *
+ * Přegenerování měsíce **nechává token na pokoji**: odkaz, který agentura poslala klientovi,
+ * nesmí přestat platit kvůli tomu, že se doplnily výklady. Zrušit sdílení jde jen výslovně.
+ */
+class ExposedInsightReportRepository(
+    private val database: ExposedDatabase,
+) : InsightReportRepository {
+    override fun upsert(
+        orgId: OrganizationId,
+        appId: AppId,
+        periodStart: LocalDate,
+        periodEnd: LocalDate,
+        snapshot: ReportSnapshot,
+        createdAt: Instant,
+    ): InsightReport =
+        transaction(database) {
+            val existing =
+                InsightReports
+                    .selectAll()
+                    .where { (InsightReports.appId eq appId) and (InsightReports.periodStart eq periodStart) }
+                    .firstOrNull()
+            if (existing != null) {
+                InsightReports.update({ InsightReports.id eq existing[InsightReports.id] }) {
+                    it[InsightReports.periodEnd] = periodEnd
+                    it[aggregates] = snapshot
+                }
+                existing.toReport().copy(periodEnd = periodEnd, snapshot = snapshot)
+            } else {
+                val id = InsightReportId(Uuid.random())
+                InsightReports.insert {
+                    it[InsightReports.id] = id
+                    it[InsightReports.orgId] = orgId
+                    it[InsightReports.appId] = appId
+                    it[InsightReports.periodStart] = periodStart
+                    it[InsightReports.periodEnd] = periodEnd
+                    it[aggregates] = snapshot
+                    it[shareToken] = null
+                    it[InsightReports.createdAt] = createdAt
+                }
+                InsightReport(
+                    id = id,
+                    orgId = orgId,
+                    appId = appId,
+                    periodStart = periodStart,
+                    periodEnd = periodEnd,
+                    snapshot = snapshot,
+                    shareToken = null,
+                    createdAt = createdAt,
+                )
+            }
+        }
+
+    override fun listByApp(
+        orgId: OrganizationId,
+        appId: AppId,
+        limit: Int,
+    ): List<InsightReport> =
+        transaction(database) {
+            InsightReports
+                .selectAll()
+                .where { (InsightReports.orgId eq orgId) and (InsightReports.appId eq appId) }
+                .orderBy(InsightReports.periodStart to SortOrder.DESC)
+                .limit(limit)
+                .map { it.toReport() }
+        }
+
+    override fun findById(
+        orgId: OrganizationId,
+        id: InsightReportId,
+    ): InsightReport? =
+        transaction(database) {
+            InsightReports
+                .selectAll()
+                .where { (InsightReports.orgId eq orgId) and (InsightReports.id eq id) }
+                .firstOrNull()
+                ?.toReport()
+        }
+
+    override fun findByShareToken(token: String): InsightReport? =
+        transaction(database) {
+            InsightReports
+                .selectAll()
+                .where { InsightReports.shareToken eq token }
+                .firstOrNull()
+                ?.toReport()
+        }
+
+    override fun setShareToken(
+        orgId: OrganizationId,
+        id: InsightReportId,
+        token: String?,
+    ): Boolean =
+        transaction(database) {
+            InsightReports.update({ (InsightReports.orgId eq orgId) and (InsightReports.id eq id) }) {
+                it[shareToken] = token
+            } > 0
+        }
+
+    private fun ResultRow.toReport() =
+        InsightReport(
+            id = this[InsightReports.id],
+            orgId = this[InsightReports.orgId],
+            appId = this[InsightReports.appId],
+            periodStart = this[InsightReports.periodStart],
+            periodEnd = this[InsightReports.periodEnd],
+            snapshot = this[InsightReports.aggregates],
+            shareToken = this[InsightReports.shareToken],
+            createdAt = this[InsightReports.createdAt],
+        )
 }

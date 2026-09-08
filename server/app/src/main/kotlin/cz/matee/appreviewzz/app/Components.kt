@@ -64,6 +64,7 @@ import cz.matee.appreviewzz.core.usecase.DeliverReviewUseCase
 import cz.matee.appreviewzz.core.usecase.ImportReviewHistoryUseCase
 import cz.matee.appreviewzz.core.usecase.IngestReviewsUseCase
 import cz.matee.appreviewzz.core.usecase.MfaService
+import cz.matee.appreviewzz.core.usecase.MonthlyReportUseCase
 import cz.matee.appreviewzz.core.usecase.OrganizationService
 import cz.matee.appreviewzz.core.usecase.PlatformAdminService
 import cz.matee.appreviewzz.core.usecase.PlatformConfig
@@ -103,6 +104,7 @@ import cz.matee.appreviewzz.persistence.repository.ExposedChannelRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedCredentialRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedDataKeyRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedFailedJobRepository
+import cz.matee.appreviewzz.persistence.repository.ExposedInsightReportRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedInvitationRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedMembershipRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedOrganizationRepository
@@ -158,6 +160,7 @@ class Components(
     val appTopics = ExposedAppTopicRepository(exposed)
     val analysisDigests = ExposedAnalysisDigestRepository(exposed)
     val analysisAlerts = ExposedAnalysisAlertRepository(exposed)
+    val insightReports = ExposedInsightReportRepository(exposed)
 
     val sessions = ExposedSessionRepository(exposed)
     val userTokens = ExposedUserTokenRepository(exposed)
@@ -525,6 +528,19 @@ class Components(
         AnalysisNarrator(ConfiguredNarrativeProvider(config = platformConfig, httpClient = { aiClientDelegate.value }))
     }
 
+    /** Měsíční report pro klienta (F8/C1). Zmrazený snímek, ne živý dotaz. */
+    val monthlyReports: MonthlyReportUseCase by lazy {
+        MonthlyReportUseCase(
+            apps = apps,
+            organizations = organizations,
+            insights = analysisInsights,
+            aggregates = analysisAggregates,
+            alerts = analysisAlerts,
+            reports = insightReports,
+            links = consoleLinks,
+        )
+    }
+
     /** Alert na výkyv v recenzích (F8/B4). Statistika, ne AI — proto nesahá na provider. */
     val spikeAlerts: SpikeAlertUseCase by lazy {
         SpikeAlertUseCase(
@@ -566,6 +582,7 @@ class Components(
             scheduled = weeklyAnalysis,
             spikes = spikeAlerts,
             apps = apps,
+            monthlyReports = monthlyReports,
         )
     }
 

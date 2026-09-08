@@ -22,6 +22,7 @@ import cz.matee.appreviewzz.core.model.CredentialMeta
 import cz.matee.appreviewzz.core.model.CredentialPurpose
 import cz.matee.appreviewzz.core.model.CredentialType
 import cz.matee.appreviewzz.core.model.FailedJob
+import cz.matee.appreviewzz.core.model.InsightReportId
 import cz.matee.appreviewzz.core.model.MessageLocale
 import cz.matee.appreviewzz.core.model.OrgPlan
 import cz.matee.appreviewzz.core.model.OrgRole
@@ -586,6 +587,44 @@ class SeedCommands(
                 }
             out("  kanál ${delivery.channelId}: $state")
         }
+    }
+
+    /**
+     * Vygenerování měsíčního reportu (C1). Ručně proto, že první report chce klient vidět
+     * hned po nasazení, ne prvního příštího měsíce.
+     */
+    fun analysisReportGenerate(args: Arguments) {
+        val organization = organization(args)
+        val app = app(organization.id, args)
+        val month = args.optional("month")?.let { LocalDate.parse("$it-01") }
+
+        val report = components.monthlyReports.generate(organization.id, app.id, month)
+        if (report == null) {
+            out("Report se negeneroval: organizace ${organization.slug} je na plánu ${organization.plan.name}.")
+            return
+        }
+        audit(organization.id, "analysis.report.generate", "app", app.id.toString())
+        out("Report ${report.id} za ${report.periodStart} – ${report.periodEnd}: ${report.snapshot.reviews} recenzí")
+        report.shareToken?.let { out("  sdílený odkaz: ${components.consoleLinks.report(it)}") }
+    }
+
+    /** Zapnutí i zrušení sdílení. Zrušení token maže — odkaz přestane platit natrvalo. */
+    fun analysisReportShare(args: Arguments) {
+        val organization = organization(args)
+        val id = InsightReportId.parse(args.required("report"))
+        if (args.optional("off")?.toBoolean() == true) {
+            val done = components.monthlyReports.unshare(organization.id, id)
+            audit(organization.id, "analysis.report.unshare", "report", id.toString())
+            out(if (done) "Sdílení zrušeno; odkaz přestal platit." else "Takový report tu není.")
+            return
+        }
+        val url = components.monthlyReports.share(organization.id, id)
+        if (url == null) {
+            out("Takový report tu není.")
+            return
+        }
+        audit(organization.id, "analysis.report.share", "report", id.toString())
+        out("Sdílený odkaz: $url")
     }
 
     /**

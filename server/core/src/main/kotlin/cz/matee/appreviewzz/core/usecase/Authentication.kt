@@ -541,6 +541,15 @@ class ConsoleLinks(
         return "${base(origin)}/$orgSlug/recenze?app=$appId$topic"
     }
 
+    /**
+     * Veřejný odkaz na měsíční report (C1). Krátká cesta mimo `/api` i mimo strom konzole:
+     * posílá se klientovi, který u nás nemá účet, a má vypadat jako odkaz, ne jako endpoint.
+     */
+    fun report(
+        token: String,
+        origin: String? = null,
+    ): String = "${base(origin)}/r/$token"
+
     /** Základ odkazu pro požadavek přišlý z [origin] (`https://host[:port]`, nebo `null`). */
     fun base(origin: String?): String {
         val candidate = origin?.trim()?.trimEnd('/')?.takeIf { ORIGIN.matches(it) } ?: return fallback ?: LOCAL

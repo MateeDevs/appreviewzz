@@ -21,6 +21,8 @@ import cz.matee.appreviewzz.core.model.CredentialPurpose
 import cz.matee.appreviewzz.core.model.CredentialType
 import cz.matee.appreviewzz.core.model.DataKeyId
 import cz.matee.appreviewzz.core.model.FailedJob
+import cz.matee.appreviewzz.core.model.InsightReport
+import cz.matee.appreviewzz.core.model.InsightReportId
 import cz.matee.appreviewzz.core.model.MessageLocale
 import cz.matee.appreviewzz.core.model.ObservedReview
 import cz.matee.appreviewzz.core.model.OrgDataKey
@@ -38,6 +40,7 @@ import cz.matee.appreviewzz.core.model.Reply
 import cz.matee.appreviewzz.core.model.ReplyId
 import cz.matee.appreviewzz.core.model.ReplySource
 import cz.matee.appreviewzz.core.model.ReplyStatus
+import cz.matee.appreviewzz.core.model.ReportSnapshot
 import cz.matee.appreviewzz.core.model.Review
 import cz.matee.appreviewzz.core.model.ReviewChange
 import cz.matee.appreviewzz.core.model.ReviewId
@@ -861,6 +864,43 @@ interface AnalysisAlertRepository {
         since: LocalDate,
         limit: Int,
     ): List<AnalysisAlert>
+}
+
+/**
+ * Měsíční reporty pro klienta (F8/C1). Zápis je upsert podle `(app_id, period_start)`:
+ * přegenerování měsíce ho přepíše, sdílený token přitom **zůstane** — odkaz, který
+ * agentura klientovi poslala, nesmí přestat platit kvůli tomu, že jsme dopočítali výklady.
+ */
+interface InsightReportRepository {
+    fun upsert(
+        orgId: OrganizationId,
+        appId: AppId,
+        periodStart: LocalDate,
+        periodEnd: LocalDate,
+        snapshot: ReportSnapshot,
+        createdAt: Instant,
+    ): InsightReport
+
+    fun listByApp(
+        orgId: OrganizationId,
+        appId: AppId,
+        limit: Int,
+    ): List<InsightReport>
+
+    fun findById(
+        orgId: OrganizationId,
+        id: InsightReportId,
+    ): InsightReport?
+
+    /** Bez `org_id`: veřejná stránka nemá session a token je jediné, čím se prokazuje. */
+    fun findByShareToken(token: String): InsightReport?
+
+    /** `null` jako token ruší sdílení. Vrací `false`, když report neexistuje. */
+    fun setShareToken(
+        orgId: OrganizationId,
+        id: InsightReportId,
+        token: String?,
+    ): Boolean
 }
 
 /** Vlastní téma aplikace, jak ho zadává člověk. Popis je anglicky — jde do promptu. */

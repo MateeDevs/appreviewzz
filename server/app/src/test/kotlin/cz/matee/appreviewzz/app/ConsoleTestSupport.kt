@@ -38,6 +38,7 @@ import cz.matee.appreviewzz.core.usecase.ConsoleLinks
 import cz.matee.appreviewzz.core.usecase.CredentialService
 import cz.matee.appreviewzz.core.usecase.DailyRatingsUseCase
 import cz.matee.appreviewzz.core.usecase.MfaService
+import cz.matee.appreviewzz.core.usecase.MonthlyReportUseCase
 import cz.matee.appreviewzz.core.usecase.OrganizationService
 import cz.matee.appreviewzz.core.usecase.PlatformAdminService
 import cz.matee.appreviewzz.core.usecase.PlatformConfig
@@ -58,6 +59,7 @@ import cz.matee.appreviewzz.persistence.repository.ExposedChannelRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedCredentialRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedDataKeyRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedFailedJobRepository
+import cz.matee.appreviewzz.persistence.repository.ExposedInsightReportRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedInvitationRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedMembershipRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedOrganizationRepository
@@ -386,6 +388,7 @@ fun ApplicationTestBuilder.consoleModule(
         )
     val appTopicService = AppTopicService(topics = appTopicRepository, apps = appRepository, audit = audit)
     val analysisAggregates = ExposedAnalysisAggregateRepository(exposed)
+    val insightReports = ExposedInsightReportRepository(exposed)
     val analysisInsights =
         AnalysisInsights(
             apps = appRepository,
@@ -393,6 +396,17 @@ fun ApplicationTestBuilder.consoleModule(
             insights = reviewInsights,
             appTopics = appTopicRepository,
             alerts = ExposedAnalysisAlertRepository(exposed),
+            clock = clock,
+        )
+    val monthlyReports =
+        MonthlyReportUseCase(
+            apps = appRepository,
+            organizations = organizations,
+            insights = analysisInsights,
+            aggregates = analysisAggregates,
+            alerts = ExposedAnalysisAlertRepository(exposed),
+            reports = insightReports,
+            links = links,
             clock = clock,
         )
     val channelService =
@@ -449,6 +463,8 @@ fun ApplicationTestBuilder.consoleModule(
                     reviews = reviewInbox,
                     appTopics = appTopicService,
                     analysis = analysisInsights,
+                    links = links,
+                    reports = monthlyReports,
                     ratings = ratingsInsights,
                     dailyRatings = dailyRatings,
                     audit = audit,

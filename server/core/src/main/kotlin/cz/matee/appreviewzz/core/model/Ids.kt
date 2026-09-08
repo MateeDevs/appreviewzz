@@ -119,3 +119,14 @@ value class AnalysisAlertId(
 ) {
     override fun toString(): String = value.toString()
 }
+
+@JvmInline
+value class InsightReportId(
+    val value: Uuid,
+) {
+    override fun toString(): String = value.toString()
+
+    companion object {
+        fun parse(raw: String): InsightReportId = InsightReportId(Uuid.parse(raw))
+    }
+}

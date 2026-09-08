@@ -22,6 +22,7 @@ import cz.matee.appreviewzz.core.model.OrganizationId
 import cz.matee.appreviewzz.core.port.AppRepository
 import cz.matee.appreviewzz.core.port.FailedJobRepository
 import cz.matee.appreviewzz.core.usecase.AnalyzeReviewsUseCase
+import cz.matee.appreviewzz.core.usecase.MonthlyReportUseCase
 import cz.matee.appreviewzz.core.usecase.ScheduledAnalysisUseCase
 import cz.matee.appreviewzz.core.usecase.SpikeAlertUseCase
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -97,6 +98,32 @@ data class WeeklyAnalysisJobData(
 }
 
 /**
+ * Payload měsíčního reportu (C1). Nese zónu aplikace, protože „prvního v měsíci v šest ráno"
+ * má znamenat šest ráno u klienta, ne u nás.
+ */
+@Serializable
+data class MonthlyReportJobData(
+    val orgId: String,
+    val appId: String,
+    val timezone: String,
+) : ScheduleAndData {
+    // Prvního v měsíci brzy ráno: minulý měsíc je tím pádem celý a report za něj sedí.
+    override fun getSchedule(): Schedule = Schedules.cron("0 0 $REPORT_HOUR 1 * ?", zoneId())
+
+    override fun getData(): Any = this
+
+    private fun zoneId(): ZoneId = runCatching { ZoneId.of(timezone) }.getOrDefault(ZoneId.of("UTC"))
+
+    companion object {
+        /** Šest ráno: report je hotový dřív, než si ho někdo přijde otevřít. */
+        private const val REPORT_HOUR = 6
+
+        fun of(app: App): MonthlyReportJobData =
+            MonthlyReportJobData(orgId = app.orgId.toString(), appId = app.id.toString(), timezone = app.timezone)
+    }
+}
+
+/**
  * Dotagování recenzí jako samostatná úloha (F8).
  *
  * Odděleně od ingestu i od doručení, ze stejného důvodu jako `deliver-review`: rozbor sahá
@@ -125,6 +152,8 @@ class AnalysisJobs(
     private val sweepInterval: Duration = DEFAULT_SWEEP_INTERVAL,
     /** Kolik recenzí spolkne jeden běh, než se úloha přeplánuje. */
     private val batchLimit: Int = AnalyzeReviewsUseCase.DEFAULT_LIMIT,
+    /** Měsíční report (C1); `null` u procesů, které reporty negenerují. */
+    private val monthlyReports: MonthlyReportUseCase? = null,
 ) {
     /**
      * Vlastní task, ne `oneTime`: po doběhnutí dávky se úloha buď smaže, nebo **přeplánuje
@@ -161,10 +190,23 @@ class AnalysisJobs(
                     .then(::giveUpAndKeepCadence),
             ).execute { instance, _ -> runWeekly(instance) }
 
+    val monthlyReportTask: RecurringTaskWithPersistentSchedule<MonthlyReportJobData> =
+        Tasks
+            .recurringWithPersistentSchedule(MONTHLY_REPORT_TASK, MonthlyReportJobData::class.java)
+            .onFailure(
+                FailureHandler
+                    .maxRetries<MonthlyReportJobData>(retries)
+                    .withBackoff(firstRetryDelay, BACKOFF_RATE)
+                    .then(::giveUpAndKeepReports),
+            ).execute { instance, _ -> runMonthlyReport(instance) }
+
     val weeklySweepTask: RecurringTask<Void> =
         Tasks
             .recurring(WEEKLY_SWEEP_TASK, Schedules.fixedDelay(sweepInterval))
-            .execute { _, context -> sweepWeekly(context.schedulerClient) }
+            .execute { _, context ->
+                sweepWeekly(context.schedulerClient)
+                sweepMonthlyReports(context.schedulerClient)
+            }
 
     /**
      * Sesouhlasí naplánované rozbory se seznamem zapnutých aplikací — nová appka se rozjede
@@ -202,6 +244,59 @@ class AnalysisJobs(
                 logger.info { "Ruším naplánovaný rozbor appky ${execution.taskInstance.id}" }
                 client.cancel(execution.taskInstance)
             }
+    }
+
+    /**
+     * Sesouhlasí naplánované reporty se seznamem aplikací. Plán organizace se **nekontroluje
+     * tady**: mění se za běhu a use case ho stejně ověřuje sám — appka, která na report nemá,
+     * si jen jednou měsíčně vyzvedne úlohu, která hned skončí.
+     */
+    fun sweepMonthlyReports(client: SchedulerClient) {
+        val repository = apps ?: return
+        if (monthlyReports == null) return
+        val wanted = repository.listEnabled().associate { it.id.toString() to MonthlyReportJobData.of(it) }
+        val scheduled =
+            client
+                .getScheduledExecutionsForTask(MONTHLY_REPORT_TASK, MonthlyReportJobData::class.java)
+                .associateBy { it.taskInstance.id }
+
+        wanted.forEach { (instanceId, data) ->
+            val existing = scheduled[instanceId]
+            when {
+                existing == null -> client.schedule(monthlyReportTask.schedulableInstance(instanceId, data), WHEN_EXISTS_DO_NOTHING)
+                existing.data != data -> client.schedule(monthlyReportTask.schedulableInstance(instanceId, data), WHEN_EXISTS_RESCHEDULE)
+                else -> Unit
+            }
+        }
+
+        scheduled.values
+            .filter { it.taskInstance.id !in wanted.keys && !it.isPicked }
+            .forEach { client.cancel(it.taskInstance) }
+    }
+
+    private fun runMonthlyReport(instance: TaskInstance<MonthlyReportJobData>) {
+        val data = instance.data
+        val useCase = monthlyReports ?: return
+        val report = useCase.generate(OrganizationId.parse(data.orgId), AppId.parse(data.appId))
+        if (report == null) {
+            logger.info { "Report appky ${data.appId} se negeneroval (plán organizace nebo smazaná appka)" }
+        } else {
+            logger.info { "Report appky ${data.appId} za ${report.periodStart}–${report.periodEnd} je hotový" }
+        }
+        failedJobs.resolve(MONTHLY_REPORT_TASK, instance.id, clock.now())
+    }
+
+    /** Po vyčerpaných pokusech se report naplánuje na příští měsíc — appka se neodstřihne. */
+    private fun giveUpAndKeepReports(
+        complete: ExecutionComplete,
+        operations: ExecutionOperations<MonthlyReportJobData>,
+    ) {
+        @Suppress("UNCHECKED_CAST")
+        val instance = complete.execution.taskInstance as TaskInstance<MonthlyReportJobData>
+        val data = instance.data
+        val cause = complete.cause.orElse(null)
+        recordFailure(MONTHLY_REPORT_TASK, instance.id, data.orgId, data.appId, cause?.message ?: "neznámá chyba", cause)
+        operations.reschedule(complete, data.schedule.getNextExecutionTime(complete))
     }
 
     private fun runWeekly(instance: TaskInstance<WeeklyAnalysisJobData>) {
@@ -328,6 +423,7 @@ class AnalysisJobs(
         const val ANALYZE_TASK = "analyze-app"
         const val WEEKLY_TASK = "weekly-analysis-app"
         const val WEEKLY_SWEEP_TASK = "weekly-analysis-sweep"
+        const val MONTHLY_REPORT_TASK = "monthly-report"
 
         val DEFAULT_SWEEP_INTERVAL: Duration = Duration.ofMinutes(5)
 

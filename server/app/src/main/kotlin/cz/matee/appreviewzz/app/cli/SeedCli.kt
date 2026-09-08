@@ -280,6 +280,18 @@ private val COMMANDS =
             run = { args -> analysisRun(args) },
         ),
         Command(
+            name = "analysis report generate",
+            options = setOf("org", "app", "month"),
+            usage = "analysis report generate --org <slug|ID> --app <ID> [--month YYYY-MM]",
+            run = { args -> analysisReportGenerate(args) },
+        ),
+        Command(
+            name = "analysis report share",
+            options = setOf("org", "report", "off"),
+            usage = "analysis report share --org <slug|ID> --report <ID> [--off true]",
+            run = { args -> analysisReportShare(args) },
+        ),
+        Command(
             name = "vault rotate",
             options = setOf("org"),
             usage = "vault rotate [--org <slug|ID>]",

@@ -20,10 +20,12 @@ import cz.matee.appreviewzz.core.usecase.AuthenticationService
 import cz.matee.appreviewzz.core.usecase.ChannelService
 import cz.matee.appreviewzz.core.usecase.ConsoleException
 import cz.matee.appreviewzz.core.usecase.ConsoleFailure
+import cz.matee.appreviewzz.core.usecase.ConsoleLinks
 import cz.matee.appreviewzz.core.usecase.CredentialService
 import cz.matee.appreviewzz.core.usecase.DailyRatingsUseCase
 import cz.matee.appreviewzz.core.usecase.IngestPolicy
 import cz.matee.appreviewzz.core.usecase.MfaService
+import cz.matee.appreviewzz.core.usecase.MonthlyReportUseCase
 import cz.matee.appreviewzz.core.usecase.OrgActor
 import cz.matee.appreviewzz.core.usecase.OrganizationService
 import cz.matee.appreviewzz.core.usecase.PlatformAdminService
@@ -55,6 +57,8 @@ class ConsoleWiring(
     val appTopics: AppTopicService,
     /** Agregace pro stránku *Rozbory* a dopad verzí (F8, B1/B3). */
     val analysis: AnalysisInsights,
+    /** Odkazy do konzole a na veřejný report — sdílený odkaz se skládá tady. */
+    val links: ConsoleLinks,
     val ratings: RatingsInsights,
     val dailyRatings: DailyRatingsUseCase,
     val audit: AuditLogRepository,
@@ -104,6 +108,11 @@ class ConsoleWiring(
      * historii pak dotáhne až denní běh workeru, jen o den později.
      */
     val enqueueHistoryImport: ((String, String, Int) -> Boolean)? = null,
+    /**
+     * Měsíční reporty (C1). `null` = strom `/reports` se nezaregistruje; instalace, která
+     * reporty nepoužívá, o nich nemusí vědět.
+     */
+    val reports: MonthlyReportUseCase? = null,
     val clock: Clock = Clock.System,
 ) {
     /**
@@ -154,6 +163,7 @@ fun Application.consoleRoutes(
                 channelRoutes(console)
                 reviewRoutes(console)
                 analysisRoutes(console)
+                reportRoutes(console)
                 ratingsRoutes(console)
 
                 // Vlastní podstrom s vlastní ochranou: role SUPERADMIN a zapnutý druhý faktor.

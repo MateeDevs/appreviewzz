@@ -11,6 +11,7 @@ import type {
   ChannelCheck,
   Credential,
   Health,
+  InsightReport,
   Invitation,
   LoginOutcome,
   Me,
@@ -497,6 +498,42 @@ export function useAnalysisAlerts(org: string, appId: string) {
     queryKey: ['analysis-alerts', org, appId],
     queryFn: () => api.get<AnalysisAlert[]>(`/api/orgs/${org}/apps/${appId}/analysis/alerts`),
     enabled: appId !== '',
+  })
+}
+
+/** Měsíční reporty aplikace. Seznam, ne obsah — ten se otevírá odkazem na veřejnou stránku. */
+export function useReports(org: string, appId: string) {
+  return useQuery({
+    queryKey: ['reports', org, appId],
+    queryFn: () => api.get<InsightReport[]>(`/api/orgs/${org}/apps/${appId}/reports`),
+    enabled: appId !== '',
+  })
+}
+
+/** Přegenerování měsíce. Běží v požadavku — je to jeden průchod agregacemi nad jednou appkou. */
+export function useGenerateReport(org: string, appId: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (month?: string) =>
+      api.post<InsightReport>(`/api/orgs/${org}/apps/${appId}/reports${month ? `?month=${month}` : ''}`, {}),
+    onSuccess: () => client.invalidateQueries({ queryKey: ['reports', org, appId] }),
+  })
+}
+
+export function useShareReport(org: string, appId: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.post<{ shareUrl: string }>(`/api/orgs/${org}/apps/${appId}/reports/${id}/share`, {}),
+    onSuccess: () => client.invalidateQueries({ queryKey: ['reports', org, appId] }),
+  })
+}
+
+/** Zrušení sdílení odkaz zneplatní natrvalo — nový by měl jiný token. */
+export function useUnshareReport(org: string, appId: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/api/orgs/${org}/apps/${appId}/reports/${id}/share`),
+    onSuccess: () => client.invalidateQueries({ queryKey: ['reports', org, appId] }),
   })
 }
 

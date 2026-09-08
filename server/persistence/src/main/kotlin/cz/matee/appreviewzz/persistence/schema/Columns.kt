@@ -8,6 +8,7 @@ import cz.matee.appreviewzz.core.model.ChannelId
 import cz.matee.appreviewzz.core.model.CredentialId
 import cz.matee.appreviewzz.core.model.DataKeyId
 import cz.matee.appreviewzz.core.model.FailedJobId
+import cz.matee.appreviewzz.core.model.InsightReportId
 import cz.matee.appreviewzz.core.model.InvitationId
 import cz.matee.appreviewzz.core.model.OrganizationId
 import cz.matee.appreviewzz.core.model.RatingSnapshotId
@@ -52,6 +53,8 @@ internal fun Table.appId(name: String = "app_id"): Column<AppId> = uuid(name).tr
 internal fun Table.appTopicId(name: String): Column<AppTopicId> = uuid(name).transform({ AppTopicId(it) }, { it.value })
 
 internal fun Table.analysisAlertId(name: String): Column<AnalysisAlertId> = uuid(name).transform({ AnalysisAlertId(it) }, { it.value })
+
+internal fun Table.insightReportId(name: String): Column<InsightReportId> = uuid(name).transform({ InsightReportId(it) }, { it.value })
 
 internal fun Table.credentialId(name: String = "credential_id"): Column<CredentialId> =
     uuid(name).transform({ CredentialId(it) }, { it.value })

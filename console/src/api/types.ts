@@ -341,6 +341,17 @@ export interface VersionImpact {
   negativeDelta: number
 }
 
+/** Měsíční report pro klienta. Agregáty jsou zmrazené — odkaz musí za rok ukázat totéž. */
+export interface InsightReport {
+  id: string
+  periodStart: string
+  periodEnd: string
+  reviews: number
+  createdAt: string
+  /** `null` = report se nesdílí. */
+  shareUrl: string | null
+}
+
 export type AlertKind = 'NEGATIVE_SPIKE' | 'TOPIC_SPIKE'
 
 /** Výkyv v recenzích. `expected` je baseline — bez ní se alert nedá číst. */

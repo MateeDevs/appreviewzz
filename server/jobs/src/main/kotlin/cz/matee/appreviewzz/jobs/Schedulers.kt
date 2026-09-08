@@ -63,6 +63,7 @@ fun buildScheduler(
             ratingsJobs?.ratingsTask,
             analysisJobs?.analyzeTask,
             analysisJobs?.weeklyTask,
+            analysisJobs?.monthlyReportTask,
             reviewHistoryJobs?.historyTask,
             reviewHistoryJobs?.backfillTask,
         )
