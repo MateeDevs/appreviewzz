@@ -1,5 +1,6 @@
 package cz.matee.appreviewzz.jobs
 
+import cz.matee.appreviewzz.core.message.AnalysisAlertMessage
 import cz.matee.appreviewzz.core.message.AnalysisDigest
 import cz.matee.appreviewzz.core.message.RatingsDigest
 import cz.matee.appreviewzz.core.message.ReviewNotification
@@ -157,6 +158,11 @@ class ReplyJobsTest :
                     target: ChannelTarget,
                     digest: AnalysisDigest,
                 ): PostedMessage = PostedMessage(target.conversationId, "1755600000.analysis")
+
+                override suspend fun postAnalysisAlert(
+                    target: ChannelTarget,
+                    alert: AnalysisAlertMessage,
+                ): PostedMessage = PostedMessage(target.conversationId, "1755600000.alert")
 
                 override suspend fun postConnectivityCheck(
                     target: ChannelTarget,

@@ -1,6 +1,7 @@
 package cz.matee.appreviewzz.app
 
 import cz.matee.appreviewzz.app.cli.TestDatabase
+import cz.matee.appreviewzz.core.model.AlertKind
 import cz.matee.appreviewzz.core.model.AppId
 import cz.matee.appreviewzz.core.model.ObservedReview
 import cz.matee.appreviewzz.core.model.OrganizationId
@@ -12,7 +13,9 @@ import cz.matee.appreviewzz.core.model.Topic
 import cz.matee.appreviewzz.core.model.TopicMention
 import cz.matee.appreviewzz.core.model.TopicSentiment
 import cz.matee.appreviewzz.core.model.Urgency
+import cz.matee.appreviewzz.core.port.NewAnalysisAlert
 import cz.matee.appreviewzz.core.port.NewReviewInsight
+import cz.matee.appreviewzz.persistence.repository.ExposedAnalysisAlertRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedOrganizationRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedReviewInsightRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedReviewRepository
@@ -26,6 +29,7 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
+import kotlinx.datetime.LocalDate
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
@@ -413,6 +417,35 @@ class AnalysisRoutesTest :
 
                 body shouldContain "Po aktualizaci to padá"
                 body shouldNotContain "Ve staré verzi to šlo"
+            }
+        }
+
+        "výkyvy se vypíšou i s baseline, proti které se měřily" {
+            testApplication {
+                consoleModule(mailer, analysisQueue = analysis)
+                val (owner, appId) = ownerWithApp(mailer)
+                val exposed = TestDatabase.database.exposed
+                val orgId = checkNotNull(ExposedOrganizationRepository(exposed).findBySlug(SLUG)).id
+                ExposedAnalysisAlertRepository(exposed).insertIfAbsent(
+                    orgId,
+                    NewAnalysisAlert(
+                        appId = AppId(Uuid.parse(appId)),
+                        kind = AlertKind.TOPIC_SPIKE,
+                        topicKey = Topic.CRASH.key,
+                        windowDate = LocalDate(2026, 9, 8),
+                        observed = 9,
+                        expected = 1.25,
+                        zScore = 6.2,
+                    ),
+                    NOW,
+                )
+
+                val body = owner.get("/api/orgs/$SLUG/apps/$appId/analysis/alerts").bodyAsText()
+
+                body shouldContain "\"kind\":\"TOPIC_SPIKE\""
+                body shouldContain "\"topicName\":\"Pády\""
+                body shouldContain "\"observed\":9"
+                body shouldContain "\"expected\":1.25"
             }
         }
 

@@ -71,6 +71,7 @@ import cz.matee.appreviewzz.core.usecase.RefreshStoreRepliesUseCase
 import cz.matee.appreviewzz.core.usecase.RevalidateCredentialsUseCase
 import cz.matee.appreviewzz.core.usecase.ReviewInbox
 import cz.matee.appreviewzz.core.usecase.ScheduledAnalysisUseCase
+import cz.matee.appreviewzz.core.usecase.SpikeAlertUseCase
 import cz.matee.appreviewzz.crypto.AppSecretBox
 import cz.matee.appreviewzz.crypto.Argon2PasswordHasher
 import cz.matee.appreviewzz.crypto.CredentialVault
@@ -89,6 +90,7 @@ import cz.matee.appreviewzz.jobs.RevalidateCredentialsJobs
 import cz.matee.appreviewzz.jobs.ReviewHistoryJobs
 import cz.matee.appreviewzz.persistence.Database
 import cz.matee.appreviewzz.persistence.repository.ExposedAnalysisAggregateRepository
+import cz.matee.appreviewzz.persistence.repository.ExposedAnalysisAlertRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedAnalysisDigestRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedAppDataKeyRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedAppRepository
@@ -153,6 +155,7 @@ class Components(
     val analysisAggregates = ExposedAnalysisAggregateRepository(exposed)
     val appTopics = ExposedAppTopicRepository(exposed)
     val analysisDigests = ExposedAnalysisDigestRepository(exposed)
+    val analysisAlerts = ExposedAnalysisAlertRepository(exposed)
 
     val sessions = ExposedSessionRepository(exposed)
     val userTokens = ExposedUserTokenRepository(exposed)
@@ -506,7 +509,23 @@ class Components(
             aggregates = analysisAggregates,
             insights = reviewInsights,
             appTopics = appTopics,
+            alerts = analysisAlerts,
             policy = platformConfig,
+        )
+    }
+
+    /** Alert na výkyv v recenzích (F8/B4). Statistika, ne AI — proto nesahá na provider. */
+    val spikeAlerts: SpikeAlertUseCase by lazy {
+        SpikeAlertUseCase(
+            apps = apps,
+            organizations = organizations,
+            channels = channels,
+            aggregates = analysisAggregates,
+            alerts = analysisAlerts,
+            appTopics = appTopics,
+            secrets = vault,
+            links = consoleLinks,
+            notificationChannels = notificationChannels,
         )
     }
 
@@ -529,7 +548,13 @@ class Components(
 
     /** Jedna instance: plánuje ji ingest, console i CLI, a scheduler ji musí znát jako úlohu. */
     val analysisJobs: AnalysisJobs by lazy {
-        AnalysisJobs(analyze = analyzeReviews, failedJobs = failedJobs, scheduled = weeklyAnalysis, apps = apps)
+        AnalysisJobs(
+            analyze = analyzeReviews,
+            failedJobs = failedJobs,
+            scheduled = weeklyAnalysis,
+            spikes = spikeAlerts,
+            apps = apps,
+        )
     }
 
     /**

@@ -2,6 +2,7 @@ package cz.matee.appreviewzz.app
 
 import cz.matee.appreviewzz.app.cli.TestDatabase
 import cz.matee.appreviewzz.connectors.googleplay.GcpIamProvisioner
+import cz.matee.appreviewzz.core.message.AnalysisAlertMessage
 import cz.matee.appreviewzz.core.message.AnalysisDigest
 import cz.matee.appreviewzz.core.message.RatingsDigest
 import cz.matee.appreviewzz.core.message.ReviewNotification
@@ -48,6 +49,7 @@ import cz.matee.appreviewzz.crypto.CredentialVault
 import cz.matee.appreviewzz.crypto.KekProvider
 import cz.matee.appreviewzz.crypto.KekProviders
 import cz.matee.appreviewzz.persistence.repository.ExposedAnalysisAggregateRepository
+import cz.matee.appreviewzz.persistence.repository.ExposedAnalysisAlertRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedAppDataKeyRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedAppRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedAppTopicRepository
@@ -171,6 +173,7 @@ class FakeNotificationChannel(
     override val type: ChannelType = ChannelType.SLACK,
 ) : NotificationChannel {
     val analyses = mutableListOf<AnalysisDigest>()
+    val alerts = mutableListOf<AnalysisAlertMessage>()
 
     var failWith: ChannelException? = null
     val notices = mutableListOf<ConnectivityNotice>()
@@ -206,6 +209,14 @@ class FakeNotificationChannel(
     ): PostedMessage {
         analyses += digest
         return PostedMessage(target.conversationId, "1755600000.000400")
+    }
+
+    override suspend fun postAnalysisAlert(
+        target: ChannelTarget,
+        alert: AnalysisAlertMessage,
+    ): PostedMessage {
+        alerts += alert
+        return PostedMessage(target.conversationId, "1755600000.000500")
     }
 
     override suspend fun reportFailure(
@@ -381,6 +392,7 @@ fun ApplicationTestBuilder.consoleModule(
             aggregates = analysisAggregates,
             insights = reviewInsights,
             appTopics = appTopicRepository,
+            alerts = ExposedAnalysisAlertRepository(exposed),
             clock = clock,
         )
     val channelService =

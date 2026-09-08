@@ -341,6 +341,21 @@ export interface VersionImpact {
   negativeDelta: number
 }
 
+export type AlertKind = 'NEGATIVE_SPIKE' | 'TOPIC_SPIKE'
+
+/** Výkyv v recenzích. `expected` je baseline — bez ní se alert nedá číst. */
+export interface AnalysisAlert {
+  id: string
+  kind: AlertKind
+  topicKey: string | null
+  topicName: string | null
+  windowDate: string
+  observed: number
+  expected: number
+  zScore: number
+  createdAt: string
+}
+
 /** Výsledek ručního „Poslat rozbor teď". */
 export interface AnalysisRunResult {
   skipped: string | null

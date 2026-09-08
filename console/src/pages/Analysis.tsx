@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import {
   useAnalysis,
+  useAnalysisAlerts,
   useAnalysisStatus,
   useApps,
   useBackfillAnalysis,
@@ -364,7 +365,63 @@ function Overview({ org, appId, overview }: { org: string; appId: string; overvi
       </div>
 
       <VersionImpactCard org={org} appId={appId} />
+      <AlertsCard org={org} appId={appId} />
     </>
+  )
+}
+
+/**
+ * Výkyvy za 90 dní. Statistika, ne AI: u každého je vidět, kolik toho bylo a kolik
+ * bývá — bez toho se alert po druhém výskytu začne ignorovat.
+ */
+function AlertsCard({ org, appId }: { org: string; appId: string }) {
+  const alerts = useAnalysisAlerts(org, appId)
+  if (alerts.isPending) return null
+  if (!alerts.data || alerts.data.length === 0) {
+    return (
+      <Card title="Výkyvy za 90 dní">
+        <Empty>Nic mimo obvyklý provoz. Alert chodí, až je záporných recenzí za den výrazně víc než obvykle.</Empty>
+      </Card>
+    )
+  }
+  return (
+    <Card title="Výkyvy za 90 dní">
+      <table>
+        <thead>
+          <tr>
+            <th>Den</th>
+            <th>Co</th>
+            <th>Kolik</th>
+            <th>Obvykle</th>
+            <th />
+          </tr>
+        </thead>
+        <tbody>
+          {alerts.data.map((alert) => (
+            <tr key={alert.id}>
+              <td>{new Date(alert.windowDate).toLocaleDateString('cs-CZ')}</td>
+              <td>
+                {alert.kind === 'NEGATIVE_SPIKE' ? (
+                  <Badge tone="bad">záporné recenze</Badge>
+                ) : (
+                  <Badge tone="warn">{alert.topicName ?? alert.topicKey}</Badge>
+                )}
+              </td>
+              <td>{alert.observed}</td>
+              <td className="muted">{alert.expected.toFixed(1)}</td>
+              <td>
+                <Link
+                  className="small"
+                  to={`/${org}/recenze?app=${appId}${alert.topicKey ? `&topic=${encodeURIComponent(alert.topicKey)}` : ''}`}
+                >
+                  Ukázat recenze
+                </Link>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </Card>
   )
 }
 

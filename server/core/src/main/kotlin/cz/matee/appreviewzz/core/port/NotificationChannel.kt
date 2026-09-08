@@ -1,5 +1,6 @@
 package cz.matee.appreviewzz.core.port
 
+import cz.matee.appreviewzz.core.message.AnalysisAlertMessage
 import cz.matee.appreviewzz.core.message.AnalysisDigest
 import cz.matee.appreviewzz.core.message.RatingsDigest
 import cz.matee.appreviewzz.core.message.ReviewNotification
@@ -116,6 +117,15 @@ interface NotificationChannel {
     suspend fun postAnalysisDigest(
         target: ChannelTarget,
         digest: AnalysisDigest,
+    ): PostedMessage
+
+    /**
+     * Alert na výkyv v recenzích (F8/B4). Chodí týž den, ne v pondělí — proto vlastní
+     * zpráva, ne řádek v rozboru.
+     */
+    suspend fun postAnalysisAlert(
+        target: ChannelTarget,
+        alert: AnalysisAlertMessage,
     ): PostedMessage
 
     /**

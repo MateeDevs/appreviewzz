@@ -1,8 +1,10 @@
 package cz.matee.appreviewzz.app
 
+import cz.matee.appreviewzz.core.model.AlertKind
 import cz.matee.appreviewzz.core.model.OrgRole
 import cz.matee.appreviewzz.core.model.Platform
 import cz.matee.appreviewzz.core.port.AnalysisFilter
+import cz.matee.appreviewzz.core.usecase.AnalysisAlertView
 import cz.matee.appreviewzz.core.usecase.AnalysisOverview
 import cz.matee.appreviewzz.core.usecase.ConsoleException
 import cz.matee.appreviewzz.core.usecase.ConsoleFailure
@@ -141,6 +143,20 @@ data class VersionImpactResponse(
     val negativeDelta: Double,
 )
 
+/** Výkyv tak, jak ho vidí konzole. `expected` jde ven schválně — bez baseline se alert nedá číst. */
+@Serializable
+data class AnalysisAlertResponse(
+    val id: String,
+    val kind: AlertKind,
+    val topicKey: String?,
+    val topicName: String?,
+    val windowDate: String,
+    val observed: Int,
+    val expected: Double,
+    val zScore: Double,
+    val createdAt: String,
+)
+
 /**
  * Rozbory recenzí (F8): stav výkladů, agregace pro stránku *Rozbory*, dopad verzí,
  * ruční běh rozboru a doplnění výkladů za historii.
@@ -166,6 +182,13 @@ fun Route.analysisRoutes(console: ConsoleWiring) {
             val context = call.orgContext(console.organizations, console.memberships)
             val versions = io { console.analysis.versions(context.organization.id, call.appIdParam()) }
             call.respond(versions.map { it.toResponse() })
+        }
+
+        get("/alerts") {
+            val context = call.orgContext(console.organizations, console.memberships)
+            val days = call.request.queryParameters["days"]?.toIntOrNull() ?: ALERT_DAYS
+            val found = io { console.analysis.alerts(context.organization.id, call.appIdParam(), days) }
+            call.respond(found.map { it.toResponse() })
         }
 
         get("/status") {
@@ -313,4 +336,18 @@ private fun AnalysisOverview.toResponse() =
         tooFewReviews = tooFewReviews,
     )
 
+private fun AnalysisAlertView.toResponse() =
+    AnalysisAlertResponse(
+        id = alert.id.toString(),
+        kind = alert.kind,
+        topicKey = alert.topicKey,
+        topicName = topicName,
+        windowDate = alert.windowDate.toString(),
+        observed = alert.observed,
+        expected = alert.expected,
+        zScore = alert.zScore,
+        createdAt = alert.createdAt.toString(),
+    )
+
 private const val DEFAULT_DAYS = 30
+private const val ALERT_DAYS = 90

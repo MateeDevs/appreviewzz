@@ -213,3 +213,12 @@ enum class OrgPlan {
     INSIGHTS,
     AGENCY,
 }
+
+/** Čeho se výkyv v recenzích týká (F8/B4). Dva druhy stačí: „je zle" a „je zle kvůli tomuhle". */
+enum class AlertKind {
+    /** Přibylo záporných recenzí celkově. */
+    NEGATIVE_SPIKE,
+
+    /** Přibylo zmínek jednoho tématu. */
+    TOPIC_SPIKE,
+}

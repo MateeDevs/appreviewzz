@@ -1,5 +1,6 @@
 package cz.matee.appreviewzz.channels.teams
 
+import cz.matee.appreviewzz.core.message.AnalysisAlertMessage
 import cz.matee.appreviewzz.core.message.AnalysisDigest
 import cz.matee.appreviewzz.core.message.MessageCatalog
 import cz.matee.appreviewzz.core.message.MessageKey
@@ -136,6 +137,51 @@ internal object TeamsCards {
                     ),
                 )
             },
+        )
+    }
+
+    /**
+     * Alert na výkyv. Krátká karta schválně: přijde uprostřed dne a musí se přečíst
+     * z náhledu notifikace, ne po rozkliknutí.
+     */
+    fun analysisAlert(message: AnalysisAlertMessage): JsonObject {
+        val catalog = message.catalog
+        return card(
+            buildJsonArray {
+                add(
+                    textBlock(
+                        "⚠️ ${catalog[MessageKey.ALERT_TITLE]} · ${message.appName}",
+                        size = "Large",
+                        weight = "Bolder",
+                    ),
+                )
+                add(textBlock(message.headline(), spacing = "Medium"))
+                listOfNotNull(message.topTopicLine(), message.topVersionLine()).forEach {
+                    add(textBlock(it, subtle = true, size = "Small"))
+                }
+                message.quoteLines().forEach { quote ->
+                    add(
+                        buildJsonObject {
+                            put("type", "Container")
+                            put("style", "emphasis")
+                            put("separator", true)
+                            putJsonArray("items") { add(textBlock(quote.take(QUOTE_LIMIT), subtle = true)) }
+                        },
+                    )
+                }
+            },
+            actions =
+                message.consoleUrl?.let { url ->
+                    buildJsonArray {
+                        add(
+                            buildJsonObject {
+                                put("type", "Action.OpenUrl")
+                                put("title", catalog[MessageKey.ALERT_OPEN])
+                                put("url", url)
+                            },
+                        )
+                    }
+                },
         )
     }
 

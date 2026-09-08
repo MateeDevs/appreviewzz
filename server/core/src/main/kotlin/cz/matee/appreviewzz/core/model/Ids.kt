@@ -112,3 +112,10 @@ value class AppTopicId(
         fun parse(raw: String): AppTopicId = AppTopicId(Uuid.parse(raw))
     }
 }
+
+@JvmInline
+value class AnalysisAlertId(
+    val value: Uuid,
+) {
+    override fun toString(): String = value.toString()
+}

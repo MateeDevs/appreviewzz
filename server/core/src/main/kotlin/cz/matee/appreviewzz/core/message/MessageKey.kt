@@ -122,6 +122,20 @@ enum class MessageKey(
         "Verze {version} přinesla nové téma {name} ({count} recenzí).",
         "Version {version} brought a new topic: {name} ({count} reviews).",
     ),
+
+    // ------------------------------------------------------------------ alert na výkyv (B4)
+    ALERT_TITLE("Výkyv v recenzích", "Spike in reviews"),
+    ALERT_NEGATIVE_LINE(
+        "{observed} záporných recenzí za {date}, obvykle {expected}.",
+        "{observed} negative reviews on {date}, usually {expected}.",
+    ),
+    ALERT_TOPIC_LINE(
+        "{observed}× téma {name} za {date}, obvykle {expected}.",
+        "{name} came up {observed} times on {date}, usually {expected}.",
+    ),
+    ALERT_TOP_TOPIC("Nejčastější téma: {name} ({count}).", "Most common topic: {name} ({count})."),
+    ALERT_TOP_VERSION("Verze: {version} ({count}).", "Version: {version} ({count})."),
+    ALERT_OPEN("Ukázat recenze", "Show reviews"),
     ;
 
     internal fun text(locale: MessageLocale): String =

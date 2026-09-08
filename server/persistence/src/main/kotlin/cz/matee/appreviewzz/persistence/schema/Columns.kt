@@ -1,5 +1,6 @@
 package cz.matee.appreviewzz.persistence.schema
 
+import cz.matee.appreviewzz.core.model.AnalysisAlertId
 import cz.matee.appreviewzz.core.model.AppId
 import cz.matee.appreviewzz.core.model.AppTopicId
 import cz.matee.appreviewzz.core.model.BackupRunId
@@ -49,6 +50,8 @@ internal fun Table.sessionId(name: String): Column<SessionId> = uuid(name).trans
 internal fun Table.appId(name: String = "app_id"): Column<AppId> = uuid(name).transform({ AppId(it) }, { it.value })
 
 internal fun Table.appTopicId(name: String): Column<AppTopicId> = uuid(name).transform({ AppTopicId(it) }, { it.value })
+
+internal fun Table.analysisAlertId(name: String): Column<AnalysisAlertId> = uuid(name).transform({ AnalysisAlertId(it) }, { it.value })
 
 internal fun Table.credentialId(name: String = "credential_id"): Column<CredentialId> =
     uuid(name).transform({ CredentialId(it) }, { it.value })

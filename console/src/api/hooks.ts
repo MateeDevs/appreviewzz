@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query'
 import { ApiError, api } from './client'
 import type {
+  AnalysisAlert,
   AnalysisOverview,
   AnalysisRunResult,
   AnalysisStatus,
@@ -486,6 +487,15 @@ export function useVersionImpact(org: string, appId: string) {
   return useQuery({
     queryKey: ['analysis-versions', org, appId],
     queryFn: () => api.get<VersionImpact[]>(`/api/orgs/${org}/apps/${appId}/analysis/versions`),
+    enabled: appId !== '',
+  })
+}
+
+/** Výkyvy za posledních 90 dní. Vlastní dotaz — jde o jinou tabulku a jiný rytmus změn. */
+export function useAnalysisAlerts(org: string, appId: string) {
+  return useQuery({
+    queryKey: ['analysis-alerts', org, appId],
+    queryFn: () => api.get<AnalysisAlert[]>(`/api/orgs/${org}/apps/${appId}/analysis/alerts`),
     enabled: appId !== '',
   })
 }

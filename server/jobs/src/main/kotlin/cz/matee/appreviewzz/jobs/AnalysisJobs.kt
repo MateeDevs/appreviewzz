@@ -23,6 +23,7 @@ import cz.matee.appreviewzz.core.port.AppRepository
 import cz.matee.appreviewzz.core.port.FailedJobRepository
 import cz.matee.appreviewzz.core.usecase.AnalyzeReviewsUseCase
 import cz.matee.appreviewzz.core.usecase.ScheduledAnalysisUseCase
+import cz.matee.appreviewzz.core.usecase.SpikeAlertUseCase
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.Serializable
@@ -112,6 +113,11 @@ class AnalysisJobs(
     private val failedJobs: FailedJobRepository,
     /** Týdenní rozbor do kanálu; `null` u procesů, které kanály neobsluhují. */
     private val scheduled: ScheduledAnalysisUseCase? = null,
+    /**
+     * Alert na výkyv (B4). Běží na konci dotagování, ne z vlastního plánovače: výkyv se
+     * pozná až z výkladů a ty vznikají právě tady. `null` u procesů bez kanálů.
+     */
+    private val spikes: SpikeAlertUseCase? = null,
     private val apps: AppRepository? = null,
     private val clock: Clock = Clock.System,
     private val retries: Int = DEFAULT_RETRIES,
@@ -263,7 +269,20 @@ class AnalysisJobs(
             else -> failedJobs.resolve(ANALYZE_TASK, instance.id, clock.now())
         }
 
+        // Alert až po poslední dávce: uprostřed backfillu by se „dnešek" počítal z půlky
+        // dotagovaných recenzí a příště by už dedup na den druhou zprávu nepustil.
+        if (!report.hasMore && report.analyzed > 0) checkSpikes(data)
         return report.hasMore
+    }
+
+    /** Selhání alertu nesmí shodit dotagování — recenze mají výklad, o to jde především. */
+    private fun checkSpikes(data: AnalysisJobData) {
+        val useCase = spikes ?: return
+        runCatching {
+            runBlocking { useCase.run(OrganizationId.parse(data.orgId), AppId.parse(data.appId)) }
+        }.onFailure { error ->
+            logger.warn(error) { "Kontrola výkyvu u appky ${data.appId} selhala" }
+        }
     }
 
     private fun giveUp(

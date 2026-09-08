@@ -1,6 +1,8 @@
 package cz.matee.appreviewzz.core.port
 
 import cz.matee.appreviewzz.core.model.ActorType
+import cz.matee.appreviewzz.core.model.AlertKind
+import cz.matee.appreviewzz.core.model.AnalysisAlert
 import cz.matee.appreviewzz.core.model.AnalysisCadence
 import cz.matee.appreviewzz.core.model.App
 import cz.matee.appreviewzz.core.model.AppDataKey
@@ -827,6 +829,38 @@ interface ReviewInsightRepository {
         appId: AppId,
         since: Instant,
     ): Map<String, Int>
+}
+
+/** Nový výkyv na zápis; `id` a `created_at` doplní databáze. */
+data class NewAnalysisAlert(
+    val appId: AppId,
+    val kind: AlertKind,
+    val topicKey: String?,
+    val windowDate: LocalDate,
+    val observed: Int,
+    val expected: Double,
+    val zScore: Double,
+)
+
+/**
+ * Zaznamenané výkyvy (F8/B4). Zápis je **insert, který mlčky neudělá nic**, když už
+ * pro tentýž den a druh řádek existuje: dotagování běží po dávkách a jedna appka jich
+ * za den spolkne klidně deset — bez toho by z jednoho výkyvu bylo deset zpráv.
+ */
+interface AnalysisAlertRepository {
+    /** Vrací zapsaný alert, nebo `null`, když už tam byl. `null` = zprávu neposílat. */
+    fun insertIfAbsent(
+        orgId: OrganizationId,
+        alert: NewAnalysisAlert,
+        createdAt: Instant,
+    ): AnalysisAlert?
+
+    fun listByApp(
+        orgId: OrganizationId,
+        appId: AppId,
+        since: LocalDate,
+        limit: Int,
+    ): List<AnalysisAlert>
 }
 
 /** Vlastní téma aplikace, jak ho zadává člověk. Popis je anglicky — jde do promptu. */

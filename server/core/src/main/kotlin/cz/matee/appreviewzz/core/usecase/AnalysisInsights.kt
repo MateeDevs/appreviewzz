@@ -1,5 +1,6 @@
 package cz.matee.appreviewzz.core.usecase
 
+import cz.matee.appreviewzz.core.model.AnalysisAlert
 import cz.matee.appreviewzz.core.model.AppId
 import cz.matee.appreviewzz.core.model.MessageLocale
 import cz.matee.appreviewzz.core.model.OrganizationId
@@ -7,6 +8,7 @@ import cz.matee.appreviewzz.core.model.OverallSentiment
 import cz.matee.appreviewzz.core.model.Platform
 import cz.matee.appreviewzz.core.model.Topic
 import cz.matee.appreviewzz.core.port.AnalysisAggregateRepository
+import cz.matee.appreviewzz.core.port.AnalysisAlertRepository
 import cz.matee.appreviewzz.core.port.AnalysisFilter
 import cz.matee.appreviewzz.core.port.AppRepository
 import cz.matee.appreviewzz.core.port.AppTopicRepository
@@ -92,6 +94,12 @@ data class AnalysisOverview(
     val tooFewReviews: Boolean get() = reviews < thresholds.minReviews
 }
 
+/** Výkyv i s názvem tématu v jazyce aplikace — konzole klíč nezobrazuje. */
+data class AnalysisAlertView(
+    val alert: AnalysisAlert,
+    val topicName: String?,
+)
+
 /** Téma u jedné verze; podíl je z recenzí té verze, ne z celku. */
 data class VersionTopicShare(
     val key: String,
@@ -145,9 +153,38 @@ class AnalysisInsights(
     private val aggregates: AnalysisAggregateRepository,
     private val insights: ReviewInsightRepository,
     private val appTopics: AppTopicRepository,
+    /** Zaznamenané výkyvy (B4); `null` u procesů, které tabulku nemají po ruce. */
+    private val alerts: AnalysisAlertRepository? = null,
     private val policy: AnalysisPolicy = AnalysisPolicy.fixed(),
     private val clock: Clock = Clock.System,
 ) {
+    /**
+     * Výkyvy za období. Do konzole patří i ty, o kterých zpráva nedorazila (kanál byl
+     * zrovna rozbitý) — jinak by se o výkyvu nešlo dozvědět dodatečně.
+     */
+    fun alerts(
+        orgId: OrganizationId,
+        appId: AppId,
+        days: Int = ALERT_DAYS,
+    ): List<AnalysisAlertView> {
+        val app = apps.findById(orgId, appId) ?: throw ConsoleException(ConsoleFailure.NOT_FOUND, "Taková aplikace tu není")
+        val repository = alerts ?: return emptyList()
+        val zone = zoneOf(app.timezone)
+        val since =
+            clock
+                .now()
+                .toLocalDateTime(zone)
+                .date
+                .minus(days.coerceIn(MIN_DAYS, MAX_DAYS), DateTimeUnit.DAY)
+        val names = appTopics.listByApp(orgId, appId).associate { it.key to it.name }
+        return repository.listByApp(orgId, appId, since, MAX_ALERTS).map { alert ->
+            AnalysisAlertView(
+                alert = alert,
+                topicName = alert.topicKey?.let { AnalysisAggregates.nameOf(it, app.locale, names) },
+            )
+        }
+    }
+
     fun overview(
         orgId: OrganizationId,
         appId: AppId,
@@ -371,6 +408,12 @@ class AnalysisInsights(
 
     companion object {
         const val DEFAULT_DAYS = 30
+
+        /** Za jak dlouho zpátky se v konzoli vypisují výkyvy. */
+        const val ALERT_DAYS = 90
+
+        /** Víc výkyvů než tohle znamená, že jsou špatně nastavené prahy, ne že je co číst. */
+        const val MAX_ALERTS = 50
         const val MIN_DAYS = 7
         const val MAX_DAYS = 365
 

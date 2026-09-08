@@ -1,5 +1,7 @@
 package cz.matee.appreviewzz.persistence.repository
 
+import cz.matee.appreviewzz.core.model.AnalysisAlert
+import cz.matee.appreviewzz.core.model.AnalysisAlertId
 import cz.matee.appreviewzz.core.model.AppId
 import cz.matee.appreviewzz.core.model.AppTopic
 import cz.matee.appreviewzz.core.model.AppTopicId
@@ -9,12 +11,15 @@ import cz.matee.appreviewzz.core.model.Review
 import cz.matee.appreviewzz.core.model.ReviewId
 import cz.matee.appreviewzz.core.model.ReviewInsight
 import cz.matee.appreviewzz.core.model.TopicMention
+import cz.matee.appreviewzz.core.port.AnalysisAlertRepository
 import cz.matee.appreviewzz.core.port.AnalysisDigestRepository
 import cz.matee.appreviewzz.core.port.AppTopicRepository
 import cz.matee.appreviewzz.core.port.InsightCoverage
+import cz.matee.appreviewzz.core.port.NewAnalysisAlert
 import cz.matee.appreviewzz.core.port.NewAppTopic
 import cz.matee.appreviewzz.core.port.NewReviewInsight
 import cz.matee.appreviewzz.core.port.ReviewInsightRepository
+import cz.matee.appreviewzz.persistence.schema.AnalysisAlerts
 import cz.matee.appreviewzz.persistence.schema.AnalysisDigests
 import cz.matee.appreviewzz.persistence.schema.AppTopics
 import cz.matee.appreviewzz.persistence.schema.ReviewInsightTopics
@@ -358,5 +363,93 @@ class ExposedAnalysisDigestRepository(
                 .limit(1)
                 .firstOrNull()
                 ?.get(AnalysisDigests.periodEnd)
+        }
+}
+
+/**
+ * Zaznamenané výkyvy (F8/B4). Zápis se řídí týmž pravidlem jako rezervace rozboru:
+ * napřed se rezervuje řádek, teprve pak se posílá zpráva. Když padneme mezi tím, přijde
+ * o zprávu jeden den — a to je pořád lepší než deset zpráv o jednom výkyvu.
+ */
+class ExposedAnalysisAlertRepository(
+    private val database: ExposedDatabase,
+) : AnalysisAlertRepository {
+    override fun insertIfAbsent(
+        orgId: OrganizationId,
+        alert: NewAnalysisAlert,
+        createdAt: Instant,
+    ): AnalysisAlert? =
+        transaction(database) {
+            val existing =
+                AnalysisAlerts
+                    .selectAll()
+                    .where {
+                        (AnalysisAlerts.appId eq alert.appId) and
+                            (AnalysisAlerts.kind eq alert.kind) and
+                            (AnalysisAlerts.windowDate eq alert.windowDate) and
+                            // Exposed nemá výraz pro „obojí NULL"; u druhu bez tématu se
+                            // porovnává explicitně, jinak by `= NULL` nikdy nesedělo.
+                            (alert.topicKey?.let { AnalysisAlerts.topicKey eq it } ?: AnalysisAlerts.topicKey.isNull())
+                    }.any()
+            if (existing) {
+                null
+            } else {
+                val id = AnalysisAlertId(Uuid.random())
+                AnalysisAlerts.insert {
+                    it[AnalysisAlerts.id] = id
+                    it[AnalysisAlerts.orgId] = orgId
+                    it[appId] = alert.appId
+                    it[kind] = alert.kind
+                    it[topicKey] = alert.topicKey
+                    it[windowDate] = alert.windowDate
+                    it[observed] = alert.observed
+                    it[expected] = alert.expected.toBigDecimal()
+                    it[zScore] = alert.zScore.toBigDecimal()
+                    it[AnalysisAlerts.createdAt] = createdAt
+                }
+                AnalysisAlert(
+                    id = id,
+                    orgId = orgId,
+                    appId = alert.appId,
+                    kind = alert.kind,
+                    topicKey = alert.topicKey,
+                    windowDate = alert.windowDate,
+                    observed = alert.observed,
+                    expected = alert.expected,
+                    zScore = alert.zScore,
+                    createdAt = createdAt,
+                )
+            }
+        }
+
+    override fun listByApp(
+        orgId: OrganizationId,
+        appId: AppId,
+        since: LocalDate,
+        limit: Int,
+    ): List<AnalysisAlert> =
+        transaction(database) {
+            AnalysisAlerts
+                .selectAll()
+                .where {
+                    (AnalysisAlerts.orgId eq orgId) and
+                        (AnalysisAlerts.appId eq appId) and
+                        (AnalysisAlerts.windowDate greaterEq since)
+                }.orderBy(AnalysisAlerts.windowDate to SortOrder.DESC, AnalysisAlerts.observed to SortOrder.DESC)
+                .limit(limit)
+                .map { row ->
+                    AnalysisAlert(
+                        id = row[AnalysisAlerts.id],
+                        orgId = row[AnalysisAlerts.orgId],
+                        appId = row[AnalysisAlerts.appId],
+                        kind = row[AnalysisAlerts.kind],
+                        topicKey = row[AnalysisAlerts.topicKey],
+                        windowDate = row[AnalysisAlerts.windowDate],
+                        observed = row[AnalysisAlerts.observed],
+                        expected = row[AnalysisAlerts.expected].toDouble(),
+                        zScore = row[AnalysisAlerts.zScore].toDouble(),
+                        createdAt = row[AnalysisAlerts.createdAt],
+                    )
+                }
         }
 }

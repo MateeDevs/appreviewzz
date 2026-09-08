@@ -301,3 +301,23 @@ data class AppTopic(
     /** Klíč, pod kterým téma vystupuje ve výkladu i ve filtrech. */
     val key: String get() = Topic.CUSTOM_PREFIX + id.value
 }
+
+/**
+ * Zaznamenaný výkyv v recenzích (F8/B4). Uložený řádek slouží ke dvěma věcem: brání
+ * odeslání druhé zprávy o tomtéž dni a je zdrojem seznamu „Výkyvy" v konzoli.
+ */
+data class AnalysisAlert(
+    val id: AnalysisAlertId,
+    val orgId: OrganizationId,
+    val appId: AppId,
+    val kind: AlertKind,
+    /** Jen u [AlertKind.TOPIC_SPIKE]; záporný výkyv se týká celé aplikace. */
+    val topicKey: String?,
+    /** Kalendářní den v zóně aplikace, za který alert platí. */
+    val windowDate: LocalDate,
+    val observed: Int,
+    /** Průměr baseline — zpráva bez „obvykle bývá" se čte jako náhodný poplach. */
+    val expected: Double,
+    val zScore: Double,
+    val createdAt: Instant,
+)

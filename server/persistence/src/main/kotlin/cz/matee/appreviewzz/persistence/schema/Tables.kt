@@ -1,6 +1,7 @@
 package cz.matee.appreviewzz.persistence.schema
 
 import cz.matee.appreviewzz.core.model.ActorType
+import cz.matee.appreviewzz.core.model.AlertKind
 import cz.matee.appreviewzz.core.model.AnalysisCadence
 import cz.matee.appreviewzz.core.model.BackupStatus
 import cz.matee.appreviewzz.core.model.ChannelType
@@ -38,6 +39,11 @@ import org.jetbrains.exposed.v1.json.jsonb
 private val schemaJson = Json { encodeDefaults = true }
 
 private const val ENUM_LENGTH = 32
+
+/** `numeric(8,2)` a `numeric(6,2)` z migrace V18 — dvě desetinná místa stačí na průměr i na z. */
+private const val EXPECTED_PRECISION = 8
+private const val Z_PRECISION = 6
+private const val MONEYLESS_SCALE = 2
 
 internal object Organizations : Table("organization") {
     val id = organizationId("id")
@@ -393,6 +399,21 @@ internal object AnalysisDigests : Table("analysis_digest") {
     val sentAt = instant("sent_at")
 
     override val primaryKey = PrimaryKey(channelId, periodStart)
+}
+
+internal object AnalysisAlerts : Table("analysis_alert") {
+    val id = analysisAlertId("id")
+    val orgId = organizationId()
+    val appId = appId()
+    val kind = enumerationByName<AlertKind>("kind", ENUM_LENGTH)
+    val topicKey = text("topic_key").nullable()
+    val windowDate = date("window_date")
+    val observed = integer("observed")
+    val expected = decimal("expected", EXPECTED_PRECISION, MONEYLESS_SCALE)
+    val zScore = decimal("z_score", Z_PRECISION, MONEYLESS_SCALE)
+    val createdAt = instant("created_at")
+
+    override val primaryKey = PrimaryKey(id)
 }
 
 internal object AuditLogs : Table("audit_log") {

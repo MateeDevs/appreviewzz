@@ -1,5 +1,6 @@
 package cz.matee.appreviewzz.channels.slack
 
+import cz.matee.appreviewzz.core.message.AnalysisAlertMessage
 import cz.matee.appreviewzz.core.message.AnalysisDigest
 import cz.matee.appreviewzz.core.message.MessageCatalog
 import cz.matee.appreviewzz.core.message.MessageKey
@@ -164,6 +165,49 @@ internal object SlackBlocks {
                                         putJsonObject("text") {
                                             put("type", "plain_text")
                                             put("text", catalog[MessageKey.ANALYSIS_OPEN])
+                                            put("emoji", true)
+                                        }
+                                        put("url", url)
+                                    },
+                                )
+                            }
+                        },
+                    )
+                }
+            },
+        )
+    }
+
+    /**
+     * Alert na výkyv. Krátká zpráva schválně: přijde uprostřed dne a musí se přečíst
+     * z náhledu notifikace, ne po rozkliknutí.
+     */
+    fun analysisAlert(message: AnalysisAlertMessage): JsonArray {
+        val catalog = message.catalog
+        return JsonArray(
+            buildList {
+                add(
+                    section(
+                        "*⚠️ ${escape(catalog[MessageKey.ALERT_TITLE])} · ${escape(message.appName)}*\n" +
+                            escape(message.headline()),
+                    ),
+                )
+                val context =
+                    listOfNotNull(message.topTopicLine(), message.topVersionLine())
+                        .joinToString(" ")
+                if (context.isNotBlank()) add(section(escape(context)))
+                message.quoteLines().forEach { add(section("> ${escape(it).take(QUOTE_LIMIT)}")) }
+                message.consoleUrl?.let { url ->
+                    add(
+                        buildJsonObject {
+                            put("type", "actions")
+                            putJsonArray("elements") {
+                                add(
+                                    buildJsonObject {
+                                        put("type", "button")
+                                        putJsonObject("text") {
+                                            put("type", "plain_text")
+                                            put("text", catalog[MessageKey.ALERT_OPEN])
                                             put("emoji", true)
                                         }
                                         put("url", url)
