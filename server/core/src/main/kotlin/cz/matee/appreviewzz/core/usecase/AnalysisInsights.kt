@@ -194,10 +194,28 @@ class AnalysisInsights(
         val app = apps.findById(orgId, appId) ?: throw ConsoleException(ConsoleFailure.NOT_FOUND, "Taková aplikace tu není")
         val zone = zoneOf(app.timezone)
         val window = days.coerceIn(MIN_DAYS, MAX_DAYS)
-        val today = clock.now().toLocalDateTime(zone).date
         // Období končí dneškem včetně: na stránce chce člověk vidět i to, co přišlo dnes ráno.
-        val end = today
-        val start = end.minus(window - 1, DateTimeUnit.DAY)
+        val end = clock.now().toLocalDateTime(zone).date
+        return overview(orgId, appId, end.minus(window - 1, DateTimeUnit.DAY), end, filter)
+    }
+
+    /**
+     * Rozbor za **konkrétní období**, ne za posledních N dní. Používá ho měsíční report:
+     * ten pojmenovává období měsícem a čísla pod tím jménem musí být z téhož měsíce —
+     * klouzavé okno by dalo report „za srpen" spočítaný do dneška.
+     */
+    @Suppress("LongMethod")
+    fun overview(
+        orgId: OrganizationId,
+        appId: AppId,
+        start: LocalDate,
+        end: LocalDate,
+        filter: AnalysisFilter = AnalysisFilter.ALL,
+    ): AnalysisOverview {
+        val app = apps.findById(orgId, appId) ?: throw ConsoleException(ConsoleFailure.NOT_FOUND, "Taková aplikace tu není")
+        val zone = zoneOf(app.timezone)
+        // Srovnávací období je stejně dlouhé a přiléhá zleva — stejné pravidlo jako u rozboru do kanálu.
+        val window = start.daysUntil(end) + 1
         val from = start.atStartOfDayIn(zone)
         val to = end.plus(1, DateTimeUnit.DAY).atStartOfDayIn(zone)
         val previousFrom = start.minus(window, DateTimeUnit.DAY).atStartOfDayIn(zone)

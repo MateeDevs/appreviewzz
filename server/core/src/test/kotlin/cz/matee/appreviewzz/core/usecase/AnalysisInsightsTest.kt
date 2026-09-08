@@ -129,6 +129,17 @@ class AnalysisInsightsTest :
             trend.last() shouldBe 2
         }
 
+        test("rozbor za konkrétní období se nedrží dneška") {
+            // Report se jmenuje podle měsíce; kdyby se čísla počítala klouzavým oknem do
+            // dneška, byl by „srpen" spočítaný do osmého září a nikdo by si toho nevšiml.
+            val (useCase, app) = insights(current = AnalysisPeriod.EMPTY.copy(reviews = 40))
+
+            val overview = useCase.overview(orgId, app.id, LocalDate(2026, 8, 1), LocalDate(2026, 8, 31))
+
+            overview.periodStart shouldBe LocalDate(2026, 8, 1)
+            overview.periodEnd shouldBe LocalDate(2026, 8, 31)
+        }
+
         test("trhy a jazyky dostanou podíl nespokojených, ne holý počet") {
             val (useCase, app) =
                 insights(

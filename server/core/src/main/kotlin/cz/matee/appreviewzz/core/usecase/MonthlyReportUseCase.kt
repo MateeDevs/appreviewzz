@@ -24,7 +24,6 @@ import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
-import kotlinx.datetime.daysUntil
 import kotlinx.datetime.minus
 import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
@@ -74,11 +73,12 @@ class MonthlyReportUseCase(
         val zone = runCatching { TimeZone.of(app.timezone) }.getOrDefault(TimeZone.UTC)
         val start = month ?: previousMonth(zone)
         val end = start.plus(1, DateTimeUnit.MONTH).minus(1, DateTimeUnit.DAY)
-        val days = start.until(end)
 
         // Agregáty se počítají stejným use casem jako stránka Rozbory — čísla v reportu
         // se od těch v konzoli nesmějí lišit, i když se na ně klient dívá o týden později.
-        val overview = insights.overview(orgId, appId, days)
+        // Období je **konkrétní měsíc**, ne posledních N dní: report se jmenuje podle
+        // měsíce a čísla pod tím jménem musí být z něj.
+        val overview = insights.overview(orgId, appId, start, end)
         val versions = insights.versions(orgId, appId).filter { it.firstSeen >= start.atStartOfDayIn(zone) }
         val from = start.atStartOfDayIn(zone)
         val to = end.plus(1, DateTimeUnit.DAY).atStartOfDayIn(zone)
@@ -205,8 +205,6 @@ class MonthlyReportUseCase(
         val today = clock.now().toLocalDateTime(zone).date
         return LocalDate(today.year, today.month, 1).minus(1, DateTimeUnit.MONTH)
     }
-
-    private fun LocalDate.until(other: LocalDate): Int = daysUntil(other) + 1
 
     private fun newToken(): String {
         val bytes = ByteArray(TOKEN_BYTES)
