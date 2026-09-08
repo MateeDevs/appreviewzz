@@ -15,13 +15,14 @@ import com.github.kagkarlsson.scheduler.task.helper.ScheduleAndData
 import com.github.kagkarlsson.scheduler.task.helper.Tasks
 import com.github.kagkarlsson.scheduler.task.schedule.Schedule
 import com.github.kagkarlsson.scheduler.task.schedule.Schedules
+import cz.matee.appreviewzz.core.model.AnalysisCadence
 import cz.matee.appreviewzz.core.model.App
 import cz.matee.appreviewzz.core.model.AppId
 import cz.matee.appreviewzz.core.model.OrganizationId
 import cz.matee.appreviewzz.core.port.AppRepository
 import cz.matee.appreviewzz.core.port.FailedJobRepository
 import cz.matee.appreviewzz.core.usecase.AnalyzeReviewsUseCase
-import cz.matee.appreviewzz.core.usecase.WeeklyAnalysisUseCase
+import cz.matee.appreviewzz.core.usecase.ScheduledAnalysisUseCase
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.Serializable
@@ -39,7 +40,7 @@ data class AnalysisJobData(
 )
 
 /**
- * Payload týdenního rozboru. Nese den, čas i zónu aplikace, protože právě z nich se skládá
+ * Payload rozboru. Nese kadenci, den, čas i zónu aplikace, protože právě z nich se skládá
  * cron instance — stejně jako u denního přehledu hodnocení. Změna kteréhokoli z nich změní
  * payload a sweep instanci přeplánuje.
  */
@@ -47,19 +48,28 @@ data class AnalysisJobData(
 data class WeeklyAnalysisJobData(
     val orgId: String,
     val appId: String,
-    /** ISO den v týdnu, 1 = pondělí. */
+    /** ISO den v týdnu, 1 = pondělí. U měsíční kadence se neuplatní. */
     val day: Int,
     /** `HH:MM` v zóně aplikace. */
     val at: String,
     val timezone: String,
+    /** Výchozí hodnota drží zpětnou kompatibilitu payloadů zapsaných před kadencí. */
+    val cadence: AnalysisCadence = AnalysisCadence.WEEKLY,
 ) : ScheduleAndData {
     override fun getSchedule(): Schedule {
         val (hour, minute) = at.split(':').let { it[0].toInt() to it[1].toInt() }
         // Šestidílný cron se sekundami. Den se píše **jménem**, ne číslem: číslování dne
         // v týdnu se mezi dialekty cronu liší (Quartz má 1 = neděle, jiné 1 = pondělí)
         // a rozbor o den vedle by si nikdo nevšiml, dokud si klient nestěžuje.
-        val cronDay = DAY_NAMES[(day - 1).coerceIn(0, WEEK_DAYS - 1)]
-        return Schedules.cron("0 $minute $hour ? * $cronDay", zoneId())
+        return when (cadence) {
+            AnalysisCadence.WEEKLY -> {
+                val cronDay = DAY_NAMES[(day - 1).coerceIn(0, WEEK_DAYS - 1)]
+                Schedules.cron("0 $minute $hour ? * $cronDay", zoneId())
+            }
+
+            // Prvního v měsíci: minulý měsíc je tím pádem celý a rozbor za něj sedí.
+            AnalysisCadence.MONTHLY -> Schedules.cron("0 $minute $hour 1 * ?", zoneId())
+        }
     }
 
     override fun getData(): Any = this
@@ -80,6 +90,7 @@ data class WeeklyAnalysisJobData(
                 day = app.weeklyDigestDay,
                 at = "%02d:%02d".format(app.dailyDigestAt.hour, app.dailyDigestAt.minute),
                 timezone = app.timezone,
+                cadence = app.analysisCadence,
             )
     }
 }
@@ -100,7 +111,7 @@ class AnalysisJobs(
     private val analyze: AnalyzeReviewsUseCase,
     private val failedJobs: FailedJobRepository,
     /** Týdenní rozbor do kanálu; `null` u procesů, které kanály neobsluhují. */
-    private val weekly: WeeklyAnalysisUseCase? = null,
+    private val scheduled: ScheduledAnalysisUseCase? = null,
     private val apps: AppRepository? = null,
     private val clock: Clock = Clock.System,
     private val retries: Int = DEFAULT_RETRIES,
@@ -189,7 +200,7 @@ class AnalysisJobs(
 
     private fun runWeekly(instance: TaskInstance<WeeklyAnalysisJobData>) {
         val data = instance.data
-        val useCase = weekly ?: return
+        val useCase = scheduled ?: return
         val report = runBlocking { useCase.run(OrganizationId.parse(data.orgId), AppId.parse(data.appId)) }
 
         when {

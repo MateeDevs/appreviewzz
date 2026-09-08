@@ -144,6 +144,9 @@ internal fun ResultRow.toApp(): App =
         dailyDigestAt = this[Apps.dailyDigestAt],
         weeklyDigestDay = this[Apps.weeklyDigestDay].toInt(),
         historyMonths = this[Apps.historyMonths].toInt(),
+        analysisCadence = this[Apps.analysisCadence],
+        analysisMinReviews = this[Apps.analysisMinReviews]?.toInt(),
+        analysisMinTopicCount = this[Apps.analysisMinTopicCount]?.toInt(),
         enabled = this[Apps.enabled],
         createdAt = this[Apps.createdAt],
     )

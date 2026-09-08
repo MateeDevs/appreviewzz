@@ -96,6 +96,7 @@ class PlatformSettingException(
 object PlatformSettings {
     const val SECTION_INGEST = "Stahování recenzí"
     const val SECTION_AI = "AI návrhy odpovědí a rozbory"
+    const val SECTION_ANALYSIS = "Rozbory recenzí"
     const val SECTION_LIMITS = "Limity"
     const val SECTION_GOOGLE_PLAY = "Napojení Google Play"
 
@@ -118,6 +119,16 @@ object PlatformSettings {
      */
     const val AI_ANALYSIS_MODEL = "ai.analysis_model"
     const val AI_API_KEY = "ai.api_key"
+
+    /**
+     * Prahy rozborů. Nejsou to preference klienta, ale statistika: pod pár recenzemi je
+     * podíl náhoda a jedna zmínka není téma. Aplikace si od prvních dvou může udělat
+     * výjimku (`app.analysis_min_reviews`, `app.analysis_min_topic_count`), protože se
+     * objemem liší o řád.
+     */
+    const val ANALYSIS_MIN_REVIEWS = "analysis.min_reviews"
+    const val ANALYSIS_MIN_TOPIC_COUNT = "analysis.min_topic_count"
+    const val ANALYSIS_TOP_ISSUES = "analysis.top_issues"
 
     const val MAX_APPS_PER_ORG = "limits.max_apps_per_org"
 
@@ -194,6 +205,39 @@ object PlatformSettings {
                 envName = "AI_API_KEY",
             ),
             PlatformSettingDefinition(
+                key = ANALYSIS_MIN_REVIEWS,
+                type = PlatformSettingType.INT,
+                section = SECTION_ANALYSIS,
+                label = "Nejmenší počet recenzí pro rozbor",
+                help =
+                    "Rozbor se pošle, až se od minulého nasbírá aspoň tolik recenzí s textem. " +
+                        "Pod tím se termín přeskočí a období se přičte k příštímu — málo dat neznamená " +
+                        "prázdnou zprávu, ale delší období.",
+                default = "10",
+                min = MIN_ANALYSIS_THRESHOLD,
+                max = MAX_ANALYSIS_REVIEWS,
+            ),
+            PlatformSettingDefinition(
+                key = ANALYSIS_MIN_TOPIC_COUNT,
+                type = PlatformSettingType.INT,
+                section = SECTION_ANALYSIS,
+                label = "Od kolika zmínek se ukáže téma",
+                help = "Jedna recenze není trend. Platí i pro „zlepšilo se\u201c — porovnává se totéž číslo.",
+                default = "3",
+                min = MIN_ANALYSIS_THRESHOLD,
+                max = MAX_ANALYSIS_TOPIC_COUNT,
+            ),
+            PlatformSettingDefinition(
+                key = ANALYSIS_TOP_ISSUES,
+                type = PlatformSettingType.INT,
+                section = SECTION_ANALYSIS,
+                label = "Kolik témat se vejde do zprávy",
+                help = "Nejpalčivější témata v kanálu. Na stránku Rozbory se dostanou všechna.",
+                default = "3",
+                min = MIN_ANALYSIS_THRESHOLD,
+                max = MAX_ANALYSIS_TOP_ISSUES,
+            ),
+            PlatformSettingDefinition(
                 key = MAX_APPS_PER_ORG,
                 type = PlatformSettingType.INT,
                 section = SECTION_LIMITS,
@@ -242,5 +286,12 @@ object PlatformSettings {
      */
     const val MIN_ALLOWED_INTERVAL = 5
     const val MAX_ALLOWED_INTERVAL = 1440
+
+    /** Meze prahů rozboru; nula mezi nimi není — „rozbor z ničeho" nedává smysl. */
+    const val MIN_ANALYSIS_THRESHOLD = 1
+    private const val MAX_ANALYSIS_REVIEWS = 1000
+    private const val MAX_ANALYSIS_TOPIC_COUNT = 100
+    private const val MAX_ANALYSIS_TOP_ISSUES = 10
+
     private const val MAX_APPS_CEILING = 1000
 }

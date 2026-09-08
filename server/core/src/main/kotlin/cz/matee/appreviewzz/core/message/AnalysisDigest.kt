@@ -33,8 +33,8 @@ data class AnalysisDigest(
 ) {
     val catalog: MessageCatalog = MessageCatalog.of(locale)
 
-    /** Problémy, které se do zprávy vejdou. Tři: čtvrtý už nikdo nečte a ředí ty první. */
-    val issues: List<TopicInsight> get() = aggregates.topics.take(TOP_ISSUES)
+    /** Problémy, které se do zprávy vejdou. Kolik jich je, říká platformní nastavení. */
+    val issues: List<TopicInsight> get() = aggregates.issues
 
     fun period(): String =
         catalog.format(
@@ -147,8 +147,6 @@ data class AnalysisDigest(
     }
 
     companion object {
-        const val TOP_ISSUES = 3
-
         fun percent(share: Double): Int = (share * PERCENT).roundToInt()
 
         fun platformName(platform: Platform): String =

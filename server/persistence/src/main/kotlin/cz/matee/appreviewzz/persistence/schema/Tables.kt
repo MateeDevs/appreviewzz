@@ -1,6 +1,7 @@
 package cz.matee.appreviewzz.persistence.schema
 
 import cz.matee.appreviewzz.core.model.ActorType
+import cz.matee.appreviewzz.core.model.AnalysisCadence
 import cz.matee.appreviewzz.core.model.BackupStatus
 import cz.matee.appreviewzz.core.model.ChannelType
 import cz.matee.appreviewzz.core.model.CredentialOrigin
@@ -195,6 +196,9 @@ internal object Apps : Table("app") {
     val dailyDigestAt = time("daily_digest_at")
     val weeklyDigestDay = short("weekly_digest_day")
     val historyMonths = short("history_months")
+    val analysisCadence = enumerationByName<AnalysisCadence>("analysis_cadence", ENUM_LENGTH)
+    val analysisMinReviews = short("analysis_min_reviews").nullable()
+    val analysisMinTopicCount = short("analysis_min_topic_count").nullable()
     val enabled = bool("enabled")
     val createdAt = instant("created_at")
     val updatedAt = instant("updated_at")
@@ -385,6 +389,7 @@ internal object AnalysisDigests : Table("analysis_digest") {
     val appId = appId()
     val channelId = channelId()
     val periodStart = date("period_start")
+    val periodEnd = date("period_end")
     val sentAt = instant("sent_at")
 
     override val primaryKey = PrimaryKey(channelId, periodStart)

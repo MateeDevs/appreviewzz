@@ -201,8 +201,14 @@ Sémantika delty je vědomě jiná než ve starším n8n řešení —
 
 Každá recenze dostane při zpracování strukturovaný výklad: 1–4 témata z pevné taxonomie,
 sentiment u každého tématu zvlášť, celkovou náladu, typ a naléhavost. Štítky jsou hned
-v první zprávě v kanálu, v inboxu se podle nich dá filtrovat a jednou týdně z nich vznikne
+v první zprávě v kanálu, v inboxu se podle nich dá filtrovat a pravidelně z nich vznikne
 rozbor: co nejvíc bolí, co se zlepšilo, jak se odpovídá.
+
+Do rozboru jdou **jen recenze s textem**. Hodnocení bez textu jsou u Androidu většina a jejich
+nálada je jen přepsaná hvězdička — od hvězd je denní přehled hodnocení. Aplikace si volí
+kadenci **týdně nebo měsíčně**; když se od minulého rozboru nenasbírá dost recenzí, termín se
+přeskočí a období se přičte k příštímu, takže místo série zpráv „zatím málo dat" přijde jeden
+rozbor za delší období. Prahy jsou platformní nastavení s výjimkou per aplikace.
 
 **Čísla počítá databáze, ne model.** Model odpovídá jen na otázku „o čem je tahle recenze";
 podíly, trendy a mediány pak spočítá SQL a zpráva je šablona s doplněnými čísly. Citát

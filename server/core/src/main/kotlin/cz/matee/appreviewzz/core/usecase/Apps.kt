@@ -38,6 +38,11 @@ data class AppDraft(
     val weeklyDigestDay: Int? = null,
     /** Kolik měsíců historie recenzí dotáhnout z reportingu Play Console. */
     val historyMonths: Int? = null,
+    /** `weekly` nebo `monthly`. */
+    val analysisCadence: String? = null,
+    /** Výjimky od platformních prahů rozboru; `null` = nech, jak je. */
+    val analysisMinReviews: Int? = null,
+    val analysisMinTopicCount: Int? = null,
     val enabled: Boolean? = null,
 )
 
@@ -57,10 +62,15 @@ class AppService(
      * klient ho nevidí a `AppService` si ho odsud jen přečte (F7.4, ADR 0018).
      */
     private val ingest: IngestPolicy = IngestPolicy.fixed(),
+    /** Prahy rozborů — stejný vzor jako [ingest]: platforma dává výchozí hodnotu, appka výjimku. */
+    private val analysis: AnalysisPolicy = AnalysisPolicy.fixed(),
     private val clock: Clock = Clock.System,
 ) {
     /** Efektivní interval appky: vlastní výjimka, jinak platformní výchozí hodnota. */
     fun effectiveInterval(app: App): Int = app.ingestIntervalMinutes ?: ingest.defaultIntervalMinutes()
+
+    /** Prahy, které pro appku doopravdy platí — výjimky přebíjejí platformní hodnoty. */
+    fun effectiveThresholds(app: App): AnalysisThresholds = analysis.thresholds().forApp(app)
 
     fun list(orgId: OrganizationId): List<App> = apps.listByOrg(orgId)
 
@@ -127,6 +137,10 @@ class AppService(
                         draft.weeklyDigestDay?.let { AppInputs.weeklyDigestDay(it, "weeklyDigestDay") } ?: defaults.weeklyDigestDay,
                     historyMonths =
                         draft.historyMonths?.let { AppInputs.historyMonths(it, "historyMonths") } ?: defaults.historyMonths,
+                    analysisCadence =
+                        draft.analysisCadence?.let { AppInputs.analysisCadence(it, "analysisCadence") } ?: defaults.analysisCadence,
+                    analysisMinReviews = analysisMinReviews(draft),
+                    analysisMinTopicCount = analysisMinTopicCount(draft),
                 ),
             )
         audit(organization.id, actor, "app.created", app.id.toString(), mapOf("name" to app.name))
@@ -164,6 +178,12 @@ class AppService(
                     draft.weeklyDigestDay?.let { AppInputs.weeklyDigestDay(it, "weeklyDigestDay") } ?: current.weeklyDigestDay,
                 historyMonths =
                     draft.historyMonths?.let { AppInputs.historyMonths(it, "historyMonths") } ?: current.historyMonths,
+                analysisCadence =
+                    draft.analysisCadence?.let { AppInputs.analysisCadence(it, "analysisCadence") } ?: current.analysisCadence,
+                // Nula je tady „vrať se k platformní hodnotě" — jinak by výjimka nešla zrušit.
+                analysisMinReviews = analysisMinReviews(draft) ?: current.analysisMinReviews.takeIf { draft.analysisMinReviews != 0 },
+                analysisMinTopicCount =
+                    analysisMinTopicCount(draft) ?: current.analysisMinTopicCount.takeIf { draft.analysisMinTopicCount != 0 },
                 enabled = draft.enabled ?: current.enabled,
             )
         val updated =
@@ -188,6 +208,16 @@ class AppService(
         audit(organization.id, actor, "app.deleted", id.toString(), mapOf("name" to app.name))
         logger.info { "Aplikace ${app.id} (${app.name}) smazaná z organizace ${organization.slug}" }
     }
+
+    private fun analysisMinReviews(draft: AppDraft): Int? =
+        draft.analysisMinReviews
+            ?.takeIf { it != 0 }
+            ?.let { AppInputs.analysisThreshold(it, "analysisMinReviews", AppInputs.MAX_ANALYSIS_MIN_REVIEWS) }
+
+    private fun analysisMinTopicCount(draft: AppDraft): Int? =
+        draft.analysisMinTopicCount
+            ?.takeIf { it != 0 }
+            ?.let { AppInputs.analysisThreshold(it, "analysisMinTopicCount", AppInputs.MAX_ANALYSIS_MIN_TOPIC_COUNT) }
 
     /**
      * Strop počtu aplikací (platformní nastavení). Kontroluje se **jen při zakládání** —

@@ -1,5 +1,6 @@
 package cz.matee.appreviewzz.core.usecase
 
+import cz.matee.appreviewzz.core.model.AnalysisCadence
 import cz.matee.appreviewzz.core.model.MessageLocale
 import cz.matee.appreviewzz.core.model.PlatformSettings
 import kotlinx.datetime.LocalTime
@@ -20,6 +21,10 @@ object AppInputs {
     /** Krajní meze zrcadlí `CHECK` v databázi; provozní podlaha je platformní nastavení. */
     const val MIN_INGEST_INTERVAL = PlatformSettings.MIN_ALLOWED_INTERVAL
     const val MAX_INGEST_INTERVAL = PlatformSettings.MAX_ALLOWED_INTERVAL
+
+    /** Zrcadlí `CHECK` na `app.analysis_min_reviews` a `app.analysis_min_topic_count`. */
+    const val MAX_ANALYSIS_MIN_REVIEWS = 1000
+    const val MAX_ANALYSIS_MIN_TOPIC_COUNT = 100
 
     /** Zrcadlí `CHECK` na `app.history_months`. */
     const val MIN_HISTORY_MONTHS = 1
@@ -85,6 +90,32 @@ object AppInputs {
             invalid(field, "musí být mezi $MIN_HISTORY_MONTHS a $MAX_HISTORY_MONTHS měsíci")
         }
         return months
+    }
+
+    /**
+     * Kadence rozborů. Jméno hodnoty, ne číslo: `WEEKLY`/`MONTHLY` čte v API i v CLI člověk
+     * a překlad na „týdně" patří až do konzole.
+     */
+    fun analysisCadence(
+        raw: String,
+        field: String,
+    ): AnalysisCadence =
+        AnalysisCadence.entries.firstOrNull { it.name.equals(raw, ignoreCase = true) }
+            ?: invalid(field, "zná ${AnalysisCadence.entries.joinToString { it.name.lowercase() }}, dostalo '$raw'")
+
+    /**
+     * Výjimka od platformního prahu rozboru. Nula mezi hodnotami není: rozbor „z ničeho"
+     * nedává smysl a vypnout ho jde tím, že kanál rozbory nedostává.
+     */
+    fun analysisThreshold(
+        value: Int,
+        field: String,
+        max: Int,
+    ): Int {
+        if (value !in PlatformSettings.MIN_ANALYSIS_THRESHOLD..max) {
+            invalid(field, "musí být mezi ${PlatformSettings.MIN_ANALYSIS_THRESHOLD} a $max")
+        }
+        return value
     }
 
     fun digestAt(

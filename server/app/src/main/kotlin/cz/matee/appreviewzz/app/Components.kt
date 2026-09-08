@@ -69,7 +69,7 @@ import cz.matee.appreviewzz.core.usecase.RatingsInsights
 import cz.matee.appreviewzz.core.usecase.RefreshStoreRepliesUseCase
 import cz.matee.appreviewzz.core.usecase.RevalidateCredentialsUseCase
 import cz.matee.appreviewzz.core.usecase.ReviewInbox
-import cz.matee.appreviewzz.core.usecase.WeeklyAnalysisUseCase
+import cz.matee.appreviewzz.core.usecase.ScheduledAnalysisUseCase
 import cz.matee.appreviewzz.crypto.AppSecretBox
 import cz.matee.appreviewzz.crypto.Argon2PasswordHasher
 import cz.matee.appreviewzz.crypto.CredentialVault
@@ -499,8 +499,8 @@ class Components(
     val replyJobs: ReplyJobs by lazy { ReplyJobs(publish = publishReply, failedJobs = failedJobs) }
 
     /** Týdenní rozbor recenzí do kanálu (F8). */
-    val weeklyAnalysis: WeeklyAnalysisUseCase by lazy {
-        WeeklyAnalysisUseCase(
+    val weeklyAnalysis: ScheduledAnalysisUseCase by lazy {
+        ScheduledAnalysisUseCase(
             apps = apps,
             organizations = organizations,
             channels = channels,
@@ -511,12 +511,13 @@ class Components(
             secrets = vault,
             links = consoleLinks,
             notificationChannels = notificationChannels,
+            policy = platformConfig,
         )
     }
 
     /** Jedna instance: plánuje ji ingest, console i CLI, a scheduler ji musí znát jako úlohu. */
     val analysisJobs: AnalysisJobs by lazy {
-        AnalysisJobs(analyze = analyzeReviews, failedJobs = failedJobs, weekly = weeklyAnalysis, apps = apps)
+        AnalysisJobs(analyze = analyzeReviews, failedJobs = failedJobs, scheduled = weeklyAnalysis, apps = apps)
     }
 
     /**
@@ -640,7 +641,7 @@ class Components(
     }
 
     /** Sledované aplikace (F3.3). Interval stahování si bere z platformní konfigurace (F7.4). */
-    val appService: AppService by lazy { AppService(apps = apps, audit = audit, ingest = platformConfig) }
+    val appService: AppService by lazy { AppService(apps = apps, audit = audit, ingest = platformConfig, analysis = platformConfig) }
 
     /** Čeká appka ještě na klíč nebo kanál (F3.3)? Jen čtení dvou tabulek, žádný stav. */
     val appSetupCheck: AppSetupCheck by lazy { AppSetupCheck(credentials = credentials, channels = channels) }

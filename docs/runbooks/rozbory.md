@@ -16,6 +16,34 @@ V konzoli **Správa platformy** (dole v postranním panelu) → sekce *AI návrh
 
 Změna se propíše do minuty, restart není potřeba.
 
+V sekci *Rozbory recenzí* jsou tři prahy, které platí pro všechny aplikace:
+
+| Klíč | Co to je |
+|---|---|
+| `analysis.min_reviews` | Kolik recenzí **s textem** se musí nasbírat, aby rozbor odešel. Výchozí 10. |
+| `analysis.min_topic_count` | Od kolika zmínek je téma tématem. Výchozí 3. |
+| `analysis.top_issues` | Kolik témat se vejde do zprávy do kanálu. Výchozí 3. |
+
+První dva se dají u konkrétní aplikace přebít v jejím nastavení — appky se objemem liší
+o řád. Prázdné pole v konzoli znamená „platí platforma".
+
+## Co se do rozboru počítá
+
+**Jen recenze s textem.** Hodnocení bez textu jsou u Androidu většina (v archivu Play Console
+klidně čtyři pětiny) a jejich „nálada" je jen přepsaná hvězdička — kdyby se počítala do
+rozboru, byl by z něj průměr hvězd a témata by se v něm ztratila. Hvězdy má na starosti denní
+přehled hodnocení, rozbor je o tom, co lidé píšou.
+
+## Kadence a odložený termín
+
+Aplikace má v nastavení volbu **týdně / měsíčně**. Týdenní rozbor jde v den a čas z nastavení,
+měsíční prvního dne v měsíci ve stejný čas.
+
+Když se od minulého rozboru nenasbírá `analysis.min_reviews` recenzí s textem, **termín se
+přeskočí a období zůstane otevřené** — příští běh naváže od konce posledního odeslaného
+rozboru. Z appky s řídkým provozem tak přijde jednou za čas rozbor za tři týdny místo tří
+zpráv „zatím málo dat". V logu to je jako `Rozbor … odložen`, v CLI jako `neodesláno`.
+
 ## Doplnění výkladů za historii
 
 Nová appka má výklad jen u recenzí, které přišly po zapnutí. Zbytek se doplní dávkově:
@@ -77,16 +105,19 @@ U recenze, která má obojí, platí ta dřívější. Bez toho by rozbor za dot
 
 1. **Má appka výklady?** `analysis status`. Nula = zkontroluj `ai.provider` a klíč.
 2. **Má kanál zapnuté rozbory?** Detail aplikace → *Kanály* → sloupec *Co chodí*.
-3. **Nesedí den nebo čas?** Nastavení aplikace: *Den týdenního rozboru* + *Čas denního
-   přehledu* (rozbor jde ve stejný čas). Platí v zóně aplikace.
-4. **Neodešel už?** Rozbor se za dané období posílá jednou; druhý běh se zastaví o rezervaci
+3. **Nesedí den nebo čas?** Nastavení aplikace: *Jak často chodí rozbor*, *Den týdenního
+   rozboru* a *Čas denního přehledu* (rozbor jde ve stejný čas). Platí v zóně aplikace.
+4. **Nenasbíralo se dost recenzí?** Nejčastější důvod. Ruční běh to řekne rovnou; práh je
+   `analysis.min_reviews` a výjimka pro aplikaci je v jejím nastavení.
+5. **Neodešel už?** Rozbor se za dané období posílá jednou; druhý běh se zastaví o rezervaci
    v `analysis_digest`.
-5. **Ruční spuštění:**
+6. **Ruční spuštění:**
    ```bash
-   appreviewzz analysis weekly run --org <slug> --app <ID> [--period-start 2026-08-31]
+   appreviewzz analysis run --org <slug> --app <ID> [--period-start 2026-08-31] [--force true]
    ```
    Vypíše čísla, i když se nikam neposílala — při onboardingu je to nejrychlejší způsob,
-   jak si rozbor prohlédnout před tím, než ho uvidí klient.
+   jak si rozbor prohlédnout před tím, než ho uvidí klient. `--force true` pošle i pod prahem;
+   bez něj se u appky s řídkým provozem čeká, až se období nasbírá.
 
 ## AI padá
 

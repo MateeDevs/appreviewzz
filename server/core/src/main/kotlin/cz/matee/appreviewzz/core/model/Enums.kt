@@ -86,6 +86,15 @@ enum class MessageLocale {
     }
 }
 
+/**
+ * Jak často chodí rozbor recenzí. Není to kosmetika: u appky s pár recenzemi týdně nemá
+ * týdenní rozbor z čeho počítat podíly, kdežto u živé appky je měsíc pozdě.
+ */
+enum class AnalysisCadence {
+    WEEKLY,
+    MONTHLY,
+}
+
 enum class ReviewState {
     /** Načtená, zatím neodeslaná do kanálu. */
     NEW,

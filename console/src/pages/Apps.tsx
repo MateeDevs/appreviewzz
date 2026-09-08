@@ -517,6 +517,11 @@ function AppSettingsCard({ org, appId }: { org: string; appId: string }) {
     dailyDigestAt: app.dailyDigestAt.slice(0, 5),
     weeklyDigestDay: String(app.weeklyDigestDay),
     historyMonths: String(app.historyMonths),
+    analysisCadence: app.analysisCadence,
+    // Prázdné pole znamená „drž se platformy"; posílá se jako nula, což server bere
+    // jako zrušení výjimky.
+    analysisMinReviews: app.analysisThresholdSource === 'APP' ? String(app.analysisMinReviews) : '',
+    analysisMinTopicCount: app.analysisThresholdSource === 'APP' ? String(app.analysisMinTopicCount) : '',
     aiInstructions: app.aiInstructions ?? '',
   }
   const set = (key: string, value: string) => setDraft({ ...values, [key]: value })
@@ -537,6 +542,9 @@ function AppSettingsCard({ org, appId }: { org: string; appId: string }) {
                 dailyDigestAt: values.dailyDigestAt,
                 weeklyDigestDay: Number(values.weeklyDigestDay),
                 historyMonths: Number(values.historyMonths),
+                analysisCadence: values.analysisCadence,
+                analysisMinReviews: values.analysisMinReviews === '' ? 0 : Number(values.analysisMinReviews),
+                analysisMinTopicCount: values.analysisMinTopicCount === '' ? 0 : Number(values.analysisMinTopicCount),
                 aiInstructions: values.aiInstructions === '' ? null : values.aiInstructions,
                 enabled: app.enabled,
               },
@@ -573,14 +581,56 @@ function AppSettingsCard({ org, appId }: { org: string; appId: string }) {
         <Field label="Čas denního přehledu">
           <input type="time" value={values.dailyDigestAt} onChange={(e) => set('dailyDigestAt', e.target.value)} />
         </Field>
-        <Field label="Den týdenního rozboru" hint="Rozbor recenzí odejde v tenhle den ve stejný čas jako denní přehled.">
-          <select value={values.weeklyDigestDay} onChange={(e) => set('weeklyDigestDay', e.target.value)}>
-            {WEEK_DAYS.map((day, index) => (
-              <option key={day} value={index + 1}>
-                {day}
-              </option>
-            ))}
+        <Field label="Jak často chodí rozbor" hint="Měsíční kadence dává smysl u appky, které chodí pár recenzí týdně.">
+          <select value={values.analysisCadence} onChange={(e) => set('analysisCadence', e.target.value)}>
+            <option value="WEEKLY">týdně</option>
+            <option value="MONTHLY">měsíčně</option>
           </select>
+        </Field>
+        {values.analysisCadence === 'WEEKLY' ? (
+          <Field label="Den týdenního rozboru" hint="Rozbor recenzí odejde v tenhle den ve stejný čas jako denní přehled.">
+            <select value={values.weeklyDigestDay} onChange={(e) => set('weeklyDigestDay', e.target.value)}>
+              {WEEK_DAYS.map((day, index) => (
+                <option key={day} value={index + 1}>
+                  {day}
+                </option>
+              ))}
+            </select>
+          </Field>
+        ) : (
+          <p className="small muted">Měsíční rozbor chodí prvního dne v měsíci ve stejný čas jako denní přehled.</p>
+        )}
+        <Field
+          label="Nejmenší počet recenzí pro rozbor"
+          hint={
+            values.analysisMinReviews === ''
+              ? `Prázdné = platformní hodnota (${app.analysisMinReviews}). Pod prahem se termín přeskočí a období se přičte k příštímu.`
+              : 'Výjimka jen pro tuhle aplikaci. Smazáním pole se vrátí platformní hodnota.'
+          }
+        >
+          <input
+            type="number"
+            min={1}
+            value={values.analysisMinReviews}
+            placeholder={String(app.analysisMinReviews)}
+            onChange={(e) => set('analysisMinReviews', e.target.value)}
+          />
+        </Field>
+        <Field
+          label="Od kolika zmínek se ukáže téma"
+          hint={
+            values.analysisMinTopicCount === ''
+              ? `Prázdné = platformní hodnota (${app.analysisMinTopicCount}).`
+              : 'Výjimka jen pro tuhle aplikaci. Smazáním pole se vrátí platformní hodnota.'
+          }
+        >
+          <input
+            type="number"
+            min={1}
+            value={values.analysisMinTopicCount}
+            placeholder={String(app.analysisMinTopicCount)}
+            onChange={(e) => set('analysisMinTopicCount', e.target.value)}
+          />
         </Field>
         <Field
           label="Historie k rozboru"

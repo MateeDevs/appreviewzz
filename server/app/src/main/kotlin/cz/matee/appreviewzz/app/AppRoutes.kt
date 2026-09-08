@@ -1,5 +1,6 @@
 package cz.matee.appreviewzz.app
 
+import cz.matee.appreviewzz.core.model.AnalysisCadence
 import cz.matee.appreviewzz.core.model.App
 import cz.matee.appreviewzz.core.model.MessageLocale
 import cz.matee.appreviewzz.core.model.OrgRole
@@ -7,6 +8,7 @@ import cz.matee.appreviewzz.core.model.Platform
 import cz.matee.appreviewzz.core.port.AppListingSource
 import cz.matee.appreviewzz.core.port.ReportingBucketStatus
 import cz.matee.appreviewzz.core.port.StoreConnectorException
+import cz.matee.appreviewzz.core.usecase.AnalysisThresholds
 import cz.matee.appreviewzz.core.usecase.AppDraft
 import cz.matee.appreviewzz.core.usecase.AppInputs
 import cz.matee.appreviewzz.core.usecase.AppSetup
@@ -43,6 +45,8 @@ data class CreateAppRequest(
     val weeklyDigestDay: Int? = null,
     /** Kolik měsíců historie recenzí dotáhnout z reportingu Play Console (1–24). */
     val historyMonths: Int? = null,
+    /** `weekly` nebo `monthly`. */
+    val analysisCadence: String? = null,
 )
 
 @Serializable
@@ -60,6 +64,11 @@ data class UpdateAppRequest(
     val weeklyDigestDay: Int? = null,
     /** Kolik měsíců historie recenzí dotáhnout z reportingu Play Console (1–24). */
     val historyMonths: Int? = null,
+    /** `weekly` nebo `monthly`. */
+    val analysisCadence: String? = null,
+    /** Výjimky od platformních prahů rozboru; `0` vrací aplikaci k platformní hodnotě. */
+    val analysisMinReviews: Int? = null,
+    val analysisMinTopicCount: Int? = null,
     val enabled: Boolean? = null,
 )
 
@@ -114,6 +123,15 @@ data class AppResponse(
      * je to jen číslo bez účinku — konzole to u appky bez bucketu musí říct.
      */
     val historyMonths: Int,
+    /** Jak často chodí rozbor recenzí. */
+    val analysisCadence: AnalysisCadence,
+    /**
+     * Prahy, které pro aplikaci právě platí, a jestli jsou z platformy, nebo z její výjimky.
+     * Console podle toho odliší „takhle to má nastavené platforma" od „tady jsme to změnili".
+     */
+    val analysisMinReviews: Int,
+    val analysisMinTopicCount: Int,
+    val analysisThresholdSource: IngestIntervalSource,
     val enabled: Boolean,
     /** Co appce chybí, aby recenze tekly. Console podle toho odliší „sledujeme" od „čeká na nastavení". */
     val setup: AppSetupResponse,
@@ -152,7 +170,12 @@ fun Route.appRoutes(console: ConsoleWiring) {
         get {
             val context = call.orgContext(console.organizations, console.memberships)
             call.respond(
-                io { apps.list(context.organization.id).map { it.toResponse(apps.effectiveInterval(it), setup.of(it)) } },
+                io {
+                    apps
+                        .list(
+                            context.organization.id,
+                        ).map { it.toResponse(apps.effectiveInterval(it), setup.of(it), apps.effectiveThresholds(it)) }
+                },
             )
         }
 
@@ -178,13 +201,17 @@ fun Route.appRoutes(console: ConsoleWiring) {
                                 dailyDigestAt = request.dailyDigestAt,
                                 weeklyDigestDay = request.weeklyDigestDay,
                                 historyMonths = request.historyMonths,
+                                analysisCadence = request.analysisCadence,
                             ),
                     )
                 }
             // Historie se dotahuje hned, ne až nočním během: klient přidal appku právě proto,
             // aby viděl rozbor za poslední měsíc, ne aby na něj čekal do zítřka.
             console.requestHistoryImport(app)
-            call.respond(HttpStatusCode.Created, app.toResponse(apps.effectiveInterval(app), io { setup.of(app) }))
+            call.respond(
+                HttpStatusCode.Created,
+                app.toResponse(apps.effectiveInterval(app), io { setup.of(app) }, apps.effectiveThresholds(app)),
+            )
         }
 
         /**
@@ -202,7 +229,7 @@ fun Route.appRoutes(console: ConsoleWiring) {
             call.respond(
                 io {
                     apps.get(context.organization.id, call.appIdParam()).let {
-                        it.toResponse(apps.effectiveInterval(it), setup.of(it))
+                        it.toResponse(apps.effectiveInterval(it), setup.of(it), apps.effectiveThresholds(it))
                     }
                 },
             )
@@ -230,6 +257,9 @@ fun Route.appRoutes(console: ConsoleWiring) {
                                 dailyDigestAt = request.dailyDigestAt,
                                 weeklyDigestDay = request.weeklyDigestDay,
                                 historyMonths = request.historyMonths,
+                                analysisCadence = request.analysisCadence,
+                                analysisMinReviews = request.analysisMinReviews,
+                                analysisMinTopicCount = request.analysisMinTopicCount,
                                 enabled = request.enabled,
                             ),
                     )
@@ -239,7 +269,7 @@ fun Route.appRoutes(console: ConsoleWiring) {
             if (app.gpReportingBucket != current.gpReportingBucket || app.historyMonths > current.historyMonths) {
                 console.requestHistoryImport(app)
             }
-            call.respond(app.toResponse(apps.effectiveInterval(app), io { setup.of(app) }))
+            call.respond(app.toResponse(apps.effectiveInterval(app), io { setup.of(app) }, apps.effectiveThresholds(app)))
         }
 
         delete("/{app}") {
@@ -285,6 +315,7 @@ data class ReportingBucketCheckResponse(
 private fun App.toResponse(
     effectiveInterval: Int,
     setup: AppSetup,
+    thresholds: AnalysisThresholds,
 ) = AppResponse(
     id = id.toString(),
     name = name,
@@ -302,6 +333,15 @@ private fun App.toResponse(
     dailyDigestAt = dailyDigestAt.toString(),
     weeklyDigestDay = weeklyDigestDay,
     historyMonths = historyMonths,
+    analysisCadence = analysisCadence,
+    analysisMinReviews = thresholds.minReviews,
+    analysisMinTopicCount = thresholds.minTopicCount,
+    analysisThresholdSource =
+        if (analysisMinReviews == null && analysisMinTopicCount == null) {
+            IngestIntervalSource.PLATFORM
+        } else {
+            IngestIntervalSource.APP
+        },
     enabled = enabled,
     setup =
         AppSetupResponse(

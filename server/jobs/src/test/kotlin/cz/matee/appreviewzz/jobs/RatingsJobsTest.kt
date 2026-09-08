@@ -118,6 +118,9 @@ class RatingsJobsTest :
                 dailyDigestAt = digestAt,
                 weeklyDigestDay = app.weeklyDigestDay,
                 historyMonths = app.historyMonths,
+                analysisCadence = app.analysisCadence,
+                analysisMinReviews = app.analysisMinReviews,
+                analysisMinTopicCount = app.analysisMinTopicCount,
                 enabled = true,
             ),
         )

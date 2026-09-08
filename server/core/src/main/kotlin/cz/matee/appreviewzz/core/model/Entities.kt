@@ -58,6 +58,15 @@ data class App(
     val dailyDigestAt: LocalTime,
     /** ISO den v týdnu (1 = pondělí), kdy chodí týdenní rozbor; čas se bere z [dailyDigestAt]. */
     val weeklyDigestDay: Int = 1,
+    /** Týdně (podle [weeklyDigestDay]), nebo měsíčně prvního dne v měsíci. */
+    val analysisCadence: AnalysisCadence = AnalysisCadence.WEEKLY,
+    /**
+     * Výjimky od platformních prahů rozboru; `null` (běžný stav) znamená „platí platforma".
+     * Objem recenzí se mezi appkami liší o řád, takže jedno číslo pro všechny je buď
+     * nesmyslně vysoké, nebo nesmyslně nízké — ale rozhodovat o tom má provozovatel, ne klient.
+     */
+    val analysisMinReviews: Int? = null,
+    val analysisMinTopicCount: Int? = null,
     /**
      * Kolik měsíců zpětné historie recenzí se stahuje z reportingu Play Console. Uplatní se
      * jen s [gpReportingBucket] — jinou cestou k historii Androidu se nedostaneme.

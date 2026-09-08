@@ -26,6 +26,7 @@ import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.isNotNull
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.min
+import org.jetbrains.exposed.v1.core.neq
 import org.jetbrains.exposed.v1.core.sum
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -258,6 +259,12 @@ class ExposedAnalysisAggregateRepository(
             }.sortedByDescending { it.count }
     }
 
+    /**
+     * Do rozborů jdou **jen recenze s textem**. Hodnocení bez textu jsou u Androidu většina
+     * (v archivu Play Console klidně čtyři pětiny) a jejich nálada je jen přepsaná hvězdička —
+     * kdyby se počítala sem, byl by „rozbor" ve skutečnosti průměr hvězd a témata by se v něm
+     * ztratila. Hvězdy má na starosti denní přehled hodnocení, tohle je o tom, co lidé píšou.
+     */
     private fun scope(
         orgId: OrganizationId,
         appId: AppId,
@@ -266,7 +273,9 @@ class ExposedAnalysisAggregateRepository(
     ) = (Reviews.orgId eq orgId) and
         (Reviews.appId eq appId) and
         (Reviews.submittedAt greaterEq from) and
-        (Reviews.submittedAt less to)
+        (Reviews.submittedAt less to) and
+        Reviews.body.isNotNull() and
+        (Reviews.body neq "")
 
     private fun median(sorted: List<Double>): Double? {
         if (sorted.isEmpty()) return null

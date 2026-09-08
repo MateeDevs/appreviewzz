@@ -50,6 +50,9 @@ class ExposedAppRepository(
                     dailyDigestAt = app.dailyDigestAt,
                     weeklyDigestDay = app.weeklyDigestDay,
                     historyMonths = app.historyMonths,
+                    analysisCadence = app.analysisCadence,
+                    analysisMinReviews = app.analysisMinReviews,
+                    analysisMinTopicCount = app.analysisMinTopicCount,
                     enabled = true,
                     createdAt = clock.now(),
                 )
@@ -68,6 +71,9 @@ class ExposedAppRepository(
                 it[dailyDigestAt] = created.dailyDigestAt
                 it[weeklyDigestDay] = created.weeklyDigestDay.toShort()
                 it[historyMonths] = created.historyMonths.toShort()
+                it[analysisCadence] = created.analysisCadence
+                it[analysisMinReviews] = created.analysisMinReviews?.toShort()
+                it[analysisMinTopicCount] = created.analysisMinTopicCount?.toShort()
                 it[enabled] = true
                 it[createdAt] = created.createdAt
                 it[updatedAt] = created.createdAt
@@ -149,6 +155,9 @@ class ExposedAppRepository(
                     it[dailyDigestAt] = settings.dailyDigestAt
                     it[weeklyDigestDay] = settings.weeklyDigestDay.toShort()
                     it[historyMonths] = settings.historyMonths.toShort()
+                    it[analysisCadence] = settings.analysisCadence
+                    it[analysisMinReviews] = settings.analysisMinReviews?.toShort()
+                    it[analysisMinTopicCount] = settings.analysisMinTopicCount?.toShort()
                     it[enabled] = settings.enabled
                 }
             if (updated == 0) null else findById(orgId, id)

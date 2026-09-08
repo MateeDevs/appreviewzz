@@ -1,5 +1,6 @@
 package cz.matee.appreviewzz.core.usecase
 
+import cz.matee.appreviewzz.core.model.AnalysisCadence
 import cz.matee.appreviewzz.core.model.Organization
 import cz.matee.appreviewzz.core.model.OrganizationId
 import cz.matee.appreviewzz.core.model.OverallSentiment
@@ -35,18 +36,22 @@ private fun period(
     versions = emptyList(),
 )
 
-private class WeeklyFixture(
+private class AnalysisFixture(
     current: AnalysisPeriod = period(20),
     previous: AnalysisPeriod = AnalysisPeriod.EMPTY,
     quote: TopicQuote? = null,
     deliverAnalyses: Boolean = true,
+    cadence: AnalysisCadence = AnalysisCadence.WEEKLY,
+    lastSentEnd: LocalDate? = null,
+    thresholds: AnalysisThresholds = AnalysisThresholds(),
+    minReviewsOverride: Int? = null,
 ) {
     val apps = FakeAppRepository()
     val organizations = FakeOrganizationRepository()
     val channelRepository = FakeChannelRepository()
     val insights = FakeReviewInsightRepository()
     val slack = FakeNotificationChannel()
-    val app = apps.put(Ingest.app(ORG))
+    val app = apps.put(Ingest.app(ORG).copy(analysisCadence = cadence, analysisMinReviews = minReviewsOverride))
 
     init {
         organizations.put(Organization(id = ORG, name = "Matee", slug = "matee", createdAt = Delivery.now))
@@ -56,7 +61,7 @@ private class WeeklyFixture(
     }
 
     val useCase =
-        WeeklyAnalysisUseCase(
+        ScheduledAnalysisUseCase(
             apps = apps,
             organizations = organizations,
             channels = channelRepository,
@@ -69,22 +74,24 @@ private class WeeklyFixture(
                     quote = quote,
                 ),
             appTopics = FakeAppTopicRepository(),
-            digests = FakeAnalysisDigestRepository(),
+            digests = FakeAnalysisDigestRepository(lastSentEnd),
             secrets = secretResolver("xoxb-token"),
             links = ConsoleLinks("https://console.test"),
             notificationChannels = listOf(slack),
+            policy = AnalysisPolicy.fixed(thresholds),
             clock = fixedClock(MONDAY_MORNING),
         )
 }
 
 /**
- * Týdenní rozbor. Zajímavé jsou tři věci: že se počítá **minulý celý týden**, že se do kanálu
- * nepošle dvakrát, a že rozbor pod prahem recenzí neplácá o trendech.
+ * Pravidelný rozbor. Zajímavé jsou tři věci: že se počítá **minulé celé období**, že se do
+ * kanálu nepošle dvakrát, a že se termín pod prahem recenzí **přeskočí, ne odbyde** — období
+ * zůstane otevřené a přičte se k příštímu běhu.
  */
-class WeeklyAnalysisUseCaseTest :
+class ScheduledAnalysisUseCaseTest :
     FunSpec({
         test("období je minulé pondělí až neděle v zóně aplikace") {
-            val fixture = WeeklyFixture()
+            val fixture = AnalysisFixture()
 
             val report = fixture.useCase.run(ORG, fixture.app.id)
 
@@ -95,7 +102,7 @@ class WeeklyAnalysisUseCaseTest :
 
         test("rozbor odejde do kanálu s odkazem na téma, které otevírá") {
             val fixture =
-                WeeklyFixture(
+                AnalysisFixture(
                     quote =
                         TopicQuote(
                             reviewId =
@@ -123,7 +130,7 @@ class WeeklyAnalysisUseCaseTest :
         }
 
         test("druhý běh za tentýž týden zprávu nepošle podruhé") {
-            val fixture = WeeklyFixture()
+            val fixture = AnalysisFixture()
 
             fixture.useCase.run(ORG, fixture.app.id)
             val second = fixture.useCase.run(ORG, fixture.app.id)
@@ -132,21 +139,90 @@ class WeeklyAnalysisUseCaseTest :
             second.deliveries.single().alreadySent shouldBe true
         }
 
-        test("pod prahem recenzí rozbor odejde, ale místo trendů řekne, že je dat málo") {
-            val fixture = WeeklyFixture(current = period(reviews = 4, topicCount = 4))
+        test("pod prahem se rozbor nepošle a období zůstane otevřené") {
+            val fixture = AnalysisFixture(current = period(reviews = 4, topicCount = 4))
+
+            val report = fixture.useCase.run(ORG, fixture.app.id)
+
+            report.skipped shouldBe AnalysisSkipReason.NOT_ENOUGH_REVIEWS
+            fixture.slack.analyses shouldHaveSize 0
+            // Čísla se i tak spočítají — konzole i CLI mají co ukázat.
+            report.aggregates.shouldNotBeNull().reviews shouldBe 4
+        }
+
+        test("--force pošle i pod prahem, kvůli první zprávě při onboardingu") {
+            val fixture = AnalysisFixture(current = period(reviews = 4, topicCount = 4))
+
+            val report = fixture.useCase.run(ORG, fixture.app.id, force = true)
+
+            report.deliveries.single().sent shouldBe true
+        }
+
+        /**
+         * Přeskočený termín se nesmí ztratit: kdyby další rozbor počítal jen svůj týden,
+         * recenze z přeskočeného období by v žádném rozboru nikdy nebyly.
+         */
+        test("po přeskočeném termínu navazuje období na poslední odeslaný rozbor") {
+            val fixture = AnalysisFixture(lastSentEnd = LocalDate(2026, 8, 16))
+
+            val report = fixture.useCase.run(ORG, fixture.app.id)
+
+            val aggregates = report.aggregates.shouldNotBeNull()
+            aggregates.periodStart shouldBe LocalDate(2026, 8, 17)
+            aggregates.periodEnd shouldBe LocalDate(2026, 9, 6)
+        }
+
+        test("odeslaný rozbor za minulý týden období neprodlužuje") {
+            val fixture = AnalysisFixture(lastSentEnd = LocalDate(2026, 8, 30))
+
+            val report = fixture.useCase.run(ORG, fixture.app.id)
+
+            report.aggregates.shouldNotBeNull().periodStart shouldBe LocalDate(2026, 8, 31)
+        }
+
+        test("měsíční kadence počítá celý minulý měsíc") {
+            val fixture = AnalysisFixture(cadence = AnalysisCadence.MONTHLY)
+
+            val report = fixture.useCase.run(ORG, fixture.app.id)
+
+            val aggregates = report.aggregates.shouldNotBeNull()
+            aggregates.periodStart shouldBe LocalDate(2026, 8, 1)
+            aggregates.periodEnd shouldBe LocalDate(2026, 8, 31)
+        }
+
+        test("práh aplikace přebíjí platformní hodnotu") {
+            val platformSaysTwenty = AnalysisThresholds(minReviews = 20)
+            val fixture =
+                AnalysisFixture(
+                    current = period(reviews = 12, topicCount = 12),
+                    thresholds = platformSaysTwenty,
+                    minReviewsOverride = 10,
+                )
+
+            fixture.useCase
+                .run(ORG, fixture.app.id)
+                .deliveries
+                .single()
+                .sent shouldBe true
+        }
+
+        test("téma pod platformním prahem zmínek se do rozboru nedostane") {
+            val fixture =
+                AnalysisFixture(
+                    current = period(reviews = 20, topicCount = 2),
+                    thresholds = AnalysisThresholds(minTopicCount = 3),
+                )
 
             fixture.useCase.run(ORG, fixture.app.id)
 
-            val digest =
-                fixture.slack.analyses
-                    .single()
-                    .second
-            digest.aggregates.tooFewReviews shouldBe true
-            digest.tooFewLine() shouldContain "4"
+            fixture.slack.analyses
+                .single()
+                .second.issues
+                .shouldHaveSize(0)
         }
 
         test("kanál bez rozborů zprávu nedostane") {
-            val fixture = WeeklyFixture(deliverAnalyses = false)
+            val fixture = AnalysisFixture(deliverAnalyses = false)
 
             val report = fixture.useCase.run(ORG, fixture.app.id)
 
@@ -155,7 +231,7 @@ class WeeklyAnalysisUseCaseTest :
         }
 
         test("zadané období přebije výpočet minulého týdne") {
-            val fixture = WeeklyFixture()
+            val fixture = AnalysisFixture()
 
             val report = fixture.useCase.run(ORG, fixture.app.id, LocalDate(2026, 8, 24))
 

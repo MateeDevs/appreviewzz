@@ -1,6 +1,7 @@
 package cz.matee.appreviewzz.core.port
 
 import cz.matee.appreviewzz.core.model.ActorType
+import cz.matee.appreviewzz.core.model.AnalysisCadence
 import cz.matee.appreviewzz.core.model.App
 import cz.matee.appreviewzz.core.model.AppDataKey
 import cz.matee.appreviewzz.core.model.AppId
@@ -179,6 +180,10 @@ data class NewApp(
     val weeklyDigestDay: Int = 1,
     /** Měsíce zpětné historie recenzí z reportingu Play Console. */
     val historyMonths: Int = 1,
+    val analysisCadence: AnalysisCadence = AnalysisCadence.WEEKLY,
+    /** Výjimky od platformních prahů rozboru; `null` = platí platforma. */
+    val analysisMinReviews: Int? = null,
+    val analysisMinTopicCount: Int? = null,
 )
 
 /** Kompletní nastavení appky — update je nahrazení celku, ne patch po polích. */
@@ -193,6 +198,9 @@ data class AppSettings(
     val dailyDigestAt: LocalTime,
     val weeklyDigestDay: Int,
     val historyMonths: Int,
+    val analysisCadence: AnalysisCadence,
+    val analysisMinReviews: Int?,
+    val analysisMinTopicCount: Int?,
     val enabled: Boolean,
 )
 
@@ -872,12 +880,22 @@ interface AnalysisDigestRepository {
         appId: AppId,
         channelId: ChannelId,
         periodStart: LocalDate,
+        periodEnd: LocalDate,
         sentAt: Instant,
     ): Boolean
 
     fun lastSent(
         orgId: OrganizationId,
         channelId: ChannelId,
+    ): LocalDate?
+
+    /**
+     * Konec posledního odeslaného období aplikace, přes všechny kanály. Odsud navazuje další
+     * rozbor: když se termín kvůli málu recenzí přeskočil, nesmí se přeskočené dny ztratit.
+     */
+    fun lastPeriodEnd(
+        orgId: OrganizationId,
+        appId: AppId,
     ): LocalDate?
 }
 

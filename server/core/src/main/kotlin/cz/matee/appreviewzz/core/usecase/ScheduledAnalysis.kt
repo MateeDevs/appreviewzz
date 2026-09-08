@@ -1,6 +1,7 @@
 package cz.matee.appreviewzz.core.usecase
 
 import cz.matee.appreviewzz.core.message.AnalysisDigest
+import cz.matee.appreviewzz.core.model.AnalysisCadence
 import cz.matee.appreviewzz.core.model.App
 import cz.matee.appreviewzz.core.model.AppId
 import cz.matee.appreviewzz.core.model.ChannelId
@@ -26,6 +27,7 @@ import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
+import kotlinx.datetime.daysUntil
 import kotlinx.datetime.isoDayNumber
 import kotlinx.datetime.minus
 import kotlinx.datetime.plus
@@ -44,9 +46,16 @@ enum class AnalysisSkipReason {
 
     /**
      * Ani jedna recenze v období nemá výklad. Bez výkladu není co počítat — a poslat
-     * prázdný rozbor by vypadalo, že se za týden nic nedělo.
+     * prázdný rozbor by vypadalo, že se za období nic nedělo.
      */
     NO_INSIGHTS,
+
+    /**
+     * Od minulého rozboru se nenasbíralo dost recenzí s textem. **Termín se nepromlčuje** —
+     * období zůstane otevřené a přičte se k příštímu běhu, takže z málo dat vznikne delší
+     * období, ne zpráva „zatím málo dat".
+     */
+    NOT_ENOUGH_REVIEWS,
 }
 
 data class AnalysisDelivery(
@@ -57,7 +66,7 @@ data class AnalysisDelivery(
     val error: String? = null,
 )
 
-data class WeeklyAnalysisReport(
+data class ScheduledAnalysisReport(
     val orgId: OrganizationId,
     val appId: AppId,
     val skipped: AnalysisSkipReason? = null,
@@ -68,14 +77,19 @@ data class WeeklyAnalysisReport(
 }
 
 /**
- * Týdenní rozbor recenzí do kanálu (F8).
+ * Pravidelný rozbor recenzí do kanálu (F8, kadence z A11).
  *
- * Období je **minulé pondělí až neděle v zóně aplikace** — ne posledních sedm dní: klient
- * porovnává týdny mezi sebou a klouzavé okno by mu to znemožnilo. Předchozí týden se počítá
- * taky, protože bez srovnání není z čísla „devět zmínek o pádech" poznat, jestli je to
- * dobře nebo špatně.
+ * Období je **celý minulý týden, resp. minulý měsíc v zóně aplikace** — ne posledních sedm
+ * dní: klient porovnává období mezi sebou a klouzavé okno by mu to znemožnilo. Předchozí
+ * období se počítá taky, protože bez srovnání není z čísla „devět zmínek o pádech" poznat,
+ * jestli je to dobře nebo špatně.
+ *
+ * **Termín pod prahem se přeskočí, ne odbyde.** Dřív šla pod deseti recenzemi do kanálu
+ * zpráva „zatím málo dat" — každý týden, u appky s řídkým provozem donekonečna. Nově se
+ * období nechá otevřené a příští běh naváže od konce posledního **odeslaného** rozboru,
+ * takže se z něj stane delší období s čísly, ze kterých se dá něco vyčíst.
  */
-class WeeklyAnalysisUseCase(
+class ScheduledAnalysisUseCase(
     private val apps: AppRepository,
     private val organizations: OrganizationRepository,
     private val channels: ChannelRepository,
@@ -86,22 +100,32 @@ class WeeklyAnalysisUseCase(
     private val secrets: SecretResolver,
     private val links: ConsoleLinks,
     notificationChannels: List<NotificationChannel>,
+    /** Prahy rozboru; výchozí hodnoty pro testy a pro běh bez platformní konfigurace. */
+    private val policy: AnalysisPolicy = AnalysisPolicy.fixed(),
     private val clock: Clock = Clock.System,
 ) {
     private val channelByType = notificationChannels.associateBy { it.type }
 
+    /**
+     * @param periodStart ruční začátek období; jinak navazuje na poslední odeslaný rozbor
+     * @param force pošli i pod prahem — pro onboarding, kdy chce člověk vidět první zprávu
+     */
     suspend fun run(
         orgId: OrganizationId,
         appId: AppId,
         periodStart: LocalDate? = null,
-    ): WeeklyAnalysisReport {
-        val app = apps.findById(orgId, appId) ?: return WeeklyAnalysisReport(orgId, appId, AnalysisSkipReason.APP_NOT_FOUND)
-        if (!app.enabled) return WeeklyAnalysisReport(orgId, appId, AnalysisSkipReason.APP_DISABLED)
+        force: Boolean = false,
+    ): ScheduledAnalysisReport {
+        val app = apps.findById(orgId, appId) ?: return ScheduledAnalysisReport(orgId, appId, AnalysisSkipReason.APP_NOT_FOUND)
+        if (!app.enabled) return ScheduledAnalysisReport(orgId, appId, AnalysisSkipReason.APP_DISABLED)
 
         val zone = zoneOf(app)
-        val start = periodStart ?: lastFullWeekStart(app)
-        val end = start.plus(WEEK_DAYS - 1, DateTimeUnit.DAY)
-        val previousStart = start.minus(WEEK_DAYS, DateTimeUnit.DAY)
+        val thresholds = policy.thresholds().forApp(app)
+        val (start, end) = period(app, periodStart, digests.lastPeriodEnd(orgId, appId))
+        // Srovnávací období je stejně dlouhé a přiléhá zleva — u dobíhajícího období by
+        // pevný týden porovnával tři týdny proti jednomu.
+        val periodDays = start.daysUntil(end) + 1
+        val previousStart = start.minus(periodDays, DateTimeUnit.DAY)
 
         val names = appTopics.listByApp(orgId, appId).associate { it.key to it.name }
         // Horní mez je půlnoc následujícího dne: interval je zleva uzavřený, zprava otevřený,
@@ -110,18 +134,31 @@ class WeeklyAnalysisUseCase(
         val to = end.plus(1, DateTimeUnit.DAY).atStartOfDayIn(zone)
         val current = aggregates.aggregate(orgId, appId, from, to)
         if (current.reviews == 0 && insights.coverage(orgId, appId, Topic.TAXONOMY_VERSION).analyzed == 0) {
-            return WeeklyAnalysisReport(orgId, appId, AnalysisSkipReason.NO_INSIGHTS)
+            return ScheduledAnalysisReport(orgId, appId, AnalysisSkipReason.NO_INSIGHTS)
         }
         val previous = aggregates.aggregate(orgId, appId, previousStart.atStartOfDayIn(zone), from)
         val replies = aggregates.replyStats(orgId, appId, from, to)
 
+        if (!force && current.reviews < thresholds.minReviews) {
+            logger.info {
+                "Rozbor ${app.id} za $start–$end odložen: ${current.reviews} recenzí s textem " +
+                    "z ${thresholds.minReviews}; období poběží dál"
+            }
+            return ScheduledAnalysisReport(
+                orgId,
+                appId,
+                AnalysisSkipReason.NOT_ENOUGH_REVIEWS,
+                aggregates = compose(app, start, end, current, previous, replies, names, app.locale, thresholds),
+            )
+        }
+
         val targets = channels.listByApp(orgId, appId).filter { it.enabled && it.deliverAnalyses }
         if (targets.isEmpty()) {
-            return WeeklyAnalysisReport(
+            return ScheduledAnalysisReport(
                 orgId,
                 appId,
                 AnalysisSkipReason.NO_CHANNEL,
-                aggregates = compose(app, start, end, current, previous, replies, names, app.locale),
+                aggregates = compose(app, start, end, current, previous, replies, names, app.locale, thresholds),
             )
         }
 
@@ -130,7 +167,7 @@ class WeeklyAnalysisUseCase(
             targets.map { channel ->
                 val implementation = channelByType[channel.type]
                 val credentialId = channel.credentialId
-                val summary = compose(app, start, end, current, previous, replies, names, channel.locale)
+                val summary = compose(app, start, end, current, previous, replies, names, channel.locale, thresholds)
                 when {
                     implementation == null ->
                         AnalysisDelivery(channel.id, sent = false, error = "Kanál typu ${channel.type.name} tenhle proces neumí")
@@ -138,7 +175,7 @@ class WeeklyAnalysisUseCase(
                     credentialId == null ->
                         AnalysisDelivery(channel.id, sent = false, error = "Chybí připojená instalace")
 
-                    !digests.claim(orgId, appId, channel.id, start, clock.now()) ->
+                    !digests.claim(orgId, appId, channel.id, start, end, clock.now()) ->
                         AnalysisDelivery(channel.id, sent = false, alreadySent = true)
 
                     else ->
@@ -156,25 +193,71 @@ class WeeklyAnalysisUseCase(
             }
 
         val report =
-            WeeklyAnalysisReport(
+            ScheduledAnalysisReport(
                 orgId = orgId,
                 appId = appId,
-                aggregates = compose(app, start, end, current, previous, replies, names, app.locale),
+                aggregates = compose(app, start, end, current, previous, replies, names, app.locale, thresholds),
                 deliveries = deliveries,
             )
         logger.info {
-            "Týdenní rozbor ${app.id} za $start–$end: recenzí=${report.aggregates?.reviews} " +
+            "Rozbor ${app.id} za $start–$end: recenzí=${report.aggregates?.reviews} " +
                 "odesláno=${deliveries.count { it.sent }} z ${targets.size} kanálů"
         }
         return report
     }
 
-    /** Období: minulé pondělí–neděle v zóně aplikace. Dnešek se nepočítá, týden musí být celý. */
-    fun lastFullWeekStart(app: App): LocalDate {
-        val today = clock.now().toLocalDateTime(zoneOf(app)).date
-        val thisWeekMonday = today.minus(today.dayOfWeek.isoDayNumber - DayOfWeek.MONDAY.isoDayNumber, DateTimeUnit.DAY)
-        return thisWeekMonday.minus(WEEK_DAYS, DateTimeUnit.DAY)
+    /**
+     * Období rozboru jako `[začátek, konec]` včetně obou dnů.
+     *
+     * Konec je vždycky poslední den **celého** minulého období — dnešek se nepočítá, jinak by
+     * se srovnávalo neúplné období s úplným. Začátek navazuje na poslední odeslaný rozbor;
+     * když se termín přeskočil, období je delší než jedno.
+     */
+    fun period(
+        app: App,
+        periodStart: LocalDate? = null,
+        lastSentEnd: LocalDate? = null,
+    ): Pair<LocalDate, LocalDate> {
+        val end = lastFullPeriodEnd(app)
+        // Ruční období má vlastní délku podle kadence, ne konec posledního celého období:
+        // člověk, který zadá „od 17. srpna", chce ten týden, ne všechno až do dneška.
+        if (periodStart != null) return periodStart to defaultEndFor(app, periodStart)
+        val default = defaultStartFor(app, end)
+        val continued = lastSentEnd?.plus(1, DateTimeUnit.DAY)?.takeIf { it < default } ?: default
+        return continued to end
     }
+
+    /** Poslední den minulého celého období v zóně aplikace. */
+    private fun lastFullPeriodEnd(app: App): LocalDate {
+        val today = clock.now().toLocalDateTime(zoneOf(app)).date
+        return when (app.analysisCadence) {
+            AnalysisCadence.WEEKLY -> {
+                val thisWeekMonday = today.minus(today.dayOfWeek.isoDayNumber - DayOfWeek.MONDAY.isoDayNumber, DateTimeUnit.DAY)
+                thisWeekMonday.minus(1, DateTimeUnit.DAY)
+            }
+
+            AnalysisCadence.MONTHLY -> LocalDate(today.year, today.month, 1).minus(1, DateTimeUnit.DAY)
+        }
+    }
+
+    private fun defaultStartFor(
+        app: App,
+        end: LocalDate,
+    ): LocalDate =
+        when (app.analysisCadence) {
+            AnalysisCadence.WEEKLY -> end.minus(WEEK_DAYS - 1, DateTimeUnit.DAY)
+            AnalysisCadence.MONTHLY -> LocalDate(end.year, end.month, 1)
+        }
+
+    /** Konec období, které začíná zadaným dnem — pro ruční běh nad konkrétním obdobím. */
+    private fun defaultEndFor(
+        app: App,
+        start: LocalDate,
+    ): LocalDate =
+        when (app.analysisCadence) {
+            AnalysisCadence.WEEKLY -> start.plus(WEEK_DAYS - 1, DateTimeUnit.DAY)
+            AnalysisCadence.MONTHLY -> LocalDate(start.year, start.month, 1).plus(1, DateTimeUnit.MONTH).minus(1, DateTimeUnit.DAY)
+        }
 
     private fun compose(
         app: App,
@@ -185,6 +268,7 @@ class WeeklyAnalysisUseCase(
         replies: ReplyStats,
         names: Map<String, String>,
         locale: MessageLocale,
+        thresholds: AnalysisThresholds,
     ): AnalysisAggregates =
         AnalysisAggregates.of(
             periodStart = start,
@@ -194,6 +278,7 @@ class WeeklyAnalysisUseCase(
             replies = replies,
             dataSince = aggregates.dataSince(app.orgId, app.id),
             locale = locale,
+            thresholds = thresholds,
             names = names,
         )
 
@@ -225,7 +310,7 @@ class WeeklyAnalysisUseCase(
         )
     }
 
-    /** Neznámá zóna nesmí shodit rozbor — v nejhorším se týden počítá v UTC. */
+    /** Neznámá zóna nesmí shodit rozbor — v nejhorším se období počítá v UTC. */
     private fun zoneOf(app: App): TimeZone = runCatching { TimeZone.of(app.timezone) }.getOrDefault(TimeZone.UTC)
 
     private companion object {

@@ -234,8 +234,11 @@ internal class FakeAnalysisAggregateRepository(
     ): TopicQuote? = quote
 }
 
-/** Rezervace týdne se stejnou unikátností jako databáze: (kanál, začátek období). */
-internal class FakeAnalysisDigestRepository : AnalysisDigestRepository {
+/** Rezervace období se stejnou unikátností jako databáze: (kanál, začátek období). */
+internal class FakeAnalysisDigestRepository(
+    /** Konec posledního odeslaného období — odsud navazuje další rozbor. */
+    private var lastEnd: LocalDate? = null,
+) : AnalysisDigestRepository {
     private val claimed = mutableSetOf<Pair<ChannelId, LocalDate>>()
 
     override fun claim(
@@ -243,13 +246,23 @@ internal class FakeAnalysisDigestRepository : AnalysisDigestRepository {
         appId: AppId,
         channelId: ChannelId,
         periodStart: LocalDate,
+        periodEnd: LocalDate,
         sentAt: Instant,
-    ): Boolean = claimed.add(channelId to periodStart)
+    ): Boolean {
+        if (!claimed.add(channelId to periodStart)) return false
+        lastEnd = maxOf(periodEnd, lastEnd ?: periodEnd)
+        return true
+    }
 
     override fun lastSent(
         orgId: OrganizationId,
         channelId: ChannelId,
     ): LocalDate? = claimed.filter { it.first == channelId }.maxOfOrNull { it.second }
+
+    override fun lastPeriodEnd(
+        orgId: OrganizationId,
+        appId: AppId,
+    ): LocalDate? = lastEnd
 }
 
 internal class FakeOrganizationRepository(

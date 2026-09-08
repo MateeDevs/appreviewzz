@@ -308,6 +308,7 @@ class ExposedAnalysisDigestRepository(
         appId: AppId,
         channelId: ChannelId,
         periodStart: LocalDate,
+        periodEnd: LocalDate,
         sentAt: Instant,
     ): Boolean =
         transaction(database) {
@@ -324,6 +325,7 @@ class ExposedAnalysisDigestRepository(
                     it[AnalysisDigests.appId] = appId
                     it[AnalysisDigests.channelId] = channelId
                     it[AnalysisDigests.periodStart] = periodStart
+                    it[AnalysisDigests.periodEnd] = periodEnd
                     it[AnalysisDigests.sentAt] = sentAt
                 }
                 true
@@ -342,5 +344,19 @@ class ExposedAnalysisDigestRepository(
                 .limit(1)
                 .firstOrNull()
                 ?.get(AnalysisDigests.periodStart)
+        }
+
+    override fun lastPeriodEnd(
+        orgId: OrganizationId,
+        appId: AppId,
+    ): LocalDate? =
+        transaction(database) {
+            AnalysisDigests
+                .selectAll()
+                .where { (AnalysisDigests.orgId eq orgId) and (AnalysisDigests.appId eq appId) }
+                .orderBy(AnalysisDigests.periodEnd to SortOrder.DESC)
+                .limit(1)
+                .firstOrNull()
+                ?.get(AnalysisDigests.periodEnd)
         }
 }

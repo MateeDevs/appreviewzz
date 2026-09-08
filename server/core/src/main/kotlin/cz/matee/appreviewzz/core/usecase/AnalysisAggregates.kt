@@ -1,5 +1,6 @@
 package cz.matee.appreviewzz.core.usecase
 
+import cz.matee.appreviewzz.core.model.App
 import cz.matee.appreviewzz.core.model.MessageLocale
 import cz.matee.appreviewzz.core.model.OverallSentiment
 import cz.matee.appreviewzz.core.model.Platform
@@ -9,6 +10,34 @@ import cz.matee.appreviewzz.core.port.ReplyStats
 import cz.matee.appreviewzz.core.port.TopicAggregate
 import kotlinx.datetime.LocalDate
 import kotlin.time.Instant
+
+/**
+ * Prahy rozboru. Nejsou to preference klienta, ale statistika: podíl ze tří recenzí je
+ * náhoda a jedna zmínka není téma. Výchozí hodnoty drží platforma
+ * ([cz.matee.appreviewzz.core.model.PlatformSettings]), aplikace si od prvních dvou může
+ * udělat výjimku — appky se objemem liší o řád.
+ */
+data class AnalysisThresholds(
+    /** Kolik recenzí s textem se musí nasbírat, aby rozbor odešel. */
+    val minReviews: Int = DEFAULT_MIN_REVIEWS,
+    /** Od kolika zmínek je téma tématem. */
+    val minTopicCount: Int = DEFAULT_MIN_TOPIC_COUNT,
+    /** Kolik problémů se vejde do zprávy do kanálu. */
+    val topIssues: Int = DEFAULT_TOP_ISSUES,
+) {
+    /** Výjimky konkrétní aplikace; `null` znamená „drž se platformy". */
+    fun forApp(app: App): AnalysisThresholds =
+        copy(
+            minReviews = app.analysisMinReviews ?: minReviews,
+            minTopicCount = app.analysisMinTopicCount ?: minTopicCount,
+        )
+
+    companion object {
+        const val DEFAULT_MIN_REVIEWS = 10
+        const val DEFAULT_MIN_TOPIC_COUNT = 3
+        const val DEFAULT_TOP_ISSUES = 3
+    }
+}
 
 /** Jak se téma vyvíjí proti minulému období. Rozhoduje o tom, co se dostane do rozboru. */
 enum class TopicStatus {
@@ -104,20 +133,19 @@ data class AnalysisAggregates(
     val versions: List<VersionInsight>,
     /** Od kdy o aplikaci máme data; u Androidu bývá historie krátká a rozbor to musí říct. */
     val dataSince: Instant?,
+    /** Prahy, se kterými se čísla počítala — zpráva i konzole se ptají na tentýž údaj. */
+    val thresholds: AnalysisThresholds = AnalysisThresholds(),
 ) {
-    /** Pod tímhle počtem se z čísel nedá nic vyčíst a rozbor to řekne rovnou. */
-    val tooFewReviews: Boolean get() = reviews < MIN_REVIEWS
+    /** Pod tímhle počtem se z čísel nedá nic vyčíst a rozbor se neposílá. */
+    val tooFewReviews: Boolean get() = reviews < thresholds.minReviews
+
+    /** Problémy, které se vejdou do zprávy do kanálu. */
+    val issues: List<TopicInsight> get() = topics.take(thresholds.topIssues)
 
     val previousNegativeDelta: Double?
         get() = previousSentiment?.let { sentiment.negative - it.negative }
 
     companion object {
-        /** Práh, pod kterým je týdenní rozbor jen šum. */
-        const val MIN_REVIEWS = 10
-
-        /** Téma se v rozboru ukáže až od tolika zmínek — jedna recenze není trend. */
-        const val MIN_TOPIC_COUNT = 3
-
         /** „Nové" téma: minulé období mělo nejvýš tolik zmínek. */
         private const val NEW_TOPIC_CEILING = 1
 
@@ -142,12 +170,13 @@ data class AnalysisAggregates(
             replies: ReplyStats,
             dataSince: Instant?,
             locale: MessageLocale,
+            thresholds: AnalysisThresholds = AnalysisThresholds(),
             names: Map<String, String> = emptyMap(),
         ): AnalysisAggregates {
             val previousByKey = previous.topics.associateBy { it.key }
             val topics =
                 current.topics
-                    .filter { it.count >= MIN_TOPIC_COUNT }
+                    .filter { it.count >= thresholds.minTopicCount }
                     .map { topic ->
                         val before = previousByKey[topic.key]?.count ?: 0
                         TopicInsight(
@@ -164,7 +193,7 @@ data class AnalysisAggregates(
 
             val improved =
                 previous.topics
-                    .filter { it.count >= MIN_TOPIC_COUNT }
+                    .filter { it.count >= thresholds.minTopicCount }
                     .mapNotNull { before ->
                         val after = current.topics.firstOrNull { it.key == before.key }?.count ?: 0
                         val dropped = before.count - after
@@ -197,6 +226,7 @@ data class AnalysisAggregates(
                         )
                     },
                 dataSince = dataSince,
+                thresholds = thresholds,
             )
         }
 

@@ -90,6 +90,12 @@ export interface App {
   weeklyDigestDay: number
   /** Kolik měsíců zpětné historie recenzí se stahuje. Android to umí jen s reporting bucketem. */
   historyMonths: number
+  /** Jak často chodí rozbor recenzí. */
+  analysisCadence: 'WEEKLY' | 'MONTHLY'
+  /** Prahy, které pro appku právě platí — buď z platformy, nebo z její výjimky. */
+  analysisMinReviews: number
+  analysisMinTopicCount: number
+  analysisThresholdSource: 'PLATFORM' | 'APP'
   enabled: boolean
   /** Co appce chybí, aby recenze tekly — počítá server, console to jen ukazuje. */
   setup: AppSetup

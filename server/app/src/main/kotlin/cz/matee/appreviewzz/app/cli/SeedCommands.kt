@@ -48,6 +48,7 @@ import cz.matee.appreviewzz.core.port.StoreConnectorException
 import cz.matee.appreviewzz.core.port.StoreContext
 import cz.matee.appreviewzz.core.port.ValidationOutcome
 import cz.matee.appreviewzz.core.port.auditEntry
+import cz.matee.appreviewzz.core.usecase.AnalysisSkipReason
 import cz.matee.appreviewzz.core.usecase.AnalyzeReviewsUseCase
 import cz.matee.appreviewzz.core.usecase.AppInputs
 import cz.matee.appreviewzz.core.usecase.ConsoleException
@@ -545,18 +546,20 @@ class SeedCommands(
     }
 
     /**
-     * Ruční spuštění týdenního rozboru. Užitečné hlavně při onboardingu: první rozbor je
-     * lepší vidět tady než v kanálu klienta.
+     * Ruční spuštění rozboru. Užitečné hlavně při onboardingu: první rozbor je lepší vidět
+     * tady než v kanálu klienta. `--force true` pošle i pod prahem počtu recenzí — jinak by
+     * se u appky s řídkým provozem čekalo, až se období nasbírá.
      */
-    suspend fun analysisWeeklyRun(args: Arguments) {
+    suspend fun analysisRun(args: Arguments) {
         val organization = organization(args)
         val app = app(organization.id, args)
         val periodStart = args.optional("period-start")?.let { LocalDate.parse(it) }
+        val force = args.optional("force")?.toBoolean() == true
 
-        val report = components.weeklyAnalysis.run(organization.id, app.id, periodStart)
+        val report = components.weeklyAnalysis.run(organization.id, app.id, periodStart, force)
         audit(organization.id, "analysis.manual", "app", app.id.toString())
 
-        out("Týdenní rozbor ${app.name} (${app.id})")
+        out("Rozbor ${app.name} (${app.id}) — ${app.analysisCadence.name.lowercase()}")
         // Čísla se vypisují i tehdy, když se nikam neposílala: při onboardingu je tohle jediný
         // způsob, jak si rozbor prohlédnout ještě před kanálem.
         report.aggregates?.let { summary ->
@@ -565,13 +568,13 @@ class SeedCommands(
                 "  nálada: ${AnalysisDigest.percent(summary.sentiment.positive)} % spokojených, " +
                     "${AnalysisDigest.percent(summary.sentiment.negative)} % nespokojených",
             )
-            summary.topics.take(AnalysisDigest.TOP_ISSUES).forEach {
+            summary.issues.forEach {
                 out("  téma ${it.name}: ${it.count}× (${AnalysisDigest.percent(it.negativeShare)} % záporných)")
             }
             out("  odpovězeno ${summary.replies.replied} z ${summary.replies.total}")
         }
         report.skipped?.let {
-            out("  neodesláno: $it")
+            out("  neodesláno: " + describeAnalysisSkip(it))
             return
         }
         report.deliveries.forEach { delivery ->
@@ -1349,6 +1352,16 @@ private fun FailedJob.summarize(): String =
         "${payload ?: taskInstance}  ${errorMessage ?: errorClass ?: "—"}"
 
 /** Důvod, proč přehled nikam nešel. Enum konstanta nikomu nic neřekne, věta ano. */
+private fun describeAnalysisSkip(reason: AnalysisSkipReason): String =
+    when (reason) {
+        AnalysisSkipReason.APP_NOT_FOUND -> "aplikace neexistuje"
+        AnalysisSkipReason.APP_DISABLED -> "aplikace je vypnutá"
+        AnalysisSkipReason.NO_CHANNEL -> "žádný kanál nemá zapnuté rozbory"
+        AnalysisSkipReason.NO_INSIGHTS -> "ani jedna recenze nemá výklad — zkontroluj AI v platformní správě"
+        AnalysisSkipReason.NOT_ENOUGH_REVIEWS ->
+            "málo recenzí s textem; období zůstává otevřené a přičte se k příštímu běhu (--force true pošle i tak)"
+    }
+
 private fun describeSkip(reason: RatingsSkipReason): String =
     when (reason) {
         RatingsSkipReason.APP_NOT_FOUND -> "aplikace neexistuje"

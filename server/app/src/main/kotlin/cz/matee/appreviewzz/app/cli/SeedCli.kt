@@ -274,10 +274,10 @@ private val COMMANDS =
             run = { args -> analysisEval(args) },
         ),
         Command(
-            name = "analysis weekly run",
-            options = setOf("org", "app", "period-start"),
-            usage = "analysis weekly run --org <slug|ID> --app <ID> [--period-start YYYY-MM-DD]",
-            run = { args -> analysisWeeklyRun(args) },
+            name = "analysis run",
+            options = setOf("org", "app", "period-start", "force"),
+            usage = "analysis run --org <slug|ID> --app <ID> [--period-start YYYY-MM-DD] [--force true]",
+            run = { args -> analysisRun(args) },
         ),
         Command(
             name = "vault rotate",
@@ -313,7 +313,7 @@ private val COMMANDS =
 
 /**
  * Jméno příkazu je jedno až tři slova před první `--volbou`. Hledá se od nejdelšího:
- * `analysis weekly run` se tak nesplete s hypotetickým `analysis weekly`.
+ * `analysis weekly run` by se tak nespletlo s hypotetickým `analysis weekly`.
  */
 private fun resolve(argv: List<String>): Pair<Command, List<String>> {
     val words = argv.take(MAX_COMMAND_WORDS).takeWhile { !it.startsWith("--") }

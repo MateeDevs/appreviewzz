@@ -62,6 +62,22 @@ interface IngestPolicy {
 }
 
 /**
+ * Prahy rozborů — kolik recenzí je potřeba, aby zpráva odešla, a od kolika zmínek je téma
+ * téma. Vlastní rozhraní ze stejného důvodu jako [IngestPolicy]: use-case rozborů nemá znát
+ * konfigurační aparát a test si dosadí tři čísla.
+ */
+interface AnalysisPolicy {
+    fun thresholds(): AnalysisThresholds
+
+    companion object {
+        fun fixed(thresholds: AnalysisThresholds = AnalysisThresholds()): AnalysisPolicy =
+            object : AnalysisPolicy {
+                override fun thresholds(): AnalysisThresholds = thresholds
+            }
+    }
+}
+
+/**
  * Čtení platformní konfigurace (F7.2, [ADR 0018]).
  *
  * **Pořadí přebíjení: databáze > prostředí > výchozí hodnota v kódu.** Obráceně to nejde —
@@ -79,7 +95,8 @@ class PlatformConfig(
     private val env: (String) -> String? = System::getenv,
     private val clock: Clock = Clock.System,
     private val ttl: Duration = DEFAULT_TTL,
-) : IngestPolicy {
+) : IngestPolicy,
+    AnalysisPolicy {
     private val snapshot = AtomicReference<Snapshot?>(null)
 
     fun resolve(key: String): ResolvedSetting {
@@ -150,6 +167,13 @@ class PlatformConfig(
     override fun minIntervalMinutes(): Int = int(PlatformSettings.INGEST_MIN_INTERVAL)
 
     override fun maxAppsPerOrg(): Int = int(PlatformSettings.MAX_APPS_PER_ORG)
+
+    override fun thresholds(): AnalysisThresholds =
+        AnalysisThresholds(
+            minReviews = int(PlatformSettings.ANALYSIS_MIN_REVIEWS),
+            minTopicCount = int(PlatformSettings.ANALYSIS_MIN_TOPIC_COUNT),
+            topIssues = int(PlatformSettings.ANALYSIS_TOP_ISSUES),
+        )
 
     /** Po zápisu — aby ten, kdo právě uložil, viděl výsledek hned, ne za půl minuty. */
     fun invalidate() = snapshot.set(null)
