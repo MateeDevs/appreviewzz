@@ -111,6 +111,16 @@ data class AnalysisDigest(
         )
     }
 
+    /**
+     * Efekt odpovědi (B5). Věta se ukazuje **jen když někdo hvězdy přidal**: „nikdo nepřidal"
+     * u appky s deseti odpověďmi je statistický šum, ne zpráva o tom, že odpovídat nemá smysl.
+     */
+    fun replyUpliftLine(): String? {
+        val uplifted = aggregates.replies.uplifted
+        if (uplifted == 0) return null
+        return catalog.format(MessageKey.ANALYSIS_REPLY_UPLIFT, "count" to uplifted)
+    }
+
     /** Věta o krátké historii. Google Play vrací jen týden zpět a bez toho vypadá jako propad. */
     fun dataSinceLine(timezone: String): String? {
         val since = aggregates.dataSince ?: return null

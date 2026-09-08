@@ -47,6 +47,7 @@ private class AnalysisFixture(
     thresholds: AnalysisThresholds = AnalysisThresholds(),
     minReviewsOverride: Int? = null,
     versions: List<VersionWindow> = emptyList(),
+    replies: ReplyStats? = null,
 ) {
     val apps = FakeAppRepository()
     val organizations = FakeOrganizationRepository()
@@ -72,7 +73,7 @@ private class AnalysisFixture(
                 FakeAnalysisAggregateRepository(
                     current = current,
                     previous = previous,
-                    replies = ReplyStats(total = current.reviews, replied = 4, medianHours = 5.0),
+                    replies = replies ?: ReplyStats(total = current.reviews, replied = 4, medianHours = 5.0),
                     quote = quote,
                     versions = versions,
                 ),
@@ -178,6 +179,31 @@ class ScheduledAnalysisUseCaseTest :
                 .single()
                 .second
                 .versionLine() shouldBe null
+        }
+
+        test("recenze, které po odpovědi přidaly hvězdy, se do rozboru dostanou větou") {
+            val fixture =
+                AnalysisFixture(replies = ReplyStats(total = 20, replied = 8, medianHours = 5.0, uplifted = 3))
+
+            fixture.useCase.run(ORG, fixture.app.id)
+
+            fixture.slack.analyses
+                .single()
+                .second
+                .replyUpliftLine()
+                .shouldNotBeNull() shouldContain "3"
+        }
+
+        test("nula zvednutých recenzí větu nepřidá — vypadala by jako výtka") {
+            val fixture =
+                AnalysisFixture(replies = ReplyStats(total = 20, replied = 8, medianHours = 5.0, uplifted = 0))
+
+            fixture.useCase.run(ORG, fixture.app.id)
+
+            fixture.slack.analyses
+                .single()
+                .second
+                .replyUpliftLine() shouldBe null
         }
 
         test("druhý běh za tentýž týden zprávu nepošle podruhé") {

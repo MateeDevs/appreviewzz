@@ -136,6 +136,12 @@ enum class MessageKey(
     ALERT_TOP_TOPIC("Nejčastější téma: {name} ({count}).", "Most common topic: {name} ({count})."),
     ALERT_TOP_VERSION("Verze: {version} ({count}).", "Version: {version} ({count})."),
     ALERT_OPEN("Ukázat recenze", "Show reviews"),
+
+    // ------------------------------------------------------------------ efekt odpovědi (B5)
+    ANALYSIS_REPLY_UPLIFT(
+        "{count} recenzí po vaší odpovědi přidalo hvězdy.",
+        "{count} reviews raised their rating after you replied.",
+    ),
     ;
 
     internal fun text(locale: MessageLocale): String =

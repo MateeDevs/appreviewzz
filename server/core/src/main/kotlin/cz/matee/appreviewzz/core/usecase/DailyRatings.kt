@@ -11,6 +11,7 @@ import cz.matee.appreviewzz.core.model.ObservedRatings
 import cz.matee.appreviewzz.core.model.OrganizationId
 import cz.matee.appreviewzz.core.model.Platform
 import cz.matee.appreviewzz.core.model.RatingSnapshot
+import cz.matee.appreviewzz.core.port.AnalysisAggregateRepository
 import cz.matee.appreviewzz.core.port.AppRepository
 import cz.matee.appreviewzz.core.port.ChannelException
 import cz.matee.appreviewzz.core.port.ChannelRepository
@@ -26,8 +27,12 @@ import cz.matee.appreviewzz.core.port.SecretResolver
 import cz.matee.appreviewzz.core.port.StoreConnectorException
 import cz.matee.appreviewzz.core.port.StoreErrorKind
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atStartOfDayIn
+import kotlinx.datetime.minus
+import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Clock
 
@@ -98,6 +103,11 @@ class DailyRatingsUseCase(
     private val secrets: SecretResolver,
     ratingsSources: List<RatingsSource>,
     notificationChannels: List<NotificationChannel>,
+    /**
+     * Efekt odpovědi (B5). `null` = instalace bez rozborů; přehled pak vypadá jako dosud,
+     * jen bez té jedné věty.
+     */
+    private val analysisAggregates: AnalysisAggregateRepository? = null,
     private val clock: Clock = Clock.System,
 ) {
     private val sourcesByPlatform = ratingsSources.groupBy { it.platform }
@@ -127,6 +137,9 @@ class DailyRatingsUseCase(
         if (parts.isEmpty()) return RatingsReport(orgId, appId, RatingsSkipReason.NO_DATA, failures = failures)
 
         val targets = channels.listByApp(orgId, appId).filter { it.enabled && it.deliverRatings }
+        // Za celý týden, ne za den: recenzi lidé přepisují po dnech a jednodenní okno by
+        // ukázalo nulu skoro pokaždé.
+        val uplifted = replyUplift(orgId, appId, today, app.timezone)
         if (targets.isEmpty()) {
             // Snapshoty jsou uložené, jen je nemá komu poslat — historie tím neutrpí.
             return RatingsReport(orgId, appId, RatingsSkipReason.NO_CHANNEL, platforms = parts, failures = failures)
@@ -156,6 +169,7 @@ class DailyRatingsUseCase(
                                     timezone = app.timezone,
                                     date = today,
                                     platforms = parts,
+                                    repliesUplifted = uplifted,
                                 ),
                             )
                             RatingsDelivery(channel.id, sent = true)
@@ -301,6 +315,20 @@ class DailyRatingsUseCase(
         Platform.IOS -> null
     }
 
+    /** Kolik recenzí za poslední týden po naší odpovědi přidalo hvězdy. Nula bez rozborů. */
+    private fun replyUplift(
+        orgId: OrganizationId,
+        appId: AppId,
+        today: LocalDate,
+        timezone: String,
+    ): Int {
+        val repository = analysisAggregates ?: return 0
+        val zone = runCatching { TimeZone.of(timezone) }.getOrDefault(TimeZone.UTC)
+        val to = today.plus(1, DateTimeUnit.DAY).atStartOfDayIn(zone)
+        val from = today.minus(UPLIFT_WINDOW_DAYS, DateTimeUnit.DAY).atStartOfDayIn(zone)
+        return repository.replyStats(orgId, appId, from, to).uplifted
+    }
+
     /** Dnešek v zóně aplikace — digest má chodit v čase klienta, ne serveru. */
     private fun today(app: App): LocalDate =
         clock.now().toLocalDateTime(runCatching { TimeZone.of(app.timezone) }.getOrDefault(TimeZone.UTC)).date
@@ -325,5 +353,8 @@ class DailyRatingsUseCase(
 
         /** Kolik dní zpět se hledá srovnání; víc než měsíc už není „od minule". */
         const val HISTORY_WINDOW = 30
+
+        /** Okno pro efekt odpovědi: recenzi lidé přepisují po dnech, jeden den by ukázal nulu. */
+        const val UPLIFT_WINDOW_DAYS = 7
     }
 }

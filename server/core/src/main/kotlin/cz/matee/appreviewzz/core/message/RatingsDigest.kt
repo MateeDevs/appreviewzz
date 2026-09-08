@@ -61,6 +61,12 @@ data class RatingsDigest(
     /** Den, za který přehled jde ven (v zóně aplikace). */
     val date: LocalDate,
     val platforms: List<PlatformRatings>,
+    /**
+     * Kolik recenzí po naší odpovědi přidalo hvězdy (B5). Do denního přehledu patří proto,
+     * že je to jediné číslo, které týmu říká, že odpovídání k něčemu je — a to je věta,
+     * kterou je lepší vidět ráno než jednou týdně.
+     */
+    val repliesUplifted: Int = 0,
 ) {
     val catalog: MessageCatalog = MessageCatalog.of(locale)
 
@@ -70,6 +76,12 @@ data class RatingsDigest(
 
     /** Datum v jazyce kanálu; u platformy se ukazuje její vlastní `asOf`, ne dnešek. */
     fun formattedDate(date: LocalDate): String = DATE_FORMAT.withLocale(catalog.dateLocale).format(date.toJavaLocalDate())
+
+    /** `null`, když hvězdy nikdo nepřidal — „nula" by vypadala jako výtka, ne jako informace. */
+    fun replyUpliftLine(): String? {
+        if (repliesUplifted == 0) return null
+        return catalog.format(MessageKey.ANALYSIS_REPLY_UPLIFT, "count" to repliesUplifted)
+    }
 
     /** Krátký souhrn do notifikace na mobilu — bloky ani karta se tam nevykreslí. */
     fun fallbackText(): String {

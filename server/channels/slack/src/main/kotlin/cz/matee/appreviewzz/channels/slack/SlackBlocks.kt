@@ -152,7 +152,15 @@ internal object SlackBlocks {
                     improvedSection(digest)?.let { add(section(it)) }
                 }
 
-                add(section("*${escape(catalog[MessageKey.ANALYSIS_REPLIES])}*\n${escape(digest.repliesLine())}"))
+                add(
+                    section(
+                        listOfNotNull(
+                            "*${escape(catalog[MessageKey.ANALYSIS_REPLIES])}*",
+                            escape(digest.repliesLine()),
+                            digest.replyUpliftLine()?.let { escape(it) },
+                        ).joinToString("\n"),
+                    ),
+                )
                 digest.dataSinceLine(TIMEZONE_UTC)?.let { add(context(escape(it))) }
                 digest.consoleUrl?.let { url ->
                     add(

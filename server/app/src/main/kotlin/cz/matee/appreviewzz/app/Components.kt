@@ -362,6 +362,7 @@ class Components(
             secrets = vault,
             ratingsSources = ratingsSources,
             notificationChannels = notificationChannels,
+            analysisAggregates = analysisAggregates,
         )
     }
 

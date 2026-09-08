@@ -237,6 +237,7 @@ internal object TeamsCards {
 
                 add(textBlock("**${catalog[MessageKey.ANALYSIS_REPLIES]}**", separator = true, spacing = "Medium"))
                 add(textBlock(digest.repliesLine()))
+                digest.replyUpliftLine()?.let { add(textBlock(it, subtle = true, size = "Small")) }
                 digest.dataSinceLine(TIMEZONE_UTC)?.let { add(textBlock(it, subtle = true, size = "Small")) }
             },
             actions =
