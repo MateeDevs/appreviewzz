@@ -160,6 +160,10 @@ Dedup je unikátní klíč `(app_id, kind, topic_key, window_date)` v `analysis_
 dotagování jede po dávkách a jedna appka jich za den spolkne klidně deset, ale zpráva
 odejde jednou. Alerty za 90 dní jsou v konzoli na stránce *Rozbory*.
 
+Když se v jeden den potkají oba druhy (záporný výkyv i výkyv tématu, což je běžné —
+vymknou se naráz), **zaznamenají se oba, ale zpráva odejde jedna**: ta o záporném výkyvu,
+protože v textu už nese nejčastější téma. V konzoli jsou vidět oba.
+
 **„Přišel alert, který přijít neměl."** Podívej se do `analysis_alert` na `expected`
 a `z_score` — z toho je vidět, proti čemu se to měřilo. Nejčastější příčina je dotagování
 historie: když se za jeden den doplní výklady tisíci recenzím, `submitted_at` je sice

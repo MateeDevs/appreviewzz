@@ -158,6 +158,26 @@ class SpikeAlertUseCaseTest :
             slack.alerts shouldHaveSize 1
         }
 
+        test("záporný výkyv i výkyv tématu naráz pošlou jednu zprávu, ne dvě") {
+            // Když se den vymkne, vymkne se obojí naráz — a záporný výkyv už v textu nese
+            // nejčastější téma. Dvě zprávy o téže věci jsou pro tým šum, ne informace.
+            val today =
+                DayCounts(TODAY, reviews = 11, starSum = 11, sentiments = mapOf(OverallSentiment.NEGATIVE to 11))
+            val quietTopics =
+                (1..SpikeDetection.BASELINE_DAYS).map { DayTopicCount(TODAY.minus(it, DateTimeUnit.DAY), Topic.CRASH.key, 1) }
+            val (useCase, slack, appId) =
+                fixture(days = quietDays(1) + today, dayTopics = quietTopics + DayTopicCount(TODAY, Topic.CRASH.key, 9))
+
+            val report = useCase.run(ORG, appId)
+
+            // Zaznamenají se oba: v konzoli je to historie výkyvů, ne fronta zpráv.
+            report.alerts.map { it.kind } shouldBe listOf(AlertKind.NEGATIVE_SPIKE, AlertKind.TOPIC_SPIKE)
+            slack.alerts shouldHaveSize 1
+            slack.alerts
+                .single()
+                .second.alert.kind shouldBe AlertKind.NEGATIVE_SPIKE
+        }
+
         test("klidný den žádnou zprávu nevyvolá") {
             val today =
                 DayCounts(TODAY, reviews = 2, starSum = 2, sentiments = mapOf(OverallSentiment.NEGATIVE to 2))

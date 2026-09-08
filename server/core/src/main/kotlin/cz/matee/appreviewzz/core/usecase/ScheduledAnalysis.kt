@@ -173,15 +173,10 @@ class ScheduledAnalysisUseCase(
 
         val slug = organizations.findById(orgId)?.slug.orEmpty()
         val note = versionNote(app, from, to, previousStart.atStartOfDayIn(zone), previous, thresholds, names)
-        // Shrnutí se počítá **jednou na jazyk**, ne jednou na kanál: dvě anglické místnosti
-        // téže appky mají dostat tentýž odstavec a druhé volání modelu by nic nepřidalo.
-        val summaries =
-            targets
-                .map { it.locale }
-                .distinct()
-                .associateWith { locale ->
-                    narrative(app, compose(app, start, end, current, previous, replies, names, locale, thresholds), locale, from, to)
-                }
+        // Shrnutí se počítá **jednou na jazyk a až když je komu poslat**: dvě anglické
+        // místnosti téže appky dostanou tentýž odstavec a opakovaný běh, který nic
+        // neodešle, za model neplatí.
+        val summaries = mutableMapOf<MessageLocale, String?>()
         val deliveries =
             targets.map { channel ->
                 val implementation = channelByType[channel.type]
@@ -199,9 +194,15 @@ class ScheduledAnalysisUseCase(
 
                     else ->
                         try {
+                            val paragraph =
+                                if (summaries.containsKey(channel.locale)) {
+                                    summaries[channel.locale]
+                                } else {
+                                    narrative(app, summary, channel.locale, from, to).also { summaries[channel.locale] = it }
+                                }
                             implementation.postAnalysisDigest(
                                 ChannelTarget(channel.targetRef, secrets.resolve(orgId, credentialId)),
-                                digest(app, slug, summary, channel.locale, start, end, note, summaries[channel.locale]),
+                                digest(app, slug, summary, channel.locale, start, end, note, paragraph),
                             )
                             AnalysisDelivery(channel.id, sent = true)
                         } catch (error: ChannelException) {

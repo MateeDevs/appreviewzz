@@ -78,12 +78,14 @@ class SpikeAlertUseCase(
         val daily = aggregates.daily(orgId, appId, from, to, app.timezone)
         val dailyTopics = aggregates.dailyTopics(orgId, appId, from, to, app.timezone)
 
-        val found =
-            buildList {
-                negativeSpike(app, today, daily)?.let { add(it) }
-                topicSpike(app, today, dailyTopics)?.let { add(it) }
-            }
+        // Oba druhy se **zaznamenají**, ale zpráva odejde jen jedna. Když se den vymkne,
+        // vymkne se obojí naráz — a záporný výkyv už v textu nese nejčastější téma, takže
+        // druhá zpráva o téže věci je pro tým šum, ne informace.
+        val negative = negativeSpike(app, today, daily)
+        val topic = topicSpike(app, today, dailyTopics)
+        val found = listOfNotNull(negative, topic)
         if (found.isEmpty()) return SpikeAlertReport()
+        val announced = negative ?: topic
 
         val names = appTopics.listByApp(orgId, appId).associate { it.key to it.name }
         val slug = organizations.findById(orgId)?.slug.orEmpty()
@@ -97,6 +99,8 @@ class SpikeAlertUseCase(
                 "Výkyv ${alert.kind} u appky $appId za ${alert.windowDate}: " +
                     "${alert.observed} proti obvyklým ${"%.1f".format(alert.expected)} (z=${"%.1f".format(alert.zScore)})"
             }
+        }
+        if (announced != null) {
             targets.forEach { channel ->
                 val implementation = channelByType[channel.type]
                 val credentialId = channel.credentialId
@@ -104,7 +108,7 @@ class SpikeAlertUseCase(
                 try {
                     implementation.postAnalysisAlert(
                         ChannelTarget(channel.targetRef, secrets.resolve(orgId, credentialId)),
-                        message(app, slug, alert, channel.locale, names, dayFrom, to, dailyTopics),
+                        message(app, slug, announced, channel.locale, names, dayFrom, to, dailyTopics),
                     )
                     sent++
                 } catch (error: ChannelException) {
