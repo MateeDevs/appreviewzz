@@ -511,6 +511,8 @@ data class ReviewFilter(
     val types: Set<ReviewType> = emptySet(),
     val urgencies: Set<Urgency> = emptySet(),
     val sentiments: Set<OverallSentiment> = emptySet(),
+    /** Verze aplikace; z dopadu verzí se sem chodí odkazem „ukaž mi recenze téhle verze". */
+    val version: String? = null,
 ) {
     /** Filtry, které se dají zodpovědět jen z výkladu recenze. */
     val needsInsight: Boolean

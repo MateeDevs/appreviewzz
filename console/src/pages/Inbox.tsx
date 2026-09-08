@@ -46,6 +46,7 @@ export function InboxPage() {
 
   const appId = params.get('app') ?? ''
   const topic = params.get('topic') ?? ''
+  const version = params.get('version') ?? ''
   const setParam = (key: string, value: string) => {
     const next = new URLSearchParams(params)
     if (value) next.set(key, value)
@@ -61,6 +62,7 @@ export function InboxPage() {
     topic,
     type,
     urgency,
+    version,
   })
   const topics = useTopics(org, selected)
 
@@ -118,12 +120,14 @@ export function InboxPage() {
               </option>
             ))}
           </select>
-          {topic || type || urgency ? (
+          {version ? <Badge>verze {version}</Badge> : null}
+          {topic || type || urgency || version ? (
             <button
               type="button"
               className="secondary"
               onClick={() => {
                 setTopic('')
+                setParam('version', '')
                 setType('')
                 setUrgency('')
               }}

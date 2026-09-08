@@ -145,6 +145,9 @@ internal object SlackBlocks {
                     add(section(moodSection(digest)))
                     add(section(issuesSection(digest)))
                     digest.quoteLine()?.let { add(section("> ${escape(it).take(QUOTE_LIMIT)}")) }
+                    // Vydání, které přineslo nové téma, patří hned za problémy: je to
+                    // nejpravděpodobnější odpověď na otázku „proč zrovna teď".
+                    digest.versionLine()?.let { add(section(escape(it))) }
                     improvedSection(digest)?.let { add(section(it)) }
                 }
 

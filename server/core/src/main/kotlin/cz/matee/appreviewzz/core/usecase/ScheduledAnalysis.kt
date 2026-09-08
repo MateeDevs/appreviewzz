@@ -10,6 +10,7 @@ import cz.matee.appreviewzz.core.model.OrganizationId
 import cz.matee.appreviewzz.core.model.Topic
 import cz.matee.appreviewzz.core.port.AnalysisAggregateRepository
 import cz.matee.appreviewzz.core.port.AnalysisDigestRepository
+import cz.matee.appreviewzz.core.port.AnalysisFilter
 import cz.matee.appreviewzz.core.port.AnalysisPeriod
 import cz.matee.appreviewzz.core.port.AppRepository
 import cz.matee.appreviewzz.core.port.AppTopicRepository
@@ -34,6 +35,7 @@ import kotlinx.datetime.minus
 import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Clock
+import kotlin.time.Instant
 
 private val logger = KotlinLogging.logger {}
 
@@ -164,6 +166,7 @@ class ScheduledAnalysisUseCase(
         }
 
         val slug = organizations.findById(orgId)?.slug.orEmpty()
+        val note = versionNote(app, from, to, previousStart.atStartOfDayIn(zone), previous, thresholds, names)
         val deliveries =
             targets.map { channel ->
                 val implementation = channelByType[channel.type]
@@ -183,7 +186,7 @@ class ScheduledAnalysisUseCase(
                         try {
                             implementation.postAnalysisDigest(
                                 ChannelTarget(channel.targetRef, secrets.resolve(orgId, credentialId)),
-                                digest(app, slug, summary, channel.locale, start, end),
+                                digest(app, slug, summary, channel.locale, start, end, note),
                             )
                             AnalysisDelivery(channel.id, sent = true)
                         } catch (error: ChannelException) {
@@ -283,6 +286,49 @@ class ScheduledAnalysisUseCase(
             names = names,
         )
 
+    /**
+     * Vydání, které do období přineslo téma, jaké předtím nebylo (B3).
+     *
+     * Verze se počítá za novou, když v **srovnávacím** období neměla ani jednu recenzi —
+     * úplná historie by stála dotaz přes celou appku a pro jednu větu ve zprávě to nestojí
+     * za to. Bere se ta s nejvíc recenzemi; jedno vydání za období je pravidlo, ne výjimka.
+     */
+    private fun versionNote(
+        app: App,
+        from: Instant,
+        to: Instant,
+        previousFrom: Instant,
+        previous: AnalysisPeriod,
+        thresholds: AnalysisThresholds,
+        names: Map<String, String>,
+    ): AnalysisDigest.VersionNote? {
+        val candidate =
+            aggregates
+                .versionWindows(app.orgId, app.id, from, MIN_VERSION_REVIEWS)
+                .maxByOrNull { it.reviews }
+                ?: return null
+        val filter = AnalysisFilter(platform = candidate.platform, version = candidate.version)
+        if (aggregates.aggregate(app.orgId, app.id, previousFrom, from, filter).reviews > 0) return null
+
+        val before =
+            previous.topics
+                .filter { it.count >= thresholds.minTopicCount }
+                .map { it.key }
+                .toSet()
+        val fresh =
+            aggregates
+                .aggregate(app.orgId, app.id, from, to, filter)
+                .topics
+                .filter { it.key !in before && it.count >= thresholds.minTopicCount && it.negative > it.positive }
+                .maxByOrNull { it.count }
+                ?: return null
+        return AnalysisDigest.VersionNote(
+            version = candidate.version,
+            topicName = AnalysisAggregates.nameOf(fresh.key, app.locale, names),
+            count = fresh.count,
+        )
+    }
+
     private fun digest(
         app: App,
         slug: String,
@@ -290,6 +336,7 @@ class ScheduledAnalysisUseCase(
         locale: MessageLocale,
         start: LocalDate,
         end: LocalDate,
+        versionNote: AnalysisDigest.VersionNote?,
     ): AnalysisDigest {
         val zone = zoneOf(app)
         val leadTopic = summary.topics.firstOrNull()
@@ -308,6 +355,7 @@ class ScheduledAnalysisUseCase(
                     )
                 },
             consoleUrl = links.reviews(slug, app.id, leadTopic?.key),
+            versionNote = versionNote,
         )
     }
 
@@ -316,5 +364,8 @@ class ScheduledAnalysisUseCase(
 
     private companion object {
         const val WEEK_DAYS = 7
+
+        /** Z verze s míň recenzemi se nedá nic vyčíst — stejná hranice jako u dopadu verzí. */
+        const val MIN_VERSION_REVIEWS = 5
     }
 }

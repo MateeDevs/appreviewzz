@@ -175,6 +175,10 @@ internal object TeamsCards {
                         )
                     }
 
+                    // Vydání, které přineslo nové téma, patří hned za problémy: je to
+                    // nejpravděpodobnější odpověď na otázku „proč zrovna teď".
+                    digest.versionLine()?.let { add(textBlock(it, separator = true, spacing = "Medium")) }
+
                     val improved =
                         digest.aggregates.improved.indices
                             .mapNotNull { digest.improvedLine(it) }

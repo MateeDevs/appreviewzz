@@ -10,6 +10,7 @@ import cz.matee.appreviewzz.core.port.AnalysisPeriod
 import cz.matee.appreviewzz.core.port.ReplyStats
 import cz.matee.appreviewzz.core.port.TopicAggregate
 import cz.matee.appreviewzz.core.port.TopicQuote
+import cz.matee.appreviewzz.core.port.VersionWindow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -45,6 +46,7 @@ private class AnalysisFixture(
     lastSentEnd: LocalDate? = null,
     thresholds: AnalysisThresholds = AnalysisThresholds(),
     minReviewsOverride: Int? = null,
+    versions: List<VersionWindow> = emptyList(),
 ) {
     val apps = FakeAppRepository()
     val organizations = FakeOrganizationRepository()
@@ -72,6 +74,7 @@ private class AnalysisFixture(
                     previous = previous,
                     replies = ReplyStats(total = current.reviews, replied = 4, medianHours = 5.0),
                     quote = quote,
+                    versions = versions,
                 ),
             appTopics = FakeAppTopicRepository(),
             digests = FakeAnalysisDigestRepository(lastSentEnd),
@@ -127,6 +130,54 @@ class ScheduledAnalysisUseCaseTest :
             digest.quoteLine().shouldNotBeNull() shouldContain "pořád to padá"
             digest.consoleUrl.shouldNotBeNull() shouldContain "/matee/recenze?app="
             digest.consoleUrl.shouldNotBeNull() shouldContain "topic=crash"
+        }
+
+        test("nová verze s novým tématem přidá do rozboru větu o vydání") {
+            val fixture =
+                AnalysisFixture(
+                    versions =
+                        listOf(
+                            VersionWindow(
+                                version = "3.2.0",
+                                platform = Platform.ANDROID,
+                                firstSeen = Instant.parse("2026-09-01T10:00:00Z"),
+                                reviews = 9,
+                            ),
+                        ),
+                )
+
+            fixture.useCase.run(ORG, fixture.app.id)
+
+            val digest =
+                fixture.slack.analyses
+                    .single()
+                    .second
+            digest.versionLine().shouldNotBeNull() shouldContain "3.2.0"
+            digest.versionLine().shouldNotBeNull() shouldContain "Pády"
+        }
+
+        test("verze, o které se psalo už minule, do rozboru větu nepřidá") {
+            val fixture =
+                AnalysisFixture(
+                    // Minulé období mělo tytéž recenze i totéž téma — vydání tedy nic nepřineslo.
+                    previous = period(20),
+                    versions =
+                        listOf(
+                            VersionWindow(
+                                version = "3.2.0",
+                                platform = Platform.ANDROID,
+                                firstSeen = Instant.parse("2026-09-01T10:00:00Z"),
+                                reviews = 9,
+                            ),
+                        ),
+                )
+
+            fixture.useCase.run(ORG, fixture.app.id)
+
+            fixture.slack.analyses
+                .single()
+                .second
+                .versionLine() shouldBe null
         }
 
         test("druhý běh za tentýž týden zprávu nepošle podruhé") {

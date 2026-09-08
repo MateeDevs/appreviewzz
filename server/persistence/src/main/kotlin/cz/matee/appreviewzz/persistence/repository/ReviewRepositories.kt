@@ -197,6 +197,7 @@ class ExposedReviewRepository(
                     if (filter.sentiments.isNotEmpty()) {
                         condition = condition and (ReviewInsights.sentiment inList filter.sentiments.toList())
                     }
+                    filter.version?.let { condition = condition and (Reviews.appVersion eq it) }
                     if (filter.topics.isNotEmpty()) {
                         // Poddotaz, ne další join: recenze se třemi tématy by se jinak
                         // ve výsledku objevila třikrát.

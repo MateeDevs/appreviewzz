@@ -7,10 +7,11 @@ import {
   useBackfillAnalysis,
   useMe,
   useRunAnalysis,
+  useVersionImpact,
 } from '../api/hooks'
 import { Badge, Card, Empty, ErrorBox, Loading } from '../components/ui'
 import { SentimentChart, Sparkline } from '../components/SentimentChart'
-import type { AnalysisOverview, Platform, TopicStatus } from '../api/types'
+import type { AnalysisOverview, Platform, TopicStatus, VersionImpact } from '../api/types'
 
 const STATUS_LABELS: Record<TopicStatus, { label: string; tone?: 'ok' | 'warn' | 'bad' }> = {
   NEW: { label: 'nové', tone: 'warn' },
@@ -361,6 +362,141 @@ function Overview({ org, appId, overview }: { org: string; appId: string; overvi
           ) : null}
         </Card>
       </div>
+
+      <VersionImpactCard org={org} appId={appId} />
+    </>
+  )
+}
+
+/**
+ * Dopad verzí (B3). „Před" je 30 dní před prvním výskytem verze na téže platformě —
+ * kalendářní měsíc by srovnával podle toho, kdy se člověk na stránku podíval.
+ */
+function VersionImpactCard({ org, appId }: { org: string; appId: string }) {
+  const versions = useVersionImpact(org, appId)
+  const [open, setOpen] = useState('')
+
+  if (versions.isPending) return <Card title="Dopad verzí"><Loading /></Card>
+  if (versions.error) return <Card title="Dopad verzí"><ErrorBox error={versions.error} /></Card>
+  if (!versions.data || versions.data.length === 0) {
+    return (
+      <Card title="Dopad verzí">
+        <Empty>Zatím žádná verze nemá dost recenzí na to, aby se dalo srovnávat (potřeba aspoň pět).</Empty>
+      </Card>
+    )
+  }
+
+  return (
+    <Card title="Dopad verzí">
+      <table>
+        <thead>
+          <tr>
+            <th>Verze</th>
+            <th>Ø ★ před → po</th>
+            <th>Nespokojených před → po</th>
+            <th>Co se změnilo</th>
+            <th />
+          </tr>
+        </thead>
+        <tbody>
+          {versions.data.map((item) => (
+            <VersionRow
+              key={`${item.platform}-${item.version}`}
+              org={org}
+              appId={appId}
+              item={item}
+              open={open === `${item.platform}-${item.version}`}
+              onToggle={() => setOpen(open === `${item.platform}-${item.version}` ? '' : `${item.platform}-${item.version}`)}
+            />
+          ))}
+        </tbody>
+      </table>
+    </Card>
+  )
+}
+
+function VersionRow({
+  org,
+  appId,
+  item,
+  open,
+  onToggle,
+}: {
+  org: string
+  appId: string
+  item: VersionImpact
+  open: boolean
+  onToggle: () => void
+}) {
+  const stars = (value: number | null) => (value == null ? '—' : value.toFixed(2))
+  return (
+    <>
+      <tr>
+        <td>
+          <strong>{item.version}</strong>{' '}
+          <span className="small muted">{item.platform === 'ANDROID' ? 'Google Play' : 'App Store'}</span>
+          <div className="small muted">od {new Date(item.firstSeen).toLocaleDateString('cs-CZ')}</div>
+        </td>
+        <td>
+          {stars(item.before.avgStars)} → {stars(item.after.avgStars)}
+          {item.starsDelta != null && Math.abs(item.starsDelta) >= 0.05 ? (
+            <span className={`small metric-delta ${item.starsDelta > 0 ? 'up' : 'down'}`}>
+              {' '}
+              {item.starsDelta > 0 ? '+' : ''}
+              {item.starsDelta.toFixed(2)}
+            </span>
+          ) : null}
+        </td>
+        <td>
+          {percent(item.before.negativeShare)} → {percent(item.after.negativeShare)}
+          {Math.abs(item.negativeDelta) >= 0.05 ? (
+            <span className={`small metric-delta ${item.negativeDelta > 0 ? 'down' : 'up'}`}>
+              {' '}
+              {item.negativeDelta > 0 ? '+' : ''}
+              {Math.round(item.negativeDelta * 100)} b.
+            </span>
+          ) : null}
+        </td>
+        <td>
+          {item.newTopics.slice(0, 3).map((topic) => (
+            <span key={topic.key}>
+              <Badge tone="bad">
+                + {topic.name} ({topic.count})
+              </Badge>{' '}
+            </span>
+          ))}
+          {item.goneTopics.slice(0, 3).map((topic) => (
+            <span key={topic.key}>
+              <Badge tone="ok">− {topic.name}</Badge>{' '}
+            </span>
+          ))}
+          {item.newTopics.length === 0 && item.goneTopics.length === 0 ? (
+            <span className="small muted">nic, o čem by se psalo jinak</span>
+          ) : null}
+        </td>
+        <td>
+          <button type="button" className="secondary" onClick={onToggle}>
+            {open ? 'Skrýt' : 'Rozbalit'}
+          </button>
+        </td>
+      </tr>
+      {open ? (
+        <tr>
+          <td colSpan={5}>
+            <div className="small">
+              <strong>Po vydání</strong> ({item.after.reviews} recenzí):{' '}
+              {item.after.topics.map((topic) => `${topic.name} ${topic.count}×`).join(', ') || 'žádné téma se neopakovalo'}
+            </div>
+            <div className="small muted">
+              <strong>Před vydáním</strong> ({item.before.reviews} recenzí):{' '}
+              {item.before.topics.map((topic) => `${topic.name} ${topic.count}×`).join(', ') || 'žádné téma se neopakovalo'}
+            </div>
+            <Link className="small" to={`/${org}/recenze?app=${appId}&version=${encodeURIComponent(item.version)}`}>
+              Ukázat recenze verze {item.version}
+            </Link>
+          </td>
+        </tr>
+      ) : null}
     </>
   )
 }

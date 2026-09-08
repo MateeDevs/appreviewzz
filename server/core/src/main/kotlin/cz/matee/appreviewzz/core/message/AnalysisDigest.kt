@@ -30,6 +30,8 @@ data class AnalysisDigest(
     val quote: TopicQuote? = null,
     /** Odkaz do konzole na téma, které rozbor otevírá. */
     val consoleUrl: String? = null,
+    /** Věta o vydání, které do rozboru přineslo nové téma (B3); `null`, když se nic takového nestalo. */
+    val versionNote: VersionNote? = null,
 ) {
     val catalog: MessageCatalog = MessageCatalog.of(locale)
 
@@ -118,6 +120,17 @@ data class AnalysisDigest(
         return catalog.format(MessageKey.ANALYSIS_DATA_SINCE, "date" to formatDate(date))
     }
 
+    /** „Verze 3.2.0 přinesla nové téma Pády (9 recenzí)." */
+    fun versionLine(): String? {
+        val note = versionNote ?: return null
+        return catalog.format(
+            MessageKey.ANALYSIS_VERSION_LINE,
+            "version" to note.version,
+            "name" to note.topicName,
+            "count" to note.count,
+        )
+    }
+
     fun tooFewLine(): String = catalog.format(MessageKey.ANALYSIS_TOO_FEW, "reviews" to aggregates.reviews)
 
     /** Citát i s tím, odkud je: `„…" · ★★☆☆☆ · Android · 3.2.0`. */
@@ -145,6 +158,13 @@ data class AnalysisDigest(
         val filled = (aggregates.sentiment.positive * BAR_CELLS).roundToInt().coerceIn(0, BAR_CELLS)
         return "▰".repeat(filled) + "▱".repeat(BAR_CELLS - filled)
     }
+
+    /** Vydání, po kterém se v recenzích objevilo téma, jaké předtím nebylo. */
+    data class VersionNote(
+        val version: String,
+        val topicName: String,
+        val count: Int,
+    )
 
     companion object {
         fun percent(share: Double): Int = (share * PERCENT).roundToInt()

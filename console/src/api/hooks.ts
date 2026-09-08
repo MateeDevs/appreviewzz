@@ -400,6 +400,8 @@ export interface ReviewFilters {
   topic?: string
   type?: ReviewType | ''
   urgency?: Urgency | ''
+  /** Z dopadu verzí se sem chodí odkazem „ukaž mi recenze téhle verze". */
+  version?: string
 }
 
 export function useReviews(org: string, appId: string, filters: ReviewFilters = {}) {
@@ -408,6 +410,7 @@ export function useReviews(org: string, appId: string, filters: ReviewFilters = 
   if (filters.topic) params.set('topic', filters.topic)
   if (filters.type) params.set('type', filters.type)
   if (filters.urgency) params.set('urgency', filters.urgency)
+  if (filters.version) params.set('version', filters.version)
   const query = params.toString() ? `?${params}` : ''
   return useQuery({
     queryKey: ['reviews', org, appId, query],

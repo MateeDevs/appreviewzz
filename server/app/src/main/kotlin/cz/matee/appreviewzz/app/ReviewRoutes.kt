@@ -430,6 +430,7 @@ private fun ApplicationCall.reviewFilter(): ReviewFilter =
         types = values("type").map { enumValue<ReviewType>(it, "typ recenze") }.toSet(),
         urgencies = values("urgency").map { enumValue<Urgency>(it, "naléhavost") }.toSet(),
         sentiments = values("sentiment").map { enumValue<OverallSentiment>(it, "nálada") }.toSet(),
+        version = request.queryParameters["version"]?.trim()?.takeIf { it.isNotEmpty() },
     )
 
 private fun ApplicationCall.values(name: String): List<String> =

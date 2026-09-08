@@ -390,6 +390,32 @@ class AnalysisRoutesTest :
             }
         }
 
+        "inbox jde zúžit na jednu verzi" {
+            testApplication {
+                consoleModule(mailer, analysisQueue = analysis)
+                val (owner, appId) = ownerWithApp(mailer)
+                seedReview(
+                    appId,
+                    "gp-old",
+                    "Ve staré verzi to šlo",
+                    listOf(TopicMention(Topic.CRASH.key, TopicSentiment.NEGATIVE, null)),
+                    appVersion = "3.1.0",
+                )
+                seedReview(
+                    appId,
+                    "gp-new",
+                    "Po aktualizaci to padá",
+                    listOf(TopicMention(Topic.CRASH.key, TopicSentiment.NEGATIVE, null)),
+                    appVersion = "3.2.0",
+                )
+
+                val body = owner.get("/api/orgs/$SLUG/apps/$appId/reviews?version=3.2.0").bodyAsText()
+
+                body shouldContain "Po aktualizaci to padá"
+                body shouldNotContain "Ve staré verzi to šlo"
+            }
+        }
+
         "témata cizí organizace nejsou vidět" {
             testApplication {
                 consoleModule(mailer, analysisQueue = analysis)
