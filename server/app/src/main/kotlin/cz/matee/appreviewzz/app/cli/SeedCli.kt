@@ -238,6 +238,12 @@ private val COMMANDS =
             run = { args -> ingestRun(args) },
         ),
         Command(
+            name = "history import",
+            options = setOf("org", "app", "months"),
+            usage = "history import --org <slug|ID> --app <ID> [--months <1-24>]",
+            run = { args -> historyImport(args) },
+        ),
+        Command(
             name = "ratings run",
             options = setOf("org", "app"),
             usage = "ratings run --org <slug|ID> --app <ID>",

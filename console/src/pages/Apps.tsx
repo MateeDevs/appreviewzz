@@ -233,6 +233,7 @@ function AddAppDialog({
   const [googlePlayUrl, setGooglePlayUrl] = useState('')
   const [appStoreUrl, setAppStoreUrl] = useState('')
   const [name, setName] = useState('')
+  const [historyMonths, setHistoryMonths] = useState('1')
   const [resolved, setResolved] = useState<{ links: string; result: StoreResolution } | null>(null)
   // Jakmile klient název přepíše, přestaneme mu ho pod rukama přepisovat výsledkem ze storu.
   const nameEdited = useRef(false)
@@ -282,6 +283,7 @@ function AddAppDialog({
               name: name.trim(),
               gpPackageName: current?.googlePlay?.identifier || null,
               ascAppId: current?.appStore?.identifier || null,
+              historyMonths: Number(historyMonths),
             },
             {
               onSuccess: (app) => {
@@ -343,6 +345,27 @@ function AddAppDialog({
                 </button>
               ))}
             </div>
+          ) : null}
+        </div>
+
+        <div style={{ marginTop: '0.85rem' }}>
+          <Field
+            label="Historie k rozboru"
+            hint="Kolik měsíců zpátky dotáhnout recenze, aby bylo co rozebírat hned první den."
+          >
+            <select value={historyMonths} onChange={(e) => setHistoryMonths(e.target.value)}>
+              {HISTORY_MONTHS.map((months) => (
+                <option key={months} value={months}>
+                  {historyMonthsLabel(months)}
+                </option>
+              ))}
+            </select>
+          </Field>
+          {googlePlayUrl.trim() !== '' ? (
+            <p className="small muted">
+              U Androidu historii vydá jen reporting Play Console — vlož jeho bucket v nastavení
+              aplikace, jinak budou recenze až ode dneška. Google Play API dál než týden zpátky nevidí.
+            </p>
           ) : null}
         </div>
 
@@ -470,6 +493,15 @@ function ReportingBucketProbe({ org, appId, bucket }: { org: string; appId: stri
 /** ISO pořadí dnů — číslo se posílá na server, jméno vidí člověk. */
 const WEEK_DAYS = ['pondělí', 'úterý', 'středa', 'čtvrtek', 'pátek', 'sobota', 'neděle']
 
+/** Nabídka hloubky historie. Delší období nemá smysl nabízet klikem — na to je CLI. */
+const HISTORY_MONTHS = [1, 3, 6, 12]
+
+function historyMonthsLabel(months: number): string {
+  if (months === 1) return '1 měsíc zpětně'
+  if (months < 5) return `${months} měsíce zpětně`
+  return `${months} měsíců zpětně`
+}
+
 function AppSettingsCard({ org, appId }: { org: string; appId: string }) {
   const apps = useApps(org)
   const update = useUpdateApp(org)
@@ -484,6 +516,7 @@ function AppSettingsCard({ org, appId }: { org: string; appId: string }) {
     timezone: app.timezone,
     dailyDigestAt: app.dailyDigestAt.slice(0, 5),
     weeklyDigestDay: String(app.weeklyDigestDay),
+    historyMonths: String(app.historyMonths),
     aiInstructions: app.aiInstructions ?? '',
   }
   const set = (key: string, value: string) => setDraft({ ...values, [key]: value })
@@ -503,6 +536,7 @@ function AppSettingsCard({ org, appId }: { org: string; appId: string }) {
                 timezone: values.timezone,
                 dailyDigestAt: values.dailyDigestAt,
                 weeklyDigestDay: Number(values.weeklyDigestDay),
+                historyMonths: Number(values.historyMonths),
                 aiInstructions: values.aiInstructions === '' ? null : values.aiInstructions,
                 enabled: app.enabled,
               },
@@ -544,6 +578,22 @@ function AppSettingsCard({ org, appId }: { org: string; appId: string }) {
             {WEEK_DAYS.map((day, index) => (
               <option key={day} value={index + 1}>
                 {day}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field
+          label="Historie k rozboru"
+          hint={
+            app.gpPackageName && !app.gpReportingBucket
+              ? 'Android historii vydá jen reporting Play Console — bez bucketu výš zůstane u recenzí ode dneška.'
+              : 'Kolik měsíců zpátky se dotahují recenze pro rozbory. Prodloužení se dotáhne během chvíle.'
+          }
+        >
+          <select value={values.historyMonths} onChange={(e) => set('historyMonths', e.target.value)}>
+            {HISTORY_MONTHS.map((months) => (
+              <option key={months} value={months}>
+                {historyMonthsLabel(months)}
               </option>
             ))}
           </select>

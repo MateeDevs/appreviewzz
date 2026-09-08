@@ -6,6 +6,8 @@ import cz.matee.appreviewzz.core.model.SecretPayload
 import cz.matee.appreviewzz.core.model.storeReplyMaxLength
 import cz.matee.appreviewzz.core.port.PublishedReply
 import cz.matee.appreviewzz.core.port.ReplyTarget
+import cz.matee.appreviewzz.core.port.ReviewArchiveContext
+import cz.matee.appreviewzz.core.port.ReviewArchiveSource
 import cz.matee.appreviewzz.core.port.ReviewSource
 import cz.matee.appreviewzz.core.port.StoreApp
 import cz.matee.appreviewzz.core.port.StoreAppCatalog
@@ -55,6 +57,7 @@ class AppStoreConnector(
     /** Kolik posledních verzí se prochází kvůli doplnění verze k recenzi. */
     private val versionWindow: Int = DEFAULT_VERSION_WINDOW,
 ) : ReviewSource,
+    ReviewArchiveSource,
     ReplyTarget,
     StoreAppCatalog {
     override val platform: Platform = Platform.IOS
@@ -62,14 +65,44 @@ class AppStoreConnector(
     /** Apple přijme odpověď do 5 970 znaků; delší vrací jako chybu požadavku. */
     override val replyMaxLength: Int = platform.storeReplyMaxLength
 
-    override suspend fun fetchReviews(context: StoreContext): List<ObservedReview> {
-        val key = AscApiKey.parse(context.credential)
-        val versionByReviewId = versionsByReviewId(key, context.appIdentifier)
-        val collected = mutableListOf<ObservedReview>()
-        var url: String? = "$baseUrl/v1/apps/${context.appIdentifier}/customerReviews"
-        var page = 0
+    override suspend fun fetchReviews(context: StoreContext): List<ObservedReview> =
+        fetchPages(AscApiKey.parse(context.credential), context.appIdentifier, since = null, maxPages = MAX_PAGES)
 
-        while (url != null && page < MAX_PAGES) {
+    /**
+     * Historie iOS recenzí (A10). Na rozdíl od Androidu nepotřebuje jiný zdroj — App Store
+     * Connect vrací historii celou, jen se k ní musí dostránkovat. Běžný ingest se drží
+     * deseti stránek, protože jede každou půlhodinu; tady je strop vyšší a stránkuje se
+     * **do data**, ne do počtu, aby se šest měsíců živé appky neuseklo na dvou tisících.
+     */
+    override suspend fun fetchArchive(context: ReviewArchiveContext): List<ObservedReview> {
+        if (context.until < context.since) return emptyList()
+        val collected =
+            fetchPages(
+                key = AscApiKey.parse(context.credential),
+                appIdentifier = context.appIdentifier,
+                since = context.since,
+                maxPages = ARCHIVE_MAX_PAGES,
+            )
+        return collected.filter { it.submittedAt >= context.since && it.submittedAt <= context.until }
+    }
+
+    /**
+     * @param since dokud je na stránce něco novějšího, pokračuje se; první starší recenze
+     *   stránkování ukončí. Řazení je `-createdDate`, takže dál už jsou jen starší.
+     */
+    private suspend fun fetchPages(
+        key: AscApiKey,
+        appIdentifier: String,
+        since: Instant?,
+        maxPages: Int,
+    ): List<ObservedReview> {
+        val versionByReviewId = versionsByReviewId(key, appIdentifier)
+        val collected = mutableListOf<ObservedReview>()
+        var url: String? = "$baseUrl/v1/apps/$appIdentifier/customerReviews"
+        var page = 0
+        var reachedCutoff = false
+
+        while (url != null && page < maxPages && !reachedCutoff) {
             val requestUrl = url
             val isFirstPage = page == 0
             val response =
@@ -91,17 +124,19 @@ class AppStoreConnector(
                     .filter { it.type == "customerReviewResponses" }
                     .associateBy { it.id }
 
-            collected +=
+            val reviews =
                 body.data.mapNotNull { review ->
                     review.toObservedReview(responsesById)?.copy(appVersion = versionByReviewId[review.id])
                 }
+            collected += reviews
+            reachedCutoff = since != null && reviews.any { it.submittedAt < since }
             url = body.links?.next
             page++
         }
 
-        if (url != null) {
+        if (url != null && !reachedCutoff) {
             logger.warn {
-                "App Store vrátil víc než ${MAX_PAGES * PAGE_SIZE} recenzí pro ${context.appIdentifier}; " +
+                "App Store vrátil víc než ${maxPages * PAGE_SIZE} recenzí pro $appIdentifier; " +
                     "zbytek dorazí při dalším běhu"
             }
         }
@@ -337,6 +372,9 @@ class AppStoreConnector(
         private const val VERSIONS_PAGE_SIZE = 200
         private const val DEFAULT_VERSION_WINDOW = 15
         private const val MAX_PAGES = 10
+
+        /** Strop pro historii: 25 × 200 = 5 000 recenzí, tedy roky i u živé appky. */
+        private const val ARCHIVE_MAX_PAGES = 25
         private const val ERROR_DETAIL_LIMIT = 500
     }
 }

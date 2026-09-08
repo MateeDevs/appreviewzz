@@ -39,6 +39,7 @@ fun buildScheduler(
     refreshRepliesJobs: RefreshRepliesJobs? = null,
     revalidateCredentialsJobs: RevalidateCredentialsJobs? = null,
     analysisJobs: AnalysisJobs? = null,
+    reviewHistoryJobs: ReviewHistoryJobs? = null,
     config: SchedulerConfig = SchedulerConfig(),
 ): Scheduler {
     logger.info { "Scheduler: ${config.threads} vláken, polling po ${config.pollingInterval}" }
@@ -52,6 +53,7 @@ fun buildScheduler(
             refreshRepliesJobs?.refreshTask,
             revalidateCredentialsJobs?.revalidateTask,
             analysisJobs?.weeklySweepTask,
+            reviewHistoryJobs?.sweepTask,
         )
     val knownTasks =
         listOfNotNull(
@@ -61,6 +63,8 @@ fun buildScheduler(
             ratingsJobs?.ratingsTask,
             analysisJobs?.analyzeTask,
             analysisJobs?.weeklyTask,
+            reviewHistoryJobs?.historyTask,
+            reviewHistoryJobs?.backfillTask,
         )
     return Scheduler
         .create(dataSource, knownTasks)
@@ -84,10 +88,14 @@ fun buildSchedulerClient(
     replyJobs: ReplyJobs,
     /** Doplnění rozborů z konzole (F8); `null` = proces, který tlačítko nenabízí. */
     analysisJobs: AnalysisJobs? = null,
+    /** Dotažení historie recenzí po přidání appky (A10). */
+    reviewHistoryJobs: ReviewHistoryJobs? = null,
 ): SchedulerClient =
     SchedulerClient.Builder
-        .create(AutoCommitDataSource(dataSource), listOfNotNull(replyJobs.publishTask, analysisJobs?.analyzeTask))
-        .serializer(JsonTaskSerializer)
+        .create(
+            AutoCommitDataSource(dataSource),
+            listOfNotNull(replyJobs.publishTask, analysisJobs?.analyzeTask, reviewHistoryJobs?.backfillTask),
+        ).serializer(JsonTaskSerializer)
         .build()
 
 /**

@@ -27,6 +27,7 @@ import cz.matee.appreviewzz.core.port.NewCredential
 import cz.matee.appreviewzz.core.port.ReviewFilter
 import cz.matee.appreviewzz.core.port.ReviewRepository
 import cz.matee.appreviewzz.core.port.ReviewSource
+import cz.matee.appreviewzz.core.port.ReviewTimeKey
 import cz.matee.appreviewzz.core.port.ReviewUpsertOutcome
 import cz.matee.appreviewzz.core.port.ReviewUpsertResult
 import cz.matee.appreviewzz.core.port.SecretResolver
@@ -48,6 +49,7 @@ internal object Ingest {
     fun app(
         orgId: OrganizationId,
         gpPackageName: String? = "cz.matee.islegrow",
+        gpReportingBucket: String? = null,
         ascAppId: String? = null,
         notifyFrom: Instant? = null,
         enabled: Boolean = true,
@@ -59,7 +61,7 @@ internal object Ingest {
             orgId = orgId,
             name = "IsleGrow",
             gpPackageName = gpPackageName,
-            gpReportingBucket = null,
+            gpReportingBucket = gpReportingBucket,
             ascAppId = ascAppId,
             locale = MessageLocale.CS,
             timezone = "Europe/Prague",
@@ -254,6 +256,9 @@ internal class RecordingReviewRepository : ReviewRepository {
     val calls = mutableListOf<Call>()
     val stateUpdates = mutableListOf<Pair<ReviewId, ReviewState>>()
 
+    /** Co už v databázi leží — pro párování historie s recenzemi z API. */
+    val timeKeys = mutableListOf<ReviewTimeKey>()
+
     override fun upsert(
         orgId: OrganizationId,
         appId: AppId,
@@ -325,6 +330,14 @@ internal class RecordingReviewRepository : ReviewRepository {
         submittedBefore: Instant,
         limit: Int,
     ): List<Review> = notUsed()
+
+    override fun listTimeKeys(
+        orgId: OrganizationId,
+        appId: AppId,
+        platform: Platform,
+        submittedAfter: Instant,
+        submittedBefore: Instant,
+    ): List<ReviewTimeKey> = timeKeys.filter { it.submittedAt >= submittedAfter && it.submittedAt <= submittedBefore }
 }
 
 internal class RecordingAuditLog : AuditLogRepository {

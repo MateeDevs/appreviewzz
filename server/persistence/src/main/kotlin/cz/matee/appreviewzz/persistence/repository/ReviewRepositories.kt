@@ -22,6 +22,7 @@ import cz.matee.appreviewzz.core.port.ReplyRepository
 import cz.matee.appreviewzz.core.port.ReviewFilter
 import cz.matee.appreviewzz.core.port.ReviewMessageRepository
 import cz.matee.appreviewzz.core.port.ReviewRepository
+import cz.matee.appreviewzz.core.port.ReviewTimeKey
 import cz.matee.appreviewzz.core.port.ReviewUpsertOutcome
 import cz.matee.appreviewzz.core.port.ReviewUpsertResult
 import cz.matee.appreviewzz.persistence.schema.Channels
@@ -41,6 +42,7 @@ import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.inSubQuery
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.less
+import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.insertIgnore
 import org.jetbrains.exposed.v1.jdbc.select
@@ -245,6 +247,25 @@ class ExposedReviewRepository(
             Reviews.update({ (Reviews.orgId eq orgId) and (Reviews.id eq id) }) {
                 it[Reviews.state] = state
             } > 0
+        }
+
+    override fun listTimeKeys(
+        orgId: OrganizationId,
+        appId: AppId,
+        platform: Platform,
+        submittedAfter: Instant,
+        submittedBefore: Instant,
+    ): List<ReviewTimeKey> =
+        transaction(database) {
+            Reviews
+                .select(Reviews.storeReviewId, Reviews.submittedAt)
+                .where {
+                    (Reviews.orgId eq orgId) and
+                        (Reviews.appId eq appId) and
+                        (Reviews.platform eq platform) and
+                        (Reviews.submittedAt greaterEq submittedAfter) and
+                        (Reviews.submittedAt lessEq submittedBefore)
+                }.map { ReviewTimeKey(it[Reviews.storeReviewId], it[Reviews.submittedAt]) }
         }
 
     private fun insertReview(

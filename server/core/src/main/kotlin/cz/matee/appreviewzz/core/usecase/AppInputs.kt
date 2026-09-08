@@ -21,6 +21,10 @@ object AppInputs {
     const val MIN_INGEST_INTERVAL = PlatformSettings.MIN_ALLOWED_INTERVAL
     const val MAX_INGEST_INTERVAL = PlatformSettings.MAX_ALLOWED_INTERVAL
 
+    /** Zrcadlí `CHECK` na `app.history_months`. */
+    const val MIN_HISTORY_MONTHS = 1
+    const val MAX_HISTORY_MONTHS = 24
+
     /** ISO dny v týdnu; zrcadlí `CHECK` na `app.weekly_digest_day`. */
     const val MIN_WEEKLY_DAY = 1
     const val MAX_WEEKLY_DAY = 7
@@ -66,6 +70,21 @@ object AppInputs {
             invalid(field, "musí být mezi $MIN_WEEKLY_DAY (pondělí) a $MAX_WEEKLY_DAY (neděle)")
         }
         return day
+    }
+
+    /**
+     * Kolik měsíců historie recenzí se pro appku stahuje z reportingu Play Console. Meze
+     * zrcadlí `CHECK` v databázi; nula mezi nimi není schválně — průběžný běh archivu se
+     * nevypíná, protože jinou cestou k hodnocením bez textu se nedostaneme.
+     */
+    fun historyMonths(
+        months: Int,
+        field: String,
+    ): Int {
+        if (months !in MIN_HISTORY_MONTHS..MAX_HISTORY_MONTHS) {
+            invalid(field, "musí být mezi $MIN_HISTORY_MONTHS a $MAX_HISTORY_MONTHS měsíci")
+        }
+        return months
     }
 
     fun digestAt(

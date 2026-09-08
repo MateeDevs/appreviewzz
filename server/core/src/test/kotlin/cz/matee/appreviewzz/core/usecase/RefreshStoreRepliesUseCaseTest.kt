@@ -13,6 +13,7 @@ import cz.matee.appreviewzz.core.model.ReviewState
 import cz.matee.appreviewzz.core.port.ReviewFilter
 import cz.matee.appreviewzz.core.port.ReviewRefreshSource
 import cz.matee.appreviewzz.core.port.ReviewRepository
+import cz.matee.appreviewzz.core.port.ReviewTimeKey
 import cz.matee.appreviewzz.core.port.ReviewUpsertOutcome
 import cz.matee.appreviewzz.core.port.ReviewUpsertResult
 import cz.matee.appreviewzz.core.port.StoreContext
@@ -207,6 +208,14 @@ private class RefreshReviewRepository : ReviewRepository {
         this.limit = limit
         return pending.filter { it.orgId == orgId && it.appId == appId && it.platform == platform }
     }
+
+    override fun listTimeKeys(
+        orgId: OrganizationId,
+        appId: AppId,
+        platform: Platform,
+        submittedAfter: Instant,
+        submittedBefore: Instant,
+    ): List<ReviewTimeKey> = emptyList()
 
     override fun upsert(
         orgId: OrganizationId,

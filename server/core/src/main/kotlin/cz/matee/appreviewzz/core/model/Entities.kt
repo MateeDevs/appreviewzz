@@ -58,6 +58,11 @@ data class App(
     val dailyDigestAt: LocalTime,
     /** ISO den v týdnu (1 = pondělí), kdy chodí týdenní rozbor; čas se bere z [dailyDigestAt]. */
     val weeklyDigestDay: Int = 1,
+    /**
+     * Kolik měsíců zpětné historie recenzí se stahuje z reportingu Play Console. Uplatní se
+     * jen s [gpReportingBucket] — jinou cestou k historii Androidu se nedostaneme.
+     */
+    val historyMonths: Int = 1,
     val enabled: Boolean,
     val createdAt: Instant,
 ) {

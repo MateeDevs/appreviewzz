@@ -2,6 +2,7 @@ package cz.matee.appreviewzz.app
 
 import cz.matee.appreviewzz.app.cli.TestDatabase
 import io.kotest.core.spec.style.StringSpec
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
@@ -39,6 +40,44 @@ class AppRoutesTest :
         beforeTest {
             TestDatabase.reset()
             mailer = RecordingMailer()
+        }
+
+        "historie se dotáhne až tehdy, kdy je odkud — u Androidu s bucketem, u iOS rovnou" {
+            testApplication {
+                val history = RecordingHistoryQueue()
+                consoleModule(mailer, historyQueue = history)
+                val owner = ownerWithOrg(mailer)
+
+                // Android bez reportingového bucketu: historii Play Store nevydá, tak se
+                // úloha ani nezakládá.
+                owner.createApp("""{"name":"Bez bucketu","gpPackageName":"cz.matee.bezbucketu","historyMonths":6}""")
+                history.queued.shouldBeEmpty()
+
+                // iOS vrací historii z API, takže na bucketu nezáleží.
+                val ios =
+                    owner
+                        .createApp("""{"name":"iOS","ascAppId":"1234567890","historyMonths":3}""")
+                        .bodyAsText()
+                ios shouldContain "\"historyMonths\":3"
+                history.queued.map { it.third } shouldBe listOf(3)
+            }
+        }
+
+        "doplnění bucketu dodatečně zařadí dotažení historie" {
+            testApplication {
+                val history = RecordingHistoryQueue()
+                consoleModule(mailer, historyQueue = history)
+                val owner = ownerWithOrg(mailer)
+                val app = owner.createApp().bodyAsText().jsonValue("id")
+                history.queued.shouldBeEmpty()
+
+                owner.patchJson(
+                    "/api/orgs/$SLUG/apps/$app",
+                    """{"name":"Testovací appka","gpReportingBucket":"gs://pubsite_prod_123"}""",
+                )
+
+                history.queued.map { it.second } shouldBe listOf(app)
+            }
         }
 
         "založení appky vyplní výchozí hodnoty a pozná platformy" {

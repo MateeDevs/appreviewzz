@@ -30,6 +30,7 @@ import cz.matee.appreviewzz.connectors.appstore.appStoreHttpClient
 import cz.matee.appreviewzz.connectors.googleplay.GcpIamProvisioner
 import cz.matee.appreviewzz.connectors.googleplay.GooglePlayConnector
 import cz.matee.appreviewzz.connectors.googleplay.PlayReportingRatingsSource
+import cz.matee.appreviewzz.connectors.googleplay.PlayReportingReviewSource
 import cz.matee.appreviewzz.connectors.googleplay.PlayStoreListingLookup
 import cz.matee.appreviewzz.connectors.googleplay.PlayStoreScrapeRatingsSource
 import cz.matee.appreviewzz.connectors.googleplay.googleHttpClient
@@ -42,6 +43,7 @@ import cz.matee.appreviewzz.core.port.RatingsSource
 import cz.matee.appreviewzz.core.port.ReplyTarget
 import cz.matee.appreviewzz.core.port.ReportingBucketProbe
 import cz.matee.appreviewzz.core.port.ReviewAnalysisProvider
+import cz.matee.appreviewzz.core.port.ReviewArchiveSource
 import cz.matee.appreviewzz.core.port.ReviewRefreshSource
 import cz.matee.appreviewzz.core.port.ReviewSource
 import cz.matee.appreviewzz.core.port.SuggestReplyProvider
@@ -56,6 +58,7 @@ import cz.matee.appreviewzz.core.usecase.ConsoleLinks
 import cz.matee.appreviewzz.core.usecase.CredentialService
 import cz.matee.appreviewzz.core.usecase.DailyRatingsUseCase
 import cz.matee.appreviewzz.core.usecase.DeliverReviewUseCase
+import cz.matee.appreviewzz.core.usecase.ImportReviewHistoryUseCase
 import cz.matee.appreviewzz.core.usecase.IngestReviewsUseCase
 import cz.matee.appreviewzz.core.usecase.MfaService
 import cz.matee.appreviewzz.core.usecase.OrganizationService
@@ -82,6 +85,7 @@ import cz.matee.appreviewzz.jobs.RatingsJobs
 import cz.matee.appreviewzz.jobs.RefreshRepliesJobs
 import cz.matee.appreviewzz.jobs.ReplyJobs
 import cz.matee.appreviewzz.jobs.RevalidateCredentialsJobs
+import cz.matee.appreviewzz.jobs.ReviewHistoryJobs
 import cz.matee.appreviewzz.persistence.Database
 import cz.matee.appreviewzz.persistence.repository.ExposedAnalysisAggregateRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedAnalysisDigestRepository
@@ -221,6 +225,15 @@ class Components(
 
     /** Dohledání jedné recenze umí zatím jen Google Play — ASC vrací historii celou. */
     val reviewRefreshSources: List<ReviewRefreshSource> by lazy { listOf(googlePlay) }
+
+    /**
+     * Historie recenzí (A10). Dvě různé cesty za týmž: u Google Play měsíční export
+     * v reportingovém bucketu (API dá jen týden), u App Storu hlubší stránkování téhož
+     * endpointu, ze kterého čte běžný ingest.
+     */
+    val reviewArchiveSources: List<ReviewArchiveSource> by lazy {
+        listOf(PlayReportingReviewSource(storeClients.googlePlay), appStore)
+    }
 
     /**
      * Zdroje hodnocení. Pro každou platformu dva: oficiální data a veřejný listing. Neslouží
@@ -376,6 +389,20 @@ class Components(
             audit = audit,
             sources = reviewSources,
         )
+    }
+
+    val importReviewHistory: ImportReviewHistoryUseCase by lazy {
+        ImportReviewHistoryUseCase(
+            apps = apps,
+            credentials = credentials,
+            reviews = reviews,
+            secrets = vault,
+            archives = reviewArchiveSources,
+        )
+    }
+
+    val reviewHistoryJobs: ReviewHistoryJobs by lazy {
+        ReviewHistoryJobs(history = importReviewHistory, apps = apps, failedJobs = failedJobs)
     }
 
     val refreshStoreReplies: RefreshStoreRepliesUseCase by lazy {

@@ -217,6 +217,42 @@ interface ReviewRefreshSource {
     ): ObservedReview?
 }
 
+/**
+ * Recenze **za historii**, mimo okno běžného ingestu.
+ *
+ * Existuje kvůli Androidu: `reviews.list` vrací jen ~týden zpět a jen recenze s textem, takže
+ * nová appka nemá první měsíc co rozebírat. Reporting Play Console přitom má měsíční export
+ * recenzí roky zpátky — a navíc **hodnocení bez textu**, která přes API nepřijdou nikdy.
+ *
+ * Schválně jiné rozhraní než [ReviewSource]: čte se odjinud (Cloud Storage, ne API storu),
+ * potřebuje k tomu bucket navíc, běží v jiném rytmu (jednou denně) a jeho výsledek se
+ * **nedoručuje do kanálů** — je to podklad pro rozbory, ne novinka pro tým.
+ */
+interface ReviewArchiveSource {
+    val platform: Platform
+
+    /**
+     * Recenze z archivu za dané období. Prázdný seznam znamená „pro tuhle appku tam nic není"
+     * (typicky chybějící export), chyba úložiště se hlásí [StoreConnectorException].
+     */
+    suspend fun fetchArchive(context: ReviewArchiveContext): List<ObservedReview>
+}
+
+/**
+ * Co konektor potřebuje ke stažení historie. `until` je tu proto, že se archiv **schválně
+ * nečte až do teď**: poslední dny drží ingest z API, který má jména autorů i ID, na která
+ * jde odpovědět. Kdyby archiv sáhl do jeho okna, tytéž recenze by přišly dvakrát pod dvěma
+ * různými ID.
+ */
+data class ReviewArchiveContext(
+    val appIdentifier: String,
+    val credential: SecretPayload,
+    /** Jen pro Android: bez reportingového bucketu se historie Play Storu nedá přečíst. */
+    val reportingBucket: String? = null,
+    val since: Instant,
+    val until: Instant,
+)
+
 /** Publikace odpovědi zpět do storu. */
 interface ReplyTarget {
     val platform: Platform

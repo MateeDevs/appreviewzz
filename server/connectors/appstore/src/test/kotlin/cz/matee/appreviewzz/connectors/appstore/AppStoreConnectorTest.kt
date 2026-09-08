@@ -1,6 +1,7 @@
 package cz.matee.appreviewzz.connectors.appstore
 
 import cz.matee.appreviewzz.core.model.Platform
+import cz.matee.appreviewzz.core.port.ReviewArchiveContext
 import cz.matee.appreviewzz.core.port.StoreConnectorException
 import cz.matee.appreviewzz.core.port.StoreContext
 import cz.matee.appreviewzz.core.port.StoreErrorKind
@@ -57,6 +58,31 @@ class AppStoreConnectorTest :
             val reviewsRequest = engine.requests.first { it.url.encodedPath.endsWith("/apps/$APP_ID/customerReviews") }
             reviewsRequest.url.parameters["include"] shouldBe "response"
             reviewsRequest.url.parameters["sort"] shouldBe "-createdDate"
+        }
+
+        /**
+         * Historie (A10). App Store Connect vrací recenze od nejnovější, takže první starší
+         * než hranice stránkování ukončí — jinak by se u živé appky procházely roky zpátky
+         * kvůli jednomu měsíci.
+         */
+        test("historie stránkuje do data a starší recenze se zahodí") {
+            val engine = RecordingEngine { storeResponse(it) }
+            val connector = AppStoreConnector(engine.client())
+
+            val reviews =
+                connector.fetchArchive(
+                    ReviewArchiveContext(
+                        appIdentifier = APP_ID,
+                        credential = TestAscKey.teamKey(),
+                        since = Instant.parse("2026-08-19T06:00:00Z"),
+                        until = Instant.parse("2026-08-20T00:00:00Z"),
+                    ),
+                )
+
+            reviews shouldHaveSize 1
+            reviews.single().submittedAt shouldBe Instant.parse("2026-08-19T14:12:44Z")
+            // Druhá stránka se už nestahovala: na první byla recenze pod hranicí.
+            engine.requests.count { it.url.parameters["cursor"] == "DALEJ" } shouldBe 0
         }
 
         test("token je ES256 podepsaný klíčem, s kid a aud podle Applu") {

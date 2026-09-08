@@ -39,6 +39,7 @@ import cz.matee.appreviewzz.core.port.ReplyTarget
 import cz.matee.appreviewzz.core.port.ReviewFilter
 import cz.matee.appreviewzz.core.port.ReviewMessageRepository
 import cz.matee.appreviewzz.core.port.ReviewRepository
+import cz.matee.appreviewzz.core.port.ReviewTimeKey
 import cz.matee.appreviewzz.core.port.ReviewUpsertResult
 import cz.matee.appreviewzz.core.port.StoreConnectorException
 import cz.matee.appreviewzz.core.port.StoreContext
@@ -161,6 +162,14 @@ internal class FakeReviewRepository(
         submittedBefore: Instant,
         limit: Int,
     ): List<Review> = unused()
+
+    override fun listTimeKeys(
+        orgId: OrganizationId,
+        appId: AppId,
+        platform: Platform,
+        submittedAfter: Instant,
+        submittedBefore: Instant,
+    ): List<ReviewTimeKey> = emptyList()
 }
 
 internal class FakeChannelRepository(

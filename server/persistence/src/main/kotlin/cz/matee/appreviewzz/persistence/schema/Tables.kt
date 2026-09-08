@@ -194,6 +194,7 @@ internal object Apps : Table("app") {
     val ingestIntervalMinutes = integer("ingest_interval_minutes").nullable()
     val dailyDigestAt = time("daily_digest_at")
     val weeklyDigestDay = short("weekly_digest_day")
+    val historyMonths = short("history_months")
     val enabled = bool("enabled")
     val createdAt = instant("created_at")
     val updatedAt = instant("updated_at")

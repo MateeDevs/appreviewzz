@@ -62,6 +62,7 @@ fun runWorker(
             refreshRepliesJobs = components.refreshRepliesJobs,
             revalidateCredentialsJobs = components.revalidateCredentialsJobs,
             analysisJobs = components.analysisJobs,
+            reviewHistoryJobs = components.reviewHistoryJobs,
             config =
                 SchedulerConfig(
                     threads = config.worker.schedulerThreads,
@@ -72,8 +73,8 @@ fun runWorker(
     Runtime.getRuntime().addShutdownHook(Thread(scheduler::stop, "scheduler-shutdown"))
     scheduler.start()
     logger.info {
-        "Worker started — ingest, doručování, denní přehledy, dohledání odpovědí, revalidace klíčů " +
-            "a noční úklid registrované"
+        "Worker started — ingest, doručování, denní přehledy, historie recenzí, dohledání odpovědí, " +
+            "revalidace klíčů a noční úklid registrované"
     }
 
     embeddedServer(

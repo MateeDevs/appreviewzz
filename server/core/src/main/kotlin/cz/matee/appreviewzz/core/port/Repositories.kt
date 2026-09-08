@@ -177,6 +177,8 @@ data class NewApp(
     val dailyDigestAt: LocalTime = LocalTime(8, 30),
     /** ISO den v týdnu pro týdenní rozbor; pondělí je den, kdy tým plánuje. */
     val weeklyDigestDay: Int = 1,
+    /** Měsíce zpětné historie recenzí z reportingu Play Console. */
+    val historyMonths: Int = 1,
 )
 
 /** Kompletní nastavení appky — update je nahrazení celku, ne patch po polích. */
@@ -190,6 +192,7 @@ data class AppSettings(
     val ingestIntervalMinutes: Int?,
     val dailyDigestAt: LocalTime,
     val weeklyDigestDay: Int,
+    val historyMonths: Int,
     val enabled: Boolean,
 )
 
@@ -564,7 +567,29 @@ interface ReviewRepository {
         id: ReviewId,
         state: ReviewState,
     ): Boolean
+
+    /**
+     * Časy odeslání a ID recenzí v období — podklad pro import historie z archivu storu.
+     *
+     * Archiv (Play Console export) používá **jiná ID** než API: `csv:<uuid>` proti
+     * `gp:AOqpTO…`. Klíč `(app, platform, store_review_id)` je tedy nespáruje a táž recenze
+     * by se založila podruhé. Import proto porovnává čas odeslání, a k tomu potřebuje tenhle
+     * seznam — jednou za běh, ne dotazem na řádek.
+     */
+    fun listTimeKeys(
+        orgId: OrganizationId,
+        appId: AppId,
+        platform: Platform,
+        submittedAfter: Instant,
+        submittedBefore: Instant,
+    ): List<ReviewTimeKey>
 }
+
+/** Čím se recenze pozná v čase, když se ID ze dvou zdrojů nepotkají. */
+data class ReviewTimeKey(
+    val storeReviewId: String,
+    val submittedAt: Instant,
+)
 
 interface ReviewMessageRepository {
     /**

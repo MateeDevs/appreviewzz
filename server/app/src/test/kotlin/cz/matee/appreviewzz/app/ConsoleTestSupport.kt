@@ -253,6 +253,20 @@ class RecordingAnalysisQueue : (String, String) -> Boolean {
     }
 }
 
+/** Fronta dotažení historie (A10) — zajímá nás, jestli a s jakou hloubkou se zařadila. */
+class RecordingHistoryQueue : (String, String, Int) -> Boolean {
+    val queued = mutableListOf<Triple<String, String, Int>>()
+
+    override fun invoke(
+        orgId: String,
+        appId: String,
+        months: Int,
+    ): Boolean {
+        queued += Triple(orgId, appId, months)
+        return true
+    }
+}
+
 fun ApplicationTestBuilder.consoleModule(
     mailer: RecordingMailer,
     policy: AuthPolicy = AuthPolicy(),
@@ -262,6 +276,7 @@ fun ApplicationTestBuilder.consoleModule(
     slack: ConsoleSlack? = null,
     replyQueue: RecordingReplyQueue? = null,
     analysisQueue: RecordingAnalysisQueue? = null,
+    historyQueue: RecordingHistoryQueue? = null,
     /** Výchozí allowlist je jen `console.test`, takže odkazy v testech nezávisí na hostiteli. */
     links: ConsoleLinks = ConsoleLinks(CONSOLE_URL),
     /**
@@ -417,6 +432,7 @@ fun ApplicationTestBuilder.consoleModule(
                     ingest = platformConfig,
                     enqueueReply = replyQueue,
                     enqueueAnalysis = analysisQueue,
+                    enqueueHistoryImport = historyQueue,
                     clock = clock,
                     googlePlayProvisioning =
                         gcpProvisioner?.let {

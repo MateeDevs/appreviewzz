@@ -143,6 +143,7 @@ internal fun ResultRow.toApp(): App =
         ingestIntervalMinutes = this[Apps.ingestIntervalMinutes],
         dailyDigestAt = this[Apps.dailyDigestAt],
         weeklyDigestDay = this[Apps.weeklyDigestDay].toInt(),
+        historyMonths = this[Apps.historyMonths].toInt(),
         enabled = this[Apps.enabled],
         createdAt = this[Apps.createdAt],
     )

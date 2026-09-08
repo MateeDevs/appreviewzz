@@ -5,6 +5,7 @@ import cz.matee.appreviewzz.core.model.OrganizationId
 import cz.matee.appreviewzz.core.model.OverallSentiment
 import cz.matee.appreviewzz.core.model.Platform
 import cz.matee.appreviewzz.core.model.ReplyStatus
+import cz.matee.appreviewzz.core.model.ReviewId
 import cz.matee.appreviewzz.core.model.TopicSentiment
 import cz.matee.appreviewzz.core.port.AnalysisAggregateRepository
 import cz.matee.appreviewzz.core.port.AnalysisPeriod
@@ -102,21 +103,42 @@ class ExposedAnalysisAggregateRepository(
                     .count()
                     .toInt()
 
-            // Publikované odpovědi na recenze z období; medián se počítá v paměti, protože
-            // jde nejvýš o stovky čísel a `percentile_cont` by znamenalo syrové SQL.
-            val hours =
+            // Odpovědi publikované přes nás. Medián se počítá v paměti, protože jde nejvýš
+            // o stovky čísel a `percentile_cont` by znamenalo syrové SQL.
+            val ours =
                 Reviews
                     .join(Replies, JoinType.INNER, Reviews.id, Replies.reviewId)
-                    .select(Reviews.submittedAt, Replies.publishedAt)
+                    .select(Reviews.id, Reviews.submittedAt, Replies.publishedAt)
                     .where {
                         scope(orgId, appId, from, to) and
                             (Replies.status eq ReplyStatus.PUBLISHED) and
                             Replies.publishedAt.isNotNull()
                     }.mapNotNull { row ->
-                        row[Replies.publishedAt]?.let { published ->
-                            (published - row[Reviews.submittedAt]).inWholeMinutes / MINUTES_PER_HOUR
-                        }
-                    }.sorted()
+                        row[Replies.publishedAt]?.let { published -> row[Reviews.id] to (row[Reviews.submittedAt] to published) }
+                    }
+
+            // Odpovědi napsané ve storu (Play Console, App Store Connect) se počítají taky:
+            // klient se ptá, jestli recenze dostala odpověď, ne kterým oknem prošla. U historie
+            // dotažené z archivu je to navíc jediné, co o odpovídání víme.
+            val inStore =
+                Reviews
+                    .select(Reviews.id, Reviews.submittedAt, Reviews.developerResponseAt)
+                    .where { scope(orgId, appId, from, to) and Reviews.developerResponseAt.isNotNull() }
+                    .mapNotNull { row ->
+                        row[Reviews.developerResponseAt]?.let { answered -> row[Reviews.id] to (row[Reviews.submittedAt] to answered) }
+                    }
+
+            // Táž recenze může být v obou seznamech (odpověděli jsme my a store to vrátil zpátky);
+            // platí ta dřívější, protože ta je skutečným okamžikem odpovědi.
+            val answered = mutableMapOf<ReviewId, Pair<Instant, Instant>>()
+            (ours + inStore).forEach { (reviewId, times) ->
+                val existing = answered[reviewId]
+                if (existing == null || times.second < existing.second) answered[reviewId] = times
+            }
+            val hours =
+                answered.values
+                    .map { (submitted, replied) -> (replied - submitted).inWholeMinutes / MINUTES_PER_HOUR }
+                    .sorted()
 
             ReplyStats(total = total, replied = hours.size, medianHours = median(hours))
         }

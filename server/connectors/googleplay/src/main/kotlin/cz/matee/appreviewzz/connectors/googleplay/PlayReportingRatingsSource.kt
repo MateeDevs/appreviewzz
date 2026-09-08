@@ -13,33 +13,13 @@ import cz.matee.appreviewzz.core.port.StoreConnectorException
 import cz.matee.appreviewzz.core.port.StoreErrorKind
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.HttpClient
-import io.ktor.client.call.body
-import io.ktor.client.request.bearerAuth
-import io.ktor.client.request.get
-import io.ktor.client.request.parameter
-import io.ktor.client.statement.readRawBytes
-import io.ktor.http.HttpStatusCode
-import io.ktor.http.isSuccess
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.number
 import kotlinx.datetime.toLocalDateTime
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
 import kotlin.time.Clock
 
 private val logger = KotlinLogging.logger {}
-
-@Serializable
-internal data class GcsListing(
-    val items: List<GcsObject> = emptyList(),
-)
-
-@Serializable
-internal data class GcsObject(
-    val name: String? = null,
-    @SerialName("mediaLink") val mediaLink: String? = null,
-)
 
 /**
  * Oficiální hodnocení Androidu z reportingu Play Console.
@@ -62,6 +42,8 @@ class PlayReportingRatingsSource(
     private val baseUrl: String = GCS_BASE_URL,
 ) : RatingsSource,
     ReportingBucketProbe {
+    private val bucketReader = ReportingBucketReader(httpClient, baseUrl)
+
     override val platform: Platform = Platform.ANDROID
 
     override val priority: Int = OFFICIAL_PRIORITY
@@ -121,7 +103,7 @@ class PlayReportingRatingsSource(
 
         return try {
             val token = oauth.accessToken(account, STORAGE_SCOPE)
-            val forApp = listObjects(name, "stats/ratings/ratings_${appIdentifier}_", token)
+            val forApp = bucketReader.list(name, "stats/ratings/ratings_${appIdentifier}_", token)
             if (forApp.isNotEmpty()) {
                 return ReportingBucketCheck(
                     ReportingBucketStatus.OK,
@@ -129,7 +111,7 @@ class PlayReportingRatingsSource(
                 )
             }
 
-            val anything = listObjects(name, "stats/ratings/", token)
+            val anything = bucketReader.list(name, "stats/ratings/", token)
             if (anything.isNotEmpty()) {
                 ReportingBucketCheck(
                     ReportingBucketStatus.NO_EXPORT,
@@ -177,77 +159,19 @@ class PlayReportingRatingsSource(
         return listOf(previous, today.year to today.month.number).map { (year, month) -> "%04d%02d".format(year, month) }
     }
 
-    /** Jméno bucketu tak, jak ho čekají volání GCS: bez `gs://`, bez koncového lomítka. */
-    private fun normalizeBucket(raw: String?): String? =
-        raw
-            ?.trim()
-            ?.removePrefix("gs://")
-            ?.trimEnd('/')
-            ?.takeIf { it.isNotEmpty() }
-
-    /** Výpis objektů daného prefixu. Prázdný seznam znamená „nic takového tam neleží". */
-    private suspend fun listObjects(
-        bucket: String,
-        prefix: String,
-        token: String,
-    ): List<GcsObject> {
-        val listing =
-            try {
-                httpClient.get("$baseUrl/storage/v1/b/$bucket/o") {
-                    bearerAuth(token)
-                    parameter("prefix", prefix)
-                    parameter("maxResults", LIST_LIMIT)
-                }
-            } catch (error: Exception) {
-                throw StoreConnectorException(StoreErrorKind.TRANSIENT, "Cloud Storage je nedostupné", error)
-            }
-        if (!listing.status.isSuccess()) throw listing.status.toConnectorException(bucket)
-        return listing.body<GcsListing>().items
-    }
-
     private suspend fun downloadOverview(
         bucket: String,
         prefix: String,
         token: String,
     ): List<PlayOverviewRow> {
-        val media = listObjects(bucket, prefix, token).firstOrNull()?.mediaLink ?: return emptyList()
-        val download =
-            try {
-                httpClient.get(media) { bearerAuth(token) }
-            } catch (error: Exception) {
-                throw StoreConnectorException(StoreErrorKind.TRANSIENT, "Cloud Storage je nedostupné", error)
-            }
-        if (!download.status.isSuccess()) throw download.status.toConnectorException(bucket)
-
-        return PlayOverviewCsv.parse(download.readRawBytes())
+        val media = bucketReader.list(bucket, prefix, token).firstOrNull()?.mediaLink ?: return emptyList()
+        return PlayOverviewCsv.parse(bucketReader.download(bucket, media, token))
     }
-
-    private fun HttpStatusCode.toConnectorException(bucket: String): StoreConnectorException =
-        when {
-            value == HttpStatusCode.Unauthorized.value || value == HttpStatusCode.Forbidden.value ->
-                StoreConnectorException(
-                    StoreErrorKind.AUTH,
-                    "Service account nemá přístup k bucketu $bucket — přidej mu roli Storage Object Viewer",
-                )
-
-            value == HttpStatusCode.NotFound.value ->
-                StoreConnectorException(StoreErrorKind.NOT_FOUND, "Bucket $bucket neexistuje")
-
-            value == HttpStatusCode.TooManyRequests.value ->
-                StoreConnectorException(StoreErrorKind.RATE_LIMITED, "Cloud Storage omezuje tempo")
-
-            value >= HttpStatusCode.InternalServerError.value ->
-                StoreConnectorException(StoreErrorKind.TRANSIENT, "Cloud Storage vrátilo $value")
-
-            else -> StoreConnectorException(StoreErrorKind.INVALID_REQUEST, "Cloud Storage odmítlo požadavek ($value)")
-        }
 
     companion object {
         const val GCS_BASE_URL = "https://storage.googleapis.com"
         const val STORAGE_SCOPE = "https://www.googleapis.com/auth/devstorage.read_only"
         const val OFFICIAL_PRIORITY = 100
-
-        private const val LIST_LIMIT = 10
     }
 }
 
@@ -267,22 +191,18 @@ internal data class PlayOverviewRow(
  */
 internal object PlayOverviewCsv {
     fun parse(bytes: ByteArray): List<PlayOverviewRow> {
-        val text = decode(bytes)
-        val lines = text.lineSequence().filter { it.isNotBlank() }.toList()
-        if (lines.size < 2) return emptyList()
+        val rows = PlayCsv.rows(PlayCsv.decode(bytes))
+        if (rows.size < 2) return emptyList()
 
-        val header = split(lines.first()).map { it.trim().trim('"').removePrefix("﻿") }
-        val dateColumn = header.indexOfFirst { it.equals("Date", ignoreCase = true) }.takeIf { it >= 0 } ?: return emptyList()
-        val dailyColumn = header.indexOfFirst { it.equals("Daily Average Rating", ignoreCase = true) }
-        val totalColumn = header.indexOfFirst { it.equals("Total Average Rating", ignoreCase = true) }
+        val header = rows.first()
+        val dateColumn = PlayCsv.column(header, "Date").takeIf { it >= 0 } ?: return emptyList()
+        val dailyColumn = PlayCsv.column(header, "Daily Average Rating")
+        val totalColumn = PlayCsv.column(header, "Total Average Rating")
 
-        return lines.drop(1).mapNotNull { line ->
-            val cells = split(line)
+        return rows.drop(1).mapNotNull { cells ->
             val date =
-                cells
-                    .getOrNull(dateColumn)
-                    ?.trim()
-                    ?.trim('"')
+                PlayCsv
+                    .cell(cells, dateColumn)
                     ?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
             date?.let {
                 PlayOverviewRow(
@@ -293,25 +213,6 @@ internal object PlayOverviewCsv {
             }
         }
     }
-
-    /**
-     * Play export je UTF-16LE s BOM. Kdo ho přečte jako UTF-8, dostane text prokládaný
-     * nulovými bajty a všechny sloupce mu vyjdou prázdné — a průměr pak spadne na nulu.
-     */
-    private fun decode(bytes: ByteArray): String =
-        when {
-            bytes.size >= 2 && bytes[0] == 0xFF.toByte() && bytes[1] == 0xFE.toByte() ->
-                String(bytes, 2, bytes.size - 2, Charsets.UTF_16LE)
-
-            bytes.size >= 2 && bytes[0] == 0xFE.toByte() && bytes[1] == 0xFF.toByte() ->
-                String(bytes, 2, bytes.size - 2, Charsets.UTF_16BE)
-
-            // Bez BOM: sudý počet bajtů s nulou na liché pozici je taky UTF-16LE.
-            bytes.size >= 2 && bytes.size % 2 == 0 && bytes[1] == 0.toByte() -> String(bytes, Charsets.UTF_16LE)
-            else -> String(bytes, Charsets.UTF_8)
-        }
-
-    private fun split(line: String): List<String> = line.trim().split(',')
 
     private fun String.toDoubleOrNullSafe(): Double? = trim().trim('"').replace(',', '.').toDoubleOrNull()
 }

@@ -1,5 +1,6 @@
 package cz.matee.appreviewzz.app
 
+import cz.matee.appreviewzz.core.model.App
 import cz.matee.appreviewzz.core.model.AppId
 import cz.matee.appreviewzz.core.model.AppTopicId
 import cz.matee.appreviewzz.core.model.ChannelId
@@ -95,8 +96,27 @@ class ConsoleWiring(
     val enqueueAnalysis: ((String, String) -> Boolean)? = null,
     /** Týdenní rozbor pro tlačítko „Poslat teď"; `null` = proces bez kanálů. */
     val weeklyAnalysis: WeeklyAnalysisUseCase? = null,
+    /**
+     * Zařazení dotažení historie recenzí (org, app, měsíce). `null` = proces bez plánovače;
+     * historii pak dotáhne až denní běh workeru, jen o den později.
+     */
+    val enqueueHistoryImport: ((String, String, Int) -> Boolean)? = null,
     val clock: Clock = Clock.System,
 ) {
+    /**
+     * Dotažení historie recenzí pro appku, pokud na archiv vůbec dosáhne: u Androidu jen
+     * s reportingovým bucketem (bez něj není odkud číst), u iOS vždycky — App Store Connect
+     * historii vrací sám. Appka jen s Androidem a bez bucketu úlohu nedostane, jinak by
+     * každé přidání zakládalo běh, který nemá co stáhnout.
+     */
+    internal fun requestHistoryImport(app: App) {
+        val enqueue = enqueueHistoryImport ?: return
+        val android = app.gpPackageName != null && app.gpReportingBucket != null
+        val ios = app.ascAppId != null
+        if (!android && !ios) return
+        enqueue(app.orgId.toString(), app.id.toString(), app.historyMonths)
+    }
+
     /**
      * Názvy vlastních témat aplikace pro překlad klíčů ve výkladu. Jeden dotaz na požadavek,
      * ne jeden na recenzi — inbox jich vypisuje padesát.

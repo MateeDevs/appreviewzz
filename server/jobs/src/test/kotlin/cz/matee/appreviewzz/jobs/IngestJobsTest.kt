@@ -139,6 +139,7 @@ class IngestJobsTest :
                     ingestIntervalMinutes = app.ingestIntervalMinutes,
                     dailyDigestAt = app.dailyDigestAt,
                     weeklyDigestDay = app.weeklyDigestDay,
+                    historyMonths = app.historyMonths,
                     enabled = false,
                 ),
             )

@@ -41,6 +41,8 @@ data class CreateAppRequest(
     val ingestIntervalMinutes: Int? = null,
     val dailyDigestAt: String? = null,
     val weeklyDigestDay: Int? = null,
+    /** Kolik měsíců historie recenzí dotáhnout z reportingu Play Console (1–24). */
+    val historyMonths: Int? = null,
 )
 
 @Serializable
@@ -56,6 +58,8 @@ data class UpdateAppRequest(
     val dailyDigestAt: String? = null,
     /** ISO den v týdnu (1 = pondělí), kdy chodí týdenní rozbor recenzí. */
     val weeklyDigestDay: Int? = null,
+    /** Kolik měsíců historie recenzí dotáhnout z reportingu Play Console (1–24). */
+    val historyMonths: Int? = null,
     val enabled: Boolean? = null,
 )
 
@@ -105,6 +109,11 @@ data class AppResponse(
     val ingestIntervalSource: IngestIntervalSource,
     val dailyDigestAt: String,
     val weeklyDigestDay: Int,
+    /**
+     * Kolik měsíců zpětné historie recenzí se stahuje z reportingu Play Console. Bez bucketu
+     * je to jen číslo bez účinku — konzole to u appky bez bucketu musí říct.
+     */
+    val historyMonths: Int,
     val enabled: Boolean,
     /** Co appce chybí, aby recenze tekly. Console podle toho odliší „sledujeme" od „čeká na nastavení". */
     val setup: AppSetupResponse,
@@ -168,9 +177,13 @@ fun Route.appRoutes(console: ConsoleWiring) {
                                 ingestIntervalMinutes = request.ingestIntervalMinutes,
                                 dailyDigestAt = request.dailyDigestAt,
                                 weeklyDigestDay = request.weeklyDigestDay,
+                                historyMonths = request.historyMonths,
                             ),
                     )
                 }
+            // Historie se dotahuje hned, ne až nočním během: klient přidal appku právě proto,
+            // aby viděl rozbor za poslední měsíc, ne aby na něj čekal do zítřka.
+            console.requestHistoryImport(app)
             call.respond(HttpStatusCode.Created, app.toResponse(apps.effectiveInterval(app), io { setup.of(app) }))
         }
 
@@ -198,6 +211,7 @@ fun Route.appRoutes(console: ConsoleWiring) {
         patch("/{app}") {
             val context = call.orgContext(console.organizations, console.memberships)
             val request = call.receive<UpdateAppRequest>()
+            val current = io { apps.get(context.organization.id, call.appIdParam()) }
             val app =
                 io {
                     apps.update(
@@ -215,10 +229,16 @@ fun Route.appRoutes(console: ConsoleWiring) {
                                 ingestIntervalMinutes = request.ingestIntervalMinutes,
                                 dailyDigestAt = request.dailyDigestAt,
                                 weeklyDigestDay = request.weeklyDigestDay,
+                                historyMonths = request.historyMonths,
                                 enabled = request.enabled,
                             ),
                     )
                 }
+            // Bucket doplněný dodatečně (nebo delší historie) je přesně ta chvíle, kdy má
+            // smysl sáhnout do archivu znovu — do té doby nebylo kam.
+            if (app.gpReportingBucket != current.gpReportingBucket || app.historyMonths > current.historyMonths) {
+                console.requestHistoryImport(app)
+            }
             call.respond(app.toResponse(apps.effectiveInterval(app), io { setup.of(app) }))
         }
 
@@ -281,6 +301,7 @@ private fun App.toResponse(
         if (ingestIntervalMinutes == null) IngestIntervalSource.PLATFORM else IngestIntervalSource.APP,
     dailyDigestAt = dailyDigestAt.toString(),
     weeklyDigestDay = weeklyDigestDay,
+    historyMonths = historyMonths,
     enabled = enabled,
     setup =
         AppSetupResponse(

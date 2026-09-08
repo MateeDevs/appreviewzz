@@ -28,6 +28,51 @@ appreviewzz analysis backfill --org <slug> --app <ID>   # doplní zbytek
 Z konzole totéž udělá tlačítko *Doplnit za historii* na detailu aplikace. Běží na pozadí
 v dávkách po 150 recenzích, takže se u velké appky vyplatí `status` po chvíli zopakovat.
 
+## Historie recenzí
+
+Rozbor umí vyložit jen recenze, které v databázi jsou. Google Play API dá ~týden zpět a jen
+recenze s textem, takže historii Androidu drží **měsíční export v reportingovém bucketu**
+(`reviews/reviews_<package>_<YYYYMM>.csv` — tentýž bucket i service account jako oficiální
+hodnocení, viz nastavení aplikace). iOS historii vrací App Store Connect sám, jen se k ní
+dostránkovává hlouběji než při běžném ingestu.
+
+Kolik měsíců zpět, se vybírá při přidání aplikace (*Historie k rozboru*, 1–24 měsíců) a jde
+změnit v jejím nastavení. Prodloužení zařadí import hned; jinak běží denně hodinu před denním
+přehledem.
+
+```bash
+appreviewzz history import --org <slug> --app <ID> [--months <1-24>]
+```
+
+Bez `--months` se vezme nastavení aplikace. Výpis říká, kolik řádků archiv vrátil, kolik z nich
+bylo nových a kolik už bylo v databázi z API (`už známé z API`).
+
+**Co se z importu nedoručuje:** nic. Všechno se zakládá jako potlačené — jsou to data stará
+dny až roky a část z nich jsou hodnocení bez textu, ke kterým není co napsat.
+
+**Proč denně, a ne jednou:** export je jediné místo, kde jsou hodnocení bez textu. Kdyby se
+četl jen při onboardingu, měla by appka historii s nimi a živé období bez nich — objem i podíl
+spokojených by na té hranici skočily a srovnání „co se zlepšilo" by lhalo.
+
+### Když historie nepřibývá
+
+1. **Má appka bucket?** Bez něj se Android historie nedá číst vůbec — nastavení aplikace,
+   pole *Reporting bucket Play Console*. Tlačítko u něj řekne, jestli na něj náš účet dosáhne.
+2. **Je export v bucketu?** Play Console ho generuje jednou denně a pro měsíc bez jediné
+   recenze nevznikne. `history import` vypíše `staženo 0`.
+3. **DLQ:** `jobs failed` — úloha `reviews-history-app`, u jednorázového dotažení
+   `reviews-history-backfill`. `AUTH` znamená odebranou roli Storage Object Viewer.
+4. **Duplicity v inboxu.** Neměly by nastat: recenze z exportu mají ID s prefixem `csv:`
+   a proti recenzím z API se párují časem odeslání (na vteřinu). Kdyby přesto přibyly, je to
+   tenhle mechanismus a patří to do issue, ne k přemazání dat.
+
+### Odpovědi napsané ve storu
+
+Do „odpovězeno X z Y" v rozboru se počítají i odpovědi napsané v Play Console nebo App Store
+Connectu, ne jen ty publikované přes nás — klient se ptá, jestli recenze odpověď dostala.
+U recenze, která má obojí, platí ta dřívější. Bez toho by rozbor za dotaženou historii tvrdil
+„odpovězeno 0", i kdyby se odpovídalo na všechno.
+
 ## Rozbor nepřišel
 
 1. **Má appka výklady?** `analysis status`. Nula = zkontroluj `ai.provider` a klíč.

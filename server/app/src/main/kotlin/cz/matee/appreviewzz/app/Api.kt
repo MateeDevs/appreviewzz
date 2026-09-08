@@ -42,7 +42,13 @@ fun runApi(
     }
     // Klient fronty, ne plánovač: API úlohu jen zařadí, publikuje ji worker. Používá ho
     // webhook ze Slacku i odpovídání z console — obojí musí přežít nasazení nové verze.
-    val queue = buildSchedulerClient(database.asDataSource(), components.replyJobs, components.analysisJobs)
+    val queue =
+        buildSchedulerClient(
+            database.asDataSource(),
+            components.replyJobs,
+            components.analysisJobs,
+            components.reviewHistoryJobs,
+        )
     val intake =
         verifier?.let {
             SlackReplyIntake(components.reviewMessages) { data -> components.replyJobs.enqueue(queue, data) }
@@ -84,6 +90,9 @@ fun runApi(
             googlePlayProvisioning = components.googlePlayProvisioning,
             enqueueAnalysis = { orgId, appId ->
                 components.analysisJobs.schedule(queue, OrganizationId.parse(orgId), AppId.parse(appId))
+            },
+            enqueueHistoryImport = { orgId, appId, months ->
+                components.reviewHistoryJobs.scheduleBackfill(queue, OrganizationId.parse(orgId), AppId.parse(appId), months)
             },
             enqueueReply = { reply ->
                 components.replyJobs.enqueue(

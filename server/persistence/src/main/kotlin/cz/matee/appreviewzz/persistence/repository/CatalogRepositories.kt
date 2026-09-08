@@ -49,6 +49,7 @@ class ExposedAppRepository(
                     ingestIntervalMinutes = app.ingestIntervalMinutes,
                     dailyDigestAt = app.dailyDigestAt,
                     weeklyDigestDay = app.weeklyDigestDay,
+                    historyMonths = app.historyMonths,
                     enabled = true,
                     createdAt = clock.now(),
                 )
@@ -66,6 +67,7 @@ class ExposedAppRepository(
                 it[ingestIntervalMinutes] = created.ingestIntervalMinutes
                 it[dailyDigestAt] = created.dailyDigestAt
                 it[weeklyDigestDay] = created.weeklyDigestDay.toShort()
+                it[historyMonths] = created.historyMonths.toShort()
                 it[enabled] = true
                 it[createdAt] = created.createdAt
                 it[updatedAt] = created.createdAt
@@ -146,6 +148,7 @@ class ExposedAppRepository(
                     it[ingestIntervalMinutes] = settings.ingestIntervalMinutes
                     it[dailyDigestAt] = settings.dailyDigestAt
                     it[weeklyDigestDay] = settings.weeklyDigestDay.toShort()
+                    it[historyMonths] = settings.historyMonths.toShort()
                     it[enabled] = settings.enabled
                 }
             if (updated == 0) null else findById(orgId, id)

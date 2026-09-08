@@ -214,6 +214,20 @@ Bez AI se nic nerozbije: recenze chodí jako dřív, jen bez štítků a bez roz
 postupy — doplnění historie, přepnutí modelu, co dělat když AI padá — jsou
 v [runbooku](docs/runbooks/rozbory.md).
 
+### Historie k rozboru
+
+Nová appka by první měsíc neměla co rozebírat: Google Play API vrací jen ~týden zpět a jen
+recenze s textem. Historie se proto bere z **měsíčních exportů v reportingu Play Console**
+(`reviews/reviews_<package>_<YYYYMM>.csv`, tentýž bucket jako oficiální hodnocení), u iOS
+hlubším stránkováním App Store Connectu. Při přidání aplikace se vybírá, kolik měsíců zpět.
+
+Export se čte **denně, ne jednorázově**: jsou v něm i hodnocení bez textu, která přes API
+nepřijdou nikdy, a jednorázový import by udělal řadu, ve které historie obsahuje něco, co
+živé období nemá — objem i nálada by na té hranici skočily. Nic z importu se nedoručuje do
+kanálů: jsou to podklady pro rozbory, ne novinky pro tým.
+
+Bez reportingového bucketu Android historii mít nebude; iOS ano, ten ji vrací z API.
+
 ## Struktura repa
 
 ```

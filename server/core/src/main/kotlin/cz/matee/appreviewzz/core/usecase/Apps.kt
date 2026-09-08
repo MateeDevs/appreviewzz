@@ -36,6 +36,8 @@ data class AppDraft(
     val dailyDigestAt: String? = null,
     /** ISO den v týdnu (1 = pondělí) pro týdenní rozbor recenzí. */
     val weeklyDigestDay: Int? = null,
+    /** Kolik měsíců historie recenzí dotáhnout z reportingu Play Console. */
+    val historyMonths: Int? = null,
     val enabled: Boolean? = null,
 )
 
@@ -123,6 +125,8 @@ class AppService(
                         draft.dailyDigestAt?.let { AppInputs.digestAt(it, "dailyDigestAt") } ?: defaults.dailyDigestAt,
                     weeklyDigestDay =
                         draft.weeklyDigestDay?.let { AppInputs.weeklyDigestDay(it, "weeklyDigestDay") } ?: defaults.weeklyDigestDay,
+                    historyMonths =
+                        draft.historyMonths?.let { AppInputs.historyMonths(it, "historyMonths") } ?: defaults.historyMonths,
                 ),
             )
         audit(organization.id, actor, "app.created", app.id.toString(), mapOf("name" to app.name))
@@ -158,6 +162,8 @@ class AppService(
                 dailyDigestAt = draft.dailyDigestAt?.let { AppInputs.digestAt(it, "dailyDigestAt") } ?: current.dailyDigestAt,
                 weeklyDigestDay =
                     draft.weeklyDigestDay?.let { AppInputs.weeklyDigestDay(it, "weeklyDigestDay") } ?: current.weeklyDigestDay,
+                historyMonths =
+                    draft.historyMonths?.let { AppInputs.historyMonths(it, "historyMonths") } ?: current.historyMonths,
                 enabled = draft.enabled ?: current.enabled,
             )
         val updated =

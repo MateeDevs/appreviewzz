@@ -52,6 +52,7 @@ import cz.matee.appreviewzz.core.usecase.AnalyzeReviewsUseCase
 import cz.matee.appreviewzz.core.usecase.AppInputs
 import cz.matee.appreviewzz.core.usecase.ConsoleException
 import cz.matee.appreviewzz.core.usecase.PlatformActor
+import cz.matee.appreviewzz.core.usecase.PlatformHistoryImport
 import cz.matee.appreviewzz.core.usecase.PlatformIngest
 import cz.matee.appreviewzz.core.usecase.RatingsSkipReason
 import cz.matee.appreviewzz.core.usecase.hintFor
@@ -442,6 +443,34 @@ class SeedCommands(
 
         report.failures.firstOrNull()?.let { failure ->
             throw CommandException("Ingest ${failure.platform} selhal (${failure.kind}): ${failure.message}")
+        }
+    }
+
+    /**
+     * Dotažení historie recenzí (A10). Běží rovnou, ne přes frontu: kdo tohle pouští ručně,
+     * chce vidět, kolik se toho z archivu vytáhlo — a hlavně jestli se na archiv vůbec dosáhlo.
+     */
+    suspend fun historyImport(args: Arguments) {
+        val organization = organization(args)
+        val app = app(organization.id, args)
+        val months =
+            args.optional("months")?.let {
+                AppInputs.historyMonths(it.toIntOrNull() ?: throw CommandException("--months čeká číslo"), "--months")
+            } ?: app.historyMonths
+
+        val report = components.importReviewHistory.run(organization.id, app.id, months)
+        audit(organization.id, "history.import", "app", app.id.toString(), mapOf("měsíců" to months.toString()))
+
+        out("Historie recenzí ${app.name} (${app.id})")
+        report.skipped?.let {
+            out("  přeskočeno: $it")
+            return
+        }
+        out("  období ${report.since} – ${report.until} ($months měsíců)")
+        report.platforms.forEach { out("  " + it.describe()) }
+
+        report.failures.firstOrNull()?.let { failure ->
+            throw CommandException("Historie ${failure.platform} selhala (${failure.kind}): ${failure.message}")
         }
     }
 
@@ -1333,6 +1362,16 @@ private fun details(vararg rows: Pair<String, String>): String {
     val width = maxOf(DETAIL_LABEL_COLUMN, rows.maxOfOrNull { it.first.length + 1 } ?: 0)
     return rows.joinToString(System.lineSeparator()) { (label, value) -> "  ${label.padEnd(width)}$value" }
 }
+
+private fun PlatformHistoryImport.describe(): String =
+    when (this) {
+        is PlatformHistoryImport.Imported ->
+            "${platform.name.padEnd(PLATFORM_COLUMN)} staženo $fetched · nové $created · změněné $updated · " +
+                "beze změny $unchanged · už známé z API $alreadyKnown"
+
+        is PlatformHistoryImport.Skipped -> "${platform.name.padEnd(PLATFORM_COLUMN)} přeskočeno: $reason"
+        is PlatformHistoryImport.Failed -> "${platform.name.padEnd(PLATFORM_COLUMN)} selhalo: $kind — $message"
+    }
 
 private fun PlatformIngest.describe(): String =
     when (this) {

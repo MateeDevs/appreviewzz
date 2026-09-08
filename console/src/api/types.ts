@@ -88,6 +88,8 @@ export interface App {
   dailyDigestAt: string
   /** ISO den v týdnu (1 = pondělí), kdy chodí týdenní rozbor recenzí. */
   weeklyDigestDay: number
+  /** Kolik měsíců zpětné historie recenzí se stahuje. Android to umí jen s reporting bucketem. */
+  historyMonths: number
   enabled: boolean
   /** Co appce chybí, aby recenze tekly — počítá server, console to jen ukazuje. */
   setup: AppSetup
