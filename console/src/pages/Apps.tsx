@@ -523,6 +523,8 @@ function AppSettingsCard({ org, appId }: { org: string; appId: string }) {
     analysisMinReviews: app.analysisThresholdSource === 'APP' ? String(app.analysisMinReviews) : '',
     analysisMinTopicCount: app.analysisThresholdSource === 'APP' ? String(app.analysisMinTopicCount) : '',
     aiInstructions: app.aiInstructions ?? '',
+    autoThanksEnabled: app.autoThanksEnabled ? 'ano' : 'ne',
+    autoThanksTemplate: app.autoThanksTemplate ?? '',
   }
   const set = (key: string, value: string) => setDraft({ ...values, [key]: value })
 
@@ -546,6 +548,8 @@ function AppSettingsCard({ org, appId }: { org: string; appId: string }) {
                 analysisMinReviews: values.analysisMinReviews === '' ? 0 : Number(values.analysisMinReviews),
                 analysisMinTopicCount: values.analysisMinTopicCount === '' ? 0 : Number(values.analysisMinTopicCount),
                 aiInstructions: values.aiInstructions === '' ? null : values.aiInstructions,
+                autoThanksEnabled: values.autoThanksEnabled === 'ano',
+                autoThanksTemplate: values.autoThanksTemplate,
                 enabled: app.enabled,
               },
             },
@@ -663,6 +667,27 @@ function AppSettingsCard({ org, appId }: { org: string; appId: string }) {
             . Starší zůstávají v historii, ale nikoho neupozorní.
           </p>
         </div>
+        <Field
+          label="Automaticky děkovat za 5 ★"
+          hint="Odešle se bez schválení. Jen u recenzí s pěti hvězdami, které nic nekritizují — a jen když k nim AI vyloží, že jde o pochvalu."
+        >
+          <select value={values.autoThanksEnabled} onChange={(e) => set('autoThanksEnabled', e.target.value)}>
+            <option value="ne">Ne, odpovídáme sami</option>
+            <option value="ano">Ano, poděkovat automaticky</option>
+          </select>
+        </Field>
+        {values.autoThanksEnabled === 'ano' ? (
+          <Field
+            label="Záložní text poděkování"
+            hint="Použije se, když AI návrh chybí. Bez návrhu i bez textu se nic neodešle. Google Play přijme nejvýš 350 znaků."
+          >
+            <textarea
+              value={values.autoThanksTemplate}
+              maxLength={350}
+              onChange={(e) => set('autoThanksTemplate', e.target.value)}
+            />
+          </Field>
+        ) : null}
         <Field
           label="Instrukce pro AI návrhy"
           hint="Tón odpovědí, čemu se vyhnout, jak podepisovat. Nechej prázdné, když návrhy nechceš ovlivňovat."

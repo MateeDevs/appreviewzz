@@ -53,6 +53,8 @@ class ExposedAppRepository(
                     analysisCadence = app.analysisCadence,
                     analysisMinReviews = app.analysisMinReviews,
                     analysisMinTopicCount = app.analysisMinTopicCount,
+                    autoThanksEnabled = app.autoThanksEnabled,
+                    autoThanksTemplate = app.autoThanksTemplate,
                     enabled = true,
                     createdAt = clock.now(),
                 )
@@ -74,6 +76,8 @@ class ExposedAppRepository(
                 it[analysisCadence] = created.analysisCadence
                 it[analysisMinReviews] = created.analysisMinReviews?.toShort()
                 it[analysisMinTopicCount] = created.analysisMinTopicCount?.toShort()
+                it[autoThanksEnabled] = created.autoThanksEnabled
+                it[autoThanksTemplate] = created.autoThanksTemplate
                 it[enabled] = true
                 it[createdAt] = created.createdAt
                 it[updatedAt] = created.createdAt
@@ -158,6 +162,8 @@ class ExposedAppRepository(
                     it[analysisCadence] = settings.analysisCadence
                     it[analysisMinReviews] = settings.analysisMinReviews?.toShort()
                     it[analysisMinTopicCount] = settings.analysisMinTopicCount?.toShort()
+                    it[autoThanksEnabled] = settings.autoThanksEnabled
+                    it[autoThanksTemplate] = settings.autoThanksTemplate
                     it[enabled] = settings.enabled
                 }
             if (updated == 0) null else findById(orgId, id)

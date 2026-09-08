@@ -69,6 +69,10 @@ data class UpdateAppRequest(
     /** Výjimky od platformních prahů rozboru; `0` vrací aplikaci k platformní hodnotě. */
     val analysisMinReviews: Int? = null,
     val analysisMinTopicCount: Int? = null,
+    /** Automatické poděkování za 5 ★ (C2); `null` = nech, jak je. */
+    val autoThanksEnabled: Boolean? = null,
+    /** Prázdný řetězec záložní text ruší. */
+    val autoThanksTemplate: String? = null,
     val enabled: Boolean? = null,
 )
 
@@ -132,6 +136,8 @@ data class AppResponse(
     val analysisMinReviews: Int,
     val analysisMinTopicCount: Int,
     val analysisThresholdSource: IngestIntervalSource,
+    val autoThanksEnabled: Boolean,
+    val autoThanksTemplate: String?,
     val enabled: Boolean,
     /** Co appce chybí, aby recenze tekly. Console podle toho odliší „sledujeme" od „čeká na nastavení". */
     val setup: AppSetupResponse,
@@ -260,6 +266,8 @@ fun Route.appRoutes(console: ConsoleWiring) {
                                 analysisCadence = request.analysisCadence,
                                 analysisMinReviews = request.analysisMinReviews,
                                 analysisMinTopicCount = request.analysisMinTopicCount,
+                                autoThanksEnabled = request.autoThanksEnabled,
+                                autoThanksTemplate = request.autoThanksTemplate,
                                 enabled = request.enabled,
                             ),
                     )
@@ -336,6 +344,8 @@ private fun App.toResponse(
     analysisCadence = analysisCadence,
     analysisMinReviews = thresholds.minReviews,
     analysisMinTopicCount = thresholds.minTopicCount,
+    autoThanksEnabled = autoThanksEnabled,
+    autoThanksTemplate = autoThanksTemplate,
     analysisThresholdSource =
         if (analysisMinReviews == null && analysisMinTopicCount == null) {
             IngestIntervalSource.PLATFORM

@@ -43,6 +43,10 @@ data class AppDraft(
     /** Výjimky od platformních prahů rozboru; `null` = nech, jak je. */
     val analysisMinReviews: Int? = null,
     val analysisMinTopicCount: Int? = null,
+    /** Automatické poděkování za 5 ★ (C2); `null` = nech, jak je. */
+    val autoThanksEnabled: Boolean? = null,
+    /** Záložní text poděkování; prázdný řetězec ho zruší. */
+    val autoThanksTemplate: String? = null,
     val enabled: Boolean? = null,
 )
 
@@ -184,6 +188,11 @@ class AppService(
                 analysisMinReviews = analysisMinReviews(draft) ?: current.analysisMinReviews.takeIf { draft.analysisMinReviews != 0 },
                 analysisMinTopicCount =
                     analysisMinTopicCount(draft) ?: current.analysisMinTopicCount.takeIf { draft.analysisMinTopicCount != 0 },
+                autoThanksEnabled = draft.autoThanksEnabled ?: current.autoThanksEnabled,
+                // Prázdný řetězec ruší záložní text; `null` znamená „nech, jak je".
+                autoThanksTemplate =
+                    draft.autoThanksTemplate?.let { AppInputs.autoThanksTemplate(it, "autoThanksTemplate") }
+                        ?: current.autoThanksTemplate,
                 enabled = draft.enabled ?: current.enabled,
             )
         val updated =

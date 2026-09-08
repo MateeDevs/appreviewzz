@@ -34,9 +34,29 @@ internal object SlackBlocks {
     const val REPLY_ACTION_ID = "reply_text"
     const val SUBMIT_ACTION_ID = "submit_reply"
 
-    /** Zpráva s recenzí: obsah + vstup s návrhem + tlačítko. */
+    /**
+     * Zpráva s recenzí: obsah + vstup s návrhem + tlačítko.
+     *
+     * U recenze s automatickým poděkováním (C2) formulář **nevzniká**: odpověď už je ve
+     * frontě a vstup, který za vteřinu přestane dávat smysl, je horší než žádný.
+     */
     fun review(notification: ReviewNotification): JsonArray =
-        JsonArray(content(notification) + input(notification) + submitButton(notification))
+        if (notification.autoReply != null) {
+            JsonArray(content(notification) + autoReplied(notification))
+        } else {
+            JsonArray(content(notification) + input(notification) + submitButton(notification))
+        }
+
+    /** „🤖 Odpovězeno automaticky:" plus text, který odešel. Bez formuláře a bez tlačítka. */
+    private fun autoReplied(notification: ReviewNotification): List<JsonObject> {
+        val catalog = notification.catalog
+        val text = notification.autoReply.orEmpty()
+        return listOf(
+            section("*${escape(catalog[MessageKey.AUTO_REPLIED])}*"),
+            plainSection(text.take(SECTION_TEXT_LIMIT).ifBlank { "—" }),
+            context(escape(catalog[MessageKey.AUTO_REPLIED_HINT])),
+        )
+    }
 
     /**
      * Táž zpráva po odeslání odpovědi: vstup i tlačítko jsou pryč, místo nich je vidět, co se

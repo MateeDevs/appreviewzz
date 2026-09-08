@@ -203,6 +203,8 @@ internal object Apps : Table("app") {
     val dailyDigestAt = time("daily_digest_at")
     val weeklyDigestDay = short("weekly_digest_day")
     val historyMonths = short("history_months")
+    val autoThanksEnabled = bool("auto_thanks_enabled")
+    val autoThanksTemplate = text("auto_thanks_template").nullable()
     val analysisCadence = enumerationByName<AnalysisCadence>("analysis_cadence", ENUM_LENGTH)
     val analysisMinReviews = short("analysis_min_reviews").nullable()
     val analysisMinTopicCount = short("analysis_min_topic_count").nullable()

@@ -286,7 +286,9 @@ function ReplyForm({ org, reviewId }: { org: string; reviewId: string }) {
         <div className="notice" style={{ marginBottom: '0.75rem' }}>
           {detail.data.replies.map((item) => (
             <div key={item.id} className="small">
-              <strong>{item.authorDisplayName ?? item.source}</strong>: {item.body}{' '}
+              <strong>{item.authorDisplayName ?? item.source}</strong>
+              {/* Kdo odpověděl, není detail: automatická odpověď šla ven bez schválení. */}
+              {item.source === 'AUTO' ? <> <Badge>auto</Badge></> : null}: {item.body}{' '}
               {item.status === 'PUBLISHED' ? (
                 <Badge tone="ok">publikováno</Badge>
               ) : item.status === 'FAILED' ? (

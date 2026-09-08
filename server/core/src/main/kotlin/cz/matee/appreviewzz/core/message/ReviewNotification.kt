@@ -41,6 +41,11 @@ data class ReviewNotification(
     val isUpdate: Boolean = false,
     /** Výklad recenze (F8); `null`, když AI není nastavená nebo selhala — zpráva jde i bez něj. */
     val insight: ReviewInsightSummary? = null,
+    /**
+     * Text automatického poděkování (C2). Když není `null`, zpráva **nemá formulář**:
+     * odpověď už je ve frontě a nabízet k ní vstupní pole by mátlo.
+     */
+    val autoReply: String? = null,
 ) {
     val catalog: MessageCatalog = MessageCatalog.of(locale)
 

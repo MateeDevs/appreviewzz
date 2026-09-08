@@ -137,6 +137,13 @@ enum class MessageKey(
     ALERT_TOP_VERSION("Verze: {version} ({count}).", "Version: {version} ({count})."),
     ALERT_OPEN("Ukázat recenze", "Show reviews"),
 
+    // ------------------------------------------------------------------ automatické poděkování (C2)
+    AUTO_REPLIED("🤖 Odpovězeno automaticky:", "🤖 Replied automatically:"),
+    AUTO_REPLIED_HINT(
+        "Pochvala bez výhrad — poděkování jde do storu bez schválení. Vypnout jde v nastavení aplikace.",
+        "Praise with no complaints — the thank-you goes out without approval. You can turn this off in app settings.",
+    ),
+
     // ------------------------------------------------------------------ efekt odpovědi (B5)
     ANALYSIS_REPLY_UPLIFT(
         "{count} recenzí po vaší odpovědi přidalo hvězdy.",

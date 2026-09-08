@@ -1,7 +1,9 @@
 package cz.matee.appreviewzz.app
 
+import cz.matee.appreviewzz.core.model.ReplySource
 import cz.matee.appreviewzz.crypto.KekUsage
 import cz.matee.appreviewzz.jobs.BackupJobs
+import cz.matee.appreviewzz.jobs.ReplyJobData
 import cz.matee.appreviewzz.jobs.SchedulerConfig
 import cz.matee.appreviewzz.jobs.buildScheduler
 import cz.matee.appreviewzz.persistence.Database
@@ -69,6 +71,22 @@ fun runWorker(
                     pollingInterval = Duration.ofSeconds(config.worker.pollingIntervalSeconds),
                 ),
         )
+    // Automatické poděkování (C2) se zařazuje do téže fronty jako odpověď ze Slacku —
+    // publikuje ji tentýž worker a pád mezi doručením a publikací ji neztratí.
+    components.useAutoReplyQueue { reply ->
+        components.replyJobs.enqueue(
+            scheduler,
+            ReplyJobData(
+                orgId = reply.orgId.toString(),
+                reviewId = reply.reviewId.toString(),
+                channelId = null,
+                body = reply.body,
+                source = ReplySource.AUTO.name,
+                authorExternalId = null,
+                authorDisplayName = null,
+            ),
+        )
+    }
     // Zastavit scheduler dřív než pool: běžící úloha musí stihnout dopsat výsledek do databáze.
     Runtime.getRuntime().addShutdownHook(Thread(scheduler::stop, "scheduler-shutdown"))
     scheduler.start()

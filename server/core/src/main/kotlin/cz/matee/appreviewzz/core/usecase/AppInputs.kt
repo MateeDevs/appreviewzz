@@ -30,6 +30,9 @@ object AppInputs {
     const val MIN_HISTORY_MONTHS = 1
     const val MAX_HISTORY_MONTHS = 24
 
+    /** Limit odpovědi v Google Play; App Store má 5 000, ale text musí projít oběma. */
+    const val MAX_AUTO_THANKS = 350
+
     /** ISO dny v týdnu; zrcadlí `CHECK` na `app.weekly_digest_day`. */
     const val MIN_WEEKLY_DAY = 1
     const val MAX_WEEKLY_DAY = 7
@@ -61,6 +64,20 @@ object AppInputs {
             invalid(field, "musí být mezi $MIN_INGEST_INTERVAL a $MAX_INGEST_INTERVAL minutami")
         }
         return minutes
+    }
+
+    /**
+     * Záložní text automatického poděkování (C2). Prázdný řetězec ho ruší; delší než
+     * [MAX_AUTO_THANKS] se do Google Play stejně nevejde a publikace by spadla až ve storu.
+     */
+    fun autoThanksTemplate(
+        raw: String,
+        field: String,
+    ): String? {
+        val text = raw.trim()
+        if (text.isEmpty()) return null
+        if (text.length > MAX_AUTO_THANKS) invalid(field, "je delší než $MAX_AUTO_THANKS znaků, což Google Play nepřijme")
+        return text
     }
 
     /**

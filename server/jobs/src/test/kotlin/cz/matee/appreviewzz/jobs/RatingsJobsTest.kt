@@ -121,6 +121,8 @@ class RatingsJobsTest :
                 analysisCadence = app.analysisCadence,
                 analysisMinReviews = app.analysisMinReviews,
                 analysisMinTopicCount = app.analysisMinTopicCount,
+                autoThanksEnabled = app.autoThanksEnabled,
+                autoThanksTemplate = app.autoThanksTemplate,
                 enabled = true,
             ),
         )

@@ -189,6 +189,8 @@ data class NewApp(
     /** Výjimky od platformních prahů rozboru; `null` = platí platforma. */
     val analysisMinReviews: Int? = null,
     val analysisMinTopicCount: Int? = null,
+    val autoThanksEnabled: Boolean = false,
+    val autoThanksTemplate: String? = null,
 )
 
 /** Kompletní nastavení appky — update je nahrazení celku, ne patch po polích. */
@@ -206,6 +208,8 @@ data class AppSettings(
     val analysisCadence: AnalysisCadence,
     val analysisMinReviews: Int?,
     val analysisMinTopicCount: Int?,
+    val autoThanksEnabled: Boolean,
+    val autoThanksTemplate: String?,
     val enabled: Boolean,
 )
 

@@ -72,6 +72,14 @@ data class App(
      * jen s [gpReportingBucket] — jinou cestou k historii Androidu se nedostaneme.
      */
     val historyMonths: Int = 1,
+    /**
+     * Automatické poděkování za pět hvězd (C2). Odesílá se **bez schválení**, takže
+     * podmínky rozhoduje výklad recenze, ne jen počet hvězd — a bez výkladu se neodesílá
+     * nic: automatická odpověď na stížnost je horší než žádná.
+     */
+    val autoThanksEnabled: Boolean = false,
+    /** Záložní text, když AI návrh chybí. `null` = bez návrhu se nic neodešle. */
+    val autoThanksTemplate: String? = null,
     val enabled: Boolean,
     val createdAt: Instant,
 ) {

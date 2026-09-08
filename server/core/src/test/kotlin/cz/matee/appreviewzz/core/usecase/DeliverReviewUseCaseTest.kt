@@ -17,6 +17,7 @@ import cz.matee.appreviewzz.core.port.NotificationChannel
 import cz.matee.appreviewzz.core.port.ReplySuggestion
 import cz.matee.appreviewzz.core.port.ReviewAnalysis
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.nulls.shouldBeNull
@@ -33,6 +34,8 @@ private class Fixture(
     analysisResult: AnalysisResult? = null,
     /** Výklad složený z ID recenze — jako ho vrací skutečný model. */
     analysisEcho: ((String) -> ReviewAnalysis)? = null,
+    autoThanks: Boolean = false,
+    autoThanksTemplate: String? = null,
 ) {
     val apps = FakeAppRepository()
     val reviews = FakeReviewRepository()
@@ -41,7 +44,10 @@ private class Fixture(
     val slack = FakeNotificationChannel()
     val suggestions = FakeSuggestProvider(suggestion)
     val insights = FakeReviewInsightRepository()
-    val app = apps.put(Ingest.app(ORG))
+    val app = apps.put(Ingest.app(ORG).copy(autoThanksEnabled = autoThanks, autoThanksTemplate = autoThanksTemplate))
+
+    /** Automatická poděkování, která by šla do fronty odpovědí. */
+    val autoReplies = mutableListOf<AutoReply>()
 
     private val analysis =
         if (analysisResult == null && analysisEcho == null) {
@@ -70,6 +76,7 @@ private class Fixture(
             suggestions = suggestions,
             analysis = analysis,
             notificationChannels = channels ?: listOf(slack),
+            enqueueAutoReply = { reply -> autoReplies.add(reply) },
             clock = fixedClock(Delivery.now),
         )
 }
@@ -78,6 +85,119 @@ private const val ANALYSIS_ANSWERS = 5
 
 class DeliverReviewUseCaseTest :
     FunSpec({
+        /** Výklad pochvaly: pět hvězd, typ PRAISE, žádné záporné téma. */
+        fun praise(reviewId: String) =
+            ReviewAnalysis(
+                id = reviewId,
+                sentiment = OverallSentiment.POSITIVE,
+                type = ReviewType.PRAISE,
+                urgency = Urgency.LOW,
+                language = "cs",
+                topics = listOf(TopicMention(Topic.PRAISE.key, TopicSentiment.POSITIVE, null)),
+                translation = null,
+            )
+
+        test("pětihvězdičková pochvala se zařadí k automatickému poděkování a zpráva nemá formulář") {
+            val fixture = Fixture(autoThanks = true, analysisEcho = ::praise)
+            fixture.channelRepository.put(Delivery.channel(ORG, fixture.app.id))
+            val review =
+                fixture.reviews.put(Delivery.review(ORG, fixture.app.id, starRating = 5, body = "Skvělá appka, díky!"))
+
+            fixture.useCase.deliver(ORG, review.id)
+
+            fixture.autoReplies.single().reviewId shouldBe review.id
+            val notification =
+                fixture.slack.posted
+                    .single()
+                    .second
+            // Odpověď je ve frontě; formulář, který za vteřinu přestane dávat smysl, tam nepatří.
+            notification.autoReply shouldContain "Mrzí nás to"
+        }
+
+        test("pochvala se záporným tématem jde do kanálu s formulářem, ne automaticky") {
+            // Pět hvězd a přesto stížnost na reklamy — přesně ten případ, kdy automatické
+            // „děkujeme za pochvalu" vypadá, že jsme recenzi vůbec nečetli.
+            val fixture =
+                Fixture(
+                    autoThanks = true,
+                    analysisEcho = { id ->
+                        praise(id).copy(topics = listOf(TopicMention(Topic.ADS.key, TopicSentiment.NEGATIVE, null)))
+                    },
+                )
+            val review =
+                fixture.reviews.put(Delivery.review(ORG, fixture.app.id, starRating = 5, body = "Super, jen ty reklamy."))
+
+            fixture.channelRepository.put(Delivery.channel(ORG, fixture.app.id))
+            fixture.useCase.deliver(ORG, review.id)
+
+            fixture.autoReplies.shouldBeEmpty()
+            fixture.slack.posted
+                .single()
+                .second.autoReply
+                .shouldBeNull()
+        }
+
+        test("bez výkladu se automaticky neodpovídá — bezpečná strana je ta, kde odpovídá člověk") {
+            val fixture = Fixture(autoThanks = true)
+            val review =
+                fixture.reviews.put(Delivery.review(ORG, fixture.app.id, starRating = 5, body = "Skvělá appka!"))
+
+            fixture.channelRepository.put(Delivery.channel(ORG, fixture.app.id))
+            fixture.useCase.deliver(ORG, review.id)
+
+            fixture.autoReplies.shouldBeEmpty()
+        }
+
+        test("recenze, která už má odpověď ve storu, druhou nedostane") {
+            val fixture = Fixture(autoThanks = true, analysisEcho = ::praise)
+            val review =
+                fixture.reviews.put(
+                    Delivery.review(
+                        ORG,
+                        fixture.app.id,
+                        starRating = 5,
+                        body = "Skvělá appka!",
+                        developerResponse = "Děkujeme!",
+                    ),
+                )
+
+            fixture.channelRepository.put(Delivery.channel(ORG, fixture.app.id))
+            fixture.useCase.deliver(ORG, review.id)
+
+            fixture.autoReplies.shouldBeEmpty()
+        }
+
+        test("bez návrhu od AI se použije záložní text, a bez něj se neodešle nic") {
+            val withTemplate =
+                Fixture(
+                    suggestion = ReplySuggestion.Unavailable,
+                    autoThanks = true,
+                    autoThanksTemplate = "Díky za hezká slova!",
+                    analysisEcho = ::praise,
+                )
+            val review =
+                withTemplate.reviews.put(Delivery.review(ORG, withTemplate.app.id, starRating = 5, body = "Paráda!"))
+            withTemplate.channelRepository.put(Delivery.channel(ORG, withTemplate.app.id))
+            withTemplate.useCase.deliver(ORG, review.id)
+            withTemplate.autoReplies.single().body shouldBe "Díky za hezká slova!"
+
+            val without = Fixture(suggestion = ReplySuggestion.Unavailable, autoThanks = true, analysisEcho = ::praise)
+            val other = without.reviews.put(Delivery.review(ORG, without.app.id, starRating = 5, body = "Paráda!"))
+            without.channelRepository.put(Delivery.channel(ORG, without.app.id))
+            without.useCase.deliver(ORG, other.id)
+            without.autoReplies.shouldBeEmpty()
+        }
+
+        test("vypnuté poděkování nechává i dokonalou pochvalu na člověku") {
+            val fixture = Fixture(analysisEcho = ::praise)
+            val review = fixture.reviews.put(Delivery.review(ORG, fixture.app.id, starRating = 5, body = "Nejlepší!"))
+
+            fixture.channelRepository.put(Delivery.channel(ORG, fixture.app.id))
+            fixture.useCase.deliver(ORG, review.id)
+
+            fixture.autoReplies.shouldBeEmpty()
+        }
+
         test("zpráva nese štítky z výkladu recenze") {
             val fixture =
                 Fixture(

@@ -7,7 +7,7 @@ export type Platform = 'ANDROID' | 'IOS'
 export type ValidationStatus = 'UNKNOWN' | 'VALID' | 'INVALID'
 export type ReviewState = 'NEW' | 'NOTIFIED' | 'REPLIED' | 'UPDATED' | 'IGNORED' | 'SUPPRESSED'
 export type ReplyStatus = 'PENDING' | 'PUBLISHED' | 'FAILED'
-export type ReplySource = 'SLACK' | 'TEAMS' | 'CONSOLE'
+export type ReplySource = 'SLACK' | 'TEAMS' | 'CONSOLE' | 'AUTO'
 export type MessageStatus = 'PENDING' | 'SENT' | 'FAILED'
 export type CredentialType = 'GP_SERVICE_ACCOUNT' | 'ASC_API_KEY' | 'SLACK_INSTALL' | 'TEAMS_BOT_REF'
 
@@ -95,6 +95,10 @@ export interface App {
   /** Prahy, které pro appku právě platí — buď z platformy, nebo z její výjimky. */
   analysisMinReviews: number
   analysisMinTopicCount: number
+  /** Automatické poděkování za pětihvězdičkové recenze bez kritiky. */
+  autoThanksEnabled: boolean
+  /** Záložní text, když AI návrh chybí; `null` = bez návrhu se nic neodešle. */
+  autoThanksTemplate: string | null
   analysisThresholdSource: 'PLATFORM' | 'APP'
   enabled: boolean
   /** Co appce chybí, aby recenze tekly — počítá server, console to jen ukazuje. */

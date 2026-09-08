@@ -57,6 +57,8 @@ internal object Delivery {
         platform: Platform = Platform.ANDROID,
         state: ReviewState = ReviewState.NEW,
         developerResponse: String? = null,
+        starRating: Int = 2,
+        body: String? = "Po updatu se nedostanu dál.",
     ): Review =
         Review(
             id = ReviewId(Uuid.random()),
@@ -65,9 +67,9 @@ internal object Delivery {
             platform = platform,
             storeReviewId = "gp:AOqpTO",
             authorName = "Jana N.",
-            starRating = 2,
+            starRating = starRating,
             title = null,
-            body = "Po updatu se nedostanu dál.",
+            body = body,
             locale = "cs",
             territory = "CZ",
             appVersion = "3.2.1",

@@ -40,6 +40,9 @@ internal object TeamsCards {
 
     /** Karta s recenzí: obsah + vstup s návrhem + tlačítko. */
     fun review(notification: ReviewNotification): JsonObject =
+        if (notification.autoReply != null) autoReplied(notification) else withForm(notification)
+
+    private fun withForm(notification: ReviewNotification): JsonObject =
         card(
             buildJsonArray {
                 content(notification).forEach { add(it) }
@@ -47,6 +50,29 @@ internal object TeamsCards {
             },
             actions = buildJsonArray { add(submitAction(notification)) },
         )
+
+    /**
+     * Recenze s automatickým poděkováním (C2). Karta **nemá formulář**: odpověď už je ve
+     * frontě a vstup, který za vteřinu přestane dávat smysl, je horší než žádný.
+     */
+    private fun autoReplied(notification: ReviewNotification): JsonObject {
+        val catalog = notification.catalog
+        return card(
+            buildJsonArray {
+                content(notification).forEach { add(it) }
+                addJsonObject {
+                    put("type", "Container")
+                    put("style", "good")
+                    put("separator", true)
+                    putJsonArray("items") {
+                        add(textBlock("**${catalog[MessageKey.AUTO_REPLIED]}**"))
+                        add(textBlock(notification.autoReply.orEmpty()))
+                    }
+                }
+                add(textBlock(catalog[MessageKey.AUTO_REPLIED_HINT], subtle = true, size = "Small"))
+            },
+        )
+    }
 
     /**
      * Táž karta po odeslání odpovědi: vstup i tlačítko jsou pryč, místo nich je vidět, co se

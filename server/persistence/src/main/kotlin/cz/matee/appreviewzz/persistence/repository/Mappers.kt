@@ -147,6 +147,8 @@ internal fun ResultRow.toApp(): App =
         analysisCadence = this[Apps.analysisCadence],
         analysisMinReviews = this[Apps.analysisMinReviews]?.toInt(),
         analysisMinTopicCount = this[Apps.analysisMinTopicCount]?.toInt(),
+        autoThanksEnabled = this[Apps.autoThanksEnabled],
+        autoThanksTemplate = this[Apps.autoThanksTemplate],
         enabled = this[Apps.enabled],
         createdAt = this[Apps.createdAt],
     )

@@ -129,6 +129,9 @@ enum class ReplySource {
     SLACK,
     TEAMS,
     CONSOLE,
+
+    /** Automatické poděkování za pět hvězd (C2) — odeslané bez lidského schválení. */
+    AUTO,
 }
 
 enum class ReplyStatus {

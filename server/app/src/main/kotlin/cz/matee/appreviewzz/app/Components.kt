@@ -56,6 +56,7 @@ import cz.matee.appreviewzz.core.usecase.AppSetupCheck
 import cz.matee.appreviewzz.core.usecase.AppTopicService
 import cz.matee.appreviewzz.core.usecase.AuthPolicy
 import cz.matee.appreviewzz.core.usecase.AuthenticationService
+import cz.matee.appreviewzz.core.usecase.AutoReply
 import cz.matee.appreviewzz.core.usecase.ChannelService
 import cz.matee.appreviewzz.core.usecase.ConsoleLinks
 import cz.matee.appreviewzz.core.usecase.CredentialService
@@ -125,6 +126,7 @@ import cz.matee.appreviewzz.persistence.repository.ExposedUserTokenRepository
 import io.ktor.client.HttpClient
 import java.time.Duration
 import java.time.ZoneId
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.time.Duration.Companion.minutes
 
 /**
@@ -340,6 +342,15 @@ class Components(
         )
     }
 
+    /**
+     * Fronta pro automatické poděkování (C2). Nastavuje ji worker, až má plánovač — a ten
+     * potřebuje ke svému vzniku doručovací use case. Kruh se rozpojí časem, ne dalším
+     * parametrem: lambda se čte až při doručení, kdy plánovač dávno běží.
+     */
+    private val autoReplyQueue = AtomicReference<((AutoReply) -> Boolean)?>(null)
+
+    fun useAutoReplyQueue(enqueue: (AutoReply) -> Boolean) = autoReplyQueue.set(enqueue)
+
     val delivery: DeliverReviewUseCase by lazy {
         DeliverReviewUseCase(
             apps = apps,
@@ -350,6 +361,8 @@ class Components(
             suggestions = suggestions,
             analysis = analyzeReviews,
             notificationChannels = notificationChannels,
+            // Bez plánovače se automatické poděkování chová, jako by nebylo zapnuté.
+            enqueueAutoReply = { reply -> autoReplyQueue.get()?.invoke(reply) ?: false },
         )
     }
 

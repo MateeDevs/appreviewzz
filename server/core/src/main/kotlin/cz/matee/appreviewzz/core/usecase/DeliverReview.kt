@@ -10,6 +10,9 @@ import cz.matee.appreviewzz.core.model.Review
 import cz.matee.appreviewzz.core.model.ReviewId
 import cz.matee.appreviewzz.core.model.ReviewInsight
 import cz.matee.appreviewzz.core.model.ReviewState
+import cz.matee.appreviewzz.core.model.ReviewType
+import cz.matee.appreviewzz.core.model.TopicSentiment
+import cz.matee.appreviewzz.core.model.Urgency
 import cz.matee.appreviewzz.core.port.AppRepository
 import cz.matee.appreviewzz.core.port.ChannelErrorKind
 import cz.matee.appreviewzz.core.port.ChannelException
@@ -27,6 +30,13 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlin.time.Clock
 
 private val logger = KotlinLogging.logger {}
+
+/** Automatické poděkování na cestě do fronty odpovědí (C2). */
+data class AutoReply(
+    val orgId: OrganizationId,
+    val reviewId: ReviewId,
+    val body: String,
+)
 
 /** Proč se recenze nedoručila nikam. Žádný z důvodů není chyba — jen stav, který má být vidět. */
 enum class DeliverySkipReason {
@@ -119,6 +129,11 @@ class DeliverReviewUseCase(
      */
     private val analysis: AnalyzeReviewsUseCase? = null,
     notificationChannels: List<NotificationChannel>,
+    /**
+     * Zařazení automatického poděkování do fronty odpovědí (C2). `null` u procesů bez
+     * plánovače; funkce se pak chová, jako by nebyla zapnutá.
+     */
+    private val enqueueAutoReply: ((AutoReply) -> Boolean)? = null,
     private val clock: Clock = Clock.System,
 ) {
     private val channelByType: Map<ChannelType, NotificationChannel> = notificationChannels.associateBy { it.type }
@@ -152,7 +167,10 @@ class DeliverReviewUseCase(
 
         val suggestion = suggest(app, review)
         val insight = analyze(orgId, reviewId)
-        val deliveries = targets.map { channel -> deliverTo(app, review, channel, suggestion, insight) }
+        // Automatické poděkování se rozhoduje **před** složením zprávy: kanál pak dostane
+        // variantu bez formuláře, ne formulář, který za vteřinu zmizí.
+        val autoReply = autoThanks(app, review, suggestion, insight)
+        val deliveries = targets.map { channel -> deliverTo(app, review, channel, suggestion, insight, autoReply) }
         if (deliveries.any { it is ChannelDelivery.Sent } && review.state != ReviewState.NOTIFIED) {
             reviews.updateState(orgId, reviewId, ReviewState.NOTIFIED)
         }
@@ -187,12 +205,51 @@ class DeliverReviewUseCase(
         return outcome.insightOrNull
     }
 
+    /**
+     * Automatické poděkování za pět hvězd (C2).
+     *
+     * Podmínky jsou schválně přísné, protože odpověď jde ven **bez schválení**: pět hvězd,
+     * výklad typu `PRAISE`, žádné téma se záporným sentimentem, nízká naléhavost a recenze
+     * bez odpovědi ve storu. **Bez výkladu se neodesílá nic** — když AI selže, je bezpečná
+     * strana ta, kde odpovídá člověk; automatická odpověď na stížnost je horší než žádná.
+     */
+    private fun autoThanks(
+        app: App,
+        review: Review,
+        suggestion: ReplySuggestion,
+        insight: ReviewInsight?,
+    ): AutoReply? {
+        val enqueue = enqueueAutoReply ?: return null
+        if (!app.autoThanksEnabled) return null
+        if (review.starRating != PERFECT_RATING) return null
+        if (review.developerResponseBody != null) return null
+        val outcome = insight ?: return null
+        if (outcome.type != ReviewType.PRAISE) return null
+        if (outcome.urgency != Urgency.LOW) return null
+        if (outcome.topics.any { it.sentiment == TopicSentiment.NEGATIVE }) return null
+
+        val text =
+            (suggestion as? ReplySuggestion.Suggested)?.text?.takeIf { it.isNotBlank() }
+                ?: app.autoThanksTemplate?.takeIf { it.isNotBlank() }
+                ?: return null
+
+        val reply = AutoReply(orgId = app.orgId, reviewId = review.id, body = text)
+        if (!enqueue(reply)) {
+            // Duplicita není chyba: recenze mohla projít doručením dvakrát a odpověď už
+            // ve frontě leží. Zpráva do kanálu ale pořád patří ta bez formuláře.
+            logger.info { "Automatické poděkování na recenzi ${review.id} už ve frontě je" }
+        }
+        logger.info { "Recenze ${review.id} dostane automatické poděkování" }
+        return reply
+    }
+
     private suspend fun deliverTo(
         app: App,
         review: Review,
         channel: Channel,
         suggestion: ReplySuggestion,
         insight: ReviewInsight?,
+        autoReply: AutoReply?,
     ): ChannelDelivery {
         val implementation =
             channelByType[channel.type]
@@ -215,6 +272,7 @@ class DeliverReviewUseCase(
                 suggestedReply = (suggestion as? ReplySuggestion.Suggested)?.text,
                 isUpdate = review.state == ReviewState.UPDATED,
                 insight = insight?.let { analysis?.summarize(it, channel.locale) },
+                autoReply = autoReply?.body,
             )
 
         return try {
@@ -228,6 +286,11 @@ class DeliverReviewUseCase(
             logger.warn { "Doručení recenze ${review.id} do kanálu ${channel.id} selhalo (${error.kind}): $detail" }
             ChannelDelivery.Failed(channel.id, error.kind, detail)
         }
+    }
+
+    private companion object {
+        /** Automaticky se děkuje jen za plný počet hvězd; čtyřka bývá „dobré, ale…". */
+        const val PERFECT_RATING = 5
     }
 
     /** Návrh odpovědi. Selhání AI se jen zaznamená — recenze musí dorazit i bez něj. */
