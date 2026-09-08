@@ -202,6 +202,12 @@ function TopicSelect({
  */
 function InsightBadges({ insight }: { insight?: ReviewInsight | null }) {
   if (!insight) return null
+  const typeLabel = TYPE_LABELS[insight.type]
+  // Téma se může jmenovat stejně jako typ (téma „Pochvala“ + typ PRAISE) — pak by týž text
+  // stál na řádku dvakrát. Druhý štítek nic nepřidává, takže se vynechá.
+  const typeInTopics = insight.topics.some(
+    (topic) => topic.name.localeCompare(typeLabel, undefined, { sensitivity: 'base' }) === 0,
+  )
   return (
     <div className="row" style={{ marginTop: '0.35rem', gap: '0.35rem' }}>
       {insight.topics.map((topic) => (
@@ -209,7 +215,7 @@ function InsightBadges({ insight }: { insight?: ReviewInsight | null }) {
           {topic.name}
         </Badge>
       ))}
-      <Badge>{TYPE_LABELS[insight.type]}</Badge>
+      {typeInTopics ? null : <Badge>{typeLabel}</Badge>}
       {insight.urgency === 'HIGH' ? <Badge tone="warn">naléhavé</Badge> : null}
     </div>
   )
