@@ -158,6 +158,12 @@ export function InboxPage() {
             <InsightBadges insight={review.insight} />
             {review.title ? <div><strong>{review.title}</strong></div> : null}
             <p style={{ marginTop: '0.35rem' }}>{review.body ?? <span className="muted">(bez textu)</span>}</p>
+            {/* Překlad pod originálem, ne místo něj: co člověk napsal, je fakt. */}
+            {review.insight?.translation ? (
+              <p className="small muted" style={{ fontStyle: 'italic', marginTop: '-0.25rem' }}>
+                Překlad: {review.insight.translation}
+              </p>
+            ) : null}
             {review.developerResponseBody ? (
               <p className="small muted">Odpověď vývojáře: {review.developerResponseBody}</p>
             ) : null}
@@ -263,6 +269,7 @@ function InsightDetail({ insight }: { insight: ReviewInsight }) {
         {TYPE_LABELS[insight.type]} · naléhavost {URGENCY_LABELS[insight.urgency]}
         {insight.language ? ` · jazyk ${insight.language}` : ''}
       </div>
+      {insight.translation ? <div className="small">Překlad: {insight.translation}</div> : null}
       {quotes.map((topic) => (
         <div key={topic.key} className="small">
           <strong>{topic.name}</strong>: „{topic.quote}"

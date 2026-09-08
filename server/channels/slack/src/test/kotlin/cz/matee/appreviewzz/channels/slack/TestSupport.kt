@@ -68,6 +68,7 @@ internal fun notification(
     locale: MessageLocale = MessageLocale.CS,
     isUpdate: Boolean = false,
     insight: ReviewInsightSummary? = null,
+    autoReply: String? = null,
 ): ReviewNotification =
     ReviewNotification(
         review = review,
@@ -77,6 +78,7 @@ internal fun notification(
         suggestedReply = suggestion,
         isUpdate = isUpdate,
         insight = insight,
+        autoReply = autoReply,
     )
 
 internal class RecordingEngine(

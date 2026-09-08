@@ -59,6 +59,7 @@ internal object Delivery {
         developerResponse: String? = null,
         starRating: Int = 2,
         body: String? = "Po updatu se nedostanu dál.",
+        locale: String? = "cs",
     ): Review =
         Review(
             id = ReviewId(Uuid.random()),
@@ -70,7 +71,7 @@ internal object Delivery {
             starRating = starRating,
             title = null,
             body = body,
-            locale = "cs",
+            locale = locale,
             territory = "CZ",
             appVersion = "3.2.1",
             device = null,

@@ -19,6 +19,12 @@ data class ReviewInsightSummary(
     val topics: List<String>,
     val type: ReviewType,
     val urgency: Urgency,
+    /**
+     * Překlad recenze do jazyka týmu (C3); `null`, když recenze v jeho jazyce už je.
+     * Ukazuje se **pod originálem**, ne místo něj: co člověk doopravdy napsal, je fakt,
+     * překlad je pomůcka.
+     */
+    val translation: String? = null,
 ) {
     val isUrgent: Boolean get() = urgency == Urgency.HIGH
 }

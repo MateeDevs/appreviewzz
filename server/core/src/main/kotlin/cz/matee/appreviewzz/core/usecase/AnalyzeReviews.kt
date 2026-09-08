@@ -201,6 +201,7 @@ class AnalyzeReviewsUseCase(
             topics = insight.topics.mapNotNull { Topic.ofKey(it.key)?.label(locale) ?: custom[it.key] },
             type = insight.type,
             urgency = insight.urgency,
+            translation = insight.translation,
         )
     }
 
@@ -228,8 +229,27 @@ class AnalyzeReviewsUseCase(
                             appVersion = it.appVersion,
                         )
                     },
+                translateTo = translationTarget(app, batch),
             ),
         )
+
+    /**
+     * Do jakého jazyka překládat (C3), nebo `null`.
+     *
+     * Překlad se nežádá plošně: stojí výstupní tokeny u každé recenze a u appky, která má
+     * recenze jen v jazyce týmu, by se za něj platilo zbytečně. Rozhoduje jazyk **ze storu**
+     * (`review.locale`), protože ten je k dispozici dřív, než model odpoví — a stačí jedna
+     * cizojazyčná recenze v dávce, protože dávka je společný požadavek.
+     */
+    private fun translationTarget(
+        app: App,
+        batch: List<Review>,
+    ): String? {
+        val team = app.locale.name.lowercase()
+        // Neznámý jazyk se počítá za cizí: raději překlad navíc než nepřečtená recenze.
+        val foreign = batch.any { review -> review.locale?.substringBefore('-')?.lowercase() != team }
+        return if (foreign) team else null
+    }
 
     private fun store(
         orgId: OrganizationId,

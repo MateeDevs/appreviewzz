@@ -350,6 +350,16 @@ internal object SlackBlocks {
                 },
             )
             add(section(escape(notification.text).take(SECTION_TEXT_LIMIT)))
+            // Překlad **pod** originálem, ne místo něj: co člověk napsal, je fakt; překlad
+            // je pomůcka a má být poznat, že jde o něj.
+            notification.insight?.translation?.let { translated ->
+                add(
+                    context(
+                        "_${escape(catalog[MessageKey.TRANSLATION])}: " +
+                            escape(translated).take(CONTEXT_TEXT_LIMIT) + "_",
+                    ),
+                )
+            }
             notification.previousReply?.let { previous ->
                 val quoted = escape(previous).take(QUOTE_LIMIT).lineSequence().joinToString("\n") { "> $it" }
                 add(section("*${escape(catalog[MessageKey.YOU_ALREADY_REPLIED])}*\n$quoted"))

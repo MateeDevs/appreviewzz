@@ -350,6 +350,17 @@ internal object TeamsCards {
             }
             add(header(notification))
             add(textBlock(notification.text.take(TEXT_LIMIT), size = "Large", weight = "Bolder", spacing = "Medium"))
+            // Překlad **pod** originálem, ne místo něj: co člověk napsal, je fakt; překlad
+            // je pomůcka a má být poznat, že jde o něj.
+            notification.insight?.translation?.let { translated ->
+                add(
+                    textBlock(
+                        "_${catalog[MessageKey.TRANSLATION]}: ${translated.take(TEXT_LIMIT)}_",
+                        subtle = true,
+                        size = "Small",
+                    ),
+                )
+            }
             notification.previousReply?.let { previous ->
                 add(
                     buildJsonObject {

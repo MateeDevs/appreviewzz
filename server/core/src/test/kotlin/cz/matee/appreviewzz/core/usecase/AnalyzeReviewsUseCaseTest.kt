@@ -1,5 +1,6 @@
 package cz.matee.appreviewzz.core.usecase
 
+import cz.matee.appreviewzz.core.model.MessageLocale
 import cz.matee.appreviewzz.core.model.OverallSentiment
 import cz.matee.appreviewzz.core.model.ReviewState
 import cz.matee.appreviewzz.core.model.ReviewType
@@ -111,6 +112,45 @@ class AnalyzeReviewsUseCaseTest :
                 .single()
                 .quote shouldBe
                 "Po  updatu se NEDOSTANU dal"
+        }
+
+        test("cizojazyčná recenze si vyžádá překlad, česká ne") {
+            val apps = FakeAppRepository()
+            val reviews = FakeReviewRepository()
+            val provider = FakeAnalysisProvider()
+            val app = apps.put(Ingest.app(orgId))
+            val czech = reviews.put(Delivery.review(orgId, app.id, locale = "cs"))
+            val german = reviews.put(Delivery.review(orgId, app.id, locale = "de-DE"))
+            provider.echo { id -> analysis(id, listOf(TopicMention(Topic.CRASH.key, TopicSentiment.NEGATIVE, null))) }
+            val useCase =
+                AnalyzeReviewsUseCase(apps, reviews, FakeReviewInsightRepository(), FakeAppTopicRepository(), provider)
+
+            useCase.ensureAnalyzed(orgId, czech.id)
+            // Za překlad se platí výstupními tokeny u každé recenze; u appky s českým
+            // publikem by to byla položka na faktuře bez užitku.
+            provider.requests.last().translateTo shouldBe null
+
+            useCase.ensureAnalyzed(orgId, german.id)
+            provider.requests.last().translateTo shouldBe "cs"
+        }
+
+        test("překlad od modelu se uloží k výkladu a jde do zprávy") {
+            val apps = FakeAppRepository()
+            val reviews = FakeReviewRepository()
+            val provider = FakeAnalysisProvider()
+            val app = apps.put(Ingest.app(orgId))
+            val review = reviews.put(Delivery.review(orgId, app.id, locale = "de", body = "Nach dem Update stürzt es ab."))
+            provider.echo { id ->
+                analysis(id, listOf(TopicMention(Topic.CRASH.key, TopicSentiment.NEGATIVE, null)))
+                    .copy(translation = "Po aktualizaci to padá.")
+            }
+            val useCase =
+                AnalyzeReviewsUseCase(apps, reviews, FakeReviewInsightRepository(), FakeAppTopicRepository(), provider)
+
+            val insight = useCase.ensureAnalyzed(orgId, review.id).insightOrNull.shouldNotBeNull()
+
+            insight.translation shouldBe "Po aktualizaci to padá."
+            useCase.summarize(insight, MessageLocale.CS).translation shouldBe "Po aktualizaci to padá."
         }
 
         test("neznámé téma se zahodí, a když nezbude žádné, je z toho other") {

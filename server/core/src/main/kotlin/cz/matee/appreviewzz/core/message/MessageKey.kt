@@ -137,6 +137,9 @@ enum class MessageKey(
     ALERT_TOP_VERSION("Verze: {version} ({count}).", "Version: {version} ({count})."),
     ALERT_OPEN("Ukázat recenze", "Show reviews"),
 
+    // ------------------------------------------------------------------ překlad recenze (C3)
+    TRANSLATION("Překlad", "Translation"),
+
     // ------------------------------------------------------------------ automatické poděkování (C2)
     AUTO_REPLIED("🤖 Odpovězeno automaticky:", "🤖 Replied automatically:"),
     AUTO_REPLIED_HINT(

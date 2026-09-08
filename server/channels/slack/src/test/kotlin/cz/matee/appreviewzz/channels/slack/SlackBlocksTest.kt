@@ -8,6 +8,7 @@ import cz.matee.appreviewzz.core.model.ReviewType
 import cz.matee.appreviewzz.core.model.Urgency
 import cz.matee.appreviewzz.core.port.ReplyRendering
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.ints.shouldBeLessThanOrEqual
 import io.kotest.matchers.shouldBe
@@ -36,6 +37,37 @@ class SlackBlocksTest :
             val rendered = blocks.render()
             rendered shouldContain "Pády · Po aktualizaci"
             rendered shouldContain "naléhavé"
+        }
+
+        test("překlad je pod originálem, ne místo něj") {
+            val blocks =
+                SlackBlocks.review(
+                    notification(
+                        insight =
+                            ReviewInsightSummary(
+                                topics = listOf("Pády"),
+                                type = ReviewType.BUG,
+                                urgency = Urgency.LOW,
+                                translation = "Po aktualizaci to padá.",
+                            ),
+                    ),
+                )
+
+            val rendered = blocks.render()
+            rendered shouldContain "Překlad: Po aktualizaci to padá."
+            // Originál zůstává: co člověk doopravdy napsal, je fakt, překlad je pomůcka.
+            rendered shouldContain "Po updatu se nedostanu dál"
+        }
+
+        test("automatické poděkování nahradí formulář hotovou odpovědí") {
+            val blocks = SlackBlocks.review(notification(autoReply = "Díky za hezká slova!"))
+
+            val rendered = blocks.render()
+            rendered shouldContain "Odpovězeno automaticky"
+            rendered shouldContain "Díky za hezká slova!"
+            // Vstup, který za vteřinu přestane dávat smysl, je horší než žádný.
+            blocks.ofType("input").shouldBeEmpty()
+            blocks.ofType("actions").shouldBeEmpty()
         }
 
         test("bez výkladu vypadá zpráva přesně jako dřív") {
