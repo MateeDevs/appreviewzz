@@ -209,7 +209,7 @@ podíly, trendy a mediány pak spočítá SQL a zpráva je šablona s doplněný
 u tématu se před uložením ověří jako doslovný úryvek recenze — když neprojde, neuloží se
 žádný. Proč to tak je, vysvětluje [ADR 0019](docs/adr/0019-rozbory-recenzi.md).
 
-Zapnutí je jedna volba v `/platforma` (`ai.provider`, `ai.api_key`, `ai.analysis_model`).
+Zapnutí je jedna volba ve *Správě platformy* (`ai.provider`, `ai.api_key`, `ai.analysis_model`).
 Bez AI se nic nerozbije: recenze chodí jako dřív, jen bez štítků a bez rozboru. Provozní
 postupy — doplnění historie, přepnutí modelu, co dělat když AI padá — jsou
 v [runbooku](docs/runbooks/rozbory.md).

@@ -114,8 +114,9 @@ zůstávají klientovi. Jsou to jeho preference, ne náš provoz — to je ta d�
   audit a to, že k datům organizací se nedostane.
 - Self-host dostane stejnou sekci. Dokud si nikdo roli neudělí, sekce neexistuje a platí
   hodnoty z prostředí — nic se nestává povinným.
-- Console dostává první cestu mimo `OrgLayout` (`/platforma`). Odkaz se ukazuje podle
-  `platformRole` z `/api/auth/me`, ale rozhoduje server.
+- V consoli je sekce dialogem nad rozdělanou prací, ne vlastní stránkou — stejně jako
+  zabezpečení účtu: superadmin si sem odskočí zkontrolovat klíč a vrací se, odkud přišel.
+  Tlačítko se ukazuje podle `platformRole` z `/api/auth/me`, ale rozhoduje server.
 - **Zdroj hodnoty se u tajemství musí dohledávat zvlášť.** Tajemství neleží v `platform_setting`,
   takže naivní „je v tabulce → je uložené" u nich vždycky odpoví „z prostředí". Stálo to jednu
   chybu při implementaci a jeden test, který ji hlídá.

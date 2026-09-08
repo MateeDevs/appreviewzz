@@ -372,6 +372,23 @@ button.link:hover:not(:disabled) { background: none; color: var(--accent-hover);
 .modal-head { padding-bottom: 0.85rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border); }
 .modal-head h2 { margin: 0; }
 
+/* Dialog s tabulkami (správa platformy) — na 560 px se sloupce lepí na sebe. */
+.modal.wide { width: min(760px, calc(100vw - 2rem)); }
+
+/*
+ * Karta uvnitř dialogu ztrácí vlastní rám: dvě orámovaná pole v sobě čtou jako dvě
+ * plochy, ne jako jedna se sekcemi. Zbývá nadpis s linkou — ten sekce oddělí sám.
+ */
+.modal .card {
+  background: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+  animation: none;
+}
+.modal .card + .card { margin-top: 1.6rem; }
+
 /*
  * Rozcestí v dialogu: dvě čtvercové dlaždice vedle sebe.
  *

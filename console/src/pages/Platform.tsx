@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import {
   usePlatformApps,
   usePlatformAudit,
@@ -12,35 +11,32 @@ import {
   useUpdatePlatformSettings,
 } from '../api/hooks'
 import type { PlatformSetting, PlatformSettingSource } from '../api/types'
-import { AuthShell, Badge, Card, Empty, ErrorBox, Field, Loading, When } from '../components/ui'
+import { Badge, Card, Empty, ErrorBox, Field, Loading, Modal, When } from '../components/ui'
 
 /**
  * Správa platformy (F7, ADR 0018).
  *
- * Mimo rám organizace schválně: superadmin žádnou nemá a k datům klientů se odsud nedostane.
- * Je tu konfigurace, klíče a pár provozních čísel — nic, co by patřilo konkrétnímu tenantovi.
+ * Mimo data klientů schválně: je tu konfigurace, klíče a pár provozních čísel — nic, co by
+ * patřilo konkrétnímu tenantovi.
  *
- * O tom, kdo sem smí, rozhoduje server (`404` bez role, `403` bez druhého faktoru); routa
- * v [App] je jen zkratka, aby se odsud nekoukalo na prázdné obrazovky.
+ * Dialog, ne stránka: superadmin si sem odskočí zkontrolovat klíč nebo interval a vrací se
+ * tam, odkud přišel — stejně jako u [SecurityDialog]. O tom, kdo sem smí, rozhoduje server
+ * (`404` bez role, `403` bez druhého faktoru); podmínka u tlačítka je jen zkratka, aby se
+ * odsud nekoukalo na samé chyby.
  */
-export function PlatformPage() {
+export function PlatformDialog({ onClose }: { onClose: () => void }) {
   return (
-    <AuthShell wide>
-      <Card title="Správa platformy">
-        <p className="small muted">
-          Nastavení, které platí pro všechny klienty. Změny se projeví do půl minuty — worker si je
-          vyzvedne sám, restart není potřeba.
-        </p>
-      </Card>
+    <Modal title="Správa platformy" wide onClose={onClose}>
+      <p className="small muted">
+        Nastavení, které platí pro všechny klienty. Změny se projeví do půl minuty — worker si je
+        vyzvedne sám, restart není potřeba.
+      </p>
       <OverviewCard />
       <SettingsCard />
       <SecretsCard />
       <AppOverridesCard />
       <AuditCard />
-      <p className="small muted" style={{ marginTop: '1.5rem' }}>
-        <Link to="/">Zpátky do console</Link>
-      </p>
-    </AuthShell>
+    </Modal>
   )
 }
 

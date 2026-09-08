@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useCreateOrganization, useMe, useOrganizations, useResendVerification } from '../api/hooks'
 import { AuthShell, Card, ErrorBox, Field, Loading } from '../components/ui'
+import { PlatformDialog } from './Platform'
 
 /**
  * Rozcestník: seznam organizací a založení nové.
@@ -16,6 +17,7 @@ export function OrganizationsPage() {
   const resend = useResendVerification()
   const navigate = useNavigate()
   const [name, setName] = useState('')
+  const [platform, setPlatform] = useState(false)
 
   const verified = me.data?.emailVerified ?? false
 
@@ -66,6 +68,16 @@ export function OrganizationsPage() {
           </form>
         )}
       </Card>
+      {/* Superadmin nemusí být v žádné organizaci — bez tohohle by se do správy platformy
+          odsud nedostal. Roli si sekce ověřuje na serveru, tohle je jen dveře. */}
+      {me.data?.platformRole === 'SUPERADMIN' ? (
+        <p className="small muted">
+          <button type="button" className="link" onClick={() => setPlatform(true)}>
+            Správa platformy
+          </button>
+        </p>
+      ) : null}
+      {platform ? <PlatformDialog onClose={() => setPlatform(false)} /> : null}
   </AuthShell>
   )
 }

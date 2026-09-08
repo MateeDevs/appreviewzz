@@ -69,10 +69,13 @@ export function AuthShell({ wide, children }: { wide?: boolean; children: ReactN
  */
 export function Modal({
   title,
+  wide,
   onClose,
   children,
 }: {
   title: string
+  /** Pro dialogy s tabulkami — na 560 px se rozpadají. */
+  wide?: boolean
   onClose: () => void
   children: ReactNode
 }) {
@@ -86,7 +89,7 @@ export function Modal({
   return (
     <dialog
       ref={ref}
-      className="modal"
+      className={wide ? 'modal wide' : 'modal'}
       onClose={onClose}
       // Kliknutí mimo kartu zavírá; `<dialog>` hlásí kliknutí na překryv sám na sobě.
       onClick={(event) => {

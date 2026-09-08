@@ -2,7 +2,8 @@
 
 Rozhodnutí a proč to tak je: [ADR 0018](../adr/0018-platformni-sprava-a-superadmin.md).
 
-Sekce `/platforma` v consoli je jediné místo, kde jedna změna dopadne na **všechny klienty**.
+Sekce **Správa platformy** v consoli (dole v postranním panelu, dialog) je jediné místo, kde
+jedna změna dopadne na **všechny klienty**.
 Tenhle dokument říká, jak se do ní někdo dostane, co v ní jde nastavit a co udělat, když
 se něco pokazí.
 

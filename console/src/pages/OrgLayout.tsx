@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { NavLink, Navigate, Outlet, useParams } from 'react-router-dom'
 import { useLogout, useMe } from '../api/hooks'
 import { Brand } from '../components/ui'
+import { PlatformDialog } from './Platform'
 import { SecurityDialog } from './Security'
 import {
   IconApps,
@@ -21,6 +22,7 @@ export function OrgLayout() {
   const me = useMe()
   const logout = useLogout()
   const [security, setSecurity] = useState(false)
+  const [platform, setPlatform] = useState(false)
 
   const membership = me.data?.organizations.find((item) => item.slug === org)
   // Než dorazí profil, nic nepřesměrováváme — jinak by refresh stránky vyhodil ven.
@@ -63,9 +65,11 @@ export function OrgLayout() {
           <button type="button" className="link" onClick={() => setSecurity(true)}>
             Zabezpečení účtu
           </button>
-          {/* Odkaz vidí jen správce platformy. Sekce sama si roli ověřuje na serveru. */}
+          {/* Vidí jen správce platformy. Sekce sama si roli ověřuje na serveru. */}
           {me.data?.platformRole === 'SUPERADMIN' ? (
-            <NavLink to="/platforma">Správa platformy</NavLink>
+            <button type="button" className="link" onClick={() => setPlatform(true)}>
+              Správa platformy
+            </button>
           ) : null}
           {me.data && me.data.organizations.length > 1 ? (
             <NavLink to="/organizace">Přepnout organizaci</NavLink>
@@ -79,6 +83,7 @@ export function OrgLayout() {
         <Outlet />
       </main>
       {security ? <SecurityDialog onClose={() => setSecurity(false)} /> : null}
+      {platform ? <PlatformDialog onClose={() => setPlatform(false)} /> : null}
     </div>
   )
 }

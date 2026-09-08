@@ -6,7 +6,7 @@ API kontejneru (viz [nasazení do produkce](nasazeni-do-produkce.md)).
 ## Zapnutí
 
 Rozbory jedou na stejném provideru a klíči jako návrhy odpovědí, liší se jen model.
-V konzoli `/platforma` → sekce *AI návrhy odpovědí a rozbory*:
+V konzoli **Správa platformy** (dole v postranním panelu) → sekce *AI návrhy odpovědí a rozbory*:
 
 | Klíč | Co to je |
 |---|---|
