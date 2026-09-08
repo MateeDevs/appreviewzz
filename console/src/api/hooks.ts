@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query'
 import { ApiError, api } from './client'
 import type {
+  AnalysisOverview,
+  AnalysisRunResult,
   AnalysisStatus,
   App,
   AuditEntry,
@@ -19,6 +21,7 @@ import type {
   PlatformOverview,
   PlatformSecret,
   PlatformSetting,
+  Platform,
   RatingsRunResult,
   RatingsSeries,
   ReportingBucketCheck,
@@ -31,6 +34,7 @@ import type {
   TopicOption,
   TotpSetup,
   Urgency,
+  VersionImpact,
 } from './types'
 
 /**
@@ -447,6 +451,48 @@ export function useDeleteTopic(org: string, appId: string) {
   return useMutation({
     mutationFn: (id: string) => api.delete(`/api/orgs/${org}/apps/${appId}/topics/${id}`),
     onSuccess: () => client.invalidateQueries({ queryKey: ['topics', org, appId] }),
+  })
+}
+
+/** Filtr stránky Rozbory. Prázdná hodnota znamená „neomezuj". */
+export interface AnalysisFilters {
+  days?: number
+  platform?: Platform | ''
+  territory?: string
+}
+
+/**
+ * Agregace pro stránku Rozbory. Jeden dotaz na celou stránku: čísla v blocích spolu musí
+ * sedět a dvě nezávislá volání by se při souběžném doběhu tagování rozešla.
+ */
+export function useAnalysis(org: string, appId: string, filters: AnalysisFilters = {}) {
+  const params = new URLSearchParams()
+  if (filters.days) params.set('days', String(filters.days))
+  if (filters.platform) params.set('platform', filters.platform)
+  if (filters.territory) params.set('territory', filters.territory)
+  const query = params.toString() ? `?${params}` : ''
+  return useQuery({
+    queryKey: ['analysis', org, appId, query],
+    queryFn: () => api.get<AnalysisOverview>(`/api/orgs/${org}/apps/${appId}/analysis${query}`),
+    enabled: appId !== '',
+  })
+}
+
+/** Dopad verzí. Vlastní dotaz — je dražší než přehled a na stránce se rozbaluje zvlášť. */
+export function useVersionImpact(org: string, appId: string) {
+  return useQuery({
+    queryKey: ['analysis-versions', org, appId],
+    queryFn: () => api.get<VersionImpact[]>(`/api/orgs/${org}/apps/${appId}/analysis/versions`),
+    enabled: appId !== '',
+  })
+}
+
+/** Ruční odeslání rozboru do kanálu. Při onboardingu je potřeba vidět, jak zpráva vypadá. */
+export function useRunAnalysis(org: string, appId: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: () => api.post<AnalysisRunResult>(`/api/orgs/${org}/apps/${appId}/analysis/weekly/run`, {}),
+    onSuccess: () => client.invalidateQueries({ queryKey: ['analysis', org, appId] }),
   })
 }
 

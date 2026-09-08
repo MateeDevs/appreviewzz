@@ -12,6 +12,7 @@ import cz.matee.appreviewzz.core.model.UserId
 import cz.matee.appreviewzz.core.port.AuditLogRepository
 import cz.matee.appreviewzz.core.port.MembershipRepository
 import cz.matee.appreviewzz.core.port.OrganizationRepository
+import cz.matee.appreviewzz.core.usecase.AnalysisInsights
 import cz.matee.appreviewzz.core.usecase.AppService
 import cz.matee.appreviewzz.core.usecase.AppSetupCheck
 import cz.matee.appreviewzz.core.usecase.AppTopicService
@@ -52,6 +53,8 @@ class ConsoleWiring(
     val reviews: ReviewInbox,
     /** Vlastní témata aplikace (F8) — základní taxonomii klient nemění. */
     val appTopics: AppTopicService,
+    /** Agregace pro stránku *Rozbory* a dopad verzí (F8, B1/B3). */
+    val analysis: AnalysisInsights,
     val ratings: RatingsInsights,
     val dailyRatings: DailyRatingsUseCase,
     val audit: AuditLogRepository,
@@ -150,6 +153,7 @@ fun Application.consoleRoutes(
                 credentialRoutes(console)
                 channelRoutes(console)
                 reviewRoutes(console)
+                analysisRoutes(console)
                 ratingsRoutes(console)
 
                 // Vlastní podstrom s vlastní ochranou: role SUPERADMIN a zapnutý druhý faktor.

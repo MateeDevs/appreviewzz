@@ -26,12 +26,16 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
+import kotlin.time.Duration.Companion.days
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
 
 private const val OWNER = "vlastnik@example.com"
 private const val SLUG = "matee"
 private val NOW = Instant.parse("2026-09-03T09:00:00Z")
+
+/** Nad prahem deseti recenzí, ať rozbor není „zatím málo dat". */
+private const val REVIEWS_IN_FIXTURE = 12
 
 private fun String.jsonValue(field: String): String =
     checkNotNull(Regex(""""$field":"([^"]+)"""").find(this)) { "V odpovědi chybí $field: $this" }.groupValues[1]
@@ -58,6 +62,10 @@ private fun seedReview(
     urgency: Urgency = Urgency.HIGH,
     sentiment: OverallSentiment = OverallSentiment.NEGATIVE,
     withInsight: Boolean = true,
+    appVersion: String? = "3.2.0",
+    territory: String = "CZ",
+    submittedAt: Instant = NOW,
+    starRating: Int = 2,
 ): String {
     val exposed = TestDatabase.database.exposed
     val orgId: OrganizationId = checkNotNull(ExposedOrganizationRepository(exposed).findBySlug(SLUG)).id
@@ -70,19 +78,19 @@ private fun seedReview(
                     platform = Platform.ANDROID,
                     storeReviewId = storeReviewId,
                     authorName = "Jana N.",
-                    starRating = 2,
+                    starRating = starRating,
                     title = null,
                     body = body,
                     locale = "cs",
-                    territory = "CZ",
-                    appVersion = "3.2.0",
+                    territory = territory,
+                    appVersion = appVersion,
                     device = "Pixel 8",
-                    submittedAt = NOW,
+                    submittedAt = submittedAt,
                     storeUpdatedAt = null,
                     developerResponseBody = null,
                     developerResponseAt = null,
                 ),
-                NOW,
+                submittedAt,
                 ReviewState.NEW,
             ).review
     if (withInsight) {
@@ -102,7 +110,7 @@ private fun seedReview(
                 translation = null,
                 topics = topics,
             ),
-            NOW,
+            submittedAt,
         )
     }
     return review.id.toString()
@@ -278,6 +286,107 @@ class AnalysisRoutesTest :
                 queued.status shouldBe HttpStatusCode.Accepted
                 queued.bodyAsText() shouldContain "\"queued\":true"
                 analysis.queued.single().second shouldBe appId
+            }
+        }
+
+        "přehled rozborů dává nálady, témata s trendem a trhy z jednoho dotazu" {
+            testApplication {
+                consoleModule(mailer, analysisQueue = analysis)
+                val (owner, appId) = ownerWithApp(mailer)
+                repeat(REVIEWS_IN_FIXTURE) { index ->
+                    seedReview(
+                        appId,
+                        "gp-$index",
+                        "Po aktualizaci to padá $index",
+                        listOf(TopicMention(Topic.CRASH.key, TopicSentiment.NEGATIVE, "to padá")),
+                        submittedAt = NOW,
+                        territory = if (index % 2 == 0) "CZ" else "DE",
+                    )
+                }
+
+                val body = owner.get("/api/orgs/$SLUG/apps/$appId/analysis?days=30").bodyAsText()
+
+                body shouldContain "\"reviews\":$REVIEWS_IN_FIXTURE"
+                body shouldContain "\"key\":\"crash\""
+                body shouldContain "\"name\":\"Pády\""
+                body shouldContain "\"territory\":\"CZ\""
+                body shouldContain "\"territory\":\"DE\""
+                body shouldContain "\"weekStart\""
+                body shouldContain "\"trend\":["
+                body shouldContain "\"language\":\"cs\""
+                body shouldContain "\"tooFewReviews\":false"
+            }
+        }
+
+        "filtr přehledu podle platformy a trhu zúží čísla, nesmysl je chyba požadavku" {
+            testApplication {
+                consoleModule(mailer, analysisQueue = analysis)
+                val (owner, appId) = ownerWithApp(mailer)
+                seedReview(
+                    appId,
+                    "gp-cz",
+                    "Padá to v Česku",
+                    listOf(TopicMention(Topic.CRASH.key, TopicSentiment.NEGATIVE, null)),
+                    territory = "CZ",
+                )
+                seedReview(
+                    appId,
+                    "gp-de",
+                    "Padá to v Německu",
+                    listOf(TopicMention(Topic.CRASH.key, TopicSentiment.NEGATIVE, null)),
+                    territory = "DE",
+                )
+
+                owner.get("/api/orgs/$SLUG/apps/$appId/analysis?territory=cz").bodyAsText() shouldContain "\"reviews\":1"
+                owner.get("/api/orgs/$SLUG/apps/$appId/analysis?platform=ANDROID").bodyAsText() shouldContain "\"reviews\":2"
+                owner.get("/api/orgs/$SLUG/apps/$appId/analysis?platform=IOS").bodyAsText() shouldContain "\"reviews\":0"
+                owner.get("/api/orgs/$SLUG/apps/$appId/analysis?platform=NESMYSL").status shouldBe HttpStatusCode.BadRequest
+            }
+        }
+
+        "dopad verze srovnává jen verze s dost recenzemi a ukáže nová témata" {
+            testApplication {
+                consoleModule(mailer, analysisQueue = analysis)
+                val (owner, appId) = ownerWithApp(mailer)
+                // Před vydáním: samá cena, žádné pády.
+                repeat(REVIEWS_IN_FIXTURE) { index ->
+                    seedReview(
+                        appId,
+                        "old-$index",
+                        "Je to drahé $index",
+                        listOf(TopicMention(Topic.PRICING.key, TopicSentiment.NEGATIVE, null)),
+                        appVersion = "3.1.0",
+                        submittedAt = NOW - 20.days,
+                    )
+                }
+                // Po vydání: pády, které předtím nikdo nehlásil.
+                repeat(REVIEWS_IN_FIXTURE) { index ->
+                    seedReview(
+                        appId,
+                        "new-$index",
+                        "Po aktualizaci to padá $index",
+                        listOf(TopicMention(Topic.CRASH.key, TopicSentiment.NEGATIVE, null)),
+                        appVersion = "3.2.0",
+                        submittedAt = NOW,
+                    )
+                }
+                // Verze s jedinou recenzí do srovnání nepatří — z jednoho čísla se nedá nic vyčíst.
+                seedReview(
+                    appId,
+                    "rare-1",
+                    "Jedna recenze",
+                    listOf(TopicMention(Topic.OTHER.key, TopicSentiment.NEUTRAL, null)),
+                    appVersion = "9.9.9",
+                    submittedAt = NOW,
+                )
+
+                val body = owner.get("/api/orgs/$SLUG/apps/$appId/analysis/versions").bodyAsText()
+
+                body shouldContain "\"version\":\"3.2.0\""
+                body shouldContain "\"version\":\"3.1.0\""
+                body shouldNotContain "9.9.9"
+                // Pády jsou u 3.2.0 nové: ve třicetidenním okně před jejím prvním výskytem nebyly.
+                body shouldContain "\"newTopics\":[{\"key\":\"crash\""
             }
         }
 

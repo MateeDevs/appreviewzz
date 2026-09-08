@@ -11,11 +11,15 @@ import cz.matee.appreviewzz.core.model.ReviewId
 import cz.matee.appreviewzz.core.model.ReviewInsight
 import cz.matee.appreviewzz.core.port.AnalysisAggregateRepository
 import cz.matee.appreviewzz.core.port.AnalysisDigestRepository
+import cz.matee.appreviewzz.core.port.AnalysisFilter
 import cz.matee.appreviewzz.core.port.AnalysisPeriod
 import cz.matee.appreviewzz.core.port.AnalysisRequest
 import cz.matee.appreviewzz.core.port.AnalysisResult
 import cz.matee.appreviewzz.core.port.AppTopicRepository
+import cz.matee.appreviewzz.core.port.DayCounts
+import cz.matee.appreviewzz.core.port.DayTopicCount
 import cz.matee.appreviewzz.core.port.InsightCoverage
+import cz.matee.appreviewzz.core.port.LanguageAggregate
 import cz.matee.appreviewzz.core.port.NewAppTopic
 import cz.matee.appreviewzz.core.port.NewReviewInsight
 import cz.matee.appreviewzz.core.port.OrganizationRepository
@@ -23,7 +27,9 @@ import cz.matee.appreviewzz.core.port.ReplyStats
 import cz.matee.appreviewzz.core.port.ReviewAnalysis
 import cz.matee.appreviewzz.core.port.ReviewAnalysisProvider
 import cz.matee.appreviewzz.core.port.ReviewInsightRepository
+import cz.matee.appreviewzz.core.port.TerritoryAggregate
 import cz.matee.appreviewzz.core.port.TopicQuote
+import cz.matee.appreviewzz.core.port.VersionWindow
 import kotlinx.datetime.LocalDate
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
@@ -197,6 +203,11 @@ internal class FakeAnalysisAggregateRepository(
     private val replies: ReplyStats = ReplyStats(total = 0, replied = 0, medianHours = null),
     private val quote: TopicQuote? = null,
     private val since: Instant? = null,
+    private val days: List<DayCounts> = emptyList(),
+    private val dayTopics: List<DayTopicCount> = emptyList(),
+    private val markets: List<TerritoryAggregate> = emptyList(),
+    private val tongues: List<LanguageAggregate> = emptyList(),
+    private val versions: List<VersionWindow> = emptyList(),
 ) : AnalysisAggregateRepository {
     val requestedPeriods = mutableListOf<Pair<Instant, Instant>>()
 
@@ -205,6 +216,7 @@ internal class FakeAnalysisAggregateRepository(
         appId: AppId,
         from: Instant,
         to: Instant,
+        filter: AnalysisFilter,
     ): AnalysisPeriod {
         requestedPeriods += from to to
         // Rozlišuje se podle hranice období, ne podle pořadí volání: use case se ptá dvakrát
@@ -218,6 +230,7 @@ internal class FakeAnalysisAggregateRepository(
         appId: AppId,
         from: Instant,
         to: Instant,
+        filter: AnalysisFilter,
     ): ReplyStats = replies
 
     override fun dataSince(
@@ -225,13 +238,55 @@ internal class FakeAnalysisAggregateRepository(
         appId: AppId,
     ): Instant? = since
 
-    override fun topQuote(
+    override fun topQuotes(
         orgId: OrganizationId,
         appId: AppId,
         topicKey: String,
         from: Instant,
         to: Instant,
-    ): TopicQuote? = quote
+        limit: Int,
+    ): List<TopicQuote> = listOfNotNull(quote).take(limit)
+
+    override fun daily(
+        orgId: OrganizationId,
+        appId: AppId,
+        from: Instant,
+        to: Instant,
+        timezone: String,
+        filter: AnalysisFilter,
+    ): List<DayCounts> = days
+
+    override fun dailyTopics(
+        orgId: OrganizationId,
+        appId: AppId,
+        from: Instant,
+        to: Instant,
+        timezone: String,
+        filter: AnalysisFilter,
+    ): List<DayTopicCount> = dayTopics
+
+    override fun territories(
+        orgId: OrganizationId,
+        appId: AppId,
+        from: Instant,
+        to: Instant,
+        filter: AnalysisFilter,
+    ): List<TerritoryAggregate> = markets
+
+    override fun languages(
+        orgId: OrganizationId,
+        appId: AppId,
+        from: Instant,
+        to: Instant,
+        filter: AnalysisFilter,
+    ): List<LanguageAggregate> = tongues
+
+    override fun versionWindows(
+        orgId: OrganizationId,
+        appId: AppId,
+        since: Instant,
+        minReviews: Int,
+    ): List<VersionWindow> = versions
 }
 
 /** Rezervace období se stejnou unikátností jako databáze: (kanál, začátek období). */

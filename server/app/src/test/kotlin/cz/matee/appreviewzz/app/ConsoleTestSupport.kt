@@ -26,6 +26,7 @@ import cz.matee.appreviewzz.core.port.StoreAppCatalog
 import cz.matee.appreviewzz.core.port.StoreConnectorException
 import cz.matee.appreviewzz.core.port.StoreContext
 import cz.matee.appreviewzz.core.port.ValidationOutcome
+import cz.matee.appreviewzz.core.usecase.AnalysisInsights
 import cz.matee.appreviewzz.core.usecase.AppService
 import cz.matee.appreviewzz.core.usecase.AppSetupCheck
 import cz.matee.appreviewzz.core.usecase.AppTopicService
@@ -46,6 +47,7 @@ import cz.matee.appreviewzz.crypto.Argon2PasswordHasher
 import cz.matee.appreviewzz.crypto.CredentialVault
 import cz.matee.appreviewzz.crypto.KekProvider
 import cz.matee.appreviewzz.crypto.KekProviders
+import cz.matee.appreviewzz.persistence.repository.ExposedAnalysisAggregateRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedAppDataKeyRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedAppRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedAppTopicRepository
@@ -372,6 +374,15 @@ fun ApplicationTestBuilder.consoleModule(
             appTopics = appTopicRepository,
         )
     val appTopicService = AppTopicService(topics = appTopicRepository, apps = appRepository, audit = audit)
+    val analysisAggregates = ExposedAnalysisAggregateRepository(exposed)
+    val analysisInsights =
+        AnalysisInsights(
+            apps = appRepository,
+            aggregates = analysisAggregates,
+            insights = reviewInsights,
+            appTopics = appTopicRepository,
+            clock = clock,
+        )
     val channelService =
         ChannelService(
             channels = channelRepository,
@@ -425,6 +436,7 @@ fun ApplicationTestBuilder.consoleModule(
                     slack = slack,
                     reviews = reviewInbox,
                     appTopics = appTopicService,
+                    analysis = analysisInsights,
                     ratings = ratingsInsights,
                     dailyRatings = dailyRatings,
                     audit = audit,

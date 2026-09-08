@@ -47,6 +47,7 @@ import cz.matee.appreviewzz.core.port.ReviewArchiveSource
 import cz.matee.appreviewzz.core.port.ReviewRefreshSource
 import cz.matee.appreviewzz.core.port.ReviewSource
 import cz.matee.appreviewzz.core.port.SuggestReplyProvider
+import cz.matee.appreviewzz.core.usecase.AnalysisInsights
 import cz.matee.appreviewzz.core.usecase.AnalyzeReviewsUseCase
 import cz.matee.appreviewzz.core.usecase.AppService
 import cz.matee.appreviewzz.core.usecase.AppSetupCheck
@@ -497,6 +498,17 @@ class Components(
     val deliveryJobs: DeliveryJobs by lazy { DeliveryJobs(deliver = delivery, failedJobs = failedJobs) }
 
     val replyJobs: ReplyJobs by lazy { ReplyJobs(publish = publishReply, failedJobs = failedJobs) }
+
+    /** Agregace rozborů pro konzoli (F8, B1/B3). Jen čte — nic neposílá a nic neplánuje. */
+    val analysisInsights: AnalysisInsights by lazy {
+        AnalysisInsights(
+            apps = apps,
+            aggregates = analysisAggregates,
+            insights = reviewInsights,
+            appTopics = appTopics,
+            policy = platformConfig,
+        )
+    }
 
     /** Týdenní rozbor recenzí do kanálu (F8). */
     val weeklyAnalysis: ScheduledAnalysisUseCase by lazy {

@@ -5,7 +5,6 @@ import cz.matee.appreviewzz.core.model.AuditEntry
 import cz.matee.appreviewzz.core.model.Channel
 import cz.matee.appreviewzz.core.model.CredentialMeta
 import cz.matee.appreviewzz.core.model.MessageStatus
-import cz.matee.appreviewzz.core.model.OrgRole
 import cz.matee.appreviewzz.core.model.OverallSentiment
 import cz.matee.appreviewzz.core.model.Platform
 import cz.matee.appreviewzz.core.model.Reply
@@ -26,7 +25,6 @@ import cz.matee.appreviewzz.core.usecase.AppTopicDraft
 import cz.matee.appreviewzz.core.usecase.ConsoleException
 import cz.matee.appreviewzz.core.usecase.ConsoleFailure
 import cz.matee.appreviewzz.core.usecase.InboxItem
-import cz.matee.appreviewzz.core.usecase.requireRole
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.request.receive
@@ -298,54 +296,6 @@ fun Route.reviewRoutes(console: ConsoleWiring) {
         }
     }
 
-    route("/orgs/{org}/apps/{app}/analysis") {
-        get("/status") {
-            val context = call.orgContext(console.organizations, console.memberships)
-            call.respond(io { inbox.analysisStatus(context.organization.id, call.appIdParam()).toResponse() })
-        }
-
-        /**
-         * Ruční odeslání týdenního rozboru. Běží v požadavku, ne ve frontě: klient na to
-         * klikl proto, aby hned viděl, co do kanálu dorazilo.
-         */
-        post("/weekly/run") {
-            val context = call.orgContext(console.organizations, console.memberships)
-            requireRole(context.actor, OrgRole.ADMIN)
-            val weekly =
-                console.weeklyAnalysis
-                    ?: throw ConsoleException(ConsoleFailure.INVALID_INPUT, "Rozbory nejsou v tomhle procesu zapnuté")
-            val report = weekly.run(context.organization.id, call.appIdParam())
-            call.respond(
-                WeeklyAnalysisRunResponse(
-                    skipped = report.skipped?.name,
-                    reviews = report.aggregates?.reviews ?: 0,
-                    sent = report.deliveries.count { it.sent },
-                    alreadySent = report.deliveries.count { it.alreadySent },
-                    errors = report.deliveries.mapNotNull { it.error },
-                ),
-            )
-        }
-
-        /**
-         * Doplnění výkladů za historii. Zařadí se do fronty a odpoví hned — backfill jede
-         * v dávkách po desítkách vteřin a klient u toho nemá čekat s otevřeným requestem.
-         */
-        post("/backfill") {
-            val context = call.orgContext(console.organizations, console.memberships)
-            requireRole(context.actor, OrgRole.ADMIN)
-            val appId = call.appIdParam()
-            val status = io { inbox.analysisStatus(context.organization.id, appId) }
-            val enqueue =
-                console.enqueueAnalysis
-                    ?: throw ConsoleException(
-                        ConsoleFailure.INVALID_INPUT,
-                        "Doplňování rozborů není v tomhle procesu zapnuté",
-                    )
-            val queued = io { enqueue(context.organization.id.toString(), appId.toString()) }
-            call.respond(HttpStatusCode.Accepted, status.copy(queued = queued).toResponse())
-        }
-    }
-
     route("/orgs/{org}/reviews/{review}") {
         get {
             val context = call.orgContext(console.organizations, console.memberships)
@@ -520,7 +470,7 @@ private fun AppTopic.toResponse() =
         recentCount = 0,
     )
 
-private fun AnalysisStatus.toResponse() =
+internal fun AnalysisStatus.toStatusResponse() =
     AnalysisStatusResponse(analyzed = analyzed, missing = missing, taxonomyVersion = taxonomyVersion, queued = queued)
 
 private fun Review.toResponse(

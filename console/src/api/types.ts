@@ -232,6 +232,124 @@ export interface AnalysisStatus {
   queued: boolean
 }
 
+/** Jak se téma vyvíjí proti minulému období — podle toho se barví štítek v tabulce. */
+export type TopicStatus = 'NEW' | 'GROWING' | 'STABLE' | 'FALLING'
+
+export interface SentimentShare {
+  positive: number
+  neutral: number
+  negative: number
+}
+
+export interface SentimentWeek {
+  weekStart: string
+  positive: number
+  neutral: number
+  negative: number
+  reviews: number
+  avgStars: number | null
+}
+
+export interface TopicBreakdown {
+  key: string
+  name: string
+  count: number
+  previousCount: number
+  share: number
+  negativeShare: number
+  avgStars: number | null
+  status: TopicStatus
+  /** Osm bodů pro sparkline; poslední je nejnovější úsek období. */
+  trend: number[]
+}
+
+export interface ImprovedTopic {
+  key: string
+  name: string
+  before: number
+  after: number
+}
+
+export interface TerritoryBreakdown {
+  territory: string
+  reviews: number
+  negativeShare: number
+  avgStars: number | null
+}
+
+export interface LanguageBreakdown {
+  language: string
+  reviews: number
+  negativeShare: number
+}
+
+export interface RepliesBreakdown {
+  total: number
+  replied: number
+  share: number
+  medianHours: number | null
+  /** Kolik recenzí po odpovědi přidalo, resp. ubralo hvězdy. */
+  uplifted: number
+  dropped: number
+}
+
+export interface AnalysisOverview {
+  periodStart: string
+  periodEnd: string
+  dataSince: string | null
+  reviews: number
+  byPlatform: Record<string, number>
+  avgStars: number | null
+  sentiment: SentimentShare
+  previousSentiment: SentimentShare | null
+  weekly: SentimentWeek[]
+  topics: TopicBreakdown[]
+  improved: ImprovedTopic[]
+  territories: TerritoryBreakdown[]
+  languages: LanguageBreakdown[]
+  replies: RepliesBreakdown
+  analyzed: number
+  missing: number
+  minReviews: number
+  tooFewReviews: boolean
+}
+
+export interface VersionTopic {
+  key: string
+  name: string
+  count: number
+  share: number
+}
+
+export interface VersionSlice {
+  reviews: number
+  avgStars: number | null
+  negativeShare: number
+  topics: VersionTopic[]
+}
+
+/** Co udělalo vydání verze. „Před" je 30 dní před jejím prvním výskytem na téže platformě. */
+export interface VersionImpact {
+  version: string
+  platform: Platform
+  firstSeen: string
+  after: VersionSlice
+  before: VersionSlice
+  newTopics: VersionTopic[]
+  goneTopics: VersionTopic[]
+  starsDelta: number | null
+  negativeDelta: number
+}
+
+/** Výsledek ručního „Poslat rozbor teď". */
+export interface AnalysisRunResult {
+  skipped: string | null
+  reviews: number
+  sent: number
+  alreadySent: number
+  errors: string[]
+}
+
 export interface Review {
   id: string
   platform: Platform

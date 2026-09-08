@@ -21,6 +21,7 @@ import cz.matee.appreviewzz.core.port.OrganizationRepository
 import cz.matee.appreviewzz.core.port.ReplyStats
 import cz.matee.appreviewzz.core.port.ReviewInsightRepository
 import cz.matee.appreviewzz.core.port.SecretResolver
+import cz.matee.appreviewzz.core.port.topQuote
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.DayOfWeek
