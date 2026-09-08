@@ -6,7 +6,10 @@ import cz.matee.appreviewzz.core.model.OrganizationId
 import cz.matee.appreviewzz.core.model.OverallSentiment
 import cz.matee.appreviewzz.core.model.Platform
 import cz.matee.appreviewzz.core.model.Topic
+import cz.matee.appreviewzz.core.port.AnalysisNarrativeProvider
 import cz.matee.appreviewzz.core.port.AnalysisPeriod
+import cz.matee.appreviewzz.core.port.Narrative
+import cz.matee.appreviewzz.core.port.NarrativeResult
 import cz.matee.appreviewzz.core.port.ReplyStats
 import cz.matee.appreviewzz.core.port.TopicAggregate
 import cz.matee.appreviewzz.core.port.TopicQuote
@@ -48,6 +51,8 @@ private class AnalysisFixture(
     minReviewsOverride: Int? = null,
     versions: List<VersionWindow> = emptyList(),
     replies: ReplyStats? = null,
+    narrative: NarrativeResult? = null,
+    narrativeEnabled: Boolean = true,
 ) {
     val apps = FakeAppRepository()
     val organizations = FakeOrganizationRepository()
@@ -82,7 +87,8 @@ private class AnalysisFixture(
             secrets = secretResolver("xoxb-token"),
             links = ConsoleLinks("https://console.test"),
             notificationChannels = listOf(slack),
-            policy = AnalysisPolicy.fixed(thresholds),
+            narrator = narrative?.let { answer -> AnalysisNarrator(AnalysisNarrativeProvider { answer }) },
+            policy = AnalysisPolicy.fixed(thresholds, narrative = narrativeEnabled),
             clock = fixedClock(MONDAY_MORNING),
         )
 }
@@ -204,6 +210,37 @@ class ScheduledAnalysisUseCaseTest :
                 .single()
                 .second
                 .replyUpliftLine() shouldBe null
+        }
+
+        test("shrnutí od modelu se dostane do zprávy jako první odstavec") {
+            val fixture =
+                AnalysisFixture(
+                    narrative =
+                        NarrativeResult.Written(Narrative("Za období přišlo 20 recenzí, převažují stížnosti na pády.", emptyList())),
+                )
+
+            fixture.useCase.run(ORG, fixture.app.id)
+
+            fixture.slack.analyses
+                .single()
+                .second
+                .summary
+                .shouldNotBeNull() shouldContain "20 recenzí"
+        }
+
+        test("vypnuté shrnutí znamená čistě šablonovou zprávu") {
+            val fixture =
+                AnalysisFixture(
+                    narrative = NarrativeResult.Written(Narrative("Cokoli.", emptyList())),
+                    narrativeEnabled = false,
+                )
+
+            fixture.useCase.run(ORG, fixture.app.id)
+
+            fixture.slack.analyses
+                .single()
+                .second
+                .summary shouldBe null
         }
 
         test("druhý běh za tentýž týden zprávu nepošle podruhé") {

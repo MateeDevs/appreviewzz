@@ -18,9 +18,10 @@ import kotlin.math.roundToInt
  * Týdenní rozbor recenzí připravený k vykreslení — jedna a tatáž čísla pro Slack i Teams,
  * ze stejného důvodu jako [ReviewNotification].
  *
- * **Šablona, ne generovaný text.** Věty se skládají z katalogu a čísla přicházejí z databáze;
- * model do zprávy nesahá vůbec (slovní shrnutí přibude až s vlastní validací). Rozbor, který
- * nikdo neumí zopakovat, je horší než žádný.
+ * **Šablona, ne generovaný text.** Věty se skládají z katalogu a čísla přicházejí z databáze.
+ * Jediné, co píše model, je úvodní [summary] — a to se pouští do zprávy až poté, co se ověří,
+ * že každé číslo v něm z agregátů opravdu pochází. Rozbor, který nikdo neumí zopakovat, je
+ * horší než žádný.
  */
 data class AnalysisDigest(
     val appName: String,
@@ -32,6 +33,11 @@ data class AnalysisDigest(
     val consoleUrl: String? = null,
     /** Věta o vydání, které do rozboru přineslo nové téma (B3); `null`, když se nic takového nestalo. */
     val versionNote: VersionNote? = null,
+    /**
+     * Úvodní odstavec od modelu (B6). `null` znamená „šablona", ne chybu: shrnutí se zahodí
+     * vždycky, když projde kontrolou čísel a citací jen napůl.
+     */
+    val summary: String? = null,
 ) {
     val catalog: MessageCatalog = MessageCatalog.of(locale)
 

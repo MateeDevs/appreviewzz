@@ -98,3 +98,9 @@ internal data class GeminiError(
     val message: String? = null,
     @SerialName("status") val status: String? = null,
 )
+
+@Serializable
+internal data class NarrativePayload(
+    val summary: String = "",
+    val citedReviewIds: List<String> = emptyList(),
+)

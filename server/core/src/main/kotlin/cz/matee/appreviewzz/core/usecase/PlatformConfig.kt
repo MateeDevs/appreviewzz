@@ -69,10 +69,18 @@ interface IngestPolicy {
 interface AnalysisPolicy {
     fun thresholds(): AnalysisThresholds
 
+    /** Smí do úvodu rozboru odstavec od modelu (B6)? Vypínač bez nasazení. */
+    fun narrativeEnabled(): Boolean
+
     companion object {
-        fun fixed(thresholds: AnalysisThresholds = AnalysisThresholds()): AnalysisPolicy =
+        fun fixed(
+            thresholds: AnalysisThresholds = AnalysisThresholds(),
+            narrative: Boolean = true,
+        ): AnalysisPolicy =
             object : AnalysisPolicy {
                 override fun thresholds(): AnalysisThresholds = thresholds
+
+                override fun narrativeEnabled(): Boolean = narrative
             }
     }
 }
@@ -174,6 +182,8 @@ class PlatformConfig(
             minTopicCount = int(PlatformSettings.ANALYSIS_MIN_TOPIC_COUNT),
             topIssues = int(PlatformSettings.ANALYSIS_TOP_ISSUES),
         )
+
+    override fun narrativeEnabled(): Boolean = bool(PlatformSettings.ANALYSIS_NARRATIVE_ENABLED)
 
     /** Po zápisu — aby ten, kdo právě uložil, viděl výsledek hned, ne za půl minuty. */
     fun invalidate() = snapshot.set(null)

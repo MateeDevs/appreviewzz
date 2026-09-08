@@ -2,6 +2,7 @@ package cz.matee.appreviewzz.app
 
 import cz.matee.appreviewzz.ai.ANALYSIS_TIMEOUT_MILLIS
 import cz.matee.appreviewzz.ai.AiProviders
+import cz.matee.appreviewzz.ai.ConfiguredNarrativeProvider
 import cz.matee.appreviewzz.ai.ConfiguredReviewAnalysisProvider
 import cz.matee.appreviewzz.ai.ConfiguredSuggestReplyProvider
 import cz.matee.appreviewzz.ai.aiHttpClient
@@ -48,6 +49,7 @@ import cz.matee.appreviewzz.core.port.ReviewRefreshSource
 import cz.matee.appreviewzz.core.port.ReviewSource
 import cz.matee.appreviewzz.core.port.SuggestReplyProvider
 import cz.matee.appreviewzz.core.usecase.AnalysisInsights
+import cz.matee.appreviewzz.core.usecase.AnalysisNarrator
 import cz.matee.appreviewzz.core.usecase.AnalyzeReviewsUseCase
 import cz.matee.appreviewzz.core.usecase.AppService
 import cz.matee.appreviewzz.core.usecase.AppSetupCheck
@@ -515,6 +517,14 @@ class Components(
         )
     }
 
+    /**
+     * Slovní shrnutí rozboru (B6). Jede na modelu návrhů odpovědí, ne na levnějším modelu
+     * tagování: jednou týdně na aplikaci a je to jediná věta ve zprávě psaná pro člověka.
+     */
+    val narrator: AnalysisNarrator by lazy {
+        AnalysisNarrator(ConfiguredNarrativeProvider(config = platformConfig, httpClient = { aiClientDelegate.value }))
+    }
+
     /** Alert na výkyv v recenzích (F8/B4). Statistika, ne AI — proto nesahá na provider. */
     val spikeAlerts: SpikeAlertUseCase by lazy {
         SpikeAlertUseCase(
@@ -543,6 +553,7 @@ class Components(
             secrets = vault,
             links = consoleLinks,
             notificationChannels = notificationChannels,
+            narrator = narrator,
             policy = platformConfig,
         )
     }

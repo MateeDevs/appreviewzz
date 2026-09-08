@@ -139,6 +139,8 @@ internal object SlackBlocks {
                     },
                 )
                 add(context(escape(digest.period())))
+                // Odstavec od modelu jde nad čísla, ne mezi ně: je to úvod, ne další údaj.
+                digest.summary?.let { add(section(escape(it))) }
 
                 if (digest.aggregates.tooFewReviews) {
                     add(section(escape(digest.tooFewLine())))

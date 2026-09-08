@@ -195,6 +195,8 @@ internal object TeamsCards {
             buildJsonArray {
                 add(textBlock("🔍 ${catalog[MessageKey.ANALYSIS_TITLE]} · ${digest.appName}", size = "Large", weight = "Bolder"))
                 add(textBlock(digest.period(), subtle = true, size = "Small"))
+                // Odstavec od modelu jde nad čísla, ne mezi ně: je to úvod, ne další údaj.
+                digest.summary?.let { add(textBlock(it, spacing = "Medium")) }
 
                 if (digest.aggregates.tooFewReviews) {
                     add(textBlock(digest.tooFewLine(), spacing = "Medium"))

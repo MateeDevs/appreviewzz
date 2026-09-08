@@ -17,6 +17,7 @@ import cz.matee.appreviewzz.core.port.AppTopicRepository
 import cz.matee.appreviewzz.core.port.ChannelException
 import cz.matee.appreviewzz.core.port.ChannelRepository
 import cz.matee.appreviewzz.core.port.ChannelTarget
+import cz.matee.appreviewzz.core.port.NarrativeQuote
 import cz.matee.appreviewzz.core.port.NotificationChannel
 import cz.matee.appreviewzz.core.port.OrganizationRepository
 import cz.matee.appreviewzz.core.port.ReplyStats
@@ -103,6 +104,11 @@ class ScheduledAnalysisUseCase(
     private val secrets: SecretResolver,
     private val links: ConsoleLinks,
     notificationChannels: List<NotificationChannel>,
+    /**
+     * Úvodní odstavec od modelu (B6). `null` = instalace bez AI; zpráva pak odejde jen
+     * ze šablony, což je i tak úplný rozbor.
+     */
+    private val narrator: AnalysisNarrator? = null,
     /** Prahy rozboru; výchozí hodnoty pro testy a pro běh bez platformní konfigurace. */
     private val policy: AnalysisPolicy = AnalysisPolicy.fixed(),
     private val clock: Clock = Clock.System,
@@ -167,6 +173,15 @@ class ScheduledAnalysisUseCase(
 
         val slug = organizations.findById(orgId)?.slug.orEmpty()
         val note = versionNote(app, from, to, previousStart.atStartOfDayIn(zone), previous, thresholds, names)
+        // Shrnutí se počítá **jednou na jazyk**, ne jednou na kanál: dvě anglické místnosti
+        // téže appky mají dostat tentýž odstavec a druhé volání modelu by nic nepřidalo.
+        val summaries =
+            targets
+                .map { it.locale }
+                .distinct()
+                .associateWith { locale ->
+                    narrative(app, compose(app, start, end, current, previous, replies, names, locale, thresholds), locale, from, to)
+                }
         val deliveries =
             targets.map { channel ->
                 val implementation = channelByType[channel.type]
@@ -186,7 +201,7 @@ class ScheduledAnalysisUseCase(
                         try {
                             implementation.postAnalysisDigest(
                                 ChannelTarget(channel.targetRef, secrets.resolve(orgId, credentialId)),
-                                digest(app, slug, summary, channel.locale, start, end, note),
+                                digest(app, slug, summary, channel.locale, start, end, note, summaries[channel.locale]),
                             )
                             AnalysisDelivery(channel.id, sent = true)
                         } catch (error: ChannelException) {
@@ -287,6 +302,30 @@ class ScheduledAnalysisUseCase(
         )
 
     /**
+     * Úvodní odstavec od modelu (B6). Kandidátské citáty jsou ověřené úryvky k nejpalčivějším
+     * tématům — model si nesmí vymyslet ani citát, ani číslo, a co neprojde, se zahodí.
+     */
+    private suspend fun narrative(
+        app: App,
+        aggregates: AnalysisAggregates,
+        locale: MessageLocale,
+        from: Instant,
+        to: Instant,
+    ): String? {
+        val writer = narrator?.takeIf { policy.narrativeEnabled() } ?: return null
+        if (aggregates.tooFewReviews) return null
+        val quotes =
+            aggregates.issues
+                .flatMap { topic ->
+                    this.aggregates
+                        .topQuotes(app.orgId, app.id, topic.key, from, to, QUOTES_PER_TOPIC)
+                        .map { NarrativeQuote(it.reviewId.toString(), it.quote) }
+                }.distinctBy { it.reviewId }
+                .take(MAX_NARRATIVE_QUOTES)
+        return writer.write(app.name, locale, aggregates, quotes)
+    }
+
+    /**
      * Vydání, které do období přineslo téma, jaké předtím nebylo (B3).
      *
      * Verze se počítá za novou, když v **srovnávacím** období neměla ani jednu recenzi —
@@ -337,6 +376,7 @@ class ScheduledAnalysisUseCase(
         start: LocalDate,
         end: LocalDate,
         versionNote: AnalysisDigest.VersionNote?,
+        summaryText: String?,
     ): AnalysisDigest {
         val zone = zoneOf(app)
         val leadTopic = summary.topics.firstOrNull()
@@ -356,6 +396,7 @@ class ScheduledAnalysisUseCase(
                 },
             consoleUrl = links.reviews(slug, app.id, leadTopic?.key),
             versionNote = versionNote,
+            summary = summaryText,
         )
     }
 
@@ -367,5 +408,9 @@ class ScheduledAnalysisUseCase(
 
         /** Z verze s míň recenzemi se nedá nic vyčíst — stejná hranice jako u dopadu verzí. */
         const val MIN_VERSION_REVIEWS = 5
+
+        /** Kandidáti na citaci ve shrnutí: dva na téma, nejvýš osm celkem. */
+        const val QUOTES_PER_TOPIC = 2
+        const val MAX_NARRATIVE_QUOTES = 8
     }
 }

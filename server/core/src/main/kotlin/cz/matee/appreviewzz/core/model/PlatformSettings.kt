@@ -130,6 +130,12 @@ object PlatformSettings {
     const val ANALYSIS_MIN_TOPIC_COUNT = "analysis.min_topic_count"
     const val ANALYSIS_TOP_ISSUES = "analysis.top_issues"
 
+    /**
+     * Slovní shrnutí v úvodu rozboru (B6). Vypínač schválně: je to jediná věta ve zprávě,
+     * kterou píše model, a kdyby začal vymýšlet, musí jít zhasnout bez nasazení.
+     */
+    const val ANALYSIS_NARRATIVE_ENABLED = "analysis.narrative_enabled"
+
     const val MAX_APPS_PER_ORG = "limits.max_apps_per_org"
 
     /**
@@ -236,6 +242,16 @@ object PlatformSettings {
                 default = "3",
                 min = MIN_ANALYSIS_THRESHOLD,
                 max = MAX_ANALYSIS_TOP_ISSUES,
+            ),
+            PlatformSettingDefinition(
+                key = ANALYSIS_NARRATIVE_ENABLED,
+                type = PlatformSettingType.BOOL,
+                section = SECTION_ANALYSIS,
+                label = "Slovní shrnutí v úvodu rozboru",
+                help =
+                    "Jeden odstavec od AI nad hotovými čísly. Shrnutí, které přinese číslo nebo citát " +
+                        "mimo data, se zahodí a zpráva odejde jen se šablonou.",
+                default = "true",
             ),
             PlatformSettingDefinition(
                 key = MAX_APPS_PER_ORG,
