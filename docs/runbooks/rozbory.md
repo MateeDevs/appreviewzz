@@ -207,7 +207,9 @@ odpovědi; když chybí, použije se záložní text z nastavení, a bez obojíh
 kterákoli jiná — automatická odpověď na stížnost je horší než žádná.
 
 Odpověď jde do téže fronty jako odpověď ze Slacku (`reply.source = 'AUTO'`), takže se
-publikuje stejnou cestou a v inboxu má odznak „auto". Zprávě v kanálu chybí formulář:
+publikuje stejnou cestou a v inboxu má odznak „auto". V auditu je jako `reply.published`
+s `source=AUTO` a **actorem `SYSTEM`** — je to jediná odpověď, kterou nikdo neschválil,
+a v logu to musí být poznat. Zprávě v kanálu chybí formulář:
 odpověď už je ve frontě a vstup, který za vteřinu přestane dávat smysl, je horší než žádný.
 
 ## Slovní shrnutí v rozboru

@@ -167,7 +167,14 @@ class PublishReplyUseCase(
                 auditEntry(
                     orgId = command.orgId,
                     action = "reply.published",
-                    actorType = if (command.authorUserId != null) ActorType.USER else ActorType.CHAT,
+                    // Automatické poděkování (C2) nenapsal člověk ani v consoli, ani v chatu.
+                    // V auditu se to musí poznat: je to jediná odpověď, kterou nikdo neschválil.
+                    actorType =
+                        when {
+                            command.source == ReplySource.AUTO -> ActorType.SYSTEM
+                            command.authorUserId != null -> ActorType.USER
+                            else -> ActorType.CHAT
+                        },
                     actorUserId = command.authorUserId,
                     actorLabel = command.authorDisplayName ?: command.authorExternalId,
                     targetType = "review",
