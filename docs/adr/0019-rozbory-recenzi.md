@@ -52,3 +52,27 @@ se sdílejí s návrhy; přepnutí modelu je změna jedné hodnoty v platformní
 - Slovní shrnutí se **nezakazuje navždy** — přibude, ale až s validací: každé číslo ve větě
   musí být z agregátů a každý citovaný odkaz z ověřených citátů, jinak se věta zahodí
   a pošle se šablonová verze.
+
+## Doplněno 8. 9. 2026 (fáze 2 a 3)
+
+Slovní shrnutí přibylo přesně za těch podmínek, které si tohle rozhodnutí kladlo. Model
+píše **jen úvodní odstavec** nad hotovými čísly a odstavec projde dvěma kontrolami: každé
+číslo v textu musí být v množině čísel z agregátů (podíly se tolerují v obou zaokrouhleních)
+a každé citované `reviewId` musí být z ověřených kandidátů. Co neprojde, se zahodí celé —
+opravovat větu od modelu znamená hádat, co chtěl říct. Vypínač `analysis.narrative_enabled`
+je v platformní správě, aby se dalo zhasnout bez nasazení.
+
+Tři věci, které z téhož pravidla („čísla počítá databáze") plynou i pro fáze 2 a 3:
+
+- **Alert na výkyv je statistika, ne AI.** Z ≥ 3 nad průměrem 28 dní *a zároveň* aspoň pět
+  recenzí v absolutních číslech. Druhá podmínka je tam kvůli malým číslům: u appky, které
+  chodí nula až jedna záporná recenze denně, je odchylka skoro nulová a *každé* dvě recenze
+  by vyšly jako „z = 8". Alert po dvou recenzích se za týden začne ignorovat — a tím přestane
+  fungovat i ten, který přijde právem.
+- **Měsíční report je zmrazený snímek.** Odkaz, který agentura pošle klientovi, musí za rok
+  ukázat totéž co dnes; živý dotaz by se změnil s každým dotagováním i s příští verzí
+  taxonomie. Proto `insight_report.aggregates` jako JSON a ne pohled do dat.
+- **Automatická odpověď se opírá o výklad, ne o hvězdy.** Pět hvězd samo o sobě nestačí:
+  pětihvězdičková recenze si běžně stěžuje na reklamy a „děkujeme za pochvalu" pod ní vypadá,
+  že jsme ji nečetli. Bez výkladu se proto neodesílá nic — bezpečná strana je ta, kde
+  odpovídá člověk.

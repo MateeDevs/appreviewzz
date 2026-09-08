@@ -149,3 +149,79 @@ v jednom grafu míchala čísla ze dvou různých seznamů témat.
 
 Vlastní témata aplikace se verze netýkají: změna popisu ovlivní jen nové recenze a historie
 zůstane, jak je.
+
+## Výkyvy (alerty)
+
+Alert vzniká na konci dotagování appky, ne z vlastního plánovače — výkyv se pozná až
+z výkladů a ty vznikají právě tam. Pravidlo: baseline 28 dní bez dneška, `z ≥ 3` a zároveň
+aspoň 5 recenzí za den. Pod dvěma týdny historie se alert neposílá vůbec.
+
+Dedup je unikátní klíč `(app_id, kind, topic_key, window_date)` v `analysis_alert`:
+dotagování jede po dávkách a jedna appka jich za den spolkne klidně deset, ale zpráva
+odejde jednou. Alerty za 90 dní jsou v konzoli na stránce *Rozbory*.
+
+**„Přišel alert, který přijít neměl."** Podívej se do `analysis_alert` na `expected`
+a `z_score` — z toho je vidět, proti čemu se to měřilo. Nejčastější příčina je dotagování
+historie: když se za jeden den doplní výklady tisíci recenzím, `submitted_at` je sice
+rozprostřený správně, ale u appky s krátkou baseline může den vyjít jako výkyv. Odesílání
+se dá utlumit vypnutím `deliver_analyses` na kanálu.
+
+**„Alert nepřišel, i když se něco stalo."** Zkontroluj tři věci: má appka aspoň 14 dní
+recenzí s textem, mají recenze z toho dne výklad (`analysis status`), a je den v zóně
+aplikace ten, který čekáš — hranice je půlnoc u klienta, ne v UTC.
+
+## Měsíční report pro klienta
+
+Generuje se prvního dne v měsíci v 6:00 v zóně aplikace (`monthly-report`) organizacím
+s plánem `INSIGHTS` nebo `AGENCY`; `STARTER` report nedostane, aby se databáze neplnila
+JSONem, na který nikdo neklikne. Plán se jinak nevynucuje — mění se přes `org plan`.
+
+```bash
+docker exec <api> java -jar /app/app.jar seed analysis report generate --org matee --app <ID> --month 2026-08
+docker exec <api> java -jar /app/app.jar seed analysis report share --org matee --report <ID>
+docker exec <api> java -jar /app/app.jar seed analysis report share --org matee --report <ID> --off true
+```
+
+Agregáty jsou **zmrazené**: přegenerování měsíce je přepíše, sdílený token přitom zůstane —
+odkaz poslaný klientovi nesmí přestat platit kvůli tomu, že se doplnily výklady. Zrušení
+sdílení token maže, takže starý odkaz přestane platit okamžitě a natrvalo; nové sdílení
+vyrobí jiný.
+
+Veřejná stránka je `/r/<token>`: bez session, bez skriptů, bez externích zdrojů, s tiskovým
+CSS. PDF si z ní udělá prohlížeč („Uložit jako PDF"). Neexistující i zrušený token vrací
+stejnou stránku 404 — rozlišovat je by z adresy udělalo nástroj na zjišťování, kdo je náš
+zákazník.
+
+## Automatické poděkování za 5 ★
+
+Zapíná se per aplikace v konzoli (*Nastavení* → „Automaticky děkovat za 5 ★"). Odesílá se
+**bez schválení**, proto jsou podmínky přísné: pět hvězd, výklad typu `PRAISE`, žádné téma
+se záporným sentimentem, nízká naléhavost a recenze bez odpovědi ve storu. Text je AI návrh
+odpovědi; když chybí, použije se záložní text z nastavení, a bez obojího se neodešle nic.
+
+**Bez výkladu se neodpovídá.** Když AI selže, recenze jde do kanálu s formulářem jako
+kterákoli jiná — automatická odpověď na stížnost je horší než žádná.
+
+Odpověď jde do téže fronty jako odpověď ze Slacku (`reply.source = 'AUTO'`), takže se
+publikuje stejnou cestou a v inboxu má odznak „auto". Zprávě v kanálu chybí formulář:
+odpověď už je ve frontě a vstup, který za vteřinu přestane dávat smysl, je horší než žádný.
+
+## Slovní shrnutí v rozboru
+
+Úvodní odstavec píše model (`ai.model`, tedy Flash — ne levnější model tagování). Do zprávy
+se pustí, jen když projde dvěma kontrolami: každé číslo v textu je z agregátů a každé
+citované `reviewId` je z ověřených kandidátských citátů. Co neprojde, se zahodí a odejde
+šablonová verze — v logu je pak řádek `Shrnutí obsahuje čísla mimo agregáty`, resp.
+`Shrnutí cituje recenze mimo zadání`.
+
+Vypnout jde bez nasazení: *Správa platformy* → `analysis.narrative_enabled`.
+
+## Překlad recenze
+
+Překlad se žádá jen tehdy, když jazyk recenze ze storu (`review.locale`) neodpovídá jazyku
+týmu — jinak by se za výstupní tokeny platilo u každé recenze zbytečně. Ukládá se do
+`review_insight.translation` a zobrazuje **pod originálem**, ne místo něj.
+
+Hotové výklady bez překladu se nepřepočítávají: překlad dostanou nové recenze. Doplnit ho
+zpětně jde jen vynucením nové analýzy (změna `taxonomy_version`), což se kvůli překladu
+nevyplatí.

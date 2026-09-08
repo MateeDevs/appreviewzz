@@ -220,6 +220,33 @@ Bez AI se nic nerozbije: recenze chodí jako dřív, jen bez štítků a bez roz
 postupy — doplnění historie, přepnutí modelu, co dělat když AI padá — jsou
 v [runbooku](docs/runbooks/rozbory.md).
 
+### Stránka Rozbory, výkyvy a report pro klienta
+
+V konzoli je sekce **Rozbory**: nálada po týdnech, tabulka témat s trendem a podílem,
+trhy, odpovídání a **dopad verzí** — co se po vydání objevilo nového a co zmizelo.
+Z každého čísla se dá prokliknout do inboxu na ty konkrétní recenze, které za ním stojí.
+
+**Alert na výkyv** je statistika, ne AI: baseline je 28 dní, upozornění chodí, když je
+záporných recenzí (nebo zmínek jednoho tématu) za den z ≥ 3 nad obvyklým průměrem *a
+zároveň* aspoň pět v absolutních číslech. Ta druhá podmínka je tam schválně — alert po
+dvou recenzích by se za týden začal ignorovat a přestal by fungovat i tehdy, kdy přijde
+právem. Appka bez dvou týdnů historie alert nedostane.
+
+**Měsíční report** je stránka pro klienta na sdílitelném odkazu (`/r/<token>`), bez
+přihlášení, bez skriptů a s tiskovým CSS — PDF si z ní udělá prohlížeč. Agregáty se
+**zmrazí**: odkaz ukáže za rok totéž co dnes. Generuje se prvního dne v měsíci aplikacím
+organizací na plánu Insights nebo Agency; zrušení sdílení token maže, takže starý odkaz
+přestane platit okamžitě.
+
+**Automatické poděkování** za pět hvězd je vypnuté, dokud ho klient nezapne. Odesílá se
+bez schválení, takže podmínky rozhoduje výklad recenze, ne jen počet hvězd: pět hvězd,
+typ *pochvala*, žádné téma se záporným sentimentem, nízká naléhavost a recenze bez
+odpovědi ve storu. **Bez výkladu se neodpovídá** — automatická odpověď na stížnost je
+horší než žádná.
+
+**Cizojazyčná recenze** dorazí do kanálu i s překladem do jazyka týmu, pod originálem.
+Překlad se žádá jen tehdy, když jazyk recenze ze storu neodpovídá jazyku týmu.
+
 ### Historie k rozboru
 
 Nová appka by první měsíc neměla co rozebírat: Google Play API vrací jen ~týden zpět a jen
