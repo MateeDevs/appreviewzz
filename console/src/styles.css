@@ -388,7 +388,7 @@ button {
   background: var(--accent);
   color: var(--accent-text);
   font: inherit;
-  font-weight: 550;
+  font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
   transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease, transform 0.06s ease;
@@ -723,7 +723,7 @@ a.button {
   border: 1px solid var(--border-strong);
   background: var(--surface);
   color: var(--text);
-  font-weight: 550;
+  font-weight: 600;
   text-decoration: none;
   white-space: nowrap;
 }
