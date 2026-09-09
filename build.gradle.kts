@@ -48,5 +48,11 @@ subprojects {
             add("implementation", "org.apache.httpcomponents.core5:httpcore5:$httpcore5")
             add("implementation", "org.apache.httpcomponents.core5:httpcore5-h2:$httpcore5")
         }
+
+        // Stejný případ o patro níž: Ktor 3.5.2 si přitáhne Netty 4.2.16 s CRITICAL CVE
+        // (CVE-2026-75595 v netty-handler). BOM sem nepatří kvůli jednomu modulu, ale kvůli
+        // rodině — nechat zbytek Netty na staré verzi je spolehlivý způsob, jak si vyrobit
+        // NoSuchMethodError. Po upgradu Ktoru se to dá zase smazat.
+        add("implementation", platform("io.netty:netty-bom:${versionCatalog.findVersion("netty").get().requiredVersion}"))
     }
 }
