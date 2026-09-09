@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import {
   useAnalysis,
@@ -129,24 +130,11 @@ export function AnalysisPage() {
               </option>
             ))}
           </select>
-          <select
-            aria-label="Období rozboru"
+          <PeriodSelect
             value={period ?? `DAYS_${days}`}
-            onChange={(e) => setPeriod(e.target.value)}
-            style={{ width: 'auto' }}
-          >
-            <optgroup label="Kalendářní období">
-              {CALENDAR_PERIODS.map((item) => (
-                <option key={item.value} value={item.value}>{item.label}</option>
-              ))}
-            </optgroup>
-            <optgroup label="Klouzavé období">
-              {!period && !isPresetDays ? <option value={`DAYS_${days}`}>Posledních {days} dní</option> : null}
-              {ROLLING_PERIODS.map((item) => (
-                <option key={item.days} value={`DAYS_${item.days}`}>{item.label}</option>
-              ))}
-            </optgroup>
-          </select>
+            customDays={!period && !isPresetDays ? days : undefined}
+            onChange={setPeriod}
+          />
           <select
             value={platform}
             onChange={(e) => setParam('platform', e.target.value)}
@@ -181,6 +169,176 @@ export function AnalysisPage() {
       {analysis.isPending ? <Loading /> : null}
       <ErrorBox error={analysis.error} />
       {analysis.data ? <Overview org={org} appId={selected} overview={analysis.data} /> : null}
+    </div>
+  )
+}
+
+type PeriodOption = { value: string; label: string }
+
+function PeriodSelect({
+  value,
+  customDays,
+  onChange,
+}: {
+  value: string
+  customDays?: number
+  onChange: (value: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [menuStyle, setMenuStyle] = useState<React.CSSProperties>()
+  const rootRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const calendarOptions: PeriodOption[] = CALENDAR_PERIODS
+  const rollingOptions: PeriodOption[] = [
+    ...(customDays ? [{ value: `DAYS_${customDays}`, label: `Posledních ${customDays} dní` }] : []),
+    ...ROLLING_PERIODS.map((item) => ({ value: `DAYS_${item.days}`, label: item.label })),
+  ]
+  const options = [...calendarOptions, ...rollingOptions]
+  const selectedLabel = options.find((option) => option.value === value)?.label ?? 'Vyberte období'
+
+  useLayoutEffect(() => {
+    if (!open || !triggerRef.current) return
+
+    const positionMenu = () => {
+      const trigger = triggerRef.current
+      if (!trigger) return
+      const rect = trigger.getBoundingClientRect()
+      const viewportPadding = 12
+      const gap = 6
+      const menuWidth = Math.min(Math.max(rect.width, 224), window.innerWidth - 2 * viewportPadding)
+      const left = Math.min(
+        Math.max(viewportPadding, rect.left),
+        Math.max(viewportPadding, window.innerWidth - menuWidth - viewportPadding),
+      )
+      const roomBelow = window.innerHeight - rect.bottom - gap - viewportPadding
+      const roomAbove = rect.top - gap - viewportPadding
+      const openAbove = roomBelow < 280 && roomAbove > roomBelow
+      const maxHeight = Math.max(0, openAbove ? roomAbove : roomBelow)
+
+      setMenuStyle({
+        left,
+        width: menuWidth,
+        maxHeight,
+        ...(openAbove
+          ? { bottom: window.innerHeight - rect.top + gap }
+          : { top: rect.bottom + gap }),
+      })
+    }
+
+    positionMenu()
+    window.addEventListener('resize', positionMenu)
+    window.addEventListener('scroll', positionMenu, true)
+    return () => {
+      window.removeEventListener('resize', positionMenu)
+      window.removeEventListener('scroll', positionMenu, true)
+    }
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return
+
+    const closeOutside = (event: PointerEvent) => {
+      const target = event.target as Node
+      if (!rootRef.current?.contains(target) && !menuRef.current?.contains(target)) setOpen(false)
+    }
+    document.addEventListener('pointerdown', closeOutside)
+    return () => document.removeEventListener('pointerdown', closeOutside)
+  }, [open])
+
+  const focusOption = (direction: 1 | -1) => {
+    const items = [...(menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="option"]') ?? [])]
+    if (items.length === 0) return
+    const current = items.indexOf(document.activeElement as HTMLButtonElement)
+    const next = current < 0 ? (direction === 1 ? 0 : items.length - 1) : (current + direction + items.length) % items.length
+    items[next]?.focus()
+  }
+
+  const choose = (nextValue: string) => {
+    onChange(nextValue)
+    setOpen(false)
+    triggerRef.current?.focus()
+  }
+
+  return (
+    <div className="period-select" ref={rootRef}>
+      <button
+        ref={triggerRef}
+        type="button"
+        className="period-select-trigger"
+        aria-label="Období rozboru"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+        onKeyDown={(event) => {
+          if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+            event.preventDefault()
+            setOpen(true)
+            requestAnimationFrame(() => focusOption(event.key === 'ArrowDown' ? 1 : -1))
+          }
+        }}
+      >
+        <span>{selectedLabel}</span>
+        <svg aria-hidden="true" viewBox="0 0 12 12">
+          <path d="M2.5 4.5 6 8l3.5-3.5" />
+        </svg>
+      </button>
+      {open && menuStyle
+        ? createPortal(
+            <div
+              ref={menuRef}
+              className="period-select-menu"
+              role="listbox"
+              aria-label="Období rozboru"
+              style={menuStyle}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') {
+                  event.preventDefault()
+                  setOpen(false)
+                  triggerRef.current?.focus()
+                } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                  event.preventDefault()
+                  focusOption(event.key === 'ArrowDown' ? 1 : -1)
+                }
+              }}
+            >
+              <PeriodOptionGroup label="Kalendářní období" options={calendarOptions} value={value} onChoose={choose} />
+              <PeriodOptionGroup label="Klouzavé období" options={rollingOptions} value={value} onChoose={choose} />
+            </div>,
+            document.body,
+          )
+        : null}
+    </div>
+  )
+}
+
+function PeriodOptionGroup({
+  label,
+  options,
+  value,
+  onChoose,
+}: {
+  label: string
+  options: PeriodOption[]
+  value: string
+  onChoose: (value: string) => void
+}) {
+  return (
+    <div className="period-select-group" role="group" aria-label={label}>
+      <div className="period-select-group-label">{label}</div>
+      {options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          role="option"
+          aria-selected={option.value === value}
+          className="period-select-option"
+          onClick={() => onChoose(option.value)}
+        >
+          <span className="period-select-check" aria-hidden="true">{option.value === value ? '✓' : ''}</span>
+          <span>{option.label}</span>
+        </button>
+      ))}
     </div>
   )
 }

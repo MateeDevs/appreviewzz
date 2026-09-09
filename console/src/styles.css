@@ -305,6 +305,75 @@ select {
   background-repeat: no-repeat;
   background-position: right 0.7rem center;
 }
+
+/* Výběr období má víc skupin, proto používá vlastní menu. Drží se u spouštěče a
+   na rozdíl od systémového selectu nikdy nepřeteče mimo okno prohlížeče. */
+.period-select { position: relative; }
+.period-select-trigger {
+  min-width: 11.75rem;
+  justify-content: space-between;
+  padding: 0.55rem 0.7rem;
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--border-strong);
+  font-weight: inherit;
+}
+.period-select-trigger:hover:not(:disabled) { background: var(--surface); border-color: var(--faint); }
+.period-select-trigger:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+.period-select-trigger svg {
+  width: 12px;
+  height: 12px;
+  margin-left: 0.65rem;
+  color: var(--faint);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.period-select-trigger[aria-expanded="true"] svg { transform: rotate(180deg); }
+.period-select-menu {
+  position: fixed;
+  z-index: 1000;
+  overflow-y: auto;
+  padding: 0.35rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: 0 12px 32px rgb(20 28 45 / 18%);
+}
+.period-select-group + .period-select-group {
+  margin-top: 0.3rem;
+  padding-top: 0.3rem;
+  border-top: 1px solid var(--border);
+}
+.period-select-group-label {
+  padding: 0.3rem 0.55rem 0.2rem 2rem;
+  color: var(--faint);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+button.period-select-option {
+  width: 100%;
+  justify-content: flex-start;
+  gap: 0.35rem;
+  padding: 0.42rem 0.55rem;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-weight: inherit;
+  text-align: left;
+}
+button.period-select-option:hover:not(:disabled),
+button.period-select-option:focus-visible { background: var(--surface-2); }
+button.period-select-option:focus-visible { outline: none; }
+button.period-select-option[aria-selected="true"] { color: var(--accent); font-weight: 600; }
+.period-select-check { width: 1.1rem; color: var(--accent); text-align: center; }
 .field + .field { margin-top: 0.85rem; }
 .hint { font-size: 0.8rem; color: var(--muted); margin-top: 0.3rem; }
 
