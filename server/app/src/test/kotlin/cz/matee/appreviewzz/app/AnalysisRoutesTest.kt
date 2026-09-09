@@ -30,6 +30,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import kotlinx.datetime.LocalDate
+import kotlin.time.Clock
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
@@ -37,6 +38,10 @@ import kotlin.uuid.Uuid
 private const val OWNER = "vlastnik@example.com"
 private const val SLUG = "matee"
 private val NOW = Instant.parse("2026-09-03T09:00:00Z")
+private val CLOCK =
+    object : Clock {
+        override fun now(): Instant = NOW
+    }
 
 /** Nad prahem deseti recenzí, ať rozbor není „zatím málo dat". */
 private const val REVIEWS_IN_FIXTURE = 12
@@ -319,6 +324,23 @@ class AnalysisRoutesTest :
                 body shouldContain "\"trend\":["
                 body shouldContain "\"language\":\"cs\""
                 body shouldContain "\"tooFewReviews\":false"
+            }
+        }
+
+        "přehled přijímá kalendářní období a odmítá nejednoznačnou volbu" {
+            testApplication {
+                consoleModule(mailer, clock = CLOCK, analysisQueue = analysis)
+                val (owner, appId) = ownerWithApp(mailer)
+
+                val month = owner.get("/api/orgs/$SLUG/apps/$appId/analysis?period=PREVIOUS_MONTH")
+                month.status shouldBe HttpStatusCode.OK
+                month.bodyAsText() shouldContain "\"periodStart\":\"2026-08-01\""
+                month.bodyAsText() shouldContain "\"periodEnd\":\"2026-08-31\""
+
+                owner.get("/api/orgs/$SLUG/apps/$appId/analysis?period=PREVIOUS_MONTH&days=30").status shouldBe
+                    HttpStatusCode.BadRequest
+                owner.get("/api/orgs/$SLUG/apps/$appId/analysis?period=NEZNAMO").status shouldBe
+                    HttpStatusCode.BadRequest
             }
         }
 

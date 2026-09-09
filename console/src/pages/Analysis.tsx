@@ -14,6 +14,7 @@ import {
   useUnshareReport,
   useVersionImpact,
 } from '../api/hooks'
+import type { AnalysisCalendarPeriod } from '../api/hooks'
 import { Badge, Card, Empty, ErrorBox, Loading } from '../components/ui'
 import { SentimentChart, Sparkline } from '../components/SentimentChart'
 import type { AnalysisOverview, Platform, TopicStatus, VersionImpact } from '../api/types'
@@ -25,11 +26,33 @@ const STATUS_LABELS: Record<TopicStatus, { label: string; tone?: 'ok' | 'warn' |
   FALLING: { label: 'klesá', tone: 'ok' },
 }
 
-const PERIODS = [
-  { days: 30, label: '30 dní' },
-  { days: 90, label: '90 dní' },
-  { days: 365, label: 'rok' },
+const CALENDAR_PERIODS: { value: AnalysisCalendarPeriod; label: string }[] = [
+  { value: 'THIS_WEEK', label: 'Tento týden' },
+  { value: 'PREVIOUS_WEEK', label: 'Minulý týden' },
+  { value: 'THIS_MONTH', label: 'Tento měsíc' },
+  { value: 'PREVIOUS_MONTH', label: 'Minulý měsíc' },
+  { value: 'THIS_YEAR', label: 'Tento rok' },
+  { value: 'PREVIOUS_YEAR', label: 'Minulý rok' },
 ]
+
+const ROLLING_PERIODS = [
+  { days: 7, label: 'Posledních 7 dní' },
+  { days: 30, label: 'Posledních 30 dní' },
+  { days: 90, label: 'Posledních 90 dní' },
+  { days: 365, label: 'Posledních 365 dní' },
+]
+
+const isCalendarPeriod = (value: string): value is AnalysisCalendarPeriod =>
+  CALENDAR_PERIODS.some((period) => period.value === value)
+
+const formatPeriod = (start: string, end: string) => {
+  const format = (value: string) => {
+    const [year, month, day] = value.split('-').map(Number)
+    if (!year || !month || !day) return value
+    return new Date(year, month - 1, day).toLocaleDateString('cs-CZ')
+  }
+  return `${format(start)} – ${format(end)}`
+}
 
 const percent = (share: number) => `${Math.round(share * 100)} %`
 
@@ -46,18 +69,35 @@ export function AnalysisPage() {
   const me = useMe()
 
   const appId = params.get('app') ?? ''
-  const days = Number(params.get('days')) || 30
+  const requestedPeriod = params.get('period') ?? ''
+  const period = isCalendarPeriod(requestedPeriod) ? requestedPeriod : undefined
+  const daysParam = params.get('days')?.trim()
+  const requestedDays = daysParam ? Number(daysParam) : 30
+  const days = Number.isInteger(requestedDays) ? Math.min(365, Math.max(7, requestedDays)) : 30
+  const isPresetDays = ROLLING_PERIODS.some((item) => item.days === days)
   const platform = (params.get('platform') as Platform | null) ?? ''
   const territory = params.get('territory') ?? ''
 
   const selected = appId || (apps.data?.[0]?.id ?? '')
-  const analysis = useAnalysis(org, selected, { days, platform, territory })
+  const analysis = useAnalysis(org, selected, { days: period ? undefined : days, period, platform, territory })
   const status = useAnalysisStatus(org, selected)
 
   const setParam = (key: string, value: string) => {
     const next = new URLSearchParams(params)
     if (value) next.set(key, value)
     else next.delete(key)
+    setParams(next, { replace: true })
+  }
+
+  const setPeriod = (value: string) => {
+    const next = new URLSearchParams(params)
+    if (value.startsWith('DAYS_')) {
+      next.set('days', value.slice('DAYS_'.length))
+      next.delete('period')
+    } else {
+      next.set('period', value)
+      next.delete('days')
+    }
     setParams(next, { replace: true })
   }
 
@@ -89,16 +129,24 @@ export function AnalysisPage() {
               </option>
             ))}
           </select>
-          {PERIODS.map((period) => (
-            <button
-              key={period.days}
-              type="button"
-              className={period.days === days ? '' : 'secondary'}
-              onClick={() => setParam('days', String(period.days))}
-            >
-              {period.label}
-            </button>
-          ))}
+          <select
+            aria-label="Období rozboru"
+            value={period ?? `DAYS_${days}`}
+            onChange={(e) => setPeriod(e.target.value)}
+            style={{ width: 'auto' }}
+          >
+            <optgroup label="Kalendářní období">
+              {CALENDAR_PERIODS.map((item) => (
+                <option key={item.value} value={item.value}>{item.label}</option>
+              ))}
+            </optgroup>
+            <optgroup label="Klouzavé období">
+              {!period && !isPresetDays ? <option value={`DAYS_${days}`}>Posledních {days} dní</option> : null}
+              {ROLLING_PERIODS.map((item) => (
+                <option key={item.days} value={`DAYS_${item.days}`}>{item.label}</option>
+              ))}
+            </optgroup>
+          </select>
           <select
             value={platform}
             onChange={(e) => setParam('platform', e.target.value)}
@@ -113,6 +161,11 @@ export function AnalysisPage() {
             value={territory}
             onChange={(value) => setParam('territory', value)}
           />
+          {analysis.data ? (
+            <span className="small muted" aria-live="polite">
+              {formatPeriod(analysis.data.periodStart, analysis.data.periodEnd)}
+            </span>
+          ) : null}
         </div>
       </Card>
 

@@ -140,6 +140,25 @@ class AnalysisInsightsTest :
             overview.periodEnd shouldBe LocalDate(2026, 8, 31)
         }
 
+        test("kalendářní období drží hranice týdnů, měsíců a roků") {
+            val today = LocalDate(2026, 9, 8)
+
+            AnalysisCalendarPeriod.THIS_WEEK.dates(today) shouldBe
+                (LocalDate(2026, 9, 7) to LocalDate(2026, 9, 8))
+            AnalysisCalendarPeriod.PREVIOUS_WEEK.dates(today) shouldBe
+                (LocalDate(2026, 8, 31) to LocalDate(2026, 9, 6))
+            AnalysisCalendarPeriod.THIS_MONTH.dates(today) shouldBe
+                (LocalDate(2026, 9, 1) to LocalDate(2026, 9, 8))
+            AnalysisCalendarPeriod.PREVIOUS_MONTH.dates(today) shouldBe
+                (LocalDate(2026, 8, 1) to LocalDate(2026, 8, 31))
+            AnalysisCalendarPeriod.THIS_YEAR.dates(today) shouldBe
+                (LocalDate(2026, 1, 1) to LocalDate(2026, 9, 8))
+            AnalysisCalendarPeriod.PREVIOUS_YEAR.dates(today) shouldBe
+                (LocalDate(2025, 1, 1) to LocalDate(2025, 12, 31))
+            AnalysisCalendarPeriod.PREVIOUS_MONTH.dates(LocalDate(2026, 1, 4)) shouldBe
+                (LocalDate(2025, 12, 1) to LocalDate(2025, 12, 31))
+        }
+
         test("trhy a jazyky dostanou podíl nespokojených, ne holý počet") {
             val (useCase, app) =
                 insights(

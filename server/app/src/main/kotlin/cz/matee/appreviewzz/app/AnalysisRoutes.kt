@@ -5,6 +5,7 @@ import cz.matee.appreviewzz.core.model.OrgRole
 import cz.matee.appreviewzz.core.model.Platform
 import cz.matee.appreviewzz.core.port.AnalysisFilter
 import cz.matee.appreviewzz.core.usecase.AnalysisAlertView
+import cz.matee.appreviewzz.core.usecase.AnalysisCalendarPeriod
 import cz.matee.appreviewzz.core.usecase.AnalysisOverview
 import cz.matee.appreviewzz.core.usecase.ConsoleException
 import cz.matee.appreviewzz.core.usecase.ConsoleFailure
@@ -170,10 +171,17 @@ fun Route.analysisRoutes(console: ConsoleWiring) {
     route("/orgs/{org}/apps/{app}/analysis") {
         get {
             val context = call.orgContext(console.organizations, console.memberships)
-            val days = call.request.queryParameters["days"]?.toIntOrNull() ?: DEFAULT_DAYS
+            val period = call.analysisCalendarPeriod()
+            val days = call.analysisDays()
+            val appId = call.appIdParam()
+            val filter = call.analysisFilter()
             val overview =
                 io {
-                    console.analysis.overview(context.organization.id, call.appIdParam(), days, call.analysisFilter())
+                    if (period != null) {
+                        console.analysis.overview(context.organization.id, appId, period, filter)
+                    } else {
+                        console.analysis.overview(context.organization.id, appId, days, filter)
+                    }
                 }
             call.respond(overview.toResponse())
         }
@@ -255,6 +263,22 @@ private fun ApplicationCall.analysisFilter(): AnalysisFilter {
             ?.takeIf { it.isNotEmpty() }
             ?.uppercase()
     return AnalysisFilter(platform = platform, territory = territory)
+}
+
+private fun ApplicationCall.analysisCalendarPeriod(): AnalysisCalendarPeriod? {
+    val raw = request.queryParameters["period"]?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+    if (!request.queryParameters["days"].isNullOrBlank()) {
+        throw ConsoleException(ConsoleFailure.INVALID_INPUT, "Vyberte kalendářní období, nebo počet dní, ne obojí")
+    }
+    return AnalysisCalendarPeriod.entries.firstOrNull { it.name.equals(raw, ignoreCase = true) }
+        ?: throw ConsoleException(ConsoleFailure.INVALID_INPUT, "Neznámé období '$raw'")
+}
+
+private fun ApplicationCall.analysisDays(): Int {
+    val raw = request.queryParameters["days"]?.trim()?.takeIf { it.isNotEmpty() }
+    if (raw == null) return DEFAULT_DAYS
+    return raw.toIntOrNull()
+        ?: throw ConsoleException(ConsoleFailure.INVALID_INPUT, "Počet dní musí být celé číslo")
 }
 
 private fun SentimentShare.toResponse() = SentimentShareResponse(positive, neutral, negative)

@@ -476,8 +476,17 @@ export function useDeleteTopic(org: string, appId: string) {
 }
 
 /** Filtr stránky Rozbory. Prázdná hodnota znamená „neomezuj". */
+export type AnalysisCalendarPeriod =
+  | 'THIS_WEEK'
+  | 'PREVIOUS_WEEK'
+  | 'THIS_MONTH'
+  | 'PREVIOUS_MONTH'
+  | 'THIS_YEAR'
+  | 'PREVIOUS_YEAR'
+
 export interface AnalysisFilters {
   days?: number
+  period?: AnalysisCalendarPeriod
   platform?: Platform | ''
   territory?: string
 }
@@ -488,7 +497,8 @@ export interface AnalysisFilters {
  */
 export function useAnalysis(org: string, appId: string, filters: AnalysisFilters = {}) {
   const params = new URLSearchParams()
-  if (filters.days) params.set('days', String(filters.days))
+  if (filters.period) params.set('period', filters.period)
+  else if (filters.days) params.set('days', String(filters.days))
   if (filters.platform) params.set('platform', filters.platform)
   if (filters.territory) params.set('territory', filters.territory)
   const query = params.toString() ? `?${params}` : ''

@@ -1,6 +1,7 @@
 package cz.matee.appreviewzz.core.usecase
 
 import cz.matee.appreviewzz.core.model.AnalysisAlert
+import cz.matee.appreviewzz.core.model.App
 import cz.matee.appreviewzz.core.model.AppId
 import cz.matee.appreviewzz.core.model.MessageLocale
 import cz.matee.appreviewzz.core.model.OrganizationId
@@ -92,6 +93,37 @@ data class AnalysisOverview(
     val thresholds: AnalysisThresholds,
 ) {
     val tooFewReviews: Boolean get() = reviews < thresholds.minReviews
+}
+
+/** Kalendářní období dostupná ve filtru konzole. Hranice se počítají v zóně aplikace. */
+enum class AnalysisCalendarPeriod {
+    THIS_WEEK,
+    PREVIOUS_WEEK,
+    THIS_MONTH,
+    PREVIOUS_MONTH,
+    THIS_YEAR,
+    PREVIOUS_YEAR,
+    ;
+
+    fun dates(today: LocalDate): Pair<LocalDate, LocalDate> {
+        val thisWeek = today.minus(today.dayOfWeek.isoDayNumber - DayOfWeek.MONDAY.isoDayNumber, DateTimeUnit.DAY)
+        val thisMonth = LocalDate(today.year, today.month, 1)
+        val thisYear = LocalDate(today.year, 1, 1)
+        return when (this) {
+            THIS_WEEK -> thisWeek to today
+            PREVIOUS_WEEK ->
+                thisWeek.minus(7, DateTimeUnit.DAY) to thisWeek.minus(1, DateTimeUnit.DAY)
+
+            THIS_MONTH -> thisMonth to today
+            PREVIOUS_MONTH -> {
+                val end = thisMonth.minus(1, DateTimeUnit.DAY)
+                LocalDate(end.year, end.month, 1) to end
+            }
+
+            THIS_YEAR -> thisYear to today
+            PREVIOUS_YEAR -> LocalDate(today.year - 1, 1, 1) to LocalDate(today.year - 1, 12, 31)
+        }
+    }
 }
 
 /** Výkyv i s názvem tématu v jazyce aplikace — konzole klíč nezobrazuje. */
@@ -196,7 +228,20 @@ class AnalysisInsights(
         val window = days.coerceIn(MIN_DAYS, MAX_DAYS)
         // Období končí dneškem včetně: na stránce chce člověk vidět i to, co přišlo dnes ráno.
         val end = clock.now().toLocalDateTime(zone).date
-        return overview(orgId, appId, end.minus(window - 1, DateTimeUnit.DAY), end, filter)
+        return overview(app, orgId, end.minus(window - 1, DateTimeUnit.DAY), end, filter)
+    }
+
+    /** Kalendářní období se řídí místním dnem aplikace, ne zónou prohlížeče. */
+    fun overview(
+        orgId: OrganizationId,
+        appId: AppId,
+        period: AnalysisCalendarPeriod,
+        filter: AnalysisFilter = AnalysisFilter.ALL,
+    ): AnalysisOverview {
+        val app = apps.findById(orgId, appId) ?: throw ConsoleException(ConsoleFailure.NOT_FOUND, "Taková aplikace tu není")
+        val today = clock.now().toLocalDateTime(zoneOf(app.timezone)).date
+        val (start, end) = period.dates(today)
+        return overview(app, orgId, start, end, filter)
     }
 
     /**
@@ -213,6 +258,18 @@ class AnalysisInsights(
         filter: AnalysisFilter = AnalysisFilter.ALL,
     ): AnalysisOverview {
         val app = apps.findById(orgId, appId) ?: throw ConsoleException(ConsoleFailure.NOT_FOUND, "Taková aplikace tu není")
+        return overview(app, orgId, start, end, filter)
+    }
+
+    @Suppress("LongMethod")
+    private fun overview(
+        app: App,
+        orgId: OrganizationId,
+        start: LocalDate,
+        end: LocalDate,
+        filter: AnalysisFilter,
+    ): AnalysisOverview {
+        val appId = app.id
         val zone = zoneOf(app.timezone)
         // Srovnávací období je stejně dlouhé a přiléhá zleva — stejné pravidlo jako u rozboru do kanálu.
         val window = start.daysUntil(end) + 1
