@@ -115,17 +115,23 @@ class SeedCommands(
     }
 
     /**
-     * Plán organizace. Plán se ve fázích rozborů **nevynucuje** — rozhoduje jen o tom, komu
-     * se generuje měsíční klientský report. Proto CLI a ne console: je to naše obchodní
-     * rozhodnutí, ne klientovo nastavení.
+     * Tarif organizace. Nevynucuje se — rozhoduje jen o tom, komu se generuje měsíční
+     * klientský report. Vlastník si ho přepne i v konzoli; tady je to pro případ, kdy se
+     * do konzole nedostaneme (nebo když se sype víc organizací za sebou).
      */
     fun orgPlan(args: Arguments) {
         val organization = organization(args)
         val plan = orgPlan(args.required("plan"))
         components.organizations.updatePlan(organization.id, plan)
-            ?: throw CommandException("Organizaci ${organization.slug} se plán nepovedlo změnit")
-        audit(organization.id, "org.plan_changed", "organization", organization.id.toString(), mapOf("plan" to plan.name))
-        out("Organizace ${organization.slug} je na plánu ${plan.name.lowercase()}")
+            ?: throw CommandException("Organizaci ${organization.slug} se tarif nepovedlo změnit")
+        audit(
+            organization.id,
+            "org.plan_changed",
+            "organization",
+            organization.id.toString(),
+            mapOf("from" to organization.plan.name, "to" to plan.name),
+        )
+        out("Organizace ${organization.slug} je na tarifu ${plan.name.lowercase()}")
     }
 
     fun userAdd(args: Arguments) {
@@ -600,7 +606,7 @@ class SeedCommands(
 
         val report = components.monthlyReports.generate(organization.id, app.id, month)
         if (report == null) {
-            out("Report se negeneroval: organizace ${organization.slug} je na plánu ${organization.plan.name}.")
+            out("Report se negeneroval: organizace ${organization.slug} je na tarifu ${organization.plan.name}.")
             return
         }
         audit(organization.id, "analysis.report.generate", "app", app.id.toString())

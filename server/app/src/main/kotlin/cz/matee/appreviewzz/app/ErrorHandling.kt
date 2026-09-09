@@ -9,6 +9,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
+import io.ktor.server.plugins.BadRequestException
 import io.ktor.server.plugins.callid.callId
 import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.request.path
@@ -48,6 +49,21 @@ fun Application.installErrorHandling() {
                     error = cause.failure.name.lowercase(),
                     requestId = call.callId,
                     message = cause.message,
+                ),
+            )
+        }
+        // Tělo, které se nepodařilo přečíst (chybí pole, hodnota mimo výčet), je chyba
+        // volajícího, ne pád serveru. Bez tohohle by nesmysl v požadavku končil jako 500
+        // a v logu jako incident. Detail zůstává v logu — do odpovědi jde neutrální věta,
+        // protože text výjimky umí obsahovat kus těla požadavku.
+        exception<BadRequestException> { call, cause ->
+            logger.info(cause) { "Nepřečtený požadavek na ${call.request.local.uri}" }
+            call.respond(
+                HttpStatusCode.BadRequest,
+                ErrorResponse(
+                    error = "invalid_input",
+                    requestId = call.callId,
+                    message = "Požadavku nerozumím — zkontroluj, co posíláš",
                 ),
             )
         }

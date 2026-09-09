@@ -1,6 +1,8 @@
 /** Tvary odpovědí API. Drží se jedna k jedné DTO na serveru — když se rozejdou, spadne build. */
 
 export type OrgRole = 'OWNER' | 'ADMIN' | 'MEMBER'
+/** Tarif organizace. Nevynucuje se — dnes rozhoduje jen o měsíčním reportu pro klienta. */
+export type OrgPlan = 'STARTER' | 'REGULAR' | 'ENTERPRISE'
 /** Správa platformy — osa kolmá k členství, ne vyšší role v organizaci. */
 export type PlatformRole = 'SUPERADMIN'
 export type Platform = 'ANDROID' | 'IOS'
@@ -16,6 +18,11 @@ export interface OrganizationSummary {
   slug: string
   name: string
   role: OrgRole
+}
+
+/** Organizace z `/api/orgs/{slug}` — proti souhrnu v profilu má navíc tarif. */
+export interface Organization extends OrganizationSummary {
+  plan: OrgPlan
 }
 
 export interface Me {

@@ -25,9 +25,9 @@ private suspend fun ApplicationTestBuilder.ownerWithPaidApp(mailer: RecordingMai
     owner.signUpVerified(OWNER, mailer)
     owner.postJson("/api/orgs", """{"name":"Matee"}""")
     val organizations = ExposedOrganizationRepository(TestDatabase.database.exposed)
-    // Plán se nevynucuje, ale report se pro Starter negeneruje — ať se databáze neplní
-    // JSONem, na který nikdo neklikne.
-    organizations.updatePlan(checkNotNull(organizations.findBySlug(SLUG)).id, OrgPlan.INSIGHTS)
+    // Tarif se sice zakládá na Regularu, ale test nemá stát na výchozí hodnotě: až se
+    // s fakturací vrátí na Starter, tady se nesmí nic rozsypat.
+    organizations.updatePlan(checkNotNull(organizations.findBySlug(SLUG)).id, OrgPlan.REGULAR)
     val app =
         owner
             .postJson("/api/orgs/$SLUG/apps", """{"name":"Testovací appka","gpPackageName":"cz.matee.test"}""")
@@ -122,7 +122,7 @@ class ReportRoutesTest :
             }
         }
 
-        "organizaci na plánu Starter se report negeneruje" {
+        "organizaci na tarifu Starter se report negeneruje" {
             testApplication {
                 consoleModule(mailer)
                 val owner = browser()
@@ -133,6 +133,10 @@ class ReportRoutesTest :
                         .postJson("/api/orgs/$SLUG/apps", """{"name":"Appka","gpPackageName":"cz.matee.test"}""")
                         .bodyAsText()
                         .jsonValue("id")
+
+                // Nová organizace je na Regularu, takže Starter se musí nastavit — a rovnou
+                // tou cestou, kterou má klient v konzoli.
+                owner.patchJson("/api/orgs/$SLUG/plan", """{"plan":"STARTER"}""").status shouldBe HttpStatusCode.OK
 
                 val response = owner.postJson("/api/orgs/$SLUG/apps/$app/reports", "{}")
 

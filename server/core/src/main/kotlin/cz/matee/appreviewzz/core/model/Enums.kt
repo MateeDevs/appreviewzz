@@ -208,13 +208,32 @@ enum class Urgency {
 }
 
 /**
- * Plán organizace. Ve fázích F8.1–F8.3 se **nevynucuje** — jen se ukládá a rozhoduje o tom,
- * komu se generuje měsíční report. Vynucení je samostatné rozhodnutí spolu s billingem.
+ * Tarif organizace. Pořadí hodnot je od nejmenšího po největší, takže „tenhle tarif a vyšší"
+ * se dá napsat jako `>=` — až přijde čtvrtý stupeň, nikdo nemusí hledat rozeseté podmínky.
+ *
+ * Tarif se jinak **nevynucuje**: jediné, o čem dnes rozhoduje, je [hasMonthlyReport].
+ * Zbytek (limity na appky a recenze) je věc billingu a přijde s ním.
  */
 enum class OrgPlan {
     STARTER,
-    INSIGHTS,
-    AGENCY,
+    REGULAR,
+    ENTERPRISE,
+    ;
+
+    /**
+     * Generuje se organizaci měsíční report pro klienta? Na `STARTER` ne — databáze by se
+     * plnila JSONem, na který se nikdo nepodívá.
+     */
+    val hasMonthlyReport: Boolean get() = this >= REGULAR
+
+    companion object {
+        /**
+         * Tarif nové organizace. Dokud se nefakturuje, zakládá se na `REGULAR`: klient
+         * má hned vidět, co si kupuje, a ne přijít o první měsíční report tím, že o tarifu
+         * nevěděl. S billingem se tohle změní na `STARTER`.
+         */
+        val DEFAULT = REGULAR
+    }
 }
 
 /** Čeho se výkyv v recenzích týká (F8/B4). Dva druhy stačí: „je zle" a „je zle kvůli tomuhle". */

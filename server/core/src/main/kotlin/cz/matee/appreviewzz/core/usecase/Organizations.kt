@@ -6,6 +6,7 @@ import cz.matee.appreviewzz.core.model.Invitation
 import cz.matee.appreviewzz.core.model.InvitationId
 import cz.matee.appreviewzz.core.model.MessageLocale
 import cz.matee.appreviewzz.core.model.OpaqueTokens
+import cz.matee.appreviewzz.core.model.OrgPlan
 import cz.matee.appreviewzz.core.model.OrgRole
 import cz.matee.appreviewzz.core.model.Organization
 import cz.matee.appreviewzz.core.model.OrganizationId
@@ -271,6 +272,35 @@ class OrganizationService(
         )
         logger.info { "Uživatel ${account.user.id} přijal pozvánku do ${organization.slug}" }
         return organization
+    }
+
+    /**
+     * Změna tarifu. Smí ji udělat **vlastník** organizace: dokud se tarify nefakturují, je to
+     * přepínač funkcí, ne platba — a čekat na e-mail od nás kvůli jednomu selectu je horší
+     * než audit záznam, ze kterého je změna vidět. Až přijde billing, tohle se zamkne za něj.
+     */
+    fun changePlan(
+        organization: Organization,
+        actor: OrgActor,
+        plan: OrgPlan,
+    ): Organization {
+        requireRole(actor, OrgRole.OWNER)
+        if (plan == organization.plan) return organization
+
+        val updated =
+            organizations.updatePlan(organization.id, plan)
+                ?: throw ConsoleException(ConsoleFailure.NOT_FOUND, "Organizace mezitím zanikla")
+        audit(
+            organization.id,
+            actorUserId = actor.userId,
+            action = "org.plan_changed",
+            targetType = "organization",
+            targetId = organization.id.toString(),
+            metadata = mapOf("from" to organization.plan.name, "to" to plan.name),
+            actorLabel = actor.displayName,
+        )
+        logger.info { "Organizace ${organization.slug} přešla z tarifu ${organization.plan} na $plan" }
+        return updated
     }
 
     fun changeRole(

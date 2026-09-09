@@ -177,10 +177,13 @@ aplikace ten, který čekáš — hranice je půlnoc u klienta, ne v UTC.
 ## Měsíční report pro klienta
 
 Generuje se prvního dne v měsíci v 6:00 v zóně aplikace (`monthly-report`) organizacím
-s plánem `INSIGHTS` nebo `AGENCY`; `STARTER` report nedostane, aby se databáze neplnila
-JSONem, na který nikdo neklikne. Plán se jinak nevynucuje — mění se přes `org plan`.
+na tarifu `REGULAR` nebo `ENTERPRISE`; `STARTER` report nedostane, aby se databáze neplnila
+JSONem, na který nikdo neklikne. Tarif se jinak nevynucuje. Nová organizace se zakládá na
+`REGULAR` (dokud se nefakturuje) a vlastník si ho přepne v konzoli v sekci **Organizace**;
+z příkazové řádky to je `org plan`.
 
 ```bash
+docker exec <api> java -jar /app/app.jar seed org plan --org matee --plan regular
 docker exec <api> java -jar /app/app.jar seed analysis report generate --org matee --app <ID> --month 2026-08
 docker exec <api> java -jar /app/app.jar seed analysis report share --org matee --report <ID>
 docker exec <api> java -jar /app/app.jar seed analysis report share --org matee --report <ID> --off true

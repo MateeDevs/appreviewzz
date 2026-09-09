@@ -53,6 +53,10 @@ class ExposedOrganizationRepository(
                 it[id] = organization.id
                 it[Organizations.name] = organization.name
                 it[Organizations.slug] = organization.slug
+                // Tarif se zapisuje výslovně, i když ho má sloupec ve výchozí hodnotě: jinak
+                // by se vrácený objekt a databáze rozešly ve chvíli, kdy se jedna ze dvou
+                // výchozích hodnot změní a druhá ne.
+                it[Organizations.plan] = organization.plan
                 it[createdAt] = organization.createdAt
                 it[updatedAt] = organization.createdAt
             }

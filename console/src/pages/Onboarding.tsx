@@ -45,8 +45,8 @@ export function OnboardingPage() {
     {
       title: 'Organizace',
       done: true,
-      detail: 'Hotovo. Kolegy si přizveš v sekci Tým — pozvánka jim přijde e-mailem.',
-      action: { label: 'Pozvat kolegy', to: `/${org}/tym` },
+      detail: 'Hotovo. Kolegy si přizveš v sekci Organizace — pozvánka jim přijde e-mailem.',
+      action: { label: 'Pozvat kolegy', to: `/${org}/organizace` },
     },
     {
       title: 'Aplikace',

@@ -9,8 +9,8 @@ data class Organization(
     val name: String,
     val slug: String,
     val createdAt: Instant,
-    /** Plán se zatím nevynucuje — rozhoduje jen o tom, komu se generuje měsíční report. */
-    val plan: OrgPlan = OrgPlan.STARTER,
+    /** Tarif se zatím nevynucuje — rozhoduje jen o tom, komu se generuje měsíční report. */
+    val plan: OrgPlan = OrgPlan.DEFAULT,
 )
 
 data class User(

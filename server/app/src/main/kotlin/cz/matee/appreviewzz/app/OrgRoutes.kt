@@ -30,7 +30,12 @@ data class OrganizationResponse(
     val slug: String,
     val name: String,
     val role: OrgRole,
-    /** Plán se nevynucuje; console podle něj jen ukáže, co je navíc v placených plánech. */
+    /** Tarif se nevynucuje; rozhoduje dnes jen o měsíčním reportu pro klienta. */
+    val plan: OrgPlan,
+)
+
+@Serializable
+data class ChangePlanRequest(
     val plan: OrgPlan,
 )
 
@@ -101,6 +106,13 @@ fun Route.orgRoutes(console: ConsoleWiring) {
         get {
             val context = call.orgContext(organizations, memberships)
             call.respond(context.organization.toResponse(context.actor.role))
+        }
+
+        patch("/plan") {
+            val context = call.orgContext(organizations, memberships)
+            val request = call.receive<ChangePlanRequest>()
+            val updated = io { orgs.changePlan(context.organization, context.actor, request.plan) }
+            call.respond(updated.toResponse(context.actor.role))
         }
 
         get("/members") {

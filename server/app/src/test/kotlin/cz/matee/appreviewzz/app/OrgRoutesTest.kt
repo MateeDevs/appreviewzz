@@ -274,6 +274,33 @@ class OrgRoutesTest :
             }
         }
 
+        "nová organizace je na Regularu a tarif přepíná jen vlastník" {
+            testApplication {
+                consoleModule(mailer)
+                val owner = browser()
+                owner.signUpVerified(OWNER, mailer)
+
+                // Dokud se nefakturuje, nová organizace na měsíční report nárok má — jinak
+                // by o první report přišla jen tím, že o tarifech nikdo neřekl.
+                owner.createOrg(name = "Matee").bodyAsText() shouldContain "\"plan\":\"REGULAR\""
+
+                owner.patchJson("/api/orgs/matee/plan", """{"plan":"ENTERPRISE"}""").status shouldBe HttpStatusCode.OK
+                owner.get("/api/orgs/matee").bodyAsText() shouldContain "\"plan\":\"ENTERPRISE\""
+
+                // Nesmysl v těle nesmí projít jako „nějaký tarif".
+                owner.patchJson("/api/orgs/matee/plan", """{"plan":"ZLATY"}""").status shouldBe
+                    HttpStatusCode.BadRequest
+
+                owner.invite("matee", COLLEAGUE, role = "ADMIN")
+                val colleague = joinViaInvitation(mailer, COLLEAGUE)
+
+                // Ani správce ne: tarif je jediné nastavení organizace, které nese cenu.
+                colleague.patchJson("/api/orgs/matee/plan", """{"plan":"STARTER"}""").status shouldBe
+                    HttpStatusCode.Forbidden
+                owner.get("/api/orgs/matee").bodyAsText() shouldContain "\"plan\":\"ENTERPRISE\""
+            }
+        }
+
         "organizace bez přihlášení nejsou vidět" {
             testApplication {
                 consoleModule(mailer)

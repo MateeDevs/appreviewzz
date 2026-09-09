@@ -101,7 +101,7 @@ private val COMMANDS =
         Command(
             name = "org plan",
             options = setOf("org", "plan"),
-            usage = "org plan --org <slug|ID> --plan starter|insights|agency",
+            usage = "org plan --org <slug|ID> --plan starter|regular|enterprise",
             run = { args -> orgPlan(args) },
         ),
         Command(

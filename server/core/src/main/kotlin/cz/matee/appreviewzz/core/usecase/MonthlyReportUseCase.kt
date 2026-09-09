@@ -4,7 +4,6 @@ import cz.matee.appreviewzz.core.model.AlertKind
 import cz.matee.appreviewzz.core.model.AppId
 import cz.matee.appreviewzz.core.model.InsightReport
 import cz.matee.appreviewzz.core.model.InsightReportId
-import cz.matee.appreviewzz.core.model.OrgPlan
 import cz.matee.appreviewzz.core.model.OrganizationId
 import cz.matee.appreviewzz.core.model.ReportAlert
 import cz.matee.appreviewzz.core.model.ReportImproved
@@ -40,8 +39,8 @@ private val logger = KotlinLogging.logger {}
  * agentura pošle klientovi, musí za půl roku ukázat totéž co dnes — a živý dotaz by se
  * změnil s každým dotagováním i s příští verzí taxonomie.
  *
- * Nedělá se pro plán `STARTER`: report se negeneruje pro nikoho, kdo ho neuvidí, ať se
- * databáze neplní JSONem, na který nikdo neklikne. Plán se jinak nevynucuje.
+ * Nedělá se pro tarif `STARTER`: report se negeneruje pro nikoho, kdo ho neuvidí, ať se
+ * databáze neplní JSONem, na který nikdo neklikne. Tarif se jinak nevynucuje.
  */
 @Suppress("LongParameterList")
 class MonthlyReportUseCase(
@@ -56,7 +55,7 @@ class MonthlyReportUseCase(
 ) {
     /**
      * @param month první den měsíce, za který se report generuje; `null` = minulý měsíc
-     * @return `null`, když appka neexistuje nebo organizace na report nemá plán
+     * @return `null`, když appka neexistuje nebo organizace na report nemá tarif
      */
     fun generate(
         orgId: OrganizationId,
@@ -65,8 +64,8 @@ class MonthlyReportUseCase(
     ): InsightReport? {
         val app = apps.findById(orgId, appId) ?: return null
         val organization = organizations.findById(orgId) ?: return null
-        if (organization.plan == OrgPlan.STARTER) {
-            logger.info { "Report appky $appId se negeneruje: organizace je na plánu STARTER" }
+        if (!organization.plan.hasMonthlyReport) {
+            logger.info { "Report appky $appId se negeneruje: organizace je na tarifu ${organization.plan}" }
             return null
         }
 

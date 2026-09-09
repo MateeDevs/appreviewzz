@@ -69,7 +69,7 @@ fun Route.reportRoutes(console: ConsoleWiring) {
                 io { reports.generate(context.organization.id, call.appIdParam(), month) }
                     ?: throw ConsoleException(
                         ConsoleFailure.INVALID_INPUT,
-                        "Report se negeneruje — organizace je na plánu Starter",
+                        "Report se negeneruje — organizace je na tarifu Starter. Přepni ho v sekci Organizace.",
                     )
             call.respond(HttpStatusCode.Created, report.toResponse(console))
         }

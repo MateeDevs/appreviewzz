@@ -2,19 +2,37 @@ import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import {
   useAudit,
+  useChangePlan,
   useChangeRole,
   useInvitations,
   useInvite,
   useMe,
   useMembers,
+  useOrganization,
   useRemoveMember,
   useRevokeInvitation,
 } from '../api/hooks'
+import type { OrgPlan } from '../api/types'
 import { Badge, Card, ErrorBox, Field, Loading, When } from '../components/ui'
 
-export function TeamPage() {
+/**
+ * Tarify tak, jak je vidí klient. `unlocks` je záměrně o tom, co tarif **dneska** umí:
+ * slibovat v selectu funkce, které nejsou hotové, je nejrychlejší cesta ke zklamání.
+ */
+const PLANS: { value: OrgPlan; label: string; unlocks: string }[] = [
+  { value: 'STARTER', label: 'Starter', unlocks: 'recenze, odpovědi, týdenní rozbory — bez měsíčního reportu' },
+  { value: 'REGULAR', label: 'Regular', unlocks: 'navíc měsíční report pro klienta (odkaz i PDF)' },
+  { value: 'ENTERPRISE', label: 'Enterprise', unlocks: 'totéž co Regular; místo pro limity, které přijdou s fakturací' },
+]
+
+function planLabel(plan: OrgPlan): string {
+  return PLANS.find((item) => item.value === plan)?.label ?? plan
+}
+
+export function OrganizationPage() {
   const { org = '' } = useParams()
   const me = useMe()
+  const organization = useOrganization(org)
   const members = useMembers(org)
   const invitations = useInvitations(org)
   const invite = useInvite(org)
@@ -31,9 +49,11 @@ export function TeamPage() {
   return (
     <div className="stack">
       <div>
-        <h1>Tým</h1>
-        <p className="muted">Kdo do organizace vidí a co smí.</p>
+        <h1>{organization.data?.name ?? 'Organizace'}</h1>
+        <p className="muted">Tarif, kdo do organizace vidí a co smí.</p>
       </div>
+
+      <PlanCard org={org} canManage={myRole === 'OWNER'} />
 
       <Card title="Členové">
         {members.isPending ? <Loading /> : null}
@@ -157,6 +177,54 @@ export function TeamPage() {
         </Card>
       ) : null}
     </div>
+  )
+}
+
+/**
+ * Tarif organizace. Přepnout ho smí vlastník: dokud se tarify nefakturují, je to přepínač
+ * funkcí, ne platba, a čekání na e-mail od nás by bylo horší než záznam v auditu. Ostatní
+ * ho tu mají proto, aby věděli, proč něco nevidí, a koho o změnu požádat.
+ */
+function PlanCard({ org, canManage }: { org: string; canManage: boolean }) {
+  const organization = useOrganization(org)
+  const changePlan = useChangePlan(org)
+  const plan = organization.data?.plan
+
+  return (
+    <Card title="Tarif">
+      {organization.isPending ? <Loading /> : null}
+      <ErrorBox error={organization.error ?? changePlan.error} />
+      {plan ? (
+        canManage ? (
+          <Field
+            label="Tarif organizace"
+            hint={PLANS.find((item) => item.value === plan)?.unlocks}
+          >
+            <select
+              value={plan}
+              disabled={changePlan.isPending}
+              onChange={(event) => changePlan.mutate(event.target.value as OrgPlan)}
+            >
+              {PLANS.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+        ) : (
+          <p>
+            <Badge>{planLabel(plan)}</Badge>{' '}
+            <span className="muted">{PLANS.find((item) => item.value === plan)?.unlocks}</span>
+          </p>
+        )
+      ) : null}
+      <p className="small muted">
+        Tarify se zatím nefakturují a nic jiného neomezují — jediné, co tarif dnes rozhoduje, je
+        měsíční report pro klienta. Ten se generuje na Regularu a výš.
+        {canManage ? '' : ' Změnit ho může vlastník organizace.'}
+      </p>
+    </Card>
   )
 }
 

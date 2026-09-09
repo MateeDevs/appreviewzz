@@ -50,9 +50,9 @@ export function OrgLayout() {
             <IconApps />
             Aplikace
           </NavLink>
-          <NavLink to={`/${org}/tym`}>
+          <NavLink to={`/${org}/organizace`}>
             <IconTeam />
-            Tým
+            Organizace
           </NavLink>
           <NavLink to={`/${org}/audit`}>
             <IconAudit />

@@ -17,6 +17,8 @@ import type {
   Me,
   Member,
   MfaStatus,
+  Organization,
+  OrgPlan,
   OrganizationSummary,
   PlatformApp,
   PlatformAuditEntry,
@@ -172,6 +174,20 @@ export function useAcceptInvitation() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: (token: string) => api.post<OrganizationSummary>('/api/invitations/accept', { token }),
+    onSuccess: () => client.invalidateQueries(),
+  })
+}
+
+/** Organizace i s tarifem. Souhrn v profilu ho nenese, obrazovka Organizace ho potřebuje. */
+export function useOrganization(org: string) {
+  return useQuery({ queryKey: ['org', org], queryFn: () => api.get<Organization>(`/api/orgs/${org}`) })
+}
+
+export function useChangePlan(org: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (plan: OrgPlan) => api.patch<Organization>(`/api/orgs/${org}/plan`, { plan }),
+    // Tarifem se řídí, co je vidět na Rozborech (report), takže se cache zahazuje celá.
     onSuccess: () => client.invalidateQueries(),
   })
 }

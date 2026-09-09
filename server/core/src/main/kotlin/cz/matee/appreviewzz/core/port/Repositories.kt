@@ -84,8 +84,8 @@ interface OrganizationRepository {
     fun list(): List<Organization>
 
     /**
-     * Změna plánu. Volá to **jen CLI** — plán se ve fázích F8.1–F8.3 nevynucuje a nastavuje
-     * ho provozovatel, ne klient sám na sobě.
+     * Změna tarifu. Volá to konzole (vlastník organizace) a seed CLI. Nevrací `Unit`, ale
+     * organizaci po změně — volající ji posílá zpátky do konzole a nemá si ji dohledávat sám.
      */
     fun updatePlan(
         id: OrganizationId,
