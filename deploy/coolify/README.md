@@ -101,6 +101,33 @@ image v GHCR: každý commit by se nasazoval dvakrát a ten první deploy by vž
 předchozí verzi. Nasazení z CI to neomezuje — chodí přes `/api/v1/deploy`, ne přes git
 webhook, a v historii je poznáš podle *Source: API*.
 
+## Preview nasazení (PR)
+
+Zapíná se na resource stagingu (Configuration → Preview Deployments). Coolify si pro
+každý PR vyrobí kopii stacku: vlastní síť, vlastní svazek s databází
+(`..._postgres-data-pr-<číslo>`) a doménu podle šablony `{{pr_id}}.{{domain}}`.
+
+Dvě věci, o které to zakoplo a které je potřeba mít na paměti:
+
+**Kontejnery se přejmenují a jméno služby na síti přestane platit.** V preview jsou aliasy
+jen `postgres-pr-<číslo>`, ne `postgres` — aplikace na tom spadne na
+`UnknownHostException: postgres`, API se točí v restartu a nasazení skončí na
+`dependency failed to start ... is unhealthy`. Proto má `postgres` v `compose.yaml`
+**výslovný alias** a hostitel databáze jde přebít proměnnou `POSTGRES_HOST`. Kdyby Coolify
+alias někdy zahodil, nastav v preview scope `POSTGRES_HOST=postgres-pr-<číslo>`.
+
+**Preview nestaví image, jen ho stahuje.** `compose.yaml` nemá `build:`, takže se nasadí
+to, na co ukazuje `APP_VERSION` — ve výchozím stavu `latest`, tedy poslední **staging**
+build z `epic/v2`, ne kód z PR. Preview tím pádem ukáže cizí verzi, i když se nasadí
+úspěšně. Poznáš to z logu podle sha na řádku `Starting appreviewzz … (<sha>)`. Aby preview
+ukazovalo kód z PR, musí CI publikovat image z PR a preview scope na něj ukázat
+(`APP_VERSION`).
+
+Proměnné mají v Coolify **vlastní preview scope** — kopii produkčních hodnot. Sáhni v něm
+aspoň na `CONSOLE_ALLOWED_HOSTS` (musí obsahovat i preview doménu, jinak konzole požadavku
+neuvěří) a na klíče, které nemají v testovacím prostředí co dělat — Slack, Teams a ostrý
+Resend.
+
 ## Verze, která běží
 
 Služby mají `pull_policy: always`, takže každé nasazení stáhne aktuální image. Bez toho by
