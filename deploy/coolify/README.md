@@ -112,9 +112,10 @@ Dvě věci, o které to zakoplo a které je potřeba mít na paměti:
 **Kontejnery se přejmenují a jméno služby na síti přestane platit.** V preview jsou aliasy
 jen `postgres-pr-<číslo>`, ne `postgres` — aplikace na tom spadne na
 `UnknownHostException: postgres`, API se točí v restartu a nasazení skončí na
-`dependency failed to start ... is unhealthy`. Proto má `postgres` v `compose.yaml`
-**výslovný alias** a hostitel databáze jde přebít proměnnou `POSTGRES_HOST`. Kdyby Coolify
-alias někdy zahodil, nastav v preview scope `POSTGRES_HOST=postgres-pr-<číslo>`.
+`dependency failed to start ... is unhealthy`. Vlastní `aliases` v `compose.yaml` to
+neřeší, Coolify si sekci `networks` přepisuje sám (ověřeno). Jediná cesta je nastavit
+v **preview scope** proměnnou `POSTGRES_HOST=postgres-pr-<číslo>` — a při každém dalším
+PR ji přepsat, protože číslo je součástí jména.
 
 **Preview nestaví image, jen ho stahuje.** `compose.yaml` nemá `build:`, takže se nasadí
 to, na co ukazuje `APP_VERSION` — ve výchozím stavu `latest`, tedy poslední **staging**

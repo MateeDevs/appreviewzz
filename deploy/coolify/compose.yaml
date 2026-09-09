@@ -18,9 +18,10 @@ services:
       APPREVIEWZZ_ROLE: api
       APPREVIEWZZ_ENV: ${APPREVIEWZZ_ENV:-dev}
       TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-1}
-      # Hostitel databáze je proměnná se jménem služby jako výchozí hodnotou. V preview
-      # nasazení Coolify přejmenuje služby na `postgres-pr-<číslo>` a alias `postgres`
-      # nezachová — pak se sem dá dosadit skutečné jméno, aniž by se sahalo na compose.
+      # Hostitel databáze je proměnná se jménem služby jako výchozí hodnotou. V běžném
+      # nasazení sedí `postgres`; v preview nasazení Coolify kontejnery přejmenuje a na
+      # síti zbude jen `postgres-pr-<číslo>` (vlastní alias v compose přepíše), takže se
+      # sem musí dosadit ručně. Hodí se i pro databázi mimo compose.
       DATABASE_URL: jdbc:postgresql://${POSTGRES_HOST:-postgres}:5432/${POSTGRES_DB:-appreviewzz}
       DATABASE_USER: ${POSTGRES_USER:-appreviewzz}
       DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?}
@@ -105,13 +106,6 @@ services:
       timeout: 3s
       retries: 10
     restart: unless-stopped
-    # Jméno `postgres` na síti drží tenhle alias, ne jméno služby. Compose ho normálně
-    # přidává sám, ale v preview nasazení Coolify kontejnery přejmenuje na `-pr-<číslo>`
-    # a zbude jen `postgres-pr-<číslo>` — aplikace pak spadne na UnknownHostException.
-    networks:
-      default:
-        aliases:
-          - postgres
 
 volumes:
   postgres-data:
