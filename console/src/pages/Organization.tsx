@@ -14,6 +14,7 @@ import {
 } from '../api/hooks'
 import type { OrgPlan } from '../api/types'
 import { Badge, Card, ErrorBox, Field, Loading, When } from '../components/ui'
+import { Select } from '../components/Select'
 
 /**
  * Tarify tak, jak je vidí klient. `unlocks` je záměrně o tom, co tarif **dneska** umí:
@@ -76,14 +77,16 @@ export function OrganizationPage() {
                 </td>
                 <td>
                   {canManage ? (
-                    <select
+                    <Select
                       value={member.role}
-                      onChange={(e) => changeRole.mutate({ userId: member.userId, role: e.target.value })}
-                    >
-                      <option value="OWNER">vlastník</option>
-                      <option value="ADMIN">správce</option>
-                      <option value="MEMBER">člen</option>
-                    </select>
+                      options={[
+                        { value: 'OWNER', label: 'vlastník' },
+                        { value: 'ADMIN', label: 'správce' },
+                        { value: 'MEMBER', label: 'člen' },
+                      ]}
+                      onChange={(role) => changeRole.mutate({ userId: member.userId, role })}
+                      ariaLabel={`Role uživatele ${member.displayName ?? member.email}`}
+                    />
                   ) : (
                     <Badge>{member.role.toLowerCase()}</Badge>
                   )}
@@ -160,11 +163,16 @@ export function OrganizationPage() {
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
             </Field>
             <Field label="Role" hint="Člen vidí recenze a odpovídá; správce navíc spravuje appky, klíče a kanály.">
-              <select value={role} onChange={(e) => setRole(e.target.value)}>
-                <option value="MEMBER">člen</option>
-                <option value="ADMIN">správce</option>
-                <option value="OWNER">vlastník</option>
-              </select>
+              <Select
+                value={role}
+                options={[
+                  { value: 'MEMBER', label: 'člen' },
+                  { value: 'ADMIN', label: 'správce' },
+                  { value: 'OWNER', label: 'vlastník' },
+                ]}
+                onChange={setRole}
+                ariaLabel="Role pozvaného uživatele"
+              />
             </Field>
             <div className="stack" style={{ marginTop: '1rem' }}>
               <ErrorBox error={invite.error} />
@@ -200,17 +208,13 @@ function PlanCard({ org, canManage }: { org: string; canManage: boolean }) {
             label="Tarif organizace"
             hint={PLANS.find((item) => item.value === plan)?.unlocks}
           >
-            <select
+            <Select
               value={plan}
               disabled={changePlan.isPending}
-              onChange={(event) => changePlan.mutate(event.target.value as OrgPlan)}
-            >
-              {PLANS.map((item) => (
-                <option key={item.value} value={item.value}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
+              options={PLANS.map((item) => ({ value: item.value, label: item.label }))}
+              onChange={(value) => changePlan.mutate(value as OrgPlan)}
+              ariaLabel="Tarif organizace"
+            />
           </Field>
         ) : (
           <p>

@@ -1,5 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import {
   useAnalysis,
@@ -18,6 +17,7 @@ import {
 import type { AnalysisCalendarPeriod } from '../api/hooks'
 import { Badge, Card, Empty, ErrorBox, Loading } from '../components/ui'
 import { SentimentChart, Sparkline } from '../components/SentimentChart'
+import { Select } from '../components/Select'
 import type { AnalysisOverview, Platform, TopicStatus, VersionImpact } from '../api/types'
 
 const STATUS_LABELS: Record<TopicStatus, { label: string; tone?: 'ok' | 'warn' | 'bad' }> = {
@@ -76,11 +76,13 @@ export function AnalysisPage() {
   const requestedDays = daysParam ? Number(daysParam) : 30
   const days = Number.isInteger(requestedDays) ? Math.min(365, Math.max(7, requestedDays)) : 30
   const isPresetDays = ROLLING_PERIODS.some((item) => item.days === days)
-  const platform = (params.get('platform') as Platform | null) ?? ''
+  const platform: Platform | '' = (params.get('platform') as Platform | null) ?? ''
   const territory = params.get('territory') ?? ''
+  const moodScope = params.get('mood') === 'with-text' ? 'with-text' : 'all'
 
   const selected = appId || (apps.data?.[0]?.id ?? '')
-  const analysis = useAnalysis(org, selected, { days: period ? undefined : days, period, platform, territory })
+  const filters = { days: period ? undefined : days, period, platform, territory }
+  const analysis = useAnalysis(org, selected, filters)
   const status = useAnalysisStatus(org, selected)
 
   const setParam = (key: string, value: string) => {
@@ -123,27 +125,29 @@ export function AnalysisPage() {
 
       <Card>
         <div className="row">
-          <select value={selected} onChange={(e) => setParam('app', e.target.value)} style={{ width: 'auto' }}>
-            {apps.data?.map((app) => (
-              <option key={app.id} value={app.id}>
-                {app.name}
-              </option>
-            ))}
-          </select>
+          <Select
+            value={selected}
+            options={apps.data?.map((app) => ({ value: app.id, label: app.name }))}
+            onChange={(value) => setParam('app', value)}
+            ariaLabel="Aplikace"
+            fitContent
+          />
           <PeriodSelect
             value={period ?? `DAYS_${days}`}
             customDays={!period && !isPresetDays ? days : undefined}
             onChange={setPeriod}
           />
-          <select
+          <Select
             value={platform}
-            onChange={(e) => setParam('platform', e.target.value)}
-            style={{ width: 'auto' }}
-          >
-            <option value="">Obě platformy</option>
-            <option value="ANDROID">Google Play</option>
-            <option value="IOS">App Store</option>
-          </select>
+            options={[
+              { value: '', label: 'Obě platformy' },
+              { value: 'ANDROID', label: 'Google Play' },
+              { value: 'IOS', label: 'App Store' },
+            ]}
+            onChange={(value) => setParam('platform', value)}
+            ariaLabel="Platforma"
+            fitContent
+          />
           <TerritorySelect
             territories={analysis.data?.territories.map((item) => item.territory) ?? []}
             value={territory}
@@ -168,7 +172,15 @@ export function AnalysisPage() {
 
       {analysis.isPending ? <Loading /> : null}
       <ErrorBox error={analysis.error} />
-      {analysis.data ? <Overview org={org} appId={selected} overview={analysis.data} /> : null}
+      {analysis.data ? (
+        <Overview
+          org={org}
+          appId={selected}
+          overview={analysis.data}
+          moodScope={moodScope}
+          onMoodScopeChange={(value) => setParam('mood', value === 'with-text' ? value : '')}
+        />
+      ) : null}
     </div>
   )
 }
@@ -184,162 +196,23 @@ function PeriodSelect({
   customDays?: number
   onChange: (value: string) => void
 }) {
-  const [open, setOpen] = useState(false)
-  const [menuStyle, setMenuStyle] = useState<React.CSSProperties>()
-  const rootRef = useRef<HTMLDivElement>(null)
-  const triggerRef = useRef<HTMLButtonElement>(null)
-  const menuRef = useRef<HTMLDivElement>(null)
   const calendarOptions: PeriodOption[] = CALENDAR_PERIODS
   const rollingOptions: PeriodOption[] = [
     ...(customDays ? [{ value: `DAYS_${customDays}`, label: `Posledních ${customDays} dní` }] : []),
     ...ROLLING_PERIODS.map((item) => ({ value: `DAYS_${item.days}`, label: item.label })),
   ]
-  const options = [...calendarOptions, ...rollingOptions]
-  const selectedLabel = options.find((option) => option.value === value)?.label ?? 'Vyberte období'
-
-  useLayoutEffect(() => {
-    if (!open || !triggerRef.current) return
-
-    const positionMenu = () => {
-      const trigger = triggerRef.current
-      if (!trigger) return
-      const rect = trigger.getBoundingClientRect()
-      const viewportPadding = 12
-      const gap = 6
-      const menuWidth = Math.min(Math.max(rect.width, 224), window.innerWidth - 2 * viewportPadding)
-      const left = Math.min(
-        Math.max(viewportPadding, rect.left),
-        Math.max(viewportPadding, window.innerWidth - menuWidth - viewportPadding),
-      )
-      const roomBelow = window.innerHeight - rect.bottom - gap - viewportPadding
-      const roomAbove = rect.top - gap - viewportPadding
-      const openAbove = roomBelow < 280 && roomAbove > roomBelow
-      const maxHeight = Math.max(0, openAbove ? roomAbove : roomBelow)
-
-      setMenuStyle({
-        left,
-        width: menuWidth,
-        maxHeight,
-        ...(openAbove
-          ? { bottom: window.innerHeight - rect.top + gap }
-          : { top: rect.bottom + gap }),
-      })
-    }
-
-    positionMenu()
-    window.addEventListener('resize', positionMenu)
-    window.addEventListener('scroll', positionMenu, true)
-    return () => {
-      window.removeEventListener('resize', positionMenu)
-      window.removeEventListener('scroll', positionMenu, true)
-    }
-  }, [open])
-
-  useEffect(() => {
-    if (!open) return
-
-    const closeOutside = (event: PointerEvent) => {
-      const target = event.target as Node
-      if (!rootRef.current?.contains(target) && !menuRef.current?.contains(target)) setOpen(false)
-    }
-    document.addEventListener('pointerdown', closeOutside)
-    return () => document.removeEventListener('pointerdown', closeOutside)
-  }, [open])
-
-  const focusOption = (direction: 1 | -1) => {
-    const items = [...(menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="option"]') ?? [])]
-    if (items.length === 0) return
-    const current = items.indexOf(document.activeElement as HTMLButtonElement)
-    const next = current < 0 ? (direction === 1 ? 0 : items.length - 1) : (current + direction + items.length) % items.length
-    items[next]?.focus()
-  }
-
-  const choose = (nextValue: string) => {
-    onChange(nextValue)
-    setOpen(false)
-    triggerRef.current?.focus()
-  }
-
   return (
-    <div className="period-select" ref={rootRef}>
-      <button
-        ref={triggerRef}
-        type="button"
-        className="period-select-trigger"
-        aria-label="Období rozboru"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        onClick={() => setOpen((current) => !current)}
-        onKeyDown={(event) => {
-          if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-            event.preventDefault()
-            setOpen(true)
-            requestAnimationFrame(() => focusOption(event.key === 'ArrowDown' ? 1 : -1))
-          }
-        }}
-      >
-        <span>{selectedLabel}</span>
-        <svg aria-hidden="true" viewBox="0 0 12 12">
-          <path d="M2.5 4.5 6 8l3.5-3.5" />
-        </svg>
-      </button>
-      {open && menuStyle
-        ? createPortal(
-            <div
-              ref={menuRef}
-              className="period-select-menu"
-              role="listbox"
-              aria-label="Období rozboru"
-              style={menuStyle}
-              onKeyDown={(event) => {
-                if (event.key === 'Escape') {
-                  event.preventDefault()
-                  setOpen(false)
-                  triggerRef.current?.focus()
-                } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-                  event.preventDefault()
-                  focusOption(event.key === 'ArrowDown' ? 1 : -1)
-                }
-              }}
-            >
-              <PeriodOptionGroup label="Kalendářní období" options={calendarOptions} value={value} onChoose={choose} />
-              <PeriodOptionGroup label="Klouzavé období" options={rollingOptions} value={value} onChoose={choose} />
-            </div>,
-            document.body,
-          )
-        : null}
-    </div>
-  )
-}
-
-function PeriodOptionGroup({
-  label,
-  options,
-  value,
-  onChoose,
-}: {
-  label: string
-  options: PeriodOption[]
-  value: string
-  onChoose: (value: string) => void
-}) {
-  return (
-    <div className="period-select-group" role="group" aria-label={label}>
-      <div className="period-select-group-label">{label}</div>
-      {options.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          role="option"
-          aria-selected={option.value === value}
-          className="period-select-option"
-          onClick={() => onChoose(option.value)}
-        >
-          <span className="period-select-check" aria-hidden="true">{option.value === value ? '✓' : ''}</span>
-          <span>{option.label}</span>
-        </button>
-      ))}
-    </div>
+    <Select
+      value={value}
+      groups={[
+        { label: 'Kalendářní období', options: calendarOptions },
+        { label: 'Klouzavé období', options: rollingOptions },
+      ]}
+      onChange={onChange}
+      ariaLabel="Období rozboru"
+      className="period-select"
+      fitContent
+    />
   )
 }
 
@@ -408,7 +281,19 @@ function CoverageBar({
   )
 }
 
-function Overview({ org, appId, overview }: { org: string; appId: string; overview: AnalysisOverview }) {
+function Overview({
+  org,
+  appId,
+  overview,
+  moodScope,
+  onMoodScopeChange,
+}: {
+  org: string
+  appId: string
+  overview: AnalysisOverview
+  moodScope: 'with-text' | 'all'
+  onMoodScopeChange: (value: 'with-text' | 'all') => void
+}) {
   if (overview.analyzed === 0) {
     return (
       <Card title="Zatím není co rozebírat">
@@ -419,48 +304,73 @@ function Overview({ org, appId, overview }: { org: string; appId: string; overvi
       </Card>
     )
   }
-  if (overview.reviews === 0) {
-    return (
-      <Card title="Za tohle období nic nepřišlo">
-        <p className="muted">Zkuste delší období nebo zrušte filtr platformy a trhu.</p>
-      </Card>
-    )
-  }
-
   const inbox = (topic?: string) =>
     `/${org}/recenze${topic ? `?app=${appId}&topic=${encodeURIComponent(topic)}` : ''}`
-  const delta = overview.previousSentiment ? overview.sentiment.negative - overview.previousSentiment.negative : null
+  const mood = moodScope === 'all' ? overview.allReviewsMood : overview
+  const delta = mood.previousSentiment ? mood.sentiment.negative - mood.previousSentiment.negative : null
 
   return (
     <>
-      <Card title="Nálada v čase">
-        <div className="metrics" style={{ marginBottom: '1rem' }}>
-          <div>
-            <div className="metric-value">{percent(overview.sentiment.positive)}</div>
-            <div className="metric-label">spokojených</div>
-            {delta != null && Math.round(delta * 100) !== 0 ? (
-              // Roste podíl nespokojených = nálada jde dolů; znaménko se čte obráceně.
-              <div className={`metric-delta ${delta > 0 ? 'down' : 'up'}`}>
-                {delta > 0 ? '↓' : '↑'} {Math.abs(Math.round(delta * 100))} b. proti minulému období
-              </div>
-            ) : null}
-          </div>
-          <div>
-            <div className="metric-value">{overview.reviews}</div>
-            <div className="metric-label">recenzí s textem</div>
-          </div>
-          <div>
-            <div className="metric-value">{overview.avgStars?.toFixed(2) ?? '—'}</div>
-            <div className="metric-label">průměr hvězd</div>
+      <Card>
+        <div className="card-heading">
+          <h2>Nálada v čase</h2>
+          <div className="segmented" role="group" aria-label="Recenze zahrnuté do nálady">
+            <button
+              type="button"
+              className={moodScope === 'all' ? 'active' : undefined}
+              aria-pressed={moodScope === 'all'}
+              onClick={() => onMoodScopeChange('all')}
+            >
+              Všechny recenze
+            </button>
+            <button
+              type="button"
+              className={moodScope === 'with-text' ? 'active' : undefined}
+              aria-pressed={moodScope === 'with-text'}
+              onClick={() => onMoodScopeChange('with-text')}
+            >
+              Jen s textem
+            </button>
           </div>
         </div>
-        {overview.tooFewReviews ? (
-          <p className="muted small">
-            Za období je jen {overview.reviews} recenzí s textem; do kanálu se rozbor posílá až od{' '}
-            {overview.minReviews}. Čísla níž jsou orientační.
-          </p>
-        ) : null}
-        <SentimentChart weeks={overview.weekly} />
+        {mood.reviews === 0 ? (
+          <p className="muted">Za tohle období ve vybraném rozsahu žádné recenze nepřišly.</p>
+        ) : (
+          <>
+            <div className="metrics" style={{ marginBottom: '1rem' }}>
+              <div>
+                <div className="metric-value">{percent(mood.sentiment.positive)}</div>
+                <div className="metric-label">spokojených</div>
+                {delta != null && Math.round(delta * 100) !== 0 ? (
+                  // Roste podíl nespokojených = nálada jde dolů; znaménko se čte obráceně.
+                  <div className={`metric-delta ${delta > 0 ? 'down' : 'up'}`}>
+                    {delta > 0 ? '↓' : '↑'} {Math.abs(Math.round(delta * 100))} b. proti minulému období
+                  </div>
+                ) : null}
+              </div>
+              <div>
+                <div className="metric-value">{mood.reviews}</div>
+                <div className="metric-label">{moodScope === 'all' ? 'všech recenzí' : 'recenzí s textem'}</div>
+              </div>
+              <div>
+                <div className="metric-value">{mood.avgStars?.toFixed(2) ?? '—'}</div>
+                <div className="metric-label">průměr hvězd</div>
+              </div>
+            </div>
+            {moodScope === 'all' && mood.reviews > overview.reviews ? (
+              <p className="muted small">
+                Zahrnuto i {mood.reviews - overview.reviews} hodnocení bez textu. Témata a jazyky níž vycházejí z{' '}
+                {overview.reviews} recenzí s textem.
+              </p>
+            ) : moodScope === 'with-text' && overview.tooFewReviews ? (
+              <p className="muted small">
+                Za období je jen {overview.reviews} recenzí s textem; do kanálu se rozbor posílá až od{' '}
+                {overview.minReviews}. Čísla níž jsou orientační.
+              </p>
+            ) : null}
+            <SentimentChart weeks={mood.weekly} />
+          </>
+        )}
       </Card>
 
       <Card title="Témata">
@@ -876,14 +786,16 @@ function TerritorySelect({
   const options = [...new Set([...territories, value].filter(Boolean))].sort()
   if (options.length === 0) return null
   return (
-    <select value={value} onChange={(e) => onChange(e.target.value)} style={{ width: 'auto' }}>
-      <option value="">Všechny trhy</option>
-      {options.map((item) => (
-        <option key={item} value={item}>
-          {item}
-        </option>
-      ))}
-    </select>
+    <Select
+      value={value}
+      options={[
+        { value: '', label: 'Všechny trhy' },
+        ...options.map((item) => ({ value: item, label: item })),
+      ]}
+      onChange={onChange}
+      ariaLabel="Trh"
+      fitContent
+    />
   )
 }
 

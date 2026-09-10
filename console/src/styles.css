@@ -270,6 +270,36 @@ h1 + p { margin-top: 0.3rem; color: var(--muted); }
   margin-bottom: 1rem;
   border-bottom: 1px solid var(--border);
 }
+.card-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 0.85rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+.card-heading h2 { margin: 0; }
+.segmented {
+  display: inline-flex;
+  padding: 0.2rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+.segmented button {
+  padding: 0.35rem 0.65rem;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+.segmented button:hover:not(:disabled) { background: var(--surface); color: var(--text); }
+.segmented button.active { background: var(--surface); color: var(--accent); box-shadow: var(--shadow); }
+@media (max-width: 620px) {
+  .card-heading { align-items: flex-start; flex-direction: column; }
+}
 
 label {
   display: block;
@@ -278,7 +308,7 @@ label {
   color: var(--text);
   margin-bottom: 0.35rem;
 }
-input, select, textarea {
+input, textarea {
   width: 100%;
   padding: 0.55rem 0.7rem;
   border: 1px solid var(--border-strong);
@@ -290,27 +320,18 @@ input, select, textarea {
 }
 input::placeholder, textarea::placeholder { color: var(--faint); }
 textarea { min-height: 96px; resize: vertical; }
-input:hover, select:hover, textarea:hover { border-color: var(--faint); }
-input:focus, select:focus, textarea:focus, input:focus-visible, select:focus-visible, textarea:focus-visible {
+input:hover, textarea:hover { border-color: var(--faint); }
+input:focus, textarea:focus, input:focus-visible, textarea:focus-visible {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-ring);
 }
-/* Vlastní šipka: nativní vzhled selectu se v obou tématech chová jinak než zbytek polí. */
-select {
-  appearance: none;
-  padding-right: 2.1rem;
-  cursor: pointer;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5' fill='none' stroke='%23808a99' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 0.7rem center;
-}
-
-/* Výběr období má víc skupin, proto používá vlastní menu. Drží se u spouštěče a
-   na rozdíl od systémového selectu nikdy nepřeteče mimo okno prohlížeče. */
-.period-select { position: relative; }
-.period-select-trigger {
-  min-width: 11.75rem;
+/* Všechny výběry používají stejné portálované menu. Karta ani dialog ho neořízne a
+   ukotvení je stejné ve všech prohlížečích i tématech. */
+.select-root { position: relative; width: 100%; max-width: 100%; min-width: 0; }
+.select-root.fit-content { width: auto; }
+.select-trigger {
+  width: 100%;
   justify-content: space-between;
   padding: 0.55rem 0.7rem;
   background: var(--surface);
@@ -318,13 +339,13 @@ select {
   border-color: var(--border-strong);
   font-weight: inherit;
 }
-.period-select-trigger:hover:not(:disabled) { background: var(--surface); border-color: var(--faint); }
-.period-select-trigger:focus-visible {
+.select-trigger:hover:not(:disabled) { background: var(--surface); border-color: var(--faint); }
+.select-trigger:focus-visible {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-ring);
 }
-.period-select-trigger svg {
+.select-trigger svg {
   width: 12px;
   height: 12px;
   margin-left: 0.65rem;
@@ -335,8 +356,9 @@ select {
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-.period-select-trigger[aria-expanded="true"] svg { transform: rotate(180deg); }
-.period-select-menu {
+.select-trigger[aria-expanded="true"] svg { transform: rotate(180deg); }
+.select-trigger > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.select-menu {
   position: fixed;
   z-index: 1000;
   overflow-y: auto;
@@ -346,19 +368,19 @@ select {
   background: var(--surface);
   box-shadow: 0 12px 32px rgb(20 28 45 / 18%);
 }
-.period-select-group + .period-select-group {
+.select-group:not(:first-child) {
   margin-top: 0.3rem;
   padding-top: 0.3rem;
   border-top: 1px solid var(--border);
 }
-.period-select-group-label {
+.select-group-label {
   padding: 0.3rem 0.55rem 0.2rem 2rem;
   color: var(--faint);
   font-size: 0.72rem;
   font-weight: 600;
   letter-spacing: 0.02em;
 }
-button.period-select-option {
+button.select-option {
   width: 100%;
   justify-content: flex-start;
   gap: 0.35rem;
@@ -368,12 +390,14 @@ button.period-select-option {
   color: var(--text);
   font-weight: inherit;
   text-align: left;
+  white-space: normal;
 }
-button.period-select-option:hover:not(:disabled),
-button.period-select-option:focus-visible { background: var(--surface-2); }
-button.period-select-option:focus-visible { outline: none; }
-button.period-select-option[aria-selected="true"] { color: var(--accent); font-weight: 600; }
-.period-select-check { width: 1.1rem; color: var(--accent); text-align: center; }
+button.select-option:hover:not(:disabled),
+button.select-option:focus-visible { background: var(--surface-2); }
+button.select-option:focus-visible { outline: none; }
+button.select-option[aria-selected="true"] { color: var(--accent); font-weight: 600; }
+.select-check { width: 1.1rem; flex: 0 0 1.1rem; color: var(--accent); text-align: center; }
+.period-select .select-trigger { min-width: 11.75rem; }
 .field + .field { margin-top: 0.85rem; }
 .hint { font-size: 0.8rem; color: var(--muted); margin-top: 0.3rem; }
 

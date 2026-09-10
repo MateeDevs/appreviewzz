@@ -11,6 +11,7 @@ import cz.matee.appreviewzz.core.model.TopicMention
 import cz.matee.appreviewzz.core.model.TopicSentiment
 import cz.matee.appreviewzz.core.model.Urgency
 import cz.matee.appreviewzz.core.port.AnalysisFilter
+import cz.matee.appreviewzz.core.port.AnalysisReviewScope
 import cz.matee.appreviewzz.core.port.NewApp
 import cz.matee.appreviewzz.core.port.NewReply
 import cz.matee.appreviewzz.core.port.NewReviewInsight
@@ -114,7 +115,7 @@ class AnalysisAggregateRepositoryTest :
             aggregates.territories(org.id, app.id, FROM, TO) shouldHaveSize 1
         }
 
-        test("hodnocení bez textu se do rozboru nepočítá") {
+        test("hodnocení bez textu se počítá jen ve výslovně rozšířeném pohledu") {
             val org = organizations.create("Matee", "matee")
             val app = apps.create(org.id, NewApp(name = "IsleGrow", gpPackageName = "cz.matee.islegrow"))
             val bare =
@@ -130,9 +131,30 @@ class AnalysisAggregateRepositoryTest :
                         Fixtures.seenAt,
                         ReviewState.NEW,
                     ).review
-            insights.upsert(org.id, insight(bare), Fixtures.seenAt)
+            insights.upsert(org.id, insight(bare, OverallSentiment.POSITIVE), Fixtures.seenAt)
 
             aggregates.aggregate(org.id, app.id, FROM, TO).reviews shouldBe 0
+            val all =
+                aggregates.aggregate(
+                    org.id,
+                    app.id,
+                    FROM,
+                    TO,
+                    AnalysisFilter(reviewScope = AnalysisReviewScope.ALL),
+                )
+            all.reviews shouldBe 1
+            all.avgStars shouldBe 4.0
+            all.sentiments[OverallSentiment.POSITIVE] shouldBe 1
+            val allDays =
+                aggregates.daily(
+                    org.id,
+                    app.id,
+                    FROM,
+                    TO,
+                    "Europe/Prague",
+                    AnalysisFilter(reviewScope = AnalysisReviewScope.ALL),
+                )
+            allDays.single().reviews shouldBe 1
         }
 
         test("recenze, kterou autor po odpovědi přepsal na víc hvězd, se počítá jako zvednutá") {

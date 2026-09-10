@@ -65,7 +65,7 @@ private suspend fun ApplicationTestBuilder.ownerWithApp(mailer: RecordingMailer)
 private fun seedReview(
     appId: String,
     storeReviewId: String,
-    body: String,
+    body: String?,
     topics: List<TopicMention>,
     type: ReviewType = ReviewType.BUG,
     urgency: Urgency = Urgency.HIGH,
@@ -362,9 +362,19 @@ class AnalysisRoutesTest :
                     listOf(TopicMention(Topic.CRASH.key, TopicSentiment.NEGATIVE, null)),
                     territory = "DE",
                 )
+                seedReview(
+                    appId,
+                    "gp-stars-only",
+                    null,
+                    emptyList(),
+                    sentiment = OverallSentiment.POSITIVE,
+                    starRating = 5,
+                )
 
                 owner.get("/api/orgs/$SLUG/apps/$appId/analysis?territory=cz").bodyAsText() shouldContain "\"reviews\":1"
                 owner.get("/api/orgs/$SLUG/apps/$appId/analysis?platform=ANDROID").bodyAsText() shouldContain "\"reviews\":2"
+                owner.get("/api/orgs/$SLUG/apps/$appId/analysis?platform=ANDROID").bodyAsText() shouldContain
+                    "\"allReviewsMood\":{\"reviews\":3"
                 owner.get("/api/orgs/$SLUG/apps/$appId/analysis?platform=IOS").bodyAsText() shouldContain "\"reviews\":0"
                 owner.get("/api/orgs/$SLUG/apps/$appId/analysis?platform=NESMYSL").status shouldBe HttpStatusCode.BadRequest
             }

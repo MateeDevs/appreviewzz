@@ -9,7 +9,9 @@ import cz.matee.appreviewzz.core.usecase.AnalysisCalendarPeriod
 import cz.matee.appreviewzz.core.usecase.AnalysisOverview
 import cz.matee.appreviewzz.core.usecase.ConsoleException
 import cz.matee.appreviewzz.core.usecase.ConsoleFailure
+import cz.matee.appreviewzz.core.usecase.MoodOverview
 import cz.matee.appreviewzz.core.usecase.SentimentShare
+import cz.matee.appreviewzz.core.usecase.SentimentWeek
 import cz.matee.appreviewzz.core.usecase.TopicStatus
 import cz.matee.appreviewzz.core.usecase.VersionImpact
 import cz.matee.appreviewzz.core.usecase.VersionSlice
@@ -39,6 +41,15 @@ data class SentimentWeekResponse(
     val negative: Int,
     val reviews: Int,
     val avgStars: Double?,
+)
+
+@Serializable
+data class MoodOverviewResponse(
+    val reviews: Int,
+    val avgStars: Double?,
+    val sentiment: SentimentShareResponse,
+    val previousSentiment: SentimentShareResponse?,
+    val weekly: List<SentimentWeekResponse>,
 )
 
 @Serializable
@@ -104,6 +115,7 @@ data class AnalysisOverviewResponse(
     val sentiment: SentimentShareResponse,
     val previousSentiment: SentimentShareResponse?,
     val weekly: List<SentimentWeekResponse>,
+    val allReviewsMood: MoodOverviewResponse,
     val topics: List<TopicBreakdownResponse>,
     val improved: List<ImprovedTopicResponse>,
     val territories: List<TerritoryResponse>,
@@ -178,9 +190,21 @@ fun Route.analysisRoutes(console: ConsoleWiring) {
             val overview =
                 io {
                     if (period != null) {
-                        console.analysis.overview(context.organization.id, appId, period, filter)
+                        console.analysis.overview(
+                            context.organization.id,
+                            appId,
+                            period,
+                            filter,
+                            includeAllReviewsMood = true,
+                        )
                     } else {
-                        console.analysis.overview(context.organization.id, appId, days, filter)
+                        console.analysis.overview(
+                            context.organization.id,
+                            appId,
+                            days,
+                            filter,
+                            includeAllReviewsMood = true,
+                        )
                     }
                 }
             call.respond(overview.toResponse())
@@ -283,6 +307,25 @@ private fun ApplicationCall.analysisDays(): Int {
 
 private fun SentimentShare.toResponse() = SentimentShareResponse(positive, neutral, negative)
 
+private fun MoodOverview.toResponse() =
+    MoodOverviewResponse(
+        reviews = reviews,
+        avgStars = avgStars,
+        sentiment = sentiment.toResponse(),
+        previousSentiment = previousSentiment?.toResponse(),
+        weekly = weekly.map { it.toResponse() },
+    )
+
+private fun SentimentWeek.toResponse() =
+    SentimentWeekResponse(
+        weekStart = weekStart.toString(),
+        positive = positive,
+        neutral = neutral,
+        negative = negative,
+        reviews = reviews,
+        avgStars = avgStars,
+    )
+
 private fun VersionTopicShare.toResponse() = VersionTopicResponse(key, name, count, share)
 
 private fun VersionSlice.toResponse() =
@@ -316,17 +359,8 @@ private fun AnalysisOverview.toResponse() =
         avgStars = avgStars,
         sentiment = sentiment.toResponse(),
         previousSentiment = previousSentiment?.toResponse(),
-        weekly =
-            weekly.map {
-                SentimentWeekResponse(
-                    weekStart = it.weekStart.toString(),
-                    positive = it.positive,
-                    neutral = it.neutral,
-                    negative = it.negative,
-                    reviews = it.reviews,
-                    avgStars = it.avgStars,
-                )
-            },
+        weekly = weekly.map { it.toResponse() },
+        allReviewsMood = checkNotNull(allReviewsMood).toResponse(),
         topics =
             topics.map {
                 TopicBreakdownResponse(

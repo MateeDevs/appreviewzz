@@ -27,6 +27,12 @@ data class VersionAggregate(
     val negative: Int,
 )
 
+/** Které recenze vstupují do čísel. Témata standardně pracují jen s tím, co lidé napsali. */
+enum class AnalysisReviewScope {
+    WITH_TEXT,
+    ALL,
+}
+
 /**
  * Zúžení rozboru na část recenzí. Stránka Rozbory se ptá „a co jenom Android?" nebo
  * „a co jenom Německo?"; zpráva do kanálu filtr nepoužívá — ta je vždycky za celou appku.
@@ -37,8 +43,15 @@ data class AnalysisFilter(
     val territory: String? = null,
     /** Verze aplikace; používá ji jen dopad verze (B3), stránka a zpráva nikdy. */
     val version: String? = null,
+    /** `ALL` se používá pro volitelný pohled na náladu včetně samotných hvězdiček. */
+    val reviewScope: AnalysisReviewScope = AnalysisReviewScope.WITH_TEXT,
 ) {
-    val isEmpty: Boolean get() = platform == null && territory == null && version == null
+    val isEmpty: Boolean
+        get() =
+            platform == null &&
+                territory == null &&
+                version == null &&
+                reviewScope == AnalysisReviewScope.WITH_TEXT
 
     companion object {
         val ALL = AnalysisFilter()

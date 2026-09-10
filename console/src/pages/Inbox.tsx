@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { useApps, useReply, useReview, useReviews, useSetReviewState, useTopics } from '../api/hooks'
 import { Badge, Card, ErrorBox, Field, Loading, Stars, When } from '../components/ui'
+import { Select } from '../components/Select'
 import type { ReviewInsight, ReviewState, ReviewType, TopicOption, Urgency } from '../api/types'
 
 /** Popisky typů recenzí. Server posílá klíč, konzole je česká — překlad patří sem. */
@@ -84,13 +85,13 @@ export function InboxPage() {
 
       <Card>
         <div className="row">
-          <select value={selected} onChange={(e) => setAppId(e.target.value)} style={{ width: 'auto' }}>
-            {apps.data?.map((app) => (
-              <option key={app.id} value={app.id}>
-                {app.name}
-              </option>
-            ))}
-          </select>
+          <Select
+            value={selected}
+            options={apps.data?.map((app) => ({ value: app.id, label: app.name }))}
+            onChange={setAppId}
+            ariaLabel="Aplikace"
+            fitContent
+          />
           {FILTERS.map((item, index) => (
             <button
               key={item.label}
@@ -104,22 +105,26 @@ export function InboxPage() {
         </div>
         <div className="row" style={{ marginTop: '0.5rem' }}>
           <TopicSelect topics={topics.data} value={topic} onChange={setTopic} />
-          <select value={type} onChange={(e) => setType(e.target.value as ReviewType | '')} style={{ width: 'auto' }}>
-            <option value="">Jakýkoli typ</option>
-            {Object.entries(TYPE_LABELS).map(([key, label]) => (
-              <option key={key} value={key}>
-                {label}
-              </option>
-            ))}
-          </select>
-          <select value={urgency} onChange={(e) => setUrgency(e.target.value as Urgency | '')} style={{ width: 'auto' }}>
-            <option value="">Jakákoli naléhavost</option>
-            {Object.entries(URGENCY_LABELS).map(([key, label]) => (
-              <option key={key} value={key}>
-                {label}
-              </option>
-            ))}
-          </select>
+          <Select
+            value={type}
+            options={[
+              { value: '', label: 'Jakýkoli typ' },
+              ...Object.entries(TYPE_LABELS).map(([value, label]) => ({ value, label })),
+            ]}
+            onChange={(value) => setType(value as ReviewType | '')}
+            ariaLabel="Typ recenze"
+            fitContent
+          />
+          <Select
+            value={urgency}
+            options={[
+              { value: '', label: 'Jakákoli naléhavost' },
+              ...Object.entries(URGENCY_LABELS).map(([value, label]) => ({ value, label })),
+            ]}
+            onChange={(value) => setUrgency(value as Urgency | '')}
+            ariaLabel="Naléhavost recenze"
+            fitContent
+          />
           {version ? <Badge>verze {version}</Badge> : null}
           {topic || type || urgency || version ? (
             <button
@@ -202,19 +207,20 @@ function TopicSelect({
   })
 
   return (
-    <select value={value} onChange={(e) => onChange(e.target.value)} style={{ width: 'auto' }}>
-      <option value="">Jakékoli téma</option>
-      {[...groups.entries()].map(([group, items]) => (
-        <optgroup key={group} label={group}>
-          {items.map((item) => (
-            <option key={item.key} value={item.key}>
-              {item.name}
-              {item.recentCount > 0 ? ` (${item.recentCount})` : ''}
-            </option>
-          ))}
-        </optgroup>
-      ))}
-    </select>
+    <Select
+      value={value}
+      options={[{ value: '', label: 'Jakékoli téma' }]}
+      groups={[...groups.entries()].map(([label, items]) => ({
+        label,
+        options: items.map((item) => ({
+          value: item.key,
+          label: `${item.name}${item.recentCount > 0 ? ` (${item.recentCount})` : ''}`,
+        })),
+      }))}
+      onChange={onChange}
+      ariaLabel="Téma recenze"
+      fitContent
+    />
   )
 }
 

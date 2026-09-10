@@ -10,6 +10,7 @@ import cz.matee.appreviewzz.core.model.TopicSentiment
 import cz.matee.appreviewzz.core.port.AnalysisAggregateRepository
 import cz.matee.appreviewzz.core.port.AnalysisFilter
 import cz.matee.appreviewzz.core.port.AnalysisPeriod
+import cz.matee.appreviewzz.core.port.AnalysisReviewScope
 import cz.matee.appreviewzz.core.port.DayCounts
 import cz.matee.appreviewzz.core.port.DayTopicCount
 import cz.matee.appreviewzz.core.port.LanguageAggregate
@@ -466,10 +467,8 @@ class ExposedAnalysisAggregateRepository(
     }
 
     /**
-     * Do rozborů jdou **jen recenze s textem**. Hodnocení bez textu jsou u Androidu většina
-     * (v archivu Play Console klidně čtyři pětiny) a jejich nálada je jen přepsaná hvězdička —
-     * kdyby se počítala sem, byl by „rozbor" ve skutečnosti průměr hvězd a témata by se v něm
-     * ztratila. Hvězdy má na starosti denní přehled hodnocení, tohle je o tom, co lidé píšou.
+     * Rozbor standardně pracuje jen s recenzemi s textem. Volitelný pohled nálady zahrne i
+     * samotné hvězdičky; sentiment těchto hodnocení už předtím bezpečně odvodila pravidla.
      */
     private fun scope(
         orgId: OrganizationId,
@@ -482,9 +481,10 @@ class ExposedAnalysisAggregateRepository(
             (Reviews.orgId eq orgId) and
                 (Reviews.appId eq appId) and
                 (Reviews.submittedAt greaterEq from) and
-                (Reviews.submittedAt less to) and
-                Reviews.body.isNotNull() and
-                (Reviews.body neq "")
+                (Reviews.submittedAt less to)
+        if (filter.reviewScope == AnalysisReviewScope.WITH_TEXT) {
+            where = where and Reviews.body.isNotNull() and (Reviews.body neq "")
+        }
         filter.platform?.let { where = where and (Reviews.platform eq it) }
         filter.territory?.let { where = where and (Reviews.territory eq it) }
         filter.version?.let { where = where and (Reviews.appVersion eq it) }

@@ -11,6 +11,7 @@ import cz.matee.appreviewzz.core.model.Topic
 import cz.matee.appreviewzz.core.port.AnalysisAggregateRepository
 import cz.matee.appreviewzz.core.port.AnalysisAlertRepository
 import cz.matee.appreviewzz.core.port.AnalysisFilter
+import cz.matee.appreviewzz.core.port.AnalysisReviewScope
 import cz.matee.appreviewzz.core.port.AppRepository
 import cz.matee.appreviewzz.core.port.AppTopicRepository
 import cz.matee.appreviewzz.core.port.DayCounts
@@ -39,6 +40,15 @@ data class SentimentWeek(
     val negative: Int,
     val reviews: Int,
     val avgStars: Double?,
+)
+
+/** Souhrn nálady, který lze spočítat nad textovými recenzemi i nad všemi hodnoceními. */
+data class MoodOverview(
+    val reviews: Int,
+    val avgStars: Double?,
+    val sentiment: SentimentShare,
+    val previousSentiment: SentimentShare?,
+    val weekly: List<SentimentWeek>,
 )
 
 /** Téma v tabulce na stránce Rozbory — jako v rozboru do kanálu, navíc s trendem pro sparkline. */
@@ -82,6 +92,8 @@ data class AnalysisOverview(
     val sentiment: SentimentShare,
     val previousSentiment: SentimentShare?,
     val weekly: List<SentimentWeek>,
+    /** Stejná nálada včetně samotných hvězdiček; konzole mezi oběma pohledy přepíná. */
+    val allReviewsMood: MoodOverview?,
     val topics: List<TopicBreakdown>,
     val improved: List<ImprovedTopic>,
     val territories: List<TerritoryOverview>,
@@ -222,13 +234,14 @@ class AnalysisInsights(
         appId: AppId,
         days: Int = DEFAULT_DAYS,
         filter: AnalysisFilter = AnalysisFilter.ALL,
+        includeAllReviewsMood: Boolean = false,
     ): AnalysisOverview {
         val app = apps.findById(orgId, appId) ?: throw ConsoleException(ConsoleFailure.NOT_FOUND, "Taková aplikace tu není")
         val zone = zoneOf(app.timezone)
         val window = days.coerceIn(MIN_DAYS, MAX_DAYS)
         // Období končí dneškem včetně: na stránce chce člověk vidět i to, co přišlo dnes ráno.
         val end = clock.now().toLocalDateTime(zone).date
-        return overview(app, orgId, end.minus(window - 1, DateTimeUnit.DAY), end, filter)
+        return overview(app, orgId, end.minus(window - 1, DateTimeUnit.DAY), end, filter, includeAllReviewsMood)
     }
 
     /** Kalendářní období se řídí místním dnem aplikace, ne zónou prohlížeče. */
@@ -237,11 +250,12 @@ class AnalysisInsights(
         appId: AppId,
         period: AnalysisCalendarPeriod,
         filter: AnalysisFilter = AnalysisFilter.ALL,
+        includeAllReviewsMood: Boolean = false,
     ): AnalysisOverview {
         val app = apps.findById(orgId, appId) ?: throw ConsoleException(ConsoleFailure.NOT_FOUND, "Taková aplikace tu není")
         val today = clock.now().toLocalDateTime(zoneOf(app.timezone)).date
         val (start, end) = period.dates(today)
-        return overview(app, orgId, start, end, filter)
+        return overview(app, orgId, start, end, filter, includeAllReviewsMood)
     }
 
     /**
@@ -256,9 +270,10 @@ class AnalysisInsights(
         start: LocalDate,
         end: LocalDate,
         filter: AnalysisFilter = AnalysisFilter.ALL,
+        includeAllReviewsMood: Boolean = false,
     ): AnalysisOverview {
         val app = apps.findById(orgId, appId) ?: throw ConsoleException(ConsoleFailure.NOT_FOUND, "Taková aplikace tu není")
-        return overview(app, orgId, start, end, filter)
+        return overview(app, orgId, start, end, filter, includeAllReviewsMood)
     }
 
     @Suppress("LongMethod")
@@ -268,6 +283,7 @@ class AnalysisInsights(
         start: LocalDate,
         end: LocalDate,
         filter: AnalysisFilter,
+        includeAllReviewsMood: Boolean,
     ): AnalysisOverview {
         val appId = app.id
         val zone = zoneOf(app.timezone)
@@ -299,6 +315,18 @@ class AnalysisInsights(
 
         val daily = aggregates.daily(orgId, appId, from, to, app.timezone, filter)
         val dailyTopics = aggregates.dailyTopics(orgId, appId, from, to, app.timezone, filter)
+        val allReviewsMood =
+            if (includeAllReviewsMood) {
+                val allReviews = filter.copy(reviewScope = AnalysisReviewScope.ALL)
+                moodOverview(
+                    current = aggregates.daily(orgId, appId, from, to, app.timezone, allReviews),
+                    previous = aggregates.daily(orgId, appId, previousFrom, from, app.timezone, allReviews),
+                    start = start,
+                    end = end,
+                )
+            } else {
+                null
+            }
 
         return AnalysisOverview(
             periodStart = start,
@@ -310,6 +338,7 @@ class AnalysisInsights(
             sentiment = summary.sentiment,
             previousSentiment = summary.previousSentiment,
             weekly = weekly(daily, start, end),
+            allReviewsMood = allReviewsMood,
             topics = summary.topics.map { topic -> topic.withTrend(dailyTopics, start, end) },
             improved = summary.improved,
             territories =
@@ -417,6 +446,28 @@ class AnalysisInsights(
     }
 
     private fun negativeOf(counts: Map<OverallSentiment, Int>): Double = SentimentShare.of(counts).negative
+
+    private fun moodOverview(
+        current: List<DayCounts>,
+        previous: List<DayCounts>,
+        start: LocalDate,
+        end: LocalDate,
+    ): MoodOverview {
+        val reviews = current.sumOf { it.reviews }
+        val previousReviews = previous.sumOf { it.reviews }
+        return MoodOverview(
+            reviews = reviews,
+            avgStars = if (reviews > 0) current.sumOf { it.starSum }.toDouble() / reviews else null,
+            sentiment = sentimentOf(current),
+            previousSentiment = if (previousReviews > 0) sentimentOf(previous) else null,
+            weekly = weekly(current, start, end),
+        )
+    }
+
+    private fun sentimentOf(days: List<DayCounts>): SentimentShare {
+        val counts = days.flatMap { it.sentiments.entries }.groupBy({ it.key }, { it.value })
+        return SentimentShare.of(counts.mapValues { (_, values) -> values.sum() })
+    }
 
     /**
      * Denní body posbírané do týdnů začínajících pondělím. První a poslední týden bývají

@@ -12,6 +12,7 @@ import {
 } from '../api/hooks'
 import type { PlatformSetting, PlatformSettingSource } from '../api/types'
 import { Badge, Card, Empty, ErrorBox, Field, Loading, Modal, When } from '../components/ui'
+import { Select } from '../components/Select'
 
 /**
  * Správa platformy (F7, ADR 0018).
@@ -170,18 +171,19 @@ function SettingField({
       }
     >
       {setting.type === 'ENUM' ? (
-        <select value={value} onChange={(e) => onChange(e.target.value)}>
-          {setting.options.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
+        <Select
+          value={value}
+          options={setting.options.map((option) => ({ value: option, label: option }))}
+          onChange={onChange}
+          ariaLabel={setting.label}
+        />
       ) : setting.type === 'BOOL' ? (
-        <select value={value} onChange={(e) => onChange(e.target.value)}>
-          <option value="true">ano</option>
-          <option value="false">ne</option>
-        </select>
+        <Select
+          value={value}
+          options={[{ value: 'true', label: 'ano' }, { value: 'false', label: 'ne' }]}
+          onChange={onChange}
+          ariaLabel={setting.label}
+        />
       ) : setting.type === 'INT' ? (
         <input
           type="number"

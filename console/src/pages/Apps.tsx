@@ -26,6 +26,7 @@ import {
   useValidateCredential,
 } from '../api/hooks'
 import { Badge, Card, ErrorBox, Field, Loading, Modal, When } from '../components/ui'
+import { Select } from '../components/Select'
 import { ConnectStoreWizard } from '../components/ConnectStoreWizard'
 import { RatingsChart } from '../components/RatingsChart'
 import type {
@@ -353,13 +354,12 @@ function AddAppDialog({
             label="Historie k rozboru"
             hint="Kolik měsíců zpátky dotáhnout recenze, aby bylo co rozebírat hned první den."
           >
-            <select value={historyMonths} onChange={(e) => setHistoryMonths(e.target.value)}>
-              {HISTORY_MONTHS.map((months) => (
-                <option key={months} value={months}>
-                  {historyMonthsLabel(months)}
-                </option>
-              ))}
-            </select>
+            <Select
+              value={historyMonths}
+              options={HISTORY_MONTHS.map((months) => ({ value: String(months), label: historyMonthsLabel(months) }))}
+              onChange={setHistoryMonths}
+              ariaLabel="Historie k rozboru"
+            />
           </Field>
           {googlePlayUrl.trim() !== '' ? (
             <p className="small muted">
@@ -574,10 +574,12 @@ function AppSettingsCard({ org, appId }: { org: string; appId: string }) {
         ) : null}
         {app.gpPackageName ? <ReportingBucketProbe org={org} appId={appId} bucket={values.gpReportingBucket ?? ''} /> : null}
         <Field label="Jazyk zpráv">
-          <select value={values.locale} onChange={(e) => set('locale', e.target.value)}>
-            <option value="cs">čeština</option>
-            <option value="en">angličtina</option>
-          </select>
+          <Select
+            value={values.locale ?? ''}
+            options={[{ value: 'cs', label: 'čeština' }, { value: 'en', label: 'angličtina' }]}
+            onChange={(value) => set('locale', value)}
+            ariaLabel="Jazyk zpráv"
+          />
         </Field>
         <Field label="Časová zóna" hint="Podle ní se počítá čas denního přehledu.">
           <input value={values.timezone} onChange={(e) => set('timezone', e.target.value)} />
@@ -586,20 +588,21 @@ function AppSettingsCard({ org, appId }: { org: string; appId: string }) {
           <input type="time" value={values.dailyDigestAt} onChange={(e) => set('dailyDigestAt', e.target.value)} />
         </Field>
         <Field label="Jak často chodí rozbor" hint="Měsíční kadence dává smysl u appky, které chodí pár recenzí týdně.">
-          <select value={values.analysisCadence} onChange={(e) => set('analysisCadence', e.target.value)}>
-            <option value="WEEKLY">týdně</option>
-            <option value="MONTHLY">měsíčně</option>
-          </select>
+          <Select
+            value={values.analysisCadence ?? ''}
+            options={[{ value: 'WEEKLY', label: 'týdně' }, { value: 'MONTHLY', label: 'měsíčně' }]}
+            onChange={(value) => set('analysisCadence', value)}
+            ariaLabel="Četnost rozboru"
+          />
         </Field>
         {values.analysisCadence === 'WEEKLY' ? (
           <Field label="Den týdenního rozboru" hint="Rozbor recenzí odejde v tenhle den ve stejný čas jako denní přehled.">
-            <select value={values.weeklyDigestDay} onChange={(e) => set('weeklyDigestDay', e.target.value)}>
-              {WEEK_DAYS.map((day, index) => (
-                <option key={day} value={index + 1}>
-                  {day}
-                </option>
-              ))}
-            </select>
+            <Select
+              value={values.weeklyDigestDay ?? ''}
+              options={WEEK_DAYS.map((day, index) => ({ value: String(index + 1), label: day }))}
+              onChange={(value) => set('weeklyDigestDay', value)}
+              ariaLabel="Den týdenního rozboru"
+            />
           </Field>
         ) : (
           <p className="small muted">Měsíční rozbor chodí prvního dne v měsíci ve stejný čas jako denní přehled.</p>
@@ -644,13 +647,12 @@ function AppSettingsCard({ org, appId }: { org: string; appId: string }) {
               : 'Kolik měsíců zpátky se dotahují recenze pro rozbory. Prodloužení se dotáhne během chvíle.'
           }
         >
-          <select value={values.historyMonths} onChange={(e) => set('historyMonths', e.target.value)}>
-            {HISTORY_MONTHS.map((months) => (
-              <option key={months} value={months}>
-                {historyMonthsLabel(months)}
-              </option>
-            ))}
-          </select>
+          <Select
+            value={values.historyMonths ?? ''}
+            options={HISTORY_MONTHS.map((months) => ({ value: String(months), label: historyMonthsLabel(months) }))}
+            onChange={(value) => set('historyMonths', value)}
+            ariaLabel="Historie k rozboru"
+          />
         </Field>
         {/* Watermark se nenastavuje, jen ukazuje: je to čas přidání appky a měnit ho zpětně
             by znamenalo buď zaplavit kanál historií, nebo zamlčet recenze, které už přišly. */}
@@ -671,10 +673,15 @@ function AppSettingsCard({ org, appId }: { org: string; appId: string }) {
           label="Automaticky děkovat za 5 ★"
           hint="Odešle se bez schválení. Jen u recenzí s pěti hvězdami, které nic nekritizují — a jen když k nim AI vyloží, že jde o pochvalu."
         >
-          <select value={values.autoThanksEnabled} onChange={(e) => set('autoThanksEnabled', e.target.value)}>
-            <option value="ne">Ne, odpovídáme sami</option>
-            <option value="ano">Ano, poděkovat automaticky</option>
-          </select>
+          <Select
+            value={values.autoThanksEnabled ?? ''}
+            options={[
+              { value: 'ne', label: 'Ne, odpovídáme sami' },
+              { value: 'ano', label: 'Ano, poděkovat automaticky' },
+            ]}
+            onChange={(value) => set('autoThanksEnabled', value)}
+            ariaLabel="Automatické poděkování"
+          />
         </Field>
         {values.autoThanksEnabled === 'ano' ? (
           <Field
@@ -999,10 +1006,15 @@ function CredentialsCard({
         }}
       >
         <Field label="Store">
-          <select value={type} onChange={(e) => setType(e.target.value)}>
-            <option value="gp">Google Play — service account (JSON)</option>
-            <option value="asc">App Store Connect — API klíč (.p8)</option>
-          </select>
+          <Select
+            value={type}
+            options={[
+              { value: 'gp', label: 'Google Play — service account (JSON)' },
+              { value: 'asc', label: 'App Store Connect — API klíč (.p8)' },
+            ]}
+            onChange={setType}
+            ariaLabel="Store"
+          />
         </Field>
         <Field label="Štítek" hint="Jak klíč poznáš ve výpisu.">
           <input value={label} onChange={(e) => setLabel(e.target.value)} required />
@@ -1320,13 +1332,12 @@ function ChannelsCard({ org, appId }: { org: string; appId: string }) {
             }}
           >
             <Field label="Workspace">
-              <select value={credentialId} onChange={(e) => setCredentialId(e.target.value)}>
-                {installs.map((install) => (
-                  <option key={install.id} value={install.id}>
-                    {install.hint ?? install.label}
-                  </option>
-                ))}
-              </select>
+              <Select
+                value={credentialId || (installs[0]?.id ?? '')}
+                options={installs.map((install) => ({ value: install.id, label: install.hint ?? install.label }))}
+                onChange={setCredentialId}
+                ariaLabel="Slack workspace"
+              />
             </Field>
             <Field
               label="ID kanálu"

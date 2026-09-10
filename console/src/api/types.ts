@@ -314,6 +314,7 @@ export interface AnalysisOverview {
   sentiment: SentimentShare
   previousSentiment: SentimentShare | null
   weekly: SentimentWeek[]
+  allReviewsMood: AnalysisMood
   topics: TopicBreakdown[]
   improved: ImprovedTopic[]
   territories: TerritoryBreakdown[]
@@ -323,6 +324,14 @@ export interface AnalysisOverview {
   missing: number
   minReviews: number
   tooFewReviews: boolean
+}
+
+export interface AnalysisMood {
+  reviews: number
+  avgStars: number | null
+  sentiment: SentimentShare
+  previousSentiment: SentimentShare | null
+  weekly: SentimentWeek[]
 }
 
 export interface VersionTopic {
