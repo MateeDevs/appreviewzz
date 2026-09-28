@@ -522,6 +522,8 @@ data class ReviewFilter(
     val sentiments: Set<OverallSentiment> = emptySet(),
     /** Verze aplikace; z dopadu verzí se sem chodí odkazem „ukaž mi recenze téhle verze". */
     val version: String? = null,
+    /** Store; prázdná množina jsou obě platformy. */
+    val platforms: Set<Platform> = emptySet(),
 ) {
     /** Filtry, které se dají zodpovědět jen z výkladu recenze. */
     val needsInsight: Boolean

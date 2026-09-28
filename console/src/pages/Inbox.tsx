@@ -3,7 +3,7 @@ import { useParams, useSearchParams } from 'react-router-dom'
 import { useApps, useReply, useReview, useReviews, useSetReviewState, useTopics } from '../api/hooks'
 import { Badge, Card, ErrorBox, Field, Loading, Stars, When } from '../components/ui'
 import { Select } from '../components/Select'
-import type { ReviewInsight, ReviewState, ReviewType, TopicOption, Urgency } from '../api/types'
+import type { Platform, ReviewInsight, ReviewState, ReviewType, TopicOption, Urgency } from '../api/types'
 
 /** Popisky typů recenzí. Server posílá klíč, konzole je česká — překlad patří sem. */
 const TYPE_LABELS: Record<ReviewType, string> = {
@@ -48,6 +48,7 @@ export function InboxPage() {
   const appId = params.get('app') ?? ''
   const topic = params.get('topic') ?? ''
   const version = params.get('version') ?? ''
+  const platform: Platform | '' = (params.get('platform') as Platform | null) ?? ''
   const setParam = (key: string, value: string) => {
     const next = new URLSearchParams(params)
     if (value) next.set(key, value)
@@ -64,6 +65,7 @@ export function InboxPage() {
     type,
     urgency,
     version,
+    platform,
   })
   const topics = useTopics(org, selected)
 
@@ -90,6 +92,17 @@ export function InboxPage() {
             options={apps.data?.map((app) => ({ value: app.id, label: app.name }))}
             onChange={setAppId}
             ariaLabel="Aplikace"
+            fitContent
+          />
+          <Select
+            value={platform}
+            options={[
+              { value: '', label: 'Obě platformy' },
+              { value: 'ANDROID', label: 'Google Play' },
+              { value: 'IOS', label: 'App Store' },
+            ]}
+            onChange={(value) => setParam('platform', value)}
+            ariaLabel="Platforma"
             fitContent
           />
           {FILTERS.map((item, index) => (

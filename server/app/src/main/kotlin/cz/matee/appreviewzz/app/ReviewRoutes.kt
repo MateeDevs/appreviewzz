@@ -431,6 +431,7 @@ private fun ApplicationCall.reviewFilter(): ReviewFilter =
         urgencies = values("urgency").map { enumValue<Urgency>(it, "naléhavost") }.toSet(),
         sentiments = values("sentiment").map { enumValue<OverallSentiment>(it, "nálada") }.toSet(),
         version = request.queryParameters["version"]?.trim()?.takeIf { it.isNotEmpty() },
+        platforms = values("platform").map { enumValue<Platform>(it, "platforma") }.toSet(),
     )
 
 private fun ApplicationCall.values(name: String): List<String> =

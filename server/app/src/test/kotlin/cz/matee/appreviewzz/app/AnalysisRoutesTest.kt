@@ -75,6 +75,7 @@ private fun seedReview(
     territory: String = "CZ",
     submittedAt: Instant = NOW,
     starRating: Int = 2,
+    platform: Platform = Platform.ANDROID,
 ): String {
     val exposed = TestDatabase.database.exposed
     val orgId: OrganizationId = checkNotNull(ExposedOrganizationRepository(exposed).findBySlug(SLUG)).id
@@ -84,7 +85,7 @@ private fun seedReview(
                 orgId,
                 AppId(Uuid.parse(appId)),
                 ObservedReview(
-                    platform = Platform.ANDROID,
+                    platform = platform,
                     storeReviewId = storeReviewId,
                     authorName = "Jana N.",
                     starRating = starRating,
@@ -469,6 +470,22 @@ class AnalysisRoutesTest :
 
                 body shouldContain "Po aktualizaci to padá"
                 body shouldNotContain "Ve staré verzi to šlo"
+            }
+        }
+
+        "inbox jde zúžit na jednu platformu" {
+            testApplication {
+                consoleModule(mailer, analysisQueue = analysis)
+                val (owner, appId) = ownerWithApp(mailer)
+                seedReview(appId, "gp-1", "Na Androidu to padá", emptyList(), withInsight = false)
+                seedReview(appId, "as-1", "Na iPhonu to padá", emptyList(), withInsight = false, platform = Platform.IOS)
+
+                val ios = owner.get("/api/orgs/$SLUG/apps/$appId/reviews?platform=IOS").bodyAsText()
+
+                ios shouldContain "Na iPhonu to padá"
+                ios shouldNotContain "Na Androidu to padá"
+                owner.get("/api/orgs/$SLUG/apps/$appId/reviews?platform=WINDOWS").status shouldBe
+                    HttpStatusCode.BadRequest
             }
         }
 
