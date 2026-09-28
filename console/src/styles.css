@@ -398,6 +398,8 @@ button.select-option:focus-visible { outline: none; }
 button.select-option[aria-selected="true"] { color: var(--accent); font-weight: 600; }
 .select-check { width: 1.1rem; flex: 0 0 1.1rem; color: var(--accent); text-align: center; }
 .period-select .select-trigger { min-width: 11.75rem; }
+.date-range { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+.date-range input { width: auto; padding-block: 0.45rem; }
 .field + .field { margin-top: 0.85rem; }
 .hint { font-size: 0.8rem; color: var(--muted); margin-top: 0.3rem; }
 

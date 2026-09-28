@@ -24,6 +24,8 @@ import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.route
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.daysUntil
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -183,13 +185,23 @@ fun Route.analysisRoutes(console: ConsoleWiring) {
     route("/orgs/{org}/apps/{app}/analysis") {
         get {
             val context = call.orgContext(console.organizations, console.memberships)
+            val range = call.analysisCustomRange()
             val period = call.analysisCalendarPeriod()
             val days = call.analysisDays()
             val appId = call.appIdParam()
             val filter = call.analysisFilter()
             val overview =
                 io {
-                    if (period != null) {
+                    if (range != null) {
+                        console.analysis.overview(
+                            context.organization.id,
+                            appId,
+                            range.first,
+                            range.second,
+                            filter,
+                            includeAllReviewsMood = true,
+                        )
+                    } else if (period != null) {
                         console.analysis.overview(
                             context.organization.id,
                             appId,
@@ -297,6 +309,34 @@ private fun ApplicationCall.analysisCalendarPeriod(): AnalysisCalendarPeriod? {
     return AnalysisCalendarPeriod.entries.firstOrNull { it.name.equals(raw, ignoreCase = true) }
         ?: throw ConsoleException(ConsoleFailure.INVALID_INPUT, "Neznámé období '$raw'")
 }
+
+/**
+ * Vlastní rozsah z kalendáře, oba konce včetně. Jde jen celý — samotné `from` by se muselo
+ * domýšlet do dneška a to už umí klouzavé období.
+ */
+private fun ApplicationCall.analysisCustomRange(): Pair<LocalDate, LocalDate>? {
+    val from = request.queryParameters["from"]?.trim()?.takeIf { it.isNotEmpty() }
+    val to = request.queryParameters["to"]?.trim()?.takeIf { it.isNotEmpty() }
+    if (from == null && to == null) return null
+    if (from == null || to == null) {
+        throw ConsoleException(ConsoleFailure.INVALID_INPUT, "Vlastní období potřebuje začátek i konec")
+    }
+    if (!request.queryParameters["period"].isNullOrBlank() || !request.queryParameters["days"].isNullOrBlank()) {
+        throw ConsoleException(ConsoleFailure.INVALID_INPUT, "Vyberte jedno období, ne víc naráz")
+    }
+    val start = parseDate(from)
+    val end = parseDate(to)
+    if (start > end) throw ConsoleException(ConsoleFailure.INVALID_INPUT, "Začátek období je až po jeho konci")
+    // Srovnávací období je stejně dlouhé, takže dotaz jde přes dvojnásobek — víc než dva roky nemá smysl.
+    if (start.daysUntil(end) + 1 > MAX_CUSTOM_DAYS) {
+        throw ConsoleException(ConsoleFailure.INVALID_INPUT, "Období může mít nejvýš $MAX_CUSTOM_DAYS dní")
+    }
+    return start to end
+}
+
+private fun parseDate(raw: String): LocalDate =
+    runCatching { LocalDate.parse(raw) }.getOrNull()
+        ?: throw ConsoleException(ConsoleFailure.INVALID_INPUT, "Datum '$raw' není ve tvaru RRRR-MM-DD")
 
 private fun ApplicationCall.analysisDays(): Int {
     val raw = request.queryParameters["days"]?.trim()?.takeIf { it.isNotEmpty() }
@@ -408,4 +448,5 @@ private fun AnalysisAlertView.toResponse() =
     )
 
 private const val DEFAULT_DAYS = 30
+private const val MAX_CUSTOM_DAYS = 731
 private const val ALERT_DAYS = 90

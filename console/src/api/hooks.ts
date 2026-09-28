@@ -487,6 +487,9 @@ export type AnalysisCalendarPeriod =
 export interface AnalysisFilters {
   days?: number
   period?: AnalysisCalendarPeriod
+  /** Vlastní rozsah z kalendáře, `RRRR-MM-DD`, oba konce včetně. Má přednost před ostatním. */
+  from?: string
+  to?: string
   platform?: Platform | ''
   territory?: string
 }
@@ -497,7 +500,10 @@ export interface AnalysisFilters {
  */
 export function useAnalysis(org: string, appId: string, filters: AnalysisFilters = {}) {
   const params = new URLSearchParams()
-  if (filters.period) params.set('period', filters.period)
+  if (filters.from && filters.to) {
+    params.set('from', filters.from)
+    params.set('to', filters.to)
+  } else if (filters.period) params.set('period', filters.period)
   else if (filters.days) params.set('days', String(filters.days))
   if (filters.platform) params.set('platform', filters.platform)
   if (filters.territory) params.set('territory', filters.territory)

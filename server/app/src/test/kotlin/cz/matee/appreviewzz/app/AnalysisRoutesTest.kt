@@ -344,6 +344,26 @@ class AnalysisRoutesTest :
             }
         }
 
+        "přehled přijímá vlastní rozsah z kalendáře a hlídá jeho meze" {
+            testApplication {
+                consoleModule(mailer, clock = CLOCK, analysisQueue = analysis)
+                val (owner, appId) = ownerWithApp(mailer)
+                val base = "/api/orgs/$SLUG/apps/$appId/analysis"
+
+                val custom = owner.get("$base?from=2026-07-15&to=2026-08-20")
+                custom.status shouldBe HttpStatusCode.OK
+                custom.bodyAsText() shouldContain "\"periodStart\":\"2026-07-15\""
+                custom.bodyAsText() shouldContain "\"periodEnd\":\"2026-08-20\""
+
+                owner.get("$base?from=2026-08-20&to=2026-08-20").status shouldBe HttpStatusCode.OK
+                owner.get("$base?from=2026-08-21&to=2026-08-20").status shouldBe HttpStatusCode.BadRequest
+                owner.get("$base?from=2026-08-01").status shouldBe HttpStatusCode.BadRequest
+                owner.get("$base?from=1.8.2026&to=2026-08-20").status shouldBe HttpStatusCode.BadRequest
+                owner.get("$base?from=2020-01-01&to=2026-08-20").status shouldBe HttpStatusCode.BadRequest
+                owner.get("$base?from=2026-08-01&to=2026-08-20&days=30").status shouldBe HttpStatusCode.BadRequest
+            }
+        }
+
         "filtr přehledu podle platformy a trhu zúží čísla, nesmysl je chyba požadavku" {
             testApplication {
                 consoleModule(mailer, analysisQueue = analysis)

@@ -43,6 +43,21 @@ const ROLLING_PERIODS = [
   { days: 365, label: 'Posledních 365 dní' },
 ]
 
+const CUSTOM_PERIOD = 'CUSTOM'
+
+/** Server vlastní rozsah delší než dva roky odmítne — srovnávací období by šlo přes čtyři. */
+const MAX_CUSTOM_DAYS = 731
+
+const isIsoDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value)
+
+const toIsoDate = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+
+const shiftIsoDate = (value: string, days: number) => {
+  const [year = 0, month = 1, day = 1] = value.split('-').map(Number)
+  return toIsoDate(new Date(year, month - 1, day + days))
+}
+
 const isCalendarPeriod = (value: string): value is AnalysisCalendarPeriod =>
   CALENDAR_PERIODS.some((period) => period.value === value)
 
@@ -70,6 +85,9 @@ export function AnalysisPage() {
   const me = useMe()
 
   const appId = params.get('app') ?? ''
+  const from = params.get('from') ?? ''
+  const to = params.get('to') ?? ''
+  const custom = isIsoDate(from) && isIsoDate(to) ? { from, to } : undefined
   const requestedPeriod = params.get('period') ?? ''
   const period = isCalendarPeriod(requestedPeriod) ? requestedPeriod : undefined
   const daysParam = params.get('days')?.trim()
@@ -81,7 +99,9 @@ export function AnalysisPage() {
   const moodScope = params.get('mood') === 'with-text' ? 'with-text' : 'all'
 
   const selected = appId || (apps.data?.[0]?.id ?? '')
-  const filters = { days: period ? undefined : days, period, platform, territory }
+  const filters = custom
+    ? { ...custom, platform, territory }
+    : { days: period ? undefined : days, period, platform, territory }
   const analysis = useAnalysis(org, selected, filters)
   const status = useAnalysisStatus(org, selected)
 
@@ -92,8 +112,25 @@ export function AnalysisPage() {
     setParams(next, { replace: true })
   }
 
-  const setPeriod = (value: string) => {
+  const setCustomRange = (nextFrom: string, nextTo: string) => {
     const next = new URLSearchParams(params)
+    next.set('from', nextFrom)
+    next.set('to', nextTo)
+    next.delete('period')
+    next.delete('days')
+    setParams(next, { replace: true })
+  }
+
+  const setPeriod = (value: string) => {
+    if (value === CUSTOM_PERIOD) {
+      // Vlastní rozsah začíná tím, co je právě vidět — prázdná pole by stránku vyprázdnila.
+      const today = toIsoDate(new Date())
+      setCustomRange(analysis.data?.periodStart ?? shiftIsoDate(today, -29), analysis.data?.periodEnd ?? today)
+      return
+    }
+    const next = new URLSearchParams(params)
+    next.delete('from')
+    next.delete('to')
     if (value.startsWith('DAYS_')) {
       next.set('days', value.slice('DAYS_'.length))
       next.delete('period')
@@ -133,10 +170,11 @@ export function AnalysisPage() {
             fitContent
           />
           <PeriodSelect
-            value={period ?? `DAYS_${days}`}
-            customDays={!period && !isPresetDays ? days : undefined}
+            value={custom ? CUSTOM_PERIOD : (period ?? `DAYS_${days}`)}
+            customDays={!custom && !period && !isPresetDays ? days : undefined}
             onChange={setPeriod}
           />
+          {custom ? <DateRangeInputs from={custom.from} to={custom.to} onChange={setCustomRange} /> : null}
           <Select
             value={platform}
             options={[
@@ -207,12 +245,62 @@ function PeriodSelect({
       groups={[
         { label: 'Kalendářní období', options: calendarOptions },
         { label: 'Klouzavé období', options: rollingOptions },
+        { label: 'Vlastní', options: [{ value: CUSTOM_PERIOD, label: 'Vlastní rozsah' }] },
       ]}
       onChange={onChange}
       ariaLabel="Období rozboru"
       className="period-select"
       fitContent
     />
+  )
+}
+
+/**
+ * Od–do z kalendáře. Hlídá, aby rozsah dával smysl ještě před dotazem: posunutý začátek
+ * za konec potáhne konec s sebou (a naopak) a delší rozsah se zkrátí na limit serveru.
+ */
+function DateRangeInputs({
+  from,
+  to,
+  onChange,
+}: {
+  from: string
+  to: string
+  onChange: (from: string, to: string) => void
+}) {
+  const today = toIsoDate(new Date())
+  const changeFrom = (value: string) => {
+    if (!isIsoDate(value)) return
+    let end = to < value ? value : to
+    if (end > shiftIsoDate(value, MAX_CUSTOM_DAYS - 1)) end = shiftIsoDate(value, MAX_CUSTOM_DAYS - 1)
+    onChange(value, end)
+  }
+  const changeTo = (value: string) => {
+    if (!isIsoDate(value)) return
+    let start = from > value ? value : from
+    if (start < shiftIsoDate(value, -(MAX_CUSTOM_DAYS - 1))) start = shiftIsoDate(value, -(MAX_CUSTOM_DAYS - 1))
+    onChange(start, value)
+  }
+  return (
+    <div className="date-range">
+      <input
+        type="date"
+        aria-label="Období od"
+        value={from}
+        max={today}
+        onChange={(event) => changeFrom(event.target.value)}
+      />
+      <span className="muted" aria-hidden="true">
+        –
+      </span>
+      <input
+        type="date"
+        aria-label="Období do"
+        value={to}
+        max={today}
+        onChange={(event) => changeTo(event.target.value)}
+      />
+    </div>
   )
 }
 
