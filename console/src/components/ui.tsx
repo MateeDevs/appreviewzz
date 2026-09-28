@@ -1,5 +1,7 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import { ApiError } from '../api/client'
+import type { Platform } from '../api/types'
+import { IconAndroid, IconApple } from './icons'
 
 export function Card({
   id,
@@ -157,6 +159,17 @@ export function Stars({ count }: { count: number }) {
     <span className="stars" title={`${count} z 5`}>
       {'★'.repeat(count)}
       {'☆'.repeat(5 - count)}
+    </span>
+  )
+}
+
+/** Odkud recenze je — logo + iOS/Android, aby to v seznamu nezapadlo. */
+export function PlatformBadge({ platform }: { platform: Platform }) {
+  const ios = platform === 'IOS'
+  return (
+    <span className={`badge platform ${ios ? 'ios' : 'android'}`} title={ios ? 'App Store' : 'Google Play'}>
+      {ios ? <IconApple /> : <IconAndroid />}
+      {ios ? 'iOS' : 'Android'}
     </span>
   )
 }

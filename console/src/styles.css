@@ -598,6 +598,13 @@ thead + tbody tr:hover { background: var(--surface-2); }
 .review { border-bottom: 1px solid var(--border); padding: 1rem 0; }
 .review:first-child { padding-top: 0; }
 .review:last-child { border-bottom: none; padding-bottom: 0; }
+.badge.platform { font-weight: 600; vertical-align: 0.1em; }
+.badge.platform svg { width: 13px; height: 13px; flex: none; }
+.badge.platform.ios { color: var(--text); background: var(--surface-2); border: 1px solid var(--border); }
+.badge.platform.android { color: #1a7f4b; background: rgba(61, 220, 132, 0.14); }
+@media (prefers-color-scheme: dark) {
+  .badge.platform.android { color: #5fe0a0; }
+}
 .stars { color: var(--star); letter-spacing: 0.08em; }
 
 .steps { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 1.25rem; }

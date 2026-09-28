@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { useApps, useReply, useReview, useReviews, useSetReviewState, useTopics } from '../api/hooks'
-import { Badge, Card, ErrorBox, Field, Loading, Stars, When } from '../components/ui'
+import { Badge, Card, ErrorBox, Field, Loading, PlatformBadge, Stars, When } from '../components/ui'
 import { Select } from '../components/Select'
 import type { Platform, ReviewInsight, ReviewState, ReviewType, TopicOption, Urgency } from '../api/types'
 
@@ -164,10 +164,11 @@ export function InboxPage() {
           <div className="review" key={review.id}>
             <div className="spread">
               <div>
+                <PlatformBadge platform={review.platform} />{' '}
                 <Stars count={review.starRating} />{' '}
                 <strong>{review.authorName ?? 'Anonym'}</strong>{' '}
                 <span className="small muted">
-                  {review.platform === 'ANDROID' ? 'Google Play' : 'App Store'} · <When iso={review.submittedAt} />
+                  <When iso={review.submittedAt} />
                   {review.appVersion ? ` · verze ${review.appVersion}` : ''}
                 </span>
               </div>
