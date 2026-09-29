@@ -30,6 +30,11 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import kotlinx.datetime.LocalDate
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Instant
@@ -401,7 +406,7 @@ class AnalysisRoutesTest :
             }
         }
 
-        "dopad verze srovnává jen verze s dost recenzemi a ukáže nová témata" {
+        "dopad verze ukáže i verzi s málo recenzemi, ale nehodnotí ji, a ukáže nová témata" {
             testApplication {
                 consoleModule(mailer, analysisQueue = analysis)
                 val (owner, appId) = ownerWithApp(mailer)
@@ -427,7 +432,8 @@ class AnalysisRoutesTest :
                         submittedAt = NOW,
                     )
                 }
-                // Verze s jedinou recenzí do srovnání nepatří — z jednoho čísla se nedá nic vyčíst.
+                // Verze s jedinou recenzí se ukáže (o novém vydání je dobré vědět hned), ale
+                // dopad se u ní nehodnotí — z jednoho čísla se nedá nic vyčíst.
                 seedReview(
                     appId,
                     "rare-1",
@@ -439,9 +445,15 @@ class AnalysisRoutesTest :
 
                 val body = owner.get("/api/orgs/$SLUG/apps/$appId/analysis/versions").bodyAsText()
 
-                body shouldContain "\"version\":\"3.2.0\""
-                body shouldContain "\"version\":\"3.1.0\""
-                body shouldNotContain "9.9.9"
+                val versions =
+                    Json
+                        .parseToJsonElement(body)
+                        .jsonArray
+                        .associate { item ->
+                            val fields = item.jsonObject
+                            fields.getValue("version").jsonPrimitive.content to fields.getValue("assessable").jsonPrimitive.boolean
+                        }
+                versions shouldBe mapOf("9.9.9" to false, "3.2.0" to true, "3.1.0" to true)
                 // Pády jsou u 3.2.0 nové: ve třicetidenním okně před jejím prvním výskytem nebyly.
                 body shouldContain "\"newTopics\":[{\"key\":\"crash\""
             }

@@ -54,5 +54,9 @@ subprojects {
         // rodině — nechat zbytek Netty na staré verzi je spolehlivý způsob, jak si vyrobit
         // NoSuchMethodError. Po upgradu Ktoru se to dá zase smazat.
         add("implementation", platform("io.netty:netty-bom:${versionCatalog.findVersion("netty").get().requiredVersion}"))
+
+        // A ještě jednou: Flyway 13.3.0 si přitáhne Jackson 3.1.5 s HIGH CVE (CVE-2026-68497
+        // v jackson-databind). Zase celá rodina přes BOM. Po upgradu Flyway se to dá smazat.
+        add("implementation", platform("tools.jackson:jackson-bom:${versionCatalog.findVersion("jackson").get().requiredVersion}"))
     }
 }
