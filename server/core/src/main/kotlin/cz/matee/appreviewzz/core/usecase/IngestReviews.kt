@@ -15,6 +15,7 @@ import cz.matee.appreviewzz.core.port.AuditLogRepository
 import cz.matee.appreviewzz.core.port.CredentialRepository
 import cz.matee.appreviewzz.core.port.ReviewRepository
 import cz.matee.appreviewzz.core.port.ReviewSource
+import cz.matee.appreviewzz.core.port.ReviewTimeKey
 import cz.matee.appreviewzz.core.port.ReviewUpsertOutcome
 import cz.matee.appreviewzz.core.port.ReviewUpsertResult
 import cz.matee.appreviewzz.core.port.SecretResolver
@@ -24,6 +25,7 @@ import cz.matee.appreviewzz.core.port.StoreErrorKind
 import cz.matee.appreviewzz.core.port.auditEntry
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.seconds
 
 private val logger = KotlinLogging.logger {}
 
@@ -62,6 +64,8 @@ sealed interface PlatformIngest {
         val answeredInStore: Int,
         /** Co má smysl poslat do kanálů, v pořadí, v jakém to vzniklo ve storu. */
         val notifiable: List<ReviewUpsertResult>,
+        /** Recenze, které už založil import z exportu a teď se přejmenovaly na ID z API. */
+        val adopted: Int = 0,
     ) : PlatformIngest
 
     data class Skipped(
@@ -191,12 +195,19 @@ class IngestReviewsUseCase(
         var unchanged = 0
         var suppressed = 0
         var answeredInStore = 0
+        var adopted = 0
         val notifiable = mutableListOf<ReviewUpsertResult>()
+        val archived = archivedTwins(app, platform, observed)
 
         // Chronologicky: v kanálu má starší recenze přistát dřív než novější.
         observed.sortedBy { it.submittedAt }.forEach { review ->
             val initialState = if (isUnderWatermark(app, review)) ReviewState.SUPPRESSED else ReviewState.NEW
-            val result = reviews.upsert(app.orgId, app.id, review, seenAt, initialState)
+            val twin = archived.twinOf(review)?.let { reviews.adoptArchived(app.orgId, app.id, it, review) }
+            var result = reviews.upsert(app.orgId, app.id, review, seenAt, initialState)
+            if (twin != null) {
+                adopted++
+                result = releaseAdopted(result, initialState)
+            }
             when (result.outcome) {
                 ReviewUpsertOutcome.CREATED -> {
                     created++
@@ -222,7 +233,46 @@ class IngestReviewsUseCase(
             suppressed = suppressed,
             answeredInStore = answeredInStore,
             notifiable = notifiable,
+            adopted = adopted,
         )
+    }
+
+    /**
+     * Recenze, které založil import z exportu dřív, než je stihlo API. Import čte export až
+     * do dneška, takže čerstvá recenze s textem může přijít oběma cestami — a ID se nepotkají
+     * (`csv:<uuid>` proti `gp:AOqpTO…`). Páruje se proto časem, jedním dotazem na běh.
+     */
+    private fun archivedTwins(
+        app: App,
+        platform: Platform,
+        observed: List<ObservedReview>,
+    ): ArchivedTwins {
+        if (observed.isEmpty()) return ArchivedTwins(emptyList())
+        val times = observed.map { it.submittedAt }
+        return ArchivedTwins(
+            reviews.listArchivedTimeKeys(
+                app.orgId,
+                app.id,
+                platform,
+                times.min() - ArchivedTwins.TOLERANCE,
+                times.max() + ArchivedTwins.TOLERANCE,
+            ),
+        )
+    }
+
+    /**
+     * Převzatá recenze z archivu je založená jako potlačená — import nikdy nic nedoručuje.
+     * Když ji ale API vidí nad watermarkem, je to čerstvá recenze, o které kanál ještě
+     * neví, a patří do něj stejně, jako kdyby ji API stáhlo první.
+     */
+    private fun releaseAdopted(
+        result: ReviewUpsertResult,
+        initialState: ReviewState,
+    ): ReviewUpsertResult {
+        val review = result.review
+        if (review.state != ReviewState.SUPPRESSED || initialState != ReviewState.NEW) return result
+        reviews.updateState(review.orgId, review.id, ReviewState.NEW)
+        return ReviewUpsertResult(review.copy(state = ReviewState.NEW), ReviewUpsertOutcome.CREATED)
     }
 
     /**
@@ -284,11 +334,37 @@ class IngestReviewsUseCase(
         }
 }
 
+/**
+ * Archivní recenze poskládané podle vteřiny. API dává u Androidu čas **poslední změny**,
+ * export čas odeslání a změny zvlášť — proto se zkouší oba. Tolerance jedné vteřiny kryje
+ * rozdíl mezi milisekundami exportu a sekundami s nanosekundami z API.
+ */
+private class ArchivedTwins(
+    keys: List<ReviewTimeKey>,
+) {
+    private val bySecond: Map<Long, List<ReviewTimeKey>> =
+        keys
+            .flatMap { key -> listOfNotNull(key.submittedAt, key.storeUpdatedAt).distinct().map { it.epochSeconds to key } }
+            .groupBy({ it.first }, { it.second })
+
+    fun twinOf(review: ObservedReview): String? {
+        if (review.storeReviewId.startsWith(ObservedReview.ARCHIVE_ID_PREFIX)) return null
+        val second = review.submittedAt.epochSeconds
+        return (second - 1..second + 1)
+            .firstNotNullOfOrNull { bySecond[it]?.firstOrNull() }
+            ?.storeReviewId
+    }
+
+    companion object {
+        val TOLERANCE = 1.seconds
+    }
+}
+
 private fun PlatformIngest.describe(): String =
     when (this) {
         is PlatformIngest.Ingested ->
             "$platform fetched=$fetched new=$created updated=$updated unchanged=$unchanged " +
-                "suppressed=$suppressed answered=$answeredInStore notify=${notifiable.size}"
+                "suppressed=$suppressed answered=$answeredInStore adopted=$adopted notify=${notifiable.size}"
 
         is PlatformIngest.Skipped -> "$platform skipped=$reason"
         is PlatformIngest.Failed -> "$platform failed=$kind"

@@ -23,7 +23,7 @@ import kotlin.time.Instant
  */
 internal object PlayReviewsCsv {
     /** Prefix ID recenzí z exportu. Odpovědět na ně nejde, tak ať je to v datech vidět. */
-    const val ID_PREFIX = "csv:"
+    const val ID_PREFIX = ObservedReview.ARCHIVE_ID_PREFIX
 
     fun parse(bytes: ByteArray): List<ObservedReview> {
         val rows = PlayCsv.rows(PlayCsv.decode(bytes))

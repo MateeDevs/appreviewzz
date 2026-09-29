@@ -45,4 +45,12 @@ data class ObservedReview(
             ).joinToString(separator = "") { field -> field.length.toString() + ":" + field }
         return sha256Hex(canonical)
     }
+
+    companion object {
+        /**
+         * Prefix ID recenzí z archivu storu (Play Console export). Jmenný prostor exportu se
+         * s ID z API nepotká, takže jádro podle prefixu pozná řádek, který má dvojče jinde.
+         */
+        const val ARCHIVE_ID_PREFIX = "csv:"
+    }
 }

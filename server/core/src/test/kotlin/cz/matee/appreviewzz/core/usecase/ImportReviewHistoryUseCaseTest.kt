@@ -85,10 +85,10 @@ class ImportReviewHistoryUseCaseTest :
         }
 
         /**
-         * Archiv se nesmí potkat s oknem `reviews.list`. Kdyby se četl až do teď, tytéž recenze
-         * by přišly podruhé pod `csv:` ID — a klíč `(app, platform, store_review_id)` je nespáruje.
+         * Hodnocení bez textu přes API nepřijdou nikdy. Kdyby import nechával poslední týden
+         * API, rozbor posledních dní by u Androidu ukazoval jen recenze s textem.
          */
-        test("období končí týden zpátky a začíná podle počtu měsíců") {
+        test("android se čte až do teď a období začíná podle počtu měsíců") {
             val app = appWithBucket()
             val source = FakeArchiveSource(Platform.ANDROID) { emptyList() }
 
@@ -96,8 +96,36 @@ class ImportReviewHistoryUseCaseTest :
 
             val context = source.lastContext.shouldNotBeNull()
             context.reportingBucket shouldBe BUCKET
-            context.until shouldBe Ingest.now - ImportReviewHistoryUseCase.API_WINDOW
+            context.until shouldBe Ingest.now
             (context.until - context.since).inWholeDays shouldBe 93
+        }
+
+        /**
+         * App Store Connect má v archivu i v API tatáž ID. Recenze, kterou by import založil
+         * jako potlačenou dřív než ingest, by do kanálu už nikdy nedošla.
+         */
+        test("ios nechává poslední týden ingestu z API") {
+            val app = apps.put(Ingest.app(org, gpPackageName = null, ascAppId = "1234567890"))
+            credentials.attach(app.id, CredentialPurpose.REVIEWS, Ingest.credential(org, CredentialType.ASC_API_KEY))
+            val source = FakeArchiveSource(Platform.IOS) { emptyList() }
+
+            runBlocking { useCase(source).run(org, app.id) }
+
+            source.lastContext.shouldNotBeNull().until shouldBe Ingest.now - ImportReviewHistoryUseCase.IOS_API_WINDOW
+        }
+
+        test("čerstvé hodnocení bez textu se založí hned, potlačené") {
+            val app = appWithBucket()
+            val fresh = Ingest.now - kotlin.time.Duration.parse("2h")
+            val source =
+                FakeArchiveSource(Platform.ANDROID) {
+                    listOf(archived("csv:1790057471374", fresh).copy(title = null, body = null))
+                }
+
+            val report = runBlocking { useCase(source).run(org, app.id) }
+
+            report.created shouldBe 1
+            reviews.calls.single().initialState shouldBe ReviewState.SUPPRESSED
         }
 
         test("bez zadaných měsíců jede průběžný běh nad posledními dvěma měsíci") {

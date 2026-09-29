@@ -43,6 +43,8 @@ import org.jetbrains.exposed.v1.core.inSubQuery
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.lessEq
+import org.jetbrains.exposed.v1.core.like
+import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.insertIgnore
 import org.jetbrains.exposed.v1.jdbc.select
@@ -268,6 +270,57 @@ class ExposedReviewRepository(
                         (Reviews.submittedAt greaterEq submittedAfter) and
                         (Reviews.submittedAt lessEq submittedBefore)
                 }.map { ReviewTimeKey(it[Reviews.storeReviewId], it[Reviews.submittedAt]) }
+        }
+
+    override fun listArchivedTimeKeys(
+        orgId: OrganizationId,
+        appId: AppId,
+        platform: Platform,
+        after: Instant,
+        before: Instant,
+    ): List<ReviewTimeKey> =
+        transaction(database) {
+            Reviews
+                .select(Reviews.storeReviewId, Reviews.submittedAt, Reviews.storeUpdatedAt)
+                .where {
+                    (Reviews.orgId eq orgId) and
+                        (Reviews.appId eq appId) and
+                        (Reviews.platform eq platform) and
+                        (Reviews.storeReviewId like "${ObservedReview.ARCHIVE_ID_PREFIX}%") and
+                        (
+                            ((Reviews.submittedAt greaterEq after) and (Reviews.submittedAt lessEq before)) or
+                                ((Reviews.storeUpdatedAt greaterEq after) and (Reviews.storeUpdatedAt lessEq before))
+                        )
+                }.map {
+                    ReviewTimeKey(it[Reviews.storeReviewId], it[Reviews.submittedAt], it[Reviews.storeUpdatedAt])
+                }
+        }
+
+    override fun adoptArchived(
+        orgId: OrganizationId,
+        appId: AppId,
+        archivedStoreReviewId: String,
+        observed: ObservedReview,
+    ): Review? =
+        transaction(database) {
+            fun find(storeReviewId: String) =
+                Reviews
+                    .selectAll()
+                    .where {
+                        (Reviews.orgId eq orgId) and
+                            (Reviews.appId eq appId) and
+                            (Reviews.platform eq observed.platform) and
+                            (Reviews.storeReviewId eq storeReviewId)
+                    }.firstOrNull()
+                    ?.toReview()
+
+            if (find(observed.storeReviewId) != null) return@transaction null
+            val archived = find(archivedStoreReviewId) ?: return@transaction null
+            Reviews.update({ Reviews.id eq archived.id }) {
+                it[storeReviewId] = observed.storeReviewId
+                it[authorName] = observed.authorName ?: archived.authorName
+            }
+            archived.copy(storeReviewId = observed.storeReviewId, authorName = observed.authorName ?: archived.authorName)
         }
 
     private fun insertReview(

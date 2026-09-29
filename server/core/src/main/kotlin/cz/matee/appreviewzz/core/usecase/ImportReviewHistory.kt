@@ -106,11 +106,15 @@ data class HistoryImportReport(
  *
  * Tři pravidla, na kterých to celé stojí:
  *
- * - **Archiv se nečte až do teď.** Poslední týden drží ingest z API, který má jména autorů
- *   a ID, na která jde odpovědět. Kdyby import sáhl do jeho okna, tytéž recenze by u Androidu
- *   přišly podruhé pod `csv:` ID — klíč `(app, platform, store_review_id)` je nespáruje.
- * - **Na hranici se páruje časem odeslání.** Recenzi, kterou API stáhlo, když byla čerstvá,
- *   archiv vrátí i za rok. Bez porovnání času by po roce přibyla znovu.
+ * - **Android se čte až do teď** (iOS ne, viz [untilFor]). Hodnocení bez textu přes API nepřijdou nikdy, takže jediná
+ *   cesta, jak je mít v rozboru co nejdřív, je vzít je z exportu hned, jak ho Play přepíše
+ *   (jednou denně). Dřív import posledních sedm dní přenechával API — a rozbor posledního
+ *   týdne pak ukazoval jen recenze s textem, u appky plné hvězdiček bez textu nic.
+ * - **S API se páruje časem, a to oběma směry.** Recenze s textem obvykle přijde z API první
+ *   (běží každých pár desítek minut) a import ji pozná podle času odeslání — stejně jako
+ *   recenzi, kterou API stáhlo před rokem. Když je import výjimečně rychlejší, převezme
+ *   archivní řádek ingest z API a přejmenuje ho na své ID ([IngestReviewsUseCase]).
+ *   Bez párování by klíč `(app, platform, store_review_id)` tutéž recenzi založil dvakrát.
  * - **Nic z importu se nedoručuje.** Jsou to data stará dny až roky a část z nich jsou
  *   hodnocení bez textu, ke kterým není co napsat. Zakládají se rovnou jako
  *   [ReviewState.SUPPRESSED], bez ohledu na watermark.
@@ -139,9 +143,10 @@ class ImportReviewHistoryUseCase(
                 ?: return HistoryImportReport(orgId, appId, skipped = HistoryAppSkipReason.NOT_FOUND)
         if (!app.enabled) return HistoryImportReport(orgId, appId, skipped = HistoryAppSkipReason.DISABLED)
 
-        val until = clock.now() - API_WINDOW
+        val until = clock.now()
         val since = until - DAYS_PER_MONTH * (months ?: RECENT_MONTHS)
-        val results = Platform.entries.filter { it in app.platforms() }.map { importPlatform(app, it, since, until) }
+        val results =
+            Platform.entries.filter { it in app.platforms() }.map { importPlatform(app, it, since, untilFor(it, until)) }
 
         logger.info { "Import historie ${app.name} (${app.id}): ${results.joinToString { it.describe() }}" }
         return HistoryImportReport(orgId, appId, platforms = results, since = since, until = until)
@@ -226,6 +231,22 @@ class ImportReviewHistoryUseCase(
         )
     }
 
+    /**
+     * Android se čte až do teď — jeho archiv má vlastní ID a s API se páruje časem. iOS ne:
+     * App Store Connect má v archivu i v API **tatáž** ID, takže recenzi, kterou by import
+     * založil dřív než ingest, by ingest už jen potkal jako známou — potlačenou, bez doručení
+     * do kanálu. Hodnocení bez textu přitom App Store Connect nevrací vůbec, takže by se
+     * čtením až do teď nic nezískalo.
+     */
+    private fun untilFor(
+        platform: Platform,
+        now: Instant,
+    ): Instant =
+        when (platform) {
+            Platform.ANDROID -> now
+            Platform.IOS -> now - IOS_API_WINDOW
+        }
+
     private fun credentialType(platform: Platform): CredentialType =
         when (platform) {
             Platform.ANDROID -> CredentialType.GP_SERVICE_ACCOUNT
@@ -259,8 +280,8 @@ class ImportReviewHistoryUseCase(
     }
 
     companion object {
-        /** Dokud recenze spadá do okna `reviews.list`, patří ingestu z API. */
-        val API_WINDOW = 7.days
+        /** U iOS patří recenze ingestu z API, dokud je v jeho okně. */
+        val IOS_API_WINDOW = 7.days
 
         /** Průběžný běh: aktuální a předchozí měsíc, stejně jako u exportu hodnocení. */
         const val RECENT_MONTHS = 2

@@ -8,9 +8,11 @@ import cz.matee.appreviewzz.core.model.Platform
 import cz.matee.appreviewzz.core.model.ReviewState
 import cz.matee.appreviewzz.core.model.ValidationStatus
 import cz.matee.appreviewzz.core.port.ReviewSource
+import cz.matee.appreviewzz.core.port.ReviewTimeKey
 import cz.matee.appreviewzz.core.port.StoreConnectorException
 import cz.matee.appreviewzz.core.port.StoreErrorKind
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
@@ -94,6 +96,43 @@ class IngestReviewsUseCaseTest :
             ingested.created shouldBe 2
             ingested.suppressed shouldBe 1
             report.notifiable.map { it.review.storeReviewId } shouldContainExactly listOf("gp:new")
+        }
+
+        /**
+         * Import čte export až do teď, takže recenzi s textem může založit dřív než API.
+         * Ingest ji pak nesmí založit podruhé — převezme archivní řádek pod svým ID a pošle
+         * ji do kanálu, protože import nic nedoručuje.
+         */
+        test("recenzi, kterou už založil import z exportu, ingest převezme a doručí") {
+            val app = apps.put(Ingest.app(org))
+            credentials.attach(app.id, CredentialPurpose.REVIEWS, Ingest.credential(org, CredentialType.GP_SERVICE_ACCOUNT))
+            val submitted = Instant.parse("2026-08-19T11:00:00.123456Z")
+            reviews.archivedKeys += ReviewTimeKey("csv:c999e68a", Instant.parse("2026-08-19T11:00:00.123Z"))
+            val source = FakeReviewSource(Platform.ANDROID) { listOf(Ingest.observed("gp:AOqpTOfresh", submittedAt = submitted)) }
+
+            val report = runBlocking { useCase(source).ingest(org, app.id) }
+
+            reviews.adoptions shouldContainExactly listOf("csv:c999e68a" to "gp:AOqpTOfresh")
+            val ingested = report.platforms.single().shouldBeInstanceOf<PlatformIngest.Ingested>()
+            ingested.adopted shouldBe 1
+            report.notifiable.map { it.review.storeReviewId } shouldContainExactly listOf("gp:AOqpTOfresh")
+            reviews.stateUpdates.map { it.second } shouldContainExactly listOf(ReviewState.NEW)
+        }
+
+        test("převzatá recenze pod watermarkem zůstane potlačená") {
+            val watermark = Instant.parse("2026-08-19T12:00:00Z")
+            val app = apps.put(Ingest.app(org, notifyFrom = watermark))
+            credentials.attach(app.id, CredentialPurpose.REVIEWS, Ingest.credential(org, CredentialType.GP_SERVICE_ACCOUNT))
+            val edited = Instant.parse("2026-08-19T11:00:00Z")
+            // Stará recenze, kterou autor přepsal: export ji má pod časem odeslání z roku 2023.
+            reviews.archivedKeys += ReviewTimeKey("csv:1f964d28", Instant.parse("2023-12-01T17:27:04Z"), edited)
+            val source = FakeReviewSource(Platform.ANDROID) { listOf(Ingest.observed("gp:AOqpTOold", submittedAt = edited)) }
+
+            val report = runBlocking { useCase(source).ingest(org, app.id) }
+
+            reviews.adoptions.map { it.first } shouldContainExactly listOf("csv:1f964d28")
+            report.notifiable.shouldBeEmpty()
+            reviews.stateUpdates.shouldBeEmpty()
         }
 
         test("appka bez watermarku notifikuje jen recenze mladší, než je sama") {

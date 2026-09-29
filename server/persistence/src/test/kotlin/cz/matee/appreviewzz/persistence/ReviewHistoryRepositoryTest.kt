@@ -95,6 +95,85 @@ class ReviewHistoryRepositoryTest :
         }
 
         /**
+         * Editovaná stará recenze: export ji má pod časem odeslání z roku 2023, API pod časem
+         * změny. Ingest z API se ptá právě časem změny.
+         */
+        test("listArchivedTimeKeys najde archivní recenzi podle času odeslání i změny, jen s csv ID") {
+            val org = organizations.create("Matee", "matee")
+            val app = apps.create(org.id, NewApp(name = "MujUp", gpPackageName = "cz.myup.customer"))
+            val edited = Instant.parse("2026-09-03T04:46:19.978Z")
+            reviews.upsert(
+                org.id,
+                app.id,
+                Fixtures
+                    .observedReview(storeReviewId = "csv:1f964d28", submittedAt = Instant.parse("2023-12-01T17:27:04Z"))
+                    .copy(storeUpdatedAt = edited),
+                Fixtures.seenAt,
+                ReviewState.SUPPRESSED,
+            )
+            reviews.upsert(
+                org.id,
+                app.id,
+                Fixtures.observedReview(storeReviewId = "gp:AOqpTOapi", submittedAt = edited),
+                Fixtures.seenAt,
+                ReviewState.NEW,
+            )
+
+            val keys =
+                reviews.listArchivedTimeKeys(
+                    org.id,
+                    app.id,
+                    Platform.ANDROID,
+                    edited - kotlin.time.Duration.parse("1s"),
+                    edited + kotlin.time.Duration.parse("1s"),
+                )
+
+            keys.map { it.storeReviewId } shouldBe listOf("csv:1f964d28")
+            keys.single().storeUpdatedAt shouldBe edited
+        }
+
+        test("adoptArchived přejmenuje archivní řádek na ID z API a doplní autora") {
+            val org = organizations.create("Matee", "matee")
+            val app = apps.create(org.id, NewApp(name = "MujUp", gpPackageName = "cz.myup.customer"))
+            val submitted = Instant.parse("2026-09-22T06:11:11.374Z")
+            val archived =
+                reviews
+                    .upsert(
+                        org.id,
+                        app.id,
+                        Fixtures.observedReview(storeReviewId = "csv:c999e68a", submittedAt = submitted).copy(authorName = null),
+                        Fixtures.seenAt,
+                        ReviewState.SUPPRESSED,
+                    ).review
+            val fromApi = Fixtures.observedReview(storeReviewId = "gp:AOqpTOfresh", submittedAt = submitted)
+
+            val adopted = reviews.adoptArchived(org.id, app.id, "csv:c999e68a", fromApi)
+
+            adopted?.id shouldBe archived.id
+            val stored = reviews.findByStoreId(org.id, app.id, Platform.ANDROID, "gp:AOqpTOfresh")
+            stored?.id shouldBe archived.id
+            stored?.authorName shouldBe fromApi.authorName
+            reviews.findByStoreId(org.id, app.id, Platform.ANDROID, "csv:c999e68a") shouldBe null
+        }
+
+        test("adoptArchived nic nepřejmenuje, když recenze pod ID z API už existuje") {
+            val org = organizations.create("Matee", "matee")
+            val app = apps.create(org.id, NewApp(name = "MujUp", gpPackageName = "cz.myup.customer"))
+            val submitted = Instant.parse("2026-09-22T06:11:11Z")
+            val fromApi = Fixtures.observedReview(storeReviewId = "gp:AOqpTOfresh", submittedAt = submitted)
+            reviews.upsert(org.id, app.id, fromApi, Fixtures.seenAt, ReviewState.NEW)
+            reviews.upsert(
+                org.id,
+                app.id,
+                Fixtures.observedReview(storeReviewId = "csv:c999e68a", submittedAt = submitted),
+                Fixtures.seenAt,
+                ReviewState.SUPPRESSED,
+            )
+
+            reviews.adoptArchived(org.id, app.id, "csv:c999e68a", fromApi) shouldBe null
+        }
+
+        /**
          * Odpověď napsaná v Play Console se počítá jako odpověď. U historie dotažené z archivu
          * je to jediné, co o odpovídání víme — bez toho by rozbor za minulý měsíc tvrdil
          * „odpovězeno 0", i kdyby klient odpovídal na všechno.

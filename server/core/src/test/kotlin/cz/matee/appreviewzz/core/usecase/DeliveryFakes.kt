@@ -174,6 +174,21 @@ internal class FakeReviewRepository(
         submittedAfter: Instant,
         submittedBefore: Instant,
     ): List<ReviewTimeKey> = emptyList()
+
+    override fun listArchivedTimeKeys(
+        orgId: OrganizationId,
+        appId: AppId,
+        platform: Platform,
+        after: Instant,
+        before: Instant,
+    ): List<ReviewTimeKey> = emptyList()
+
+    override fun adoptArchived(
+        orgId: OrganizationId,
+        appId: AppId,
+        archivedStoreReviewId: String,
+        observed: ObservedReview,
+    ): Review? = null
 }
 
 internal class FakeChannelRepository(

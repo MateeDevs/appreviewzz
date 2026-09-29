@@ -259,6 +259,12 @@ internal class RecordingReviewRepository : ReviewRepository {
     /** Co už v databázi leží — pro párování historie s recenzemi z API. */
     val timeKeys = mutableListOf<ReviewTimeKey>()
 
+    /** Recenze z archivu, které si ingest z API může převzít (`csv:` ID). */
+    val archivedKeys = mutableListOf<ReviewTimeKey>()
+
+    /** Převzatá archivní ID → ID z API, v pořadí převzetí. */
+    val adoptions = mutableListOf<Pair<String, String>>()
+
     override fun upsert(
         orgId: OrganizationId,
         appId: AppId,
@@ -267,6 +273,8 @@ internal class RecordingReviewRepository : ReviewRepository {
         initialState: ReviewState,
     ): ReviewUpsertResult {
         calls += Call(observed, initialState)
+        // Převzatý řádek už v databázi je: založil ho import, tedy potlačený, a obsah se nezměnil.
+        val adopted = adoptions.any { it.second == observed.storeReviewId }
         val review =
             Review(
                 id = ReviewId(Uuid.random()),
@@ -287,11 +295,11 @@ internal class RecordingReviewRepository : ReviewRepository {
                 contentHash = observed.contentHash(),
                 developerResponseBody = observed.developerResponseBody,
                 developerResponseAt = observed.developerResponseAt,
-                state = initialState,
+                state = if (adopted) ReviewState.SUPPRESSED else initialState,
                 firstSeenAt = seenAt,
                 lastSeenAt = seenAt,
             )
-        return ReviewUpsertResult(review, ReviewUpsertOutcome.CREATED)
+        return ReviewUpsertResult(review, if (adopted) ReviewUpsertOutcome.UNCHANGED else ReviewUpsertOutcome.CREATED)
     }
 
     override fun updateState(
@@ -338,6 +346,29 @@ internal class RecordingReviewRepository : ReviewRepository {
         submittedAfter: Instant,
         submittedBefore: Instant,
     ): List<ReviewTimeKey> = timeKeys.filter { it.submittedAt >= submittedAfter && it.submittedAt <= submittedBefore }
+
+    override fun listArchivedTimeKeys(
+        orgId: OrganizationId,
+        appId: AppId,
+        platform: Platform,
+        after: Instant,
+        before: Instant,
+    ): List<ReviewTimeKey> =
+        archivedKeys.filter { key ->
+            listOfNotNull(key.submittedAt, key.storeUpdatedAt).any { it >= after && it <= before }
+        }
+
+    override fun adoptArchived(
+        orgId: OrganizationId,
+        appId: AppId,
+        archivedStoreReviewId: String,
+        observed: ObservedReview,
+    ): Review? {
+        if (archivedKeys.none { it.storeReviewId == archivedStoreReviewId }) return null
+        archivedKeys.removeAll { it.storeReviewId == archivedStoreReviewId }
+        adoptions += archivedStoreReviewId to observed.storeReviewId
+        return upsert(orgId, appId, observed, Ingest.now, ReviewState.SUPPRESSED).review.also { calls.removeAt(calls.lastIndex) }
+    }
 }
 
 internal class RecordingAuditLog : AuditLogRepository {

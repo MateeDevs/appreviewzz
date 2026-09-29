@@ -604,12 +604,45 @@ interface ReviewRepository {
         submittedAfter: Instant,
         submittedBefore: Instant,
     ): List<ReviewTimeKey>
+
+    /**
+     * Recenze z archivu ([ObservedReview.ARCHIVE_ID_PREFIX]), jejichž čas odeslání **nebo
+     * poslední změny** padá do období. Opačný směr párování než [listTimeKeys]: ingest z API
+     * se ptá, jestli recenzi, kterou právě vidí, už nezaložil import z exportu.
+     *
+     * Čas změny je tu kvůli Androidu — API hlásí u editované recenze čas poslední změny,
+     * export ho má ve vlastním sloupci a čas odeslání nechává původní (třeba i roky starý).
+     */
+    fun listArchivedTimeKeys(
+        orgId: OrganizationId,
+        appId: AppId,
+        platform: Platform,
+        after: Instant,
+        before: Instant,
+    ): List<ReviewTimeKey>
+
+    /**
+     * Převezme recenzi z archivu pod ID z API: přepíše `store_review_id` a doplní jméno
+     * autora, které export nenese. Řádek (a s ním výklad, revize i stav) zůstává, jen se
+     * od teď páruje s API a jde na něj odpovědět.
+     *
+     * @return převzatá recenze, nebo `null`, když archivní řádek neexistuje nebo recenze
+     *   pod ID z API už v databázi je — pak by přejmenování porušilo unikátní klíč.
+     */
+    fun adoptArchived(
+        orgId: OrganizationId,
+        appId: AppId,
+        archivedStoreReviewId: String,
+        observed: ObservedReview,
+    ): Review?
 }
 
 /** Čím se recenze pozná v čase, když se ID ze dvou zdrojů nepotkají. */
 data class ReviewTimeKey(
     val storeReviewId: String,
     val submittedAt: Instant,
+    /** Plní jen [ReviewRepository.listArchivedTimeKeys]; import historie ho nepotřebuje. */
+    val storeUpdatedAt: Instant? = null,
 )
 
 interface ReviewMessageRepository {
