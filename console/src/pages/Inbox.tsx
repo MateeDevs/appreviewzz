@@ -163,10 +163,10 @@ export function InboxPage() {
         {reviews.data?.map((review) => (
           <div className="review" key={review.id}>
             <div className="spread">
-              <div>
-                <PlatformBadge platform={review.platform} />{' '}
-                <Stars count={review.starRating} />{' '}
-                <strong>{review.authorName ?? 'Anonym'}</strong>{' '}
+              <div className="review-head">
+                <PlatformBadge platform={review.platform} />
+                <Stars count={review.starRating} />
+                <strong>{review.authorName ?? 'Anonym'}</strong>
                 <span className="small muted">
                   <When iso={review.submittedAt} />
                   {review.appVersion ? ` · verze ${review.appVersion}` : ''}
