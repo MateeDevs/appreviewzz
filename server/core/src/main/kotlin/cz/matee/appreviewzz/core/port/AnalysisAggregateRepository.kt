@@ -244,8 +244,11 @@ interface AnalysisAggregateRepository {
     ): List<LanguageAggregate>
 
     /**
-     * Verze s aspoň [minReviews] recenzemi, které se poprvé objevily po [since].
-     * Seřazeno od nejnovější — klienta zajímá poslední vydání.
+     * Verze s aspoň [minReviews] rozebranými recenzemi s textem, které se poprvé objevily
+     * po [since]. Seřazeno od nejnovější — klienta zajímá poslední vydání.
+     *
+     * První výskyt se bere ze **všech** recenzí verze, včetně hodnocení bez textu: ta chodí
+     * z exportu dřív a hojněji, takže den vydání odhadnou přesněji.
      */
     fun versionWindows(
         orgId: OrganizationId,

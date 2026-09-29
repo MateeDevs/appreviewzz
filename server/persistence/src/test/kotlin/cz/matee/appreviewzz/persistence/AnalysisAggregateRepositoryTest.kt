@@ -65,6 +65,54 @@ class AnalysisAggregateRepositoryTest :
             topics = listOf(TopicMention(Topic.CRASH.key, TopicSentiment.NEGATIVE, "pořád padá")),
         )
 
+        /**
+         * Nová verze se v dopadu ukáže od první rozebrané recenze s textem, a den vydání
+         * odhadne i hodnocení bez textu, které přišlo dřív. Editovaná stará recenze nese
+         * verzi z doby editace — rozhoduje proto čas změny, ne roky starý čas odeslání.
+         */
+        test("verze se ukáže od jedné recenze s textem a vydání bere i z hodnocení bez textu") {
+            val org = organizations.create("Matee", "matee")
+            val app = apps.create(org.id, NewApp(name = "MujUp", gpPackageName = "cz.myup.customer"))
+            val released = Instant.parse("2026-09-15T19:51:57Z")
+            reviews.upsert(
+                org.id,
+                app.id,
+                Fixtures
+                    .observedReview(storeReviewId = "csv:1789501917401", submittedAt = released, body = null)
+                    .copy(appVersion = "3.73.3"),
+                Fixtures.seenAt,
+                ReviewState.SUPPRESSED,
+            )
+            reviews.upsert(
+                org.id,
+                app.id,
+                Fixtures
+                    .observedReview(storeReviewId = "csv:stara-editovana", submittedAt = Instant.parse("2023-12-01T17:27:04Z"))
+                    .copy(appVersion = "3.73.3", storeUpdatedAt = Instant.parse("2026-09-20T08:00:00Z")),
+                Fixtures.seenAt,
+                ReviewState.SUPPRESSED,
+            )
+            val withText =
+                reviews
+                    .upsert(
+                        org.id,
+                        app.id,
+                        Fixtures
+                            .observedReview(storeReviewId = "gp:AOqpTOtext", submittedAt = Instant.parse("2026-09-23T14:01:27Z"))
+                            .copy(appVersion = "3.73.3"),
+                        Fixtures.seenAt,
+                        ReviewState.NEW,
+                    ).review
+            insights.upsert(org.id, insight(withText), Fixtures.seenAt)
+
+            val windows = aggregates.versionWindows(org.id, app.id, Instant.parse("2025-09-29T00:00:00Z"), minReviews = 1)
+
+            windows shouldHaveSize 1
+            windows.single().version shouldBe "3.73.3"
+            windows.single().reviews shouldBe 1
+            windows.single().firstSeen shouldBe released
+        }
+
         test("denní buckety se počítají v zóně aplikace, ne v UTC") {
             val org = organizations.create("Matee", "matee")
             val app = apps.create(org.id, NewApp(name = "IsleGrow", gpPackageName = "cz.matee.islegrow"))

@@ -842,3 +842,10 @@ a.button:hover { background: var(--surface-2); border-color: var(--faint); text-
 /* Dva bloky vedle sebe; pod 900 px pod sebou, protože tabulky se do půlky nevejdou. */
 .cards-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.15rem; }
 @media (max-width: 900px) { .cards-2 { grid-template-columns: 1fr; } }
+
+/* Dopad verzí: verze, na jejíž hodnocení je zatím málo recenzí s textem. */
+.version-collecting { display: flex; align-items: center; gap: 0.7rem; color: var(--muted); }
+.version-collecting strong { color: var(--text); font-weight: 600; }
+.data-dots { display: inline-flex; gap: 3px; flex: none; }
+.data-dots span { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--border); }
+.data-dots span.filled { background: var(--accent); border-color: var(--accent); }

@@ -359,6 +359,10 @@ export interface VersionImpact {
   goneTopics: VersionTopic[]
   starsDelta: number | null
   negativeDelta: number
+  /** `false`: po vydání je málo recenzí s textem a dopad se zatím hodnotit nedá. */
+  assessable: boolean
+  /** Od kolika recenzí po vydání se dopad hodnotí. */
+  minReviews: number
 }
 
 /** Měsíční report pro klienta. Agregáty jsou zmrazené — odkaz musí za rok ukázat totéž. */

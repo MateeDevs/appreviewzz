@@ -174,6 +174,12 @@ data class VersionImpact(
     val newTopics: List<VersionTopicShare>,
     /** Témata, která zmizela. Zlepšení je zpráva stejně jako zhoršení. */
     val goneTopics: List<VersionTopicShare>,
+    /**
+     * Má verze po vydání dost recenzí s textem, aby srovnání něco znamenalo? Verze se ukazuje
+     * od první takové recenze — o novém vydání je dobré vědět hned — ale dokud jich je málo,
+     * konzole čísla nevydává za dopad.
+     */
+    val assessable: Boolean,
 ) {
     val starsDelta: Double?
         get() {
@@ -380,7 +386,7 @@ class AnalysisInsights(
         val app = apps.findById(orgId, appId) ?: throw ConsoleException(ConsoleFailure.NOT_FOUND, "Taková aplikace tu není")
         val names = appTopics.listByApp(orgId, appId).associate { it.key to it.name }
         val now = clock.now()
-        val windows = aggregates.versionWindows(orgId, appId, now - VERSION_HISTORY_DAYS.days, MIN_VERSION_REVIEWS)
+        val windows = aggregates.versionWindows(orgId, appId, now - VERSION_HISTORY_DAYS.days, MIN_VERSION_SHOWN)
 
         return windows.take(MAX_VERSIONS).map { window ->
             val after =
@@ -413,6 +419,7 @@ class AnalysisInsights(
                 before = before,
                 newTopics = after.topics.filter { it.key !in beforeKeys },
                 goneTopics = before.topics.filter { it.key !in afterKeys },
+                assessable = after.reviews >= MIN_VERSION_REVIEWS,
             )
         }
     }
@@ -546,7 +553,10 @@ class AnalysisInsights(
         /** Kolik bodů má sparkline u tématu. Osm se vejde do tabulky a trend je z nich vidět. */
         const val TREND_POINTS = 8
 
-        /** Verze s míň recenzemi neříká nic — podíl ze dvou recenzí je náhoda. */
+        /** Verze se v tabulce ukáže od první rozebrané recenze s textem. */
+        const val MIN_VERSION_SHOWN = 1
+
+        /** Dopad se hodnotí od pěti recenzí po vydání — podíl ze dvou recenzí je náhoda. */
         const val MIN_VERSION_REVIEWS = 5
 
         /** Téma u verze se počítá od dvou zmínek; verze mají řádově míň recenzí než období. */

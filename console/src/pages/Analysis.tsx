@@ -740,7 +740,7 @@ function VersionImpactCard({ org, appId }: { org: string; appId: string }) {
   if (!versions.data || versions.data.length === 0) {
     return (
       <Card title="Dopad verzí">
-        <Empty>Zatím žádná verze nemá dost recenzí na to, aby se dalo srovnávat (potřeba aspoň pět).</Empty>
+        <Empty>Zatím žádná verze nemá rozebranou recenzi s textem.</Empty>
       </Card>
     )
   }
@@ -787,7 +787,6 @@ function VersionRow({
   open: boolean
   onToggle: () => void
 }) {
-  const stars = (value: number | null) => (value == null ? '—' : value.toFixed(2))
   return (
     <>
       <tr>
@@ -796,43 +795,7 @@ function VersionRow({
           <span className="small muted">{item.platform === 'ANDROID' ? 'Google Play' : 'App Store'}</span>
           <div className="small muted">od {new Date(item.firstSeen).toLocaleDateString('cs-CZ')}</div>
         </td>
-        <td>
-          {stars(item.before.avgStars)} → {stars(item.after.avgStars)}
-          {item.starsDelta != null && Math.abs(item.starsDelta) >= 0.05 ? (
-            <span className={`small metric-delta ${item.starsDelta > 0 ? 'up' : 'down'}`}>
-              {' '}
-              {item.starsDelta > 0 ? '+' : ''}
-              {item.starsDelta.toFixed(2)}
-            </span>
-          ) : null}
-        </td>
-        <td>
-          {percent(item.before.negativeShare)} → {percent(item.after.negativeShare)}
-          {Math.abs(item.negativeDelta) >= 0.05 ? (
-            <span className={`small metric-delta ${item.negativeDelta > 0 ? 'down' : 'up'}`}>
-              {' '}
-              {item.negativeDelta > 0 ? '+' : ''}
-              {Math.round(item.negativeDelta * 100)} b.
-            </span>
-          ) : null}
-        </td>
-        <td>
-          {item.newTopics.slice(0, 3).map((topic) => (
-            <span key={topic.key}>
-              <Badge tone="bad">
-                + {topic.name} ({topic.count})
-              </Badge>{' '}
-            </span>
-          ))}
-          {item.goneTopics.slice(0, 3).map((topic) => (
-            <span key={topic.key}>
-              <Badge tone="ok">− {topic.name}</Badge>{' '}
-            </span>
-          ))}
-          {item.newTopics.length === 0 && item.goneTopics.length === 0 ? (
-            <span className="small muted">nic, o čem by se psalo jinak</span>
-          ) : null}
-        </td>
+        {item.assessable ? <VersionMetrics item={item} /> : <VersionCollecting item={item} />}
         <td>
           <button type="button" className="secondary" onClick={onToggle}>
             {open ? 'Skrýt' : 'Rozbalit'}
@@ -858,6 +821,84 @@ function VersionRow({
       ) : null}
     </>
   )
+}
+
+/** Srovnání před a po vydání — jen u verze, která má po vydání dost recenzí s textem. */
+function VersionMetrics({ item }: { item: VersionImpact }) {
+  const stars = (value: number | null) => (value == null ? '—' : value.toFixed(2))
+  return (
+    <>
+      <td>
+        {stars(item.before.avgStars)} → {stars(item.after.avgStars)}
+        {item.starsDelta != null && Math.abs(item.starsDelta) >= 0.05 ? (
+          <span className={`small metric-delta ${item.starsDelta > 0 ? 'up' : 'down'}`}>
+            {' '}
+            {item.starsDelta > 0 ? '+' : ''}
+            {item.starsDelta.toFixed(2)}
+          </span>
+        ) : null}
+      </td>
+      <td>
+        {percent(item.before.negativeShare)} → {percent(item.after.negativeShare)}
+        {Math.abs(item.negativeDelta) >= 0.05 ? (
+          <span className={`small metric-delta ${item.negativeDelta > 0 ? 'down' : 'up'}`}>
+            {' '}
+            {item.negativeDelta > 0 ? '+' : ''}
+            {Math.round(item.negativeDelta * 100)} b.
+          </span>
+        ) : null}
+      </td>
+      <td>
+        {item.newTopics.slice(0, 3).map((topic) => (
+          <span key={topic.key}>
+            <Badge tone="bad">
+              + {topic.name} ({topic.count})
+            </Badge>{' '}
+          </span>
+        ))}
+        {item.goneTopics.slice(0, 3).map((topic) => (
+          <span key={topic.key}>
+            <Badge tone="ok">− {topic.name}</Badge>{' '}
+          </span>
+        ))}
+        {item.newTopics.length === 0 && item.goneTopics.length === 0 ? (
+          <span className="small muted">nic, o čem by se psalo jinak</span>
+        ) : null}
+      </td>
+    </>
+  )
+}
+
+/**
+ * Verze, o které už víme, ale na dopad je brzy. Čísla ze dvou recenzí by vypadala jako
+ * závěr, takže místo nich ukazujeme, kolik recenzí s textem chybí.
+ */
+function VersionCollecting({ item }: { item: VersionImpact }) {
+  const have = Math.min(item.after.reviews, item.minReviews)
+  return (
+    <td colSpan={3}>
+      <div className="version-collecting">
+        <span className="data-dots" aria-hidden="true">
+          {Array.from({ length: item.minReviews }, (_, index) => (
+            <span key={index} className={index < have ? 'filled' : undefined} />
+          ))}
+        </span>
+        <span>
+          <strong>Dopad zatím nejde zhodnotit</strong>
+          <span className="small muted">
+            {' '}
+            — po vydání {reviewsWithText(item.after.reviews)}, potřebujeme aspoň {item.minReviews}.
+          </span>
+        </span>
+      </div>
+    </td>
+  )
+}
+
+function reviewsWithText(count: number): string {
+  if (count === 1) return '1 recenze s textem'
+  if (count >= 2 && count <= 4) return `${count} recenze s textem`
+  return `${count} recenzí s textem`
 }
 
 function TerritorySelect({

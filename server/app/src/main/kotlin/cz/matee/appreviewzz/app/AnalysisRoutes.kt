@@ -6,6 +6,7 @@ import cz.matee.appreviewzz.core.model.Platform
 import cz.matee.appreviewzz.core.port.AnalysisFilter
 import cz.matee.appreviewzz.core.usecase.AnalysisAlertView
 import cz.matee.appreviewzz.core.usecase.AnalysisCalendarPeriod
+import cz.matee.appreviewzz.core.usecase.AnalysisInsights
 import cz.matee.appreviewzz.core.usecase.AnalysisOverview
 import cz.matee.appreviewzz.core.usecase.ConsoleException
 import cz.matee.appreviewzz.core.usecase.ConsoleFailure
@@ -156,6 +157,10 @@ data class VersionImpactResponse(
     val goneTopics: List<VersionTopicResponse>,
     val starsDelta: Double?,
     val negativeDelta: Double,
+    /** `false`: verze má po vydání málo recenzí s textem a konzole dopad nehodnotí. */
+    val assessable: Boolean,
+    /** Od kolika recenzí po vydání se dopad hodnotí — ať konzole práh nemusí znát nazpaměť. */
+    val minReviews: Int,
 )
 
 /** Výkyv tak, jak ho vidí konzole. `expected` jde ven schválně — bez baseline se alert nedá číst. */
@@ -387,6 +392,8 @@ private fun VersionImpact.toResponse() =
         goneTopics = goneTopics.map { it.toResponse() },
         starsDelta = starsDelta,
         negativeDelta = negativeDelta,
+        assessable = assessable,
+        minReviews = AnalysisInsights.MIN_VERSION_REVIEWS,
     )
 
 private fun AnalysisOverview.toResponse() =

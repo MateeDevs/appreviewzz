@@ -26,6 +26,7 @@ import cz.matee.appreviewzz.persistence.schema.ReviewInsights
 import cz.matee.appreviewzz.persistence.schema.ReviewRevisions
 import cz.matee.appreviewzz.persistence.schema.Reviews
 import kotlinx.datetime.LocalDate
+import org.jetbrains.exposed.v1.core.Coalesce
 import org.jetbrains.exposed.v1.core.Expression
 import org.jetbrains.exposed.v1.core.Function
 import org.jetbrains.exposed.v1.core.JoinType
@@ -344,6 +345,20 @@ class ExposedAnalysisAggregateRepository(
         transaction(database) {
             val reviewCount = Reviews.id.count()
             val firstSeen = Reviews.submittedAt.min()
+            // Den vydání ze všech recenzí verze, i hodnocení bez textu — ta chodí z exportu
+            // dřív a hojněji než recenze s textem, takže vydání odhadnou přesněji. Čas změny
+            // má přednost: editovaná recenze nese verzi z doby editace, ale čas odeslání
+            // původní — třeba i roky starý, a verze by pak „vyšla" dávno před sebou.
+            val lastTouched = Coalesce(Reviews.storeUpdatedAt, Reviews.submittedAt).min()
+            val released =
+                Reviews
+                    .select(Reviews.appVersion, Reviews.platform, lastTouched)
+                    .where {
+                        (Reviews.orgId eq orgId) and
+                            (Reviews.appId eq appId) and
+                            Reviews.appVersion.isNotNull()
+                    }.groupBy(Reviews.appVersion, Reviews.platform)
+                    .associate { (it[Reviews.appVersion].orEmpty() to it[Reviews.platform]) to it[lastTouched] }
             Reviews
                 .join(ReviewInsights, JoinType.INNER, Reviews.id, ReviewInsights.reviewId)
                 .select(Reviews.appVersion, Reviews.platform, reviewCount, firstSeen)
@@ -357,10 +372,12 @@ class ExposedAnalysisAggregateRepository(
                 }.groupBy(Reviews.appVersion, Reviews.platform)
                 .mapNotNull { row ->
                     val count = row[reviewCount].toInt()
-                    val start = row[firstSeen] ?: return@mapNotNull null
-                    if (count < minReviews) return@mapNotNull null
+                    val version = row[Reviews.appVersion].orEmpty()
+                    val start =
+                        released[version to row[Reviews.platform]] ?: row[firstSeen] ?: return@mapNotNull null
+                    if (count < minReviews || start < since) return@mapNotNull null
                     VersionWindow(
-                        version = row[Reviews.appVersion].orEmpty(),
+                        version = version,
                         platform = row[Reviews.platform],
                         firstSeen = start,
                         reviews = count,

@@ -78,7 +78,10 @@ class MonthlyReportUseCase(
         // Období je **konkrétní měsíc**, ne posledních N dní: report se jmenuje podle
         // měsíce a čísla pod tím jménem musí být z něj.
         val overview = insights.overview(orgId, appId, start, end)
-        val versions = insights.versions(orgId, appId).filter { it.firstSeen >= start.atStartOfDayIn(zone) }
+        // Report je zmrazený: verze, u které dopad zatím hodnotit nejde, by v něm zůstala
+        // s čísly ze dvou recenzí navždy.
+        val versions =
+            insights.versions(orgId, appId).filter { it.assessable && it.firstSeen >= start.atStartOfDayIn(zone) }
         val from = start.atStartOfDayIn(zone)
         val to = end.plus(1, DateTimeUnit.DAY).atStartOfDayIn(zone)
 
