@@ -114,6 +114,17 @@ value class AppTopicId(
 }
 
 @JvmInline
+value class ReplyTemplateId(
+    val value: Uuid,
+) {
+    override fun toString(): String = value.toString()
+
+    companion object {
+        fun parse(raw: String): ReplyTemplateId = ReplyTemplateId(Uuid.parse(raw))
+    }
+}
+
+@JvmInline
 value class AnalysisAlertId(
     val value: Uuid,
 ) {

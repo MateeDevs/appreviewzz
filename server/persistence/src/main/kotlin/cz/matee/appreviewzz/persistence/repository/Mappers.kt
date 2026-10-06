@@ -149,6 +149,7 @@ internal fun ResultRow.toApp(): App =
         analysisMinTopicCount = this[Apps.analysisMinTopicCount]?.toInt(),
         autoThanksEnabled = this[Apps.autoThanksEnabled],
         autoThanksTemplate = this[Apps.autoThanksTemplate],
+        competitor = this[Apps.competitor],
         enabled = this[Apps.enabled],
         createdAt = this[Apps.createdAt],
     )

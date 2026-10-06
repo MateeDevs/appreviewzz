@@ -67,7 +67,9 @@ class PlayReportingRatingsSource(
                 downloadOverview(bucket, prefix, token)
             }
 
-        val latest = rows.maxByOrNull { it.date } ?: return emptyList()
+        // Poslední den exportu bývá rozpracovaný a Play do něj zapíše nulu; vzít ji by v grafu
+        // udělalo propad z 4,6 na 0. Bereme nejnovější den, který průměr opravdu má.
+        val latest = rows.filter { (it.totalAverage ?: 0.0) > 0.0 }.maxByOrNull { it.date } ?: return emptyList()
         logger.info { "Play reporting: ${context.appIdentifier} k ${latest.date}, průměr ${latest.totalAverage}" }
         return listOf(
             ObservedRatings(

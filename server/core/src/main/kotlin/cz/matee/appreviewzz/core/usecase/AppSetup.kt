@@ -64,6 +64,8 @@ class AppSetupCheck(
     private val channels: ChannelRepository,
 ) {
     fun of(app: App): AppSetup {
+        // Konkurence se čte z veřejných zdrojů: žádný klíč, žádný kanál, nic k doplnění.
+        if (app.competitor) return AppSetup(gaps = emptyList(), platformsWithoutKey = emptyList())
         val keys =
             app.platforms().associateWith { platform ->
                 credentials.findForApp(app.orgId, app.id, CredentialPurpose.REVIEWS, credentialType(platform))

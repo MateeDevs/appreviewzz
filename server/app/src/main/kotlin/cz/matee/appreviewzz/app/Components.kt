@@ -26,6 +26,7 @@ import cz.matee.appreviewzz.channels.teams.teamsHttpClient
 import cz.matee.appreviewzz.connectors.appstore.AppStoreConnector
 import cz.matee.appreviewzz.connectors.appstore.AppStoreListingLookup
 import cz.matee.appreviewzz.connectors.appstore.AppStoreListingRatingsSource
+import cz.matee.appreviewzz.connectors.appstore.AppStoreRssReviewSource
 import cz.matee.appreviewzz.connectors.appstore.ITunesRatingsSource
 import cz.matee.appreviewzz.connectors.appstore.appStoreHttpClient
 import cz.matee.appreviewzz.connectors.googleplay.GcpIamProvisioner
@@ -40,6 +41,7 @@ import cz.matee.appreviewzz.core.model.SecretPayload
 import cz.matee.appreviewzz.core.port.Mailer
 import cz.matee.appreviewzz.core.port.NotificationChannel
 import cz.matee.appreviewzz.core.port.PasswordHasher
+import cz.matee.appreviewzz.core.port.PublicReviewSource
 import cz.matee.appreviewzz.core.port.RatingsSource
 import cz.matee.appreviewzz.core.port.ReplyTarget
 import cz.matee.appreviewzz.core.port.ReportingBucketProbe
@@ -72,6 +74,8 @@ import cz.matee.appreviewzz.core.usecase.PlatformConfig
 import cz.matee.appreviewzz.core.usecase.PublishReplyUseCase
 import cz.matee.appreviewzz.core.usecase.RatingsInsights
 import cz.matee.appreviewzz.core.usecase.RefreshStoreRepliesUseCase
+import cz.matee.appreviewzz.core.usecase.ReplyAssistant
+import cz.matee.appreviewzz.core.usecase.ReplyTemplateService
 import cz.matee.appreviewzz.core.usecase.RevalidateCredentialsUseCase
 import cz.matee.appreviewzz.core.usecase.ReviewInbox
 import cz.matee.appreviewzz.core.usecase.ScheduledAnalysisUseCase
@@ -116,6 +120,7 @@ import cz.matee.appreviewzz.persistence.repository.ExposedPlatformStatsRepositor
 import cz.matee.appreviewzz.persistence.repository.ExposedRatingSnapshotRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedRatingsDigestRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedReplyRepository
+import cz.matee.appreviewzz.persistence.repository.ExposedReplyTemplateRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedReviewInsightRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedReviewMessageRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedReviewRepository
@@ -160,6 +165,7 @@ class Components(
     val reviewInsights = ExposedReviewInsightRepository(exposed)
     val analysisAggregates = ExposedAnalysisAggregateRepository(exposed)
     val appTopics = ExposedAppTopicRepository(exposed)
+    val replyTemplates = ExposedReplyTemplateRepository(exposed)
     val analysisDigests = ExposedAnalysisDigestRepository(exposed)
     val analysisAlerts = ExposedAnalysisAlertRepository(exposed)
     val insightReports = ExposedInsightReportRepository(exposed)
@@ -233,6 +239,9 @@ class Components(
     private val appStore: AppStoreConnector by lazy { AppStoreConnector(storeClients.appStore) }
 
     val reviewSources: List<ReviewSource> by lazy { listOf(googlePlay, appStore) }
+
+    /** Veřejné recenze pro konkurenci (C4). Google Play veřejné API nemá, takže jen App Store. */
+    val publicReviewSources: List<PublicReviewSource> by lazy { listOf(AppStoreRssReviewSource(storeClients.appStore)) }
 
     /** Dohledání jedné recenze umí zatím jen Google Play — ASC vrací historii celou. */
     val reviewRefreshSources: List<ReviewRefreshSource> by lazy { listOf(googlePlay) }
@@ -411,6 +420,7 @@ class Components(
             secrets = vault,
             audit = audit,
             sources = reviewSources,
+            publicSources = publicReviewSources,
         )
     }
 
@@ -813,6 +823,14 @@ class Components(
     }
 
     /** Vlastní témata aplikace pro rozbory (F8). */
+    val replyTemplateService: ReplyTemplateService by lazy {
+        ReplyTemplateService(templates = replyTemplates, apps = apps, audit = audit)
+    }
+
+    val replyAssistant: ReplyAssistant by lazy {
+        ReplyAssistant(apps = apps, reviews = reviews, suggestions = suggestions)
+    }
+
     val appTopicService: AppTopicService by lazy {
         AppTopicService(topics = appTopics, apps = apps, audit = audit)
     }

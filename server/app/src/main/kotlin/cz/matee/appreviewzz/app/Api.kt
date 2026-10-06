@@ -81,6 +81,8 @@ fun runApi(
             memberships = components.memberships,
             reviews = components.reviewInbox,
             appTopics = components.appTopicService,
+            replyTemplates = components.replyTemplateService,
+            replyAssistant = components.replyAssistant,
             analysis = components.analysisInsights,
             links = components.consoleLinks,
             reports = components.monthlyReports,

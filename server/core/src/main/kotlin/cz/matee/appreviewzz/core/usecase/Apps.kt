@@ -48,6 +48,8 @@ data class AppDraft(
     /** Záložní text poděkování; prázdný řetězec ho zruší. */
     val autoThanksTemplate: String? = null,
     val enabled: Boolean? = null,
+    /** Konkurenční appka (C4). Bere se jen při založení; u úprav se ignoruje. */
+    val competitor: Boolean? = null,
 )
 
 /**
@@ -145,9 +147,19 @@ class AppService(
                         draft.analysisCadence?.let { AppInputs.analysisCadence(it, "analysisCadence") } ?: defaults.analysisCadence,
                     analysisMinReviews = analysisMinReviews(draft),
                     analysisMinTopicCount = analysisMinTopicCount(draft),
+                    competitor = draft.competitor ?: false,
                 ),
             )
-        audit(organization.id, actor, "app.created", app.id.toString(), mapOf("name" to app.name))
+        audit(
+            organization.id,
+            actor,
+            "app.created",
+            app.id.toString(),
+            buildMap {
+                put("name", app.name)
+                if (app.competitor) put("konkurence", "true")
+            },
+        )
         logger.info { "Aplikace ${app.id} (${app.name}) založená v organizaci ${organization.slug}" }
         return app
     }
@@ -175,7 +187,16 @@ class AppService(
                 locale = draft.locale?.let { AppInputs.locale(it, "locale") } ?: current.locale,
                 timezone = draft.timezone?.let { AppInputs.timezone(it, "timezone") } ?: current.timezone,
                 notifyFrom = AppInputs.notifyFrom(draft.notifyFrom, "notifyFrom", clock) ?: current.notifyFrom,
-                aiInstructions = draft.aiInstructions?.takeIf { it.isNotBlank() },
+                // `null` = nech, jak je; prázdný řetězec instrukce ruší. Dřív vynechané pole
+                // instrukce tiše smazalo — stačilo v konzoli pozastavit sledování.
+                aiInstructions =
+                    if (draft.aiInstructions ==
+                        null
+                    ) {
+                        current.aiInstructions
+                    } else {
+                        draft.aiInstructions.takeIf { it.isNotBlank() }
+                    },
                 ingestIntervalMinutes = intervalOverride(actor, draft) ?: current.ingestIntervalMinutes,
                 dailyDigestAt = draft.dailyDigestAt?.let { AppInputs.digestAt(it, "dailyDigestAt") } ?: current.dailyDigestAt,
                 weeklyDigestDay =

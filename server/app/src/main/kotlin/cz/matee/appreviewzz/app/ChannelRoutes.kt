@@ -64,6 +64,8 @@ data class ChannelResponse(
 @Serializable
 data class UpdateChannelRequest(
     val enabled: Boolean? = null,
+    /** `cs` / `en`. */
+    val locale: String? = null,
     val deliverReviews: Boolean? = null,
     val deliverRatings: Boolean? = null,
     val deliverAnalyses: Boolean? = null,
@@ -356,8 +358,15 @@ fun Route.channelRoutes(console: ConsoleWiring) {
             val context = call.orgContext(console.organizations, console.memberships)
             val request = call.receive<UpdateChannelRequest>()
             val channelId = call.channelIdParam()
+            val locale =
+                request.locale?.let {
+                    runCatching { MessageLocale.ofCode(it) }.getOrElse {
+                        throw ConsoleException(ConsoleFailure.INVALID_INPUT, "Jazyk musí být cs nebo en")
+                    }
+                }
             io {
                 request.enabled?.let { channels.setEnabled(context.organization, context.actor, channelId, it) }
+                locale?.let { channels.setLocale(context.organization, context.actor, channelId, it) }
                 if (request.deliverReviews != null || request.deliverRatings != null || request.deliverAnalyses != null) {
                     channels.setDeliveries(
                         organization = context.organization,

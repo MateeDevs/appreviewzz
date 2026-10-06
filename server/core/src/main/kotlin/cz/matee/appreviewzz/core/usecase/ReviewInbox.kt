@@ -5,6 +5,7 @@ import cz.matee.appreviewzz.core.model.App
 import cz.matee.appreviewzz.core.model.AppId
 import cz.matee.appreviewzz.core.model.Channel
 import cz.matee.appreviewzz.core.model.CredentialMeta
+import cz.matee.appreviewzz.core.model.CredentialType
 import cz.matee.appreviewzz.core.model.FailedJob
 import cz.matee.appreviewzz.core.model.OrgRole
 import cz.matee.appreviewzz.core.model.Organization
@@ -17,6 +18,7 @@ import cz.matee.appreviewzz.core.model.ReviewMessage
 import cz.matee.appreviewzz.core.model.ReviewState
 import cz.matee.appreviewzz.core.model.Topic
 import cz.matee.appreviewzz.core.model.TopicGroup
+import cz.matee.appreviewzz.core.model.Urgency
 import cz.matee.appreviewzz.core.port.AppRepository
 import cz.matee.appreviewzz.core.port.AppTopicRepository
 import cz.matee.appreviewzz.core.port.AuditLogRepository
@@ -80,6 +82,8 @@ data class AppHealth(
     val credentials: List<CredentialMeta>,
     val lastReviewAt: kotlin.time.Instant?,
     val pendingReviews: Int,
+    /** Podmnožina [pendingReviews] s naléhavostí HIGH podle výkladu. */
+    val pendingUrgent: Int = 0,
 )
 
 data class OrgHealth(
@@ -116,6 +120,16 @@ class ReviewInbox(
         val found = reviews.listByApp(orgId, appId, filter, limit.coerceIn(1, MAX_LIMIT))
         val byReview = insights.findByReviews(orgId, found.map { it.id })
         return found.map { InboxItem(it, byReview[it.id]) }
+    }
+
+    /** Kolik recenzí filtr dává celkem — inbox podle toho ukáže „43 recenzí" a stránkuje. */
+    fun count(
+        orgId: OrganizationId,
+        appId: AppId,
+        filter: ReviewFilter,
+    ): Long {
+        apps.findById(orgId, appId) ?: throw ConsoleException(ConsoleFailure.NOT_FOUND, "Taková aplikace tu není")
+        return reviews.countByApp(orgId, appId, filter)
     }
 
     /**
@@ -226,12 +240,19 @@ class ReviewInbox(
             apps =
                 apps.listByOrg(orgId).map { app ->
                     val recent = reviews.listByApp(orgId, app.id, ReviewFilter(), HEALTH_SAMPLE)
+                    // Stejná definice jako filtr „Čeká na odpověď" v inboxu — jinak přehled hlásí
+                    // nulu a o kus dál svítí čtyřicet recenzí, které čekají.
+                    val pending = reviews.listByApp(orgId, app.id, ReviewFilter(states = PENDING_STATES), MAX_LIMIT)
+                    // Naléhavé zvlášť: čtyřicet čekajících je číslo, tři naléhavé jsou úkol na ráno.
+                    val urgent = insights.findByReviews(orgId, pending.map { it.id }).values.count { it.urgency == Urgency.HIGH }
                     AppHealth(
                         app = app,
                         channels = channels.listByApp(orgId, app.id),
-                        credentials = credentialsOfOrg,
+                        // Slack instalace není klíč ke storu; „neověřený" u ní nic neznamená.
+                        credentials = credentialsOfOrg.filter { it.type in STORE_KEY_TYPES },
                         lastReviewAt = recent.firstOrNull()?.submittedAt,
-                        pendingReviews = recent.count { it.state == ReviewState.NEW || it.state == ReviewState.UPDATED },
+                        pendingReviews = pending.size,
+                        pendingUrgent = urgent,
                     )
                 },
             failedJobs = failedJobs.listOpenByOrg(orgId, DLQ_LIMIT),
@@ -245,6 +266,8 @@ class ReviewInbox(
         const val HEALTH_SAMPLE = 50
         const val DLQ_LIMIT = 50
         val MANUAL_STATES = setOf(ReviewState.IGNORED, ReviewState.NEW)
+        val PENDING_STATES = setOf(ReviewState.NEW, ReviewState.UPDATED, ReviewState.NOTIFIED)
+        val STORE_KEY_TYPES = setOf(CredentialType.GP_SERVICE_ACCOUNT, CredentialType.ASC_API_KEY)
 
         /** Okno pro počty témat ve výběru — měsíc je to, co si klient pamatuje. */
         val RECENT_WINDOW = 30.days

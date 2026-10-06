@@ -23,6 +23,11 @@ data class ReplySuggestionRequest(
     /** Per-app instrukce z console: tón, podpis, co nikdy neslibovat. */
     val instructions: String?,
     val maxLength: Int,
+    /**
+     * Koncept odpovědi k **přeložení** do jazyka recenze (C8). Když je vyplněný, provider
+     * nic nevymýšlí — jen překládá; recenze je kontext pro tón a oslovení.
+     */
+    val draftToTranslate: String? = null,
 ) {
     companion object {
         fun of(

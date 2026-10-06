@@ -13,6 +13,7 @@ import cz.matee.appreviewzz.core.model.ValidationStatus
 import cz.matee.appreviewzz.core.port.AppRepository
 import cz.matee.appreviewzz.core.port.AuditLogRepository
 import cz.matee.appreviewzz.core.port.CredentialRepository
+import cz.matee.appreviewzz.core.port.PublicReviewSource
 import cz.matee.appreviewzz.core.port.ReviewRepository
 import cz.matee.appreviewzz.core.port.ReviewSource
 import cz.matee.appreviewzz.core.port.ReviewTimeKey
@@ -131,8 +132,11 @@ class IngestReviewsUseCase(
     private val audit: AuditLogRepository,
     sources: List<ReviewSource>,
     private val clock: Clock = Clock.System,
+    /** Veřejné zdroje pro konkurenci (C4). Bez nich se konkurenční appka jen přeskočí. */
+    publicSources: List<PublicReviewSource> = emptyList(),
 ) {
     private val sourceByPlatform: Map<Platform, ReviewSource> = sources.associateBy { it.platform }
+    private val publicSourceByPlatform: Map<Platform, PublicReviewSource> = publicSources.associateBy { it.platform }
 
     init {
         require(sourceByPlatform.size == sources.size) {
@@ -159,11 +163,12 @@ class IngestReviewsUseCase(
         app: App,
         platform: Platform,
     ): PlatformIngest {
-        val source =
-            sourceByPlatform[platform]
-                ?: return PlatformIngest.Skipped(platform, PlatformSkipReason.NO_CONNECTOR)
         val identifier =
             app.storeIdentifier(platform)
+                ?: return PlatformIngest.Skipped(platform, PlatformSkipReason.NO_CONNECTOR)
+        if (app.competitor) return ingestPublic(app, platform, identifier)
+        val source =
+            sourceByPlatform[platform]
                 ?: return PlatformIngest.Skipped(platform, PlatformSkipReason.NO_CONNECTOR)
         val credential =
             credentials.findForApp(app.orgId, app.id, CredentialPurpose.REVIEWS, credentialType(platform))
@@ -184,6 +189,28 @@ class IngestReviewsUseCase(
         return store(app, platform, observed)
     }
 
+    /**
+     * Konkurence (C4): veřejný zdroj, žádný credential, žádné ověřování. Chyba storu se
+     * hlásí stejně jako u vlastní appky, aby ji bylo vidět v delivery health.
+     */
+    private suspend fun ingestPublic(
+        app: App,
+        platform: Platform,
+        identifier: String,
+    ): PlatformIngest {
+        val source =
+            publicSourceByPlatform[platform]
+                ?: return PlatformIngest.Skipped(platform, PlatformSkipReason.NO_CONNECTOR)
+        val observed =
+            try {
+                source.fetchPublicReviews(identifier)
+            } catch (error: StoreConnectorException) {
+                logger.warn { "Veřejný ingest ${app.id}/$platform selhal (${error.kind}): ${error.message}" }
+                return PlatformIngest.Failed(platform, error.kind, error.message.orEmpty())
+            }
+        return store(app, platform, observed)
+    }
+
     private fun store(
         app: App,
         platform: Platform,
@@ -201,7 +228,9 @@ class IngestReviewsUseCase(
 
         // Chronologicky: v kanálu má starší recenze přistát dřív než novější.
         observed.sortedBy { it.submittedAt }.forEach { review ->
-            val initialState = if (isUnderWatermark(app, review)) ReviewState.SUPPRESSED else ReviewState.NEW
+            // Konkurence se nikdy nenotifikuje — slouží rozborům, ne kanálu.
+            val initialState =
+                if (app.competitor || isUnderWatermark(app, review)) ReviewState.SUPPRESSED else ReviewState.NEW
             val twin = archived.twinOf(review)?.let { reviews.adoptArchived(app.orgId, app.id, it, review) }
             var result = reviews.upsert(app.orgId, app.id, review, seenAt, initialState)
             if (twin != null) {

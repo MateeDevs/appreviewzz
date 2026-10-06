@@ -225,6 +225,12 @@ internal class FakeChannelRepository(
         deliverAnalyses: Boolean,
     ): Boolean = unused()
 
+    override fun setLocale(
+        orgId: OrganizationId,
+        id: ChannelId,
+        locale: MessageLocale,
+    ): Boolean = unused()
+
     override fun delete(
         orgId: OrganizationId,
         id: ChannelId,

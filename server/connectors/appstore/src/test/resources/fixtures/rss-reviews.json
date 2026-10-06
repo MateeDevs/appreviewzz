@@ -1,0 +1,10 @@
+{"feed":{"author":{"name":{"label":"iTunes Store"}},"entry":[
+ {"author":{"uri":{"label":"https://itunes.apple.com/cz/reviews/id1"},"name":{"label":"Jana N."},"label":""},
+  "updated":{"label":"2026-10-01T10:15:00-07:00"},"im:rating":{"label":"2"},"im:version":{"label":"3.7.0"},
+  "id":{"label":"11111"},"title":{"label":"Padá"},"content":{"label":"Po aktualizaci padá při startu.","attributes":{"type":"text"}},
+  "link":{"attributes":{"rel":"related","href":"https://itunes.apple.com/cz/review?id=1&type=Purple%20Software"}},"im:voteSum":{"label":"0"},"im:contentType":{"attributes":{"term":"Application","label":"Aplikace"}},"im:voteCount":{"label":"0"}},
+ {"author":{"uri":{"label":"https://itunes.apple.com/cz/reviews/id2"},"name":{"label":"Petr"},"label":""},
+  "updated":{"label":"2026-09-30T08:00:00-07:00"},"im:rating":{"label":"5"},"im:version":{"label":"3.7.0"},
+  "id":{"label":"22222"},"title":{"label":"Super"},"content":{"label":"Funguje skvěle.","attributes":{"type":"text"}}},
+ {"author":{"name":{"label":"Bez hvězd"}},"updated":{"label":"2026-09-29T08:00:00-07:00"},"im:rating":{"label":""},"id":{"label":"33333"},"title":{"label":"x"},"content":{"label":"y"}}
+]}}

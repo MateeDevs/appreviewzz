@@ -306,7 +306,7 @@ class AnalysisRoutesTest :
 
         "přehled rozborů dává nálady, témata s trendem a trhy z jednoho dotazu" {
             testApplication {
-                consoleModule(mailer, analysisQueue = analysis)
+                consoleModule(mailer, clock = CLOCK, analysisQueue = analysis)
                 val (owner, appId) = ownerWithApp(mailer)
                 repeat(REVIEWS_IN_FIXTURE) { index ->
                     seedReview(
@@ -372,7 +372,7 @@ class AnalysisRoutesTest :
 
         "filtr přehledu podle platformy a trhu zúží čísla, nesmysl je chyba požadavku" {
             testApplication {
-                consoleModule(mailer, analysisQueue = analysis)
+                consoleModule(mailer, clock = CLOCK, analysisQueue = analysis)
                 val (owner, appId) = ownerWithApp(mailer)
                 seedReview(
                     appId,

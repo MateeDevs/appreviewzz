@@ -4,6 +4,7 @@ import cz.matee.appreviewzz.core.model.App
 import cz.matee.appreviewzz.core.model.AppId
 import cz.matee.appreviewzz.core.model.Channel
 import cz.matee.appreviewzz.core.model.ChannelId
+import cz.matee.appreviewzz.core.model.MessageLocale
 import cz.matee.appreviewzz.core.model.OrganizationId
 import cz.matee.appreviewzz.core.port.AppRepository
 import cz.matee.appreviewzz.core.port.AppSettings
@@ -55,6 +56,7 @@ class ExposedAppRepository(
                     analysisMinTopicCount = app.analysisMinTopicCount,
                     autoThanksEnabled = app.autoThanksEnabled,
                     autoThanksTemplate = app.autoThanksTemplate,
+                    competitor = app.competitor,
                     enabled = true,
                     createdAt = clock.now(),
                 )
@@ -78,6 +80,7 @@ class ExposedAppRepository(
                 it[analysisMinTopicCount] = created.analysisMinTopicCount?.toShort()
                 it[autoThanksEnabled] = created.autoThanksEnabled
                 it[autoThanksTemplate] = created.autoThanksTemplate
+                it[competitor] = created.competitor
                 it[enabled] = true
                 it[createdAt] = created.createdAt
                 it[updatedAt] = created.createdAt
@@ -274,6 +277,18 @@ class ExposedChannelRepository(
                 it[Channels.deliverReviews] = deliverReviews
                 it[Channels.deliverRatings] = deliverRatings
                 it[Channels.deliverAnalyses] = deliverAnalyses
+                it[updatedAt] = clock.now()
+            } > 0
+        }
+
+    override fun setLocale(
+        orgId: OrganizationId,
+        id: ChannelId,
+        locale: MessageLocale,
+    ): Boolean =
+        transaction(database) {
+            Channels.update({ (Channels.orgId eq orgId) and (Channels.id eq id) }) {
+                it[Channels.locale] = locale.code
                 it[updatedAt] = clock.now()
             } > 0
         }

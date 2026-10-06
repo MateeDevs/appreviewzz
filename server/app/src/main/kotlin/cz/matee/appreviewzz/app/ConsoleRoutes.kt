@@ -30,6 +30,8 @@ import cz.matee.appreviewzz.core.usecase.OrgActor
 import cz.matee.appreviewzz.core.usecase.OrganizationService
 import cz.matee.appreviewzz.core.usecase.PlatformAdminService
 import cz.matee.appreviewzz.core.usecase.RatingsInsights
+import cz.matee.appreviewzz.core.usecase.ReplyAssistant
+import cz.matee.appreviewzz.core.usecase.ReplyTemplateService
 import cz.matee.appreviewzz.core.usecase.ReviewInbox
 import cz.matee.appreviewzz.core.usecase.ScheduledAnalysisUseCase
 import io.ktor.server.application.Application
@@ -55,6 +57,8 @@ class ConsoleWiring(
     val reviews: ReviewInbox,
     /** Vlastní témata aplikace (F8) — základní taxonomii klient nemění. */
     val appTopics: AppTopicService,
+    /** Šablony odpovědí per appka (C2). */
+    val replyTemplates: ReplyTemplateService,
     /** Agregace pro stránku *Rozbory* a dopad verzí (F8, B1/B3). */
     val analysis: AnalysisInsights,
     /** Odkazy do konzole a na veřejný report — sdílený odkaz se skládá tady. */
@@ -113,6 +117,11 @@ class ConsoleWiring(
      * reporty nepoužívá, o nich nemusí vědět.
      */
     val reports: MonthlyReportUseCase? = null,
+    /**
+     * AI návrh a překlad odpovědi z konzole (C1, C8). `null` = proces bez AI vrstvy; konzole
+     * tlačítka ukáže a dostane větu, proč nic nepřišlo.
+     */
+    val replyAssistant: ReplyAssistant? = null,
     val clock: Clock = Clock.System,
 ) {
     /**
@@ -123,6 +132,8 @@ class ConsoleWiring(
      */
     internal fun requestHistoryImport(app: App) {
         val enqueue = enqueueHistoryImport ?: return
+        // Archiv storu chce klíč, který konkurenční appka nemá; RSS feed dá jen poslední stovky.
+        if (app.competitor) return
         val android = app.gpPackageName != null && app.gpReportingBucket != null
         val ios = app.ascAppId != null
         if (!android && !ios) return
@@ -162,6 +173,7 @@ fun Application.consoleRoutes(
                 credentialRoutes(console)
                 channelRoutes(console)
                 reviewRoutes(console)
+                replyTemplateRoutes(console)
                 analysisRoutes(console)
                 reportRoutes(console)
                 ratingsRoutes(console)

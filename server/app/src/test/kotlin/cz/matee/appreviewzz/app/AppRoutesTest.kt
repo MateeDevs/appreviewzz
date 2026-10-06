@@ -42,6 +42,38 @@ class AppRoutesTest :
             mailer = RecordingMailer()
         }
 
+        "úprava bez pole instrukcí je nechá být, prázdné pole je smaže" {
+            testApplication {
+                consoleModule(mailer)
+                val owner = ownerWithOrg(mailer)
+                val appId = owner.createApp().bodyAsText().jsonValue("id")
+                owner.patchJson("/api/orgs/$SLUG/apps/$appId", """{"name":"Testovací appka","aiInstructions":"Podepisuj Tým"}""")
+
+                owner.patchJson("/api/orgs/$SLUG/apps/$appId", """{"name":"Testovací appka","enabled":false}""").bodyAsText() shouldContain
+                    "\"aiInstructions\":\"Podepisuj Tým\""
+                owner
+                    .patchJson(
+                        "/api/orgs/$SLUG/apps/$appId",
+                        """{"name":"Testovací appka","aiInstructions":""}""",
+                    ).bodyAsText() shouldNotContain
+                    "Podepisuj Tým"
+            }
+        }
+
+        "konkurenční appka se založí bez klíče a hlásí se jako hotová" {
+            testApplication {
+                consoleModule(mailer)
+                val owner = ownerWithOrg(mailer)
+
+                val created = owner.createApp("""{"name":"Konkurent","ascAppId":"1234567890","competitor":true}""")
+                created.status shouldBe HttpStatusCode.Created
+                val body = created.bodyAsText()
+                body shouldContain "\"competitor\":true"
+                body shouldContain "\"ready\":true"
+                body shouldContain "\"gaps\":[]"
+            }
+        }
+
         "historie se dotáhne až tehdy, kdy je odkud — u Androidu s bucketem, u iOS rovnou" {
             testApplication {
                 val history = RecordingHistoryQueue()

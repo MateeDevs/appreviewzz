@@ -19,7 +19,9 @@ import cz.matee.appreviewzz.core.model.Topic
 import cz.matee.appreviewzz.core.model.TopicSentiment
 import cz.matee.appreviewzz.core.model.Urgency
 import cz.matee.appreviewzz.core.model.ValidationStatus
+import cz.matee.appreviewzz.core.port.ReplySuggestion
 import cz.matee.appreviewzz.core.port.ReviewFilter
+import cz.matee.appreviewzz.core.port.ReviewSort
 import cz.matee.appreviewzz.core.usecase.AnalysisStatus
 import cz.matee.appreviewzz.core.usecase.AppTopicDraft
 import cz.matee.appreviewzz.core.usecase.ConsoleException
@@ -149,6 +151,27 @@ data class ReplyRequest(
 )
 
 @Serializable
+data class TranslateReplyRequest(
+    val body: String,
+)
+
+/**
+ * Návrh nebo překlad odpovědi. `text` chybí, když AI není nastavená nebo selhala — `message`
+ * pak říká proč. Je to 200, ne chyba: konzole má formulář ukázat i tak.
+ */
+@Serializable
+data class ReplyAssistResponse(
+    val text: String?,
+    val model: String?,
+    val message: String?,
+)
+
+@Serializable
+data class ReviewCountResponse(
+    val count: Long,
+)
+
+@Serializable
 data class ChangeReviewStateRequest(
     val state: ReviewState,
 )
@@ -182,6 +205,10 @@ data class AppHealthResponse(
     val enabled: Boolean,
     val lastReviewAt: String?,
     val pendingReviews: Int,
+    /** Z toho s naléhavostí HIGH podle výkladu. */
+    val pendingUrgent: Int = 0,
+    /** Konkurence: bez klíče a kanálu — chybějící nastavení u ní není porucha. */
+    val competitor: Boolean = false,
     val channels: List<ChannelHealthResponse>,
     val credentials: List<CredentialHealthResponse>,
 )
@@ -232,6 +259,12 @@ fun Route.reviewRoutes(console: ConsoleWiring) {
                     inbox.list(context.organization.id, call.appIdParam(), filter, limit).map { it.toResponse(names) }
                 },
             )
+        }
+
+        get("/count") {
+            val context = call.orgContext(console.organizations, console.memberships)
+            val filter = call.reviewFilter()
+            call.respond(ReviewCountResponse(io { inbox.count(context.organization.id, call.appIdParam(), filter) }))
         }
     }
 
@@ -324,6 +357,28 @@ fun Route.reviewRoutes(console: ConsoleWiring) {
             call.respond(review.toResponse())
         }
 
+        // Návrh a překlad jsou k ruce, ne akce: nic neukládají a nic neodesílají.
+        post("/suggest") {
+            val context = call.orgContext(console.organizations, console.memberships)
+            val assistant = console.replyAssistant
+            if (assistant == null) {
+                call.respond(ReplyAssistResponse(null, null, "Návrhy odpovědí nejsou v téhle instalaci zapnuté."))
+                return@post
+            }
+            call.respond(assistant.suggest(context.organization.id, call.reviewIdParam()).toResponse())
+        }
+
+        post("/translate") {
+            val context = call.orgContext(console.organizations, console.memberships)
+            val request = call.receive<TranslateReplyRequest>()
+            val assistant = console.replyAssistant
+            if (assistant == null) {
+                call.respond(ReplyAssistResponse(null, null, "Překlady nejsou v téhle instalaci zapnuté."))
+                return@post
+            }
+            call.respond(assistant.translate(context.organization.id, call.reviewIdParam(), request.body).toResponse())
+        }
+
         post("/reply") {
             val context = call.orgContext(console.organizations, console.memberships)
             val request = call.receive<ReplyRequest>()
@@ -339,7 +394,10 @@ fun Route.reviewRoutes(console: ConsoleWiring) {
             val reviewId = call.reviewIdParam()
             val user = call.authenticatedUser.account.user
             // Ověření vlastnictví recenze proběhne dřív, než se cokoli zařadí do fronty.
-            io { inbox.detail(context.organization.id, reviewId) }
+            val detail = io { inbox.detail(context.organization.id, reviewId) }
+            if (io { console.apps.get(context.organization.id, detail.review.appId) }.competitor) {
+                throw ConsoleException(ConsoleFailure.INVALID_INPUT, "Na recenze konkurence se neodpovídá — nejsou naše")
+            }
 
             val queued =
                 io {
@@ -377,6 +435,8 @@ fun Route.reviewRoutes(console: ConsoleWiring) {
                             enabled = app.app.enabled,
                             lastReviewAt = app.lastReviewAt?.toString(),
                             pendingReviews = app.pendingReviews,
+                            pendingUrgent = app.pendingUrgent,
+                            competitor = app.app.competitor,
                             channels = app.channels.map { it.toHealth() },
                             credentials = app.credentials.map { it.toHealth() },
                         )
@@ -398,7 +458,8 @@ fun Route.reviewRoutes(console: ConsoleWiring) {
     get("/orgs/{org}/audit") {
         val context = call.orgContext(console.organizations, console.memberships)
         val limit = call.request.queryParameters["limit"]?.toIntOrNull() ?: DEFAULT_LIMIT
-        val entries = io { console.audit.list(context.organization.id, limit.coerceIn(1, MAX_AUDIT)) }
+        val offset = call.request.queryParameters["offset"]?.toIntOrNull() ?: 0
+        val entries = io { console.audit.list(context.organization.id, limit.coerceIn(1, MAX_AUDIT), offset.coerceAtLeast(0)) }
         call.respond(entries.map { it.toResponse() })
     }
 }
@@ -423,9 +484,18 @@ private fun ApplicationCall.reviewIdParam(): ReviewId =
  * Filtr inboxu z query parametrů. Neznámá hodnota je chyba požadavku, ne tichý prázdný
  * výsledek — překlep v `?urgency=hight` má být vidět hned.
  */
+private fun ReplySuggestion.toResponse(): ReplyAssistResponse =
+    when (this) {
+        is ReplySuggestion.Suggested -> ReplyAssistResponse(text, model, null)
+        is ReplySuggestion.Unavailable -> ReplyAssistResponse(null, null, "AI není nastavená — návrhy a překlady se negenerují.")
+        is ReplySuggestion.Failed -> ReplyAssistResponse(null, null, message)
+    }
+
 private fun ApplicationCall.reviewFilter(): ReviewFilter =
     ReviewFilter(
         states = stateFilter(),
+        sort = request.queryParameters["sort"]?.let { enumValue<ReviewSort>(it, "řazení") } ?: ReviewSort.NEWEST,
+        offset = request.queryParameters["offset"]?.toIntOrNull()?.coerceAtLeast(0) ?: 0,
         topics = values("topic").toSet(),
         types = values("type").map { enumValue<ReviewType>(it, "typ recenze") }.toSet(),
         urgencies = values("urgency").map { enumValue<Urgency>(it, "naléhavost") }.toSet(),

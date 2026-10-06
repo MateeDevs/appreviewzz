@@ -1,5 +1,6 @@
 package cz.matee.appreviewzz.app
 
+import cz.matee.appreviewzz.ai.NoSuggestReplyProvider
 import cz.matee.appreviewzz.app.cli.TestDatabase
 import cz.matee.appreviewzz.connectors.googleplay.GcpIamProvisioner
 import cz.matee.appreviewzz.core.message.AnalysisAlertMessage
@@ -26,6 +27,7 @@ import cz.matee.appreviewzz.core.port.StoreApp
 import cz.matee.appreviewzz.core.port.StoreAppCatalog
 import cz.matee.appreviewzz.core.port.StoreConnectorException
 import cz.matee.appreviewzz.core.port.StoreContext
+import cz.matee.appreviewzz.core.port.SuggestReplyProvider
 import cz.matee.appreviewzz.core.port.ValidationOutcome
 import cz.matee.appreviewzz.core.usecase.AnalysisInsights
 import cz.matee.appreviewzz.core.usecase.AppService
@@ -43,6 +45,8 @@ import cz.matee.appreviewzz.core.usecase.OrganizationService
 import cz.matee.appreviewzz.core.usecase.PlatformAdminService
 import cz.matee.appreviewzz.core.usecase.PlatformConfig
 import cz.matee.appreviewzz.core.usecase.RatingsInsights
+import cz.matee.appreviewzz.core.usecase.ReplyAssistant
+import cz.matee.appreviewzz.core.usecase.ReplyTemplateService
 import cz.matee.appreviewzz.core.usecase.ReviewInbox
 import cz.matee.appreviewzz.crypto.AppSecretBox
 import cz.matee.appreviewzz.crypto.Argon2PasswordHasher
@@ -70,6 +74,7 @@ import cz.matee.appreviewzz.persistence.repository.ExposedPlatformStatsRepositor
 import cz.matee.appreviewzz.persistence.repository.ExposedRatingSnapshotRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedRatingsDigestRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedReplyRepository
+import cz.matee.appreviewzz.persistence.repository.ExposedReplyTemplateRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedReviewInsightRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedReviewMessageRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedReviewRepository
@@ -303,6 +308,8 @@ fun ApplicationTestBuilder.consoleModule(
         ConsoleFakes(FakeReviewSource(Platform.ANDROID), FakeReviewSource(Platform.IOS), FakeNotificationChannel()),
     /** `null` = instalace bez provisioneru Google Play; dialog pak nabídne ruční nahrání. */
     gcpProvisioner: GcpIamProvisioner? = null,
+    /** AI k odpovědím; výchozí „bez AI" vrací Unavailable, testy si podstrčí vlastní. */
+    suggestions: SuggestReplyProvider = NoSuggestReplyProvider,
 ) {
     val exposed = TestDatabase.database.exposed
     val organizations = ExposedOrganizationRepository(exposed)
@@ -387,6 +394,9 @@ fun ApplicationTestBuilder.consoleModule(
             appTopics = appTopicRepository,
         )
     val appTopicService = AppTopicService(topics = appTopicRepository, apps = appRepository, audit = audit)
+    val replyTemplateService =
+        ReplyTemplateService(templates = ExposedReplyTemplateRepository(exposed), apps = appRepository, audit = audit)
+    val replyAssistant = ReplyAssistant(apps = appRepository, reviews = ExposedReviewRepository(exposed), suggestions = suggestions)
     val analysisAggregates = ExposedAnalysisAggregateRepository(exposed)
     val insightReports = ExposedInsightReportRepository(exposed)
     val analysisInsights =
@@ -462,6 +472,8 @@ fun ApplicationTestBuilder.consoleModule(
                     slack = slack,
                     reviews = reviewInbox,
                     appTopics = appTopicService,
+                    replyTemplates = replyTemplateService,
+                    replyAssistant = replyAssistant,
                     analysis = analysisInsights,
                     links = links,
                     reports = monthlyReports,

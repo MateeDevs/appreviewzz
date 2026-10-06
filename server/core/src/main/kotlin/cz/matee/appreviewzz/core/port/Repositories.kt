@@ -40,6 +40,8 @@ import cz.matee.appreviewzz.core.model.Reply
 import cz.matee.appreviewzz.core.model.ReplyId
 import cz.matee.appreviewzz.core.model.ReplySource
 import cz.matee.appreviewzz.core.model.ReplyStatus
+import cz.matee.appreviewzz.core.model.ReplyTemplate
+import cz.matee.appreviewzz.core.model.ReplyTemplateId
 import cz.matee.appreviewzz.core.model.ReportSnapshot
 import cz.matee.appreviewzz.core.model.Review
 import cz.matee.appreviewzz.core.model.ReviewChange
@@ -191,6 +193,8 @@ data class NewApp(
     val analysisMinTopicCount: Int? = null,
     val autoThanksEnabled: Boolean = false,
     val autoThanksTemplate: String? = null,
+    /** Konkurenční appka (C4) — jen veřejné recenze, bez klíče a kanálu. */
+    val competitor: Boolean = false,
 )
 
 /** Kompletní nastavení appky — update je nahrazení celku, ne patch po polích. */
@@ -468,6 +472,13 @@ interface ChannelRepository {
         deliverAnalyses: Boolean,
     ): Boolean
 
+    /** Jazyk zpráv do kanálu — anglický kanál pro zahraniční tým vedle českého pro produkt. */
+    fun setLocale(
+        orgId: OrganizationId,
+        id: ChannelId,
+        locale: MessageLocale,
+    ): Boolean
+
     fun delete(
         orgId: OrganizationId,
         id: ChannelId,
@@ -507,12 +518,21 @@ data class ReviewUpsertResult(
             }
 }
 
+/** Pořadí v inboxu. Výchozí je od nejnovější; „nejhorší napřed" je pohled podpory na ráno. */
+enum class ReviewSort {
+    NEWEST,
+    OLDEST,
+    LOWEST_STARS,
+    HIGHEST_STARS,
+}
+
 /**
  * Filtr inboxu. Vlastní typ, ne pět parametrů: filtry přibývají (F8 přidala témata, typ,
  * naléhavost a náladu) a každý nový by jinak měnil podpis všem, kdo repozitář implementují.
  *
  * Prázdná množina znamená „neomezuj", ne „nic nevrať".
  */
+
 data class ReviewFilter(
     val states: Set<ReviewState> = emptySet(),
     /** Klíče témat z taxonomie nebo vlastních témat aplikace; stačí, když sedí jedno. */
@@ -524,6 +544,9 @@ data class ReviewFilter(
     val version: String? = null,
     /** Store; prázdná množina jsou obě platformy. */
     val platforms: Set<Platform> = emptySet(),
+    val sort: ReviewSort = ReviewSort.NEWEST,
+    /** Kolik recenzí přeskočit — stránkování inboxu. Řazení určuje [sort]. */
+    val offset: Int = 0,
 ) {
     /** Filtry, které se dají zodpovědět jen z výkladu recenze. */
     val needsInsight: Boolean
@@ -564,6 +587,13 @@ interface ReviewRepository {
         filter: ReviewFilter = ReviewFilter(),
         limit: Int = 100,
     ): List<Review>
+
+    /** Kolik recenzí filtru odpovídá celkem — inbox podle toho ví, kolik stránek má. */
+    fun countByApp(
+        orgId: OrganizationId,
+        appId: AppId,
+        filter: ReviewFilter = ReviewFilter(),
+    ): Long = listByApp(orgId, appId, filter.copy(offset = 0), Int.MAX_VALUE).size.toLong()
 
     /**
      * Recenze, které u nás čekají na odpověď a o žádné odpovědi ze storu zatím nevíme.
@@ -1021,6 +1051,49 @@ interface AuditLogRepository {
         orgId: OrganizationId,
         limit: Int = 100,
     ): List<AuditEntry>
+
+    /** Stránka auditu: od nejnovějšího, [offset] záznamů přeskočit. */
+    fun list(
+        orgId: OrganizationId,
+        limit: Int,
+        offset: Int,
+    ): List<AuditEntry> = list(orgId, limit + offset).drop(offset)
+}
+
+data class NewReplyTemplate(
+    val appId: AppId,
+    val name: String,
+    val body: String,
+)
+
+/** Šablony odpovědí aplikace (C2 produktového rozboru) — text, který podpora používá opakovaně. */
+interface ReplyTemplateRepository {
+    fun create(
+        orgId: OrganizationId,
+        template: NewReplyTemplate,
+    ): ReplyTemplate
+
+    fun findById(
+        orgId: OrganizationId,
+        id: ReplyTemplateId,
+    ): ReplyTemplate?
+
+    fun listByApp(
+        orgId: OrganizationId,
+        appId: AppId,
+    ): List<ReplyTemplate>
+
+    fun update(
+        orgId: OrganizationId,
+        id: ReplyTemplateId,
+        name: String,
+        body: String,
+    ): ReplyTemplate?
+
+    fun delete(
+        orgId: OrganizationId,
+        id: ReplyTemplateId,
+    ): Boolean
 }
 
 interface FailedJobRepository {

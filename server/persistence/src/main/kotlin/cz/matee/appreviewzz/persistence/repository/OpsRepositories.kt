@@ -220,6 +220,12 @@ class ExposedAuditLogRepository(
     override fun list(
         orgId: OrganizationId,
         limit: Int,
+    ): List<AuditEntry> = list(orgId, limit, 0)
+
+    override fun list(
+        orgId: OrganizationId,
+        limit: Int,
+        offset: Int,
     ): List<AuditEntry> =
         transaction(database) {
             AuditLogs
@@ -227,6 +233,7 @@ class ExposedAuditLogRepository(
                 .where { AuditLogs.orgId eq orgId }
                 .orderBy(AuditLogs.createdAt to SortOrder.DESC)
                 .limit(limit)
+                .offset(offset.coerceAtLeast(0).toLong())
                 .map { it.toAuditEntry() }
         }
 }

@@ -6,10 +6,13 @@ import cz.matee.appreviewzz.core.model.ObservedReview
 import cz.matee.appreviewzz.core.model.OrganizationId
 import cz.matee.appreviewzz.core.model.Platform
 import cz.matee.appreviewzz.core.model.ReviewState
+import cz.matee.appreviewzz.core.port.ReplySuggestion
+import cz.matee.appreviewzz.core.port.ReplySuggestionRequest
 import cz.matee.appreviewzz.persistence.repository.ExposedOrganizationRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedReviewRepository
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.collections.shouldHaveSize
+import io.kotest.matchers.ints.shouldBeLessThan
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
@@ -110,6 +113,91 @@ class ReviewRoutesTest :
                 onlyNew shouldNotContain "Paráda"
 
                 owner.get("/api/orgs/$SLUG/apps/$appId/reviews?state=NESMYSL").status shouldBe HttpStatusCode.BadRequest
+            }
+        }
+
+        "inbox umí řadit, stránkovat a spočítat" {
+            testApplication {
+                consoleModule(mailer, replyQueue = queue)
+                val (owner, appId) = ownerWithApp(mailer)
+                seedReview(SLUG, appId, "gp-1", stars = 2, body = "Dvě hvězdy")
+                seedReview(SLUG, appId, "gp-2", stars = 5, body = "Pět hvězd")
+                seedReview(SLUG, appId, "gp-3", stars = 1, body = "Jedna hvězda")
+
+                val lowest = owner.get("/api/orgs/$SLUG/apps/$appId/reviews?sort=LOWEST_STARS").bodyAsText()
+                lowest.indexOf("Jedna hvězda") shouldBeLessThan lowest.indexOf("Dvě hvězdy")
+                lowest.indexOf("Dvě hvězdy") shouldBeLessThan lowest.indexOf("Pět hvězd")
+
+                val page = owner.get("/api/orgs/$SLUG/apps/$appId/reviews?sort=LOWEST_STARS&limit=1&offset=1").bodyAsText()
+                page shouldContain "Dvě hvězdy"
+                page shouldNotContain "Jedna hvězda"
+                page shouldNotContain "Pět hvězd"
+
+                owner.get("/api/orgs/$SLUG/apps/$appId/reviews/count").bodyAsText() shouldContain "\"count\":3"
+                owner.get("/api/orgs/$SLUG/apps/$appId/reviews/count?state=NEW&platform=IOS").bodyAsText() shouldContain
+                    "\"count\":0"
+            }
+        }
+
+        "AI návrh a překlad odpovědi jdou z konzole" {
+            testApplication {
+                val requests = mutableListOf<ReplySuggestionRequest>()
+                consoleModule(
+                    mailer,
+                    replyQueue = queue,
+                    suggestions = { request ->
+                        requests += request
+                        ReplySuggestion.Suggested(if (request.draftToTranslate != null) "Translated" else "Děkujeme", "test")
+                    },
+                )
+                val (owner, appId) = ownerWithApp(mailer)
+                val reviewId = seedReview(SLUG, appId, "gp-1")
+
+                val suggested = owner.postJson("/api/orgs/$SLUG/reviews/$reviewId/suggest", "{}")
+                suggested.status shouldBe HttpStatusCode.OK
+                suggested.bodyAsText() shouldContain "\"text\":\"Děkujeme\""
+
+                val translated = owner.postJson("/api/orgs/$SLUG/reviews/$reviewId/translate", """{"body":"Děkujeme za zpětnou vazbu"}""")
+                translated.bodyAsText() shouldContain "\"text\":\"Translated\""
+                requests.last().draftToTranslate shouldBe "Děkujeme za zpětnou vazbu"
+
+                owner.postJson("/api/orgs/$SLUG/reviews/$reviewId/translate", """{"body":"   "}""").status shouldBe
+                    HttpStatusCode.BadRequest
+            }
+        }
+
+        "bez AI vrátí návrh větu, ne chybu" {
+            testApplication {
+                consoleModule(mailer, replyQueue = queue)
+                val (owner, appId) = ownerWithApp(mailer)
+                val reviewId = seedReview(SLUG, appId, "gp-1")
+
+                val response = owner.postJson("/api/orgs/$SLUG/reviews/$reviewId/suggest", "{}")
+                response.status shouldBe HttpStatusCode.OK
+                response.bodyAsText() shouldNotContain "\"text\":\""
+                response.bodyAsText() shouldContain "AI není nastavená"
+            }
+        }
+
+        "šablony odpovědí: založit, upravit, smazat" {
+            testApplication {
+                consoleModule(mailer, replyQueue = queue)
+                val (owner, appId) = ownerWithApp(mailer)
+                val base = "/api/orgs/$SLUG/apps/$appId/reply-templates"
+
+                val created = owner.postJson(base, """{"name":"Poděkování","body":"Díky, {jmeno}!"}""")
+                created.status shouldBe HttpStatusCode.Created
+                val templateId = created.bodyAsText().jsonValue("id")
+
+                owner.postJson(base, """{"name":"poděkování","body":"Jiný text"}""").status shouldBe HttpStatusCode.BadRequest
+                owner.postJson(base, """{"name":"","body":"x"}""").status shouldBe HttpStatusCode.BadRequest
+
+                owner.patchJson("$base/$templateId", """{"name":"Poděkování","body":"Díky moc, {jmeno}!"}""").status shouldBe
+                    HttpStatusCode.OK
+                owner.get(base).bodyAsText() shouldContain "Díky moc, {jmeno}!"
+
+                owner.deleteSigned("$base/$templateId").status shouldBe HttpStatusCode.NoContent
+                owner.get(base).bodyAsText() shouldBe "[]"
             }
         }
 

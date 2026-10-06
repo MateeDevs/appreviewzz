@@ -208,6 +208,7 @@ internal object Apps : Table("app") {
     val analysisCadence = enumerationByName<AnalysisCadence>("analysis_cadence", ENUM_LENGTH)
     val analysisMinReviews = short("analysis_min_reviews").nullable()
     val analysisMinTopicCount = short("analysis_min_topic_count").nullable()
+    val competitor = bool("competitor")
     val enabled = bool("enabled")
     val createdAt = instant("created_at")
     val updatedAt = instant("updated_at")
@@ -389,6 +390,18 @@ internal object AppTopics : Table("app_topic") {
     val description = text("description")
     val enabled = bool("enabled")
     val createdAt = instant("created_at")
+
+    override val primaryKey = PrimaryKey(id)
+}
+
+internal object ReplyTemplates : Table("reply_template") {
+    val id = replyTemplateId("id")
+    val orgId = organizationId()
+    val appId = appId()
+    val name = text("name")
+    val body = text("body")
+    val createdAt = instant("created_at")
+    val updatedAt = instant("updated_at")
 
     override val primaryKey = PrimaryKey(id)
 }

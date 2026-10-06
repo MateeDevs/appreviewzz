@@ -80,6 +80,12 @@ data class App(
     val autoThanksEnabled: Boolean = false,
     /** Záložní text, když AI návrh chybí. `null` = bez návrhu se nic neodešle. */
     val autoThanksTemplate: String? = null,
+    /**
+     * Cizí appka sledovaná jako konkurence (C4). Bez klíče, bez kanálu a bez odpovídání:
+     * recenze se berou jen z veřejných zdrojů a nikdy se nenotifikují — slouží rozborům.
+     * Rozhoduje se při založení a nemění: z konkurence se vlastní appka nestane přidáním klíče.
+     */
+    val competitor: Boolean = false,
     val enabled: Boolean,
     val createdAt: Instant,
 ) {
@@ -294,9 +300,25 @@ data class TopicMention(
 )
 
 /**
+ * Šablona odpovědi (C2). Text s proměnnými `{jmeno}`, `{appka}`, `{verze}` — dosazuje je
+ * konzole při vložení, server šablonu jen ukládá. Patří k appce, ne organizaci: agentura
+ * odpovídá za každou appku jiným hlasem.
+ */
+data class ReplyTemplate(
+    val id: ReplyTemplateId,
+    val orgId: OrganizationId,
+    val appId: AppId,
+    val name: String,
+    val body: String,
+    val createdAt: Instant,
+    val updatedAt: Instant,
+)
+
+/**
  * Vlastní téma aplikace. Popis jde doslova do promptu, proto anglicky — model taguje
  * v původním jazyce recenze proti anglické taxonomii.
  */
+
 data class AppTopic(
     val id: AppTopicId,
     val orgId: OrganizationId,

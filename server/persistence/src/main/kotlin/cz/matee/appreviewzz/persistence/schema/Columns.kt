@@ -13,6 +13,7 @@ import cz.matee.appreviewzz.core.model.InvitationId
 import cz.matee.appreviewzz.core.model.OrganizationId
 import cz.matee.appreviewzz.core.model.RatingSnapshotId
 import cz.matee.appreviewzz.core.model.ReplyId
+import cz.matee.appreviewzz.core.model.ReplyTemplateId
 import cz.matee.appreviewzz.core.model.ReviewId
 import cz.matee.appreviewzz.core.model.ReviewMessageId
 import cz.matee.appreviewzz.core.model.SessionId
@@ -51,6 +52,8 @@ internal fun Table.sessionId(name: String): Column<SessionId> = uuid(name).trans
 internal fun Table.appId(name: String = "app_id"): Column<AppId> = uuid(name).transform({ AppId(it) }, { it.value })
 
 internal fun Table.appTopicId(name: String): Column<AppTopicId> = uuid(name).transform({ AppTopicId(it) }, { it.value })
+
+internal fun Table.replyTemplateId(name: String): Column<ReplyTemplateId> = uuid(name).transform({ ReplyTemplateId(it) }, { it.value })
 
 internal fun Table.analysisAlertId(name: String): Column<AnalysisAlertId> = uuid(name).transform({ AnalysisAlertId(it) }, { it.value })
 

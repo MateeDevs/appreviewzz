@@ -22,6 +22,7 @@ import cz.matee.appreviewzz.core.port.ReplyRepository
 import cz.matee.appreviewzz.core.port.ReviewFilter
 import cz.matee.appreviewzz.core.port.ReviewMessageRepository
 import cz.matee.appreviewzz.core.port.ReviewRepository
+import cz.matee.appreviewzz.core.port.ReviewSort
 import cz.matee.appreviewzz.core.port.ReviewTimeKey
 import cz.matee.appreviewzz.core.port.ReviewUpsertOutcome
 import cz.matee.appreviewzz.core.port.ReviewUpsertResult
@@ -32,6 +33,7 @@ import cz.matee.appreviewzz.persistence.schema.ReviewInsights
 import cz.matee.appreviewzz.persistence.schema.ReviewMessages
 import cz.matee.appreviewzz.persistence.schema.ReviewRevisions
 import cz.matee.appreviewzz.persistence.schema.Reviews
+import org.jetbrains.exposed.v1.core.Expression
 import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.SortOrder
@@ -45,6 +47,7 @@ import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.core.like
 import org.jetbrains.exposed.v1.core.or
+import org.jetbrains.exposed.v1.jdbc.Query
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.insertIgnore
 import org.jetbrains.exposed.v1.jdbc.select
@@ -178,45 +181,70 @@ class ExposedReviewRepository(
         limit: Int,
     ): List<Review> =
         transaction(database) {
-            // Bez filtru výkladu se na `review_insight` nesahá vůbec — inbox je nejčastější
-            // dotaz v consoli a join navíc by ho platil i ten, kdo štítky nepoužívá.
-            val source =
-                if (filter.needsInsight) {
-                    Reviews.join(ReviewInsights, JoinType.INNER, Reviews.id, ReviewInsights.reviewId)
-                } else {
-                    Reviews
-                }
-            source
-                .selectAll()
-                .where {
-                    var condition: Op<Boolean> = (Reviews.orgId eq orgId) and (Reviews.appId eq appId)
-                    val states = filter.states.ifEmpty { ReviewState.entries.toSet() }
-                    condition = condition and (Reviews.state inList states.toList())
-                    if (filter.types.isNotEmpty()) condition = condition and (ReviewInsights.reviewType inList filter.types.toList())
-                    if (filter.urgencies.isNotEmpty()) {
-                        condition = condition and (ReviewInsights.urgency inList filter.urgencies.toList())
-                    }
-                    if (filter.sentiments.isNotEmpty()) {
-                        condition = condition and (ReviewInsights.sentiment inList filter.sentiments.toList())
-                    }
-                    filter.version?.let { condition = condition and (Reviews.appVersion eq it) }
-                    if (filter.platforms.isNotEmpty()) condition = condition and (Reviews.platform inList filter.platforms.toList())
-                    if (filter.topics.isNotEmpty()) {
-                        // Poddotaz, ne další join: recenze se třemi tématy by se jinak
-                        // ve výsledku objevila třikrát.
-                        condition =
-                            condition and
-                            Reviews.id.inSubQuery(
-                                ReviewInsightTopics
-                                    .select(ReviewInsightTopics.reviewId)
-                                    .where { ReviewInsightTopics.topicKey inList filter.topics.toList() },
-                            )
-                    }
-                    condition
-                }.orderBy(Reviews.submittedAt to SortOrder.DESC)
+            filtered(orgId, appId, filter)
+                .orderBy(*orderOf(filter.sort))
                 .limit(limit)
+                .offset(filter.offset.coerceAtLeast(0).toLong())
                 .map { it.toReview() }
         }
+
+    override fun countByApp(
+        orgId: OrganizationId,
+        appId: AppId,
+        filter: ReviewFilter,
+    ): Long = transaction(database) { filtered(orgId, appId, filter).count() }
+
+    /** Sekundární klíč je čas, ať je pořadí při stejných hvězdách stabilní mezi stránkami. */
+    private fun orderOf(sort: ReviewSort): Array<Pair<Expression<*>, SortOrder>> =
+        when (sort) {
+            ReviewSort.NEWEST -> arrayOf(Reviews.submittedAt to SortOrder.DESC)
+            ReviewSort.OLDEST -> arrayOf(Reviews.submittedAt to SortOrder.ASC)
+            ReviewSort.LOWEST_STARS -> arrayOf(Reviews.starRating to SortOrder.ASC, Reviews.submittedAt to SortOrder.DESC)
+            ReviewSort.HIGHEST_STARS -> arrayOf(Reviews.starRating to SortOrder.DESC, Reviews.submittedAt to SortOrder.DESC)
+        }
+
+    private fun filtered(
+        orgId: OrganizationId,
+        appId: AppId,
+        filter: ReviewFilter,
+    ): Query {
+        // Bez filtru výkladu se na `review_insight` nesahá vůbec — inbox je nejčastější
+        // dotaz v consoli a join navíc by ho platil i ten, kdo štítky nepoužívá.
+        val source =
+            if (filter.needsInsight) {
+                Reviews.join(ReviewInsights, JoinType.INNER, Reviews.id, ReviewInsights.reviewId)
+            } else {
+                Reviews
+            }
+        return source
+            .selectAll()
+            .where {
+                var condition: Op<Boolean> = (Reviews.orgId eq orgId) and (Reviews.appId eq appId)
+                val states = filter.states.ifEmpty { ReviewState.entries.toSet() }
+                condition = condition and (Reviews.state inList states.toList())
+                if (filter.types.isNotEmpty()) condition = condition and (ReviewInsights.reviewType inList filter.types.toList())
+                if (filter.urgencies.isNotEmpty()) {
+                    condition = condition and (ReviewInsights.urgency inList filter.urgencies.toList())
+                }
+                if (filter.sentiments.isNotEmpty()) {
+                    condition = condition and (ReviewInsights.sentiment inList filter.sentiments.toList())
+                }
+                filter.version?.let { condition = condition and (Reviews.appVersion eq it) }
+                if (filter.platforms.isNotEmpty()) condition = condition and (Reviews.platform inList filter.platforms.toList())
+                if (filter.topics.isNotEmpty()) {
+                    // Poddotaz, ne další join: recenze se třemi tématy by se jinak
+                    // ve výsledku objevila třikrát.
+                    condition =
+                        condition and
+                        Reviews.id.inSubQuery(
+                            ReviewInsightTopics
+                                .select(ReviewInsightTopics.reviewId)
+                                .where { ReviewInsightTopics.topicKey inList filter.topics.toList() },
+                        )
+                }
+                condition
+            }
+    }
 
     override fun listAwaitingStoreReply(
         orgId: OrganizationId,

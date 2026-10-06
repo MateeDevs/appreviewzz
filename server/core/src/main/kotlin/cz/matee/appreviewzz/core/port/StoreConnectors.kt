@@ -181,6 +181,21 @@ interface StoreAppCatalog {
     suspend fun listApps(credential: SecretPayload): List<StoreApp>
 }
 
+/**
+ * Veřejné recenze bez klíče (C4, sledování konkurence). Jiný port než [ReviewSource] schválně:
+ * nemá credential, nemá odpovědi a dává jen to, co store ukazuje každému — u App Storu RSS
+ * feed po storefrontech, u Google Play nic (veřejné API na recenze neexistuje).
+ */
+interface PublicReviewSource {
+    val platform: Platform
+
+    /** @param territories storefronty, ze kterých se čte; prázdný seznam = výchozí sada zdroje. */
+    suspend fun fetchPublicReviews(
+        appIdentifier: String,
+        territories: List<String> = emptyList(),
+    ): List<ObservedReview>
+}
+
 /** Zdroj recenzí jednoho storu. Přidání dalšího storu je implementace tohohle rozhraní. */
 interface ReviewSource {
     val platform: Platform

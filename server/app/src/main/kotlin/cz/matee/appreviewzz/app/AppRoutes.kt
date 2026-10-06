@@ -47,6 +47,8 @@ data class CreateAppRequest(
     val historyMonths: Int? = null,
     /** `weekly` nebo `monthly`. */
     val analysisCadence: String? = null,
+    /** Konkurenční appka (C4): bez klíče, jen veřejné recenze, bez odpovídání. */
+    val competitor: Boolean = false,
 )
 
 @Serializable
@@ -137,6 +139,7 @@ data class AppResponse(
     val analysisMinTopicCount: Int,
     val analysisThresholdSource: IngestIntervalSource,
     val autoThanksEnabled: Boolean,
+    val competitor: Boolean,
     val autoThanksTemplate: String?,
     val enabled: Boolean,
     /** Co appce chybí, aby recenze tekly. Console podle toho odliší „sledujeme" od „čeká na nastavení". */
@@ -208,6 +211,7 @@ fun Route.appRoutes(console: ConsoleWiring) {
                                 weeklyDigestDay = request.weeklyDigestDay,
                                 historyMonths = request.historyMonths,
                                 analysisCadence = request.analysisCadence,
+                                competitor = request.competitor,
                             ),
                     )
                 }
@@ -346,6 +350,7 @@ private fun App.toResponse(
     analysisMinTopicCount = thresholds.minTopicCount,
     autoThanksEnabled = autoThanksEnabled,
     autoThanksTemplate = autoThanksTemplate,
+    competitor = competitor,
     analysisThresholdSource =
         if (analysisMinReviews == null && analysisMinTopicCount == null) {
             IngestIntervalSource.PLATFORM

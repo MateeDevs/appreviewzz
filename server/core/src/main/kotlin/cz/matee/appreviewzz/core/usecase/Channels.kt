@@ -8,6 +8,7 @@ import cz.matee.appreviewzz.core.model.ChannelId
 import cz.matee.appreviewzz.core.model.ChannelType
 import cz.matee.appreviewzz.core.model.CredentialId
 import cz.matee.appreviewzz.core.model.CredentialType
+import cz.matee.appreviewzz.core.model.MessageLocale
 import cz.matee.appreviewzz.core.model.OrgRole
 import cz.matee.appreviewzz.core.model.Organization
 import cz.matee.appreviewzz.core.model.OrganizationId
@@ -157,6 +158,20 @@ class ChannelService(
             id.toString(),
             mapOf("recenze" to reviews.toString(), "hodnocení" to ratings.toString(), "rozbory" to analyses.toString()),
         )
+    }
+
+    /** Jazyk zpráv do kanálu. Druhá věc vedle obsahu, kterou si tým u kanálu volí. */
+    fun setLocale(
+        organization: Organization,
+        actor: OrgActor,
+        id: ChannelId,
+        locale: MessageLocale,
+    ) {
+        requireRole(actor, OrgRole.ADMIN)
+        if (!channels.setLocale(organization.id, id, locale)) {
+            throw ConsoleException(ConsoleFailure.NOT_FOUND, "Takový kanál tu není")
+        }
+        audit(organization.id, actor, "channel.locale_changed", id.toString(), mapOf("jazyk" to locale.code))
     }
 
     fun delete(

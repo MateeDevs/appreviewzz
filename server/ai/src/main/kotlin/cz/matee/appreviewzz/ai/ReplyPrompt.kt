@@ -18,6 +18,40 @@ object ReplyPrompt {
     const val VERSION = "2026-08-19"
 
     fun system(request: ReplySuggestionRequest): String =
+        if (request.draftToTranslate != null) translationSystem(request) else suggestionSystem(request)
+
+    fun user(request: ReplySuggestionRequest): String =
+        buildString {
+            appendLine("Rating: ${request.starRating}/5")
+            request.title?.takeIf { it.isNotBlank() }?.let { appendLine("Title: ${it.trim()}") }
+            val body = request.body?.takeIf { it.isNotBlank() }?.trim()
+            // Recenze bez textu (jen hvězdičky) se stát může; model to musí vědět, ne hádat.
+            appendLine("Review: ${body ?: "(no text, rating only)"}")
+            request.draftToTranslate?.let {
+                appendLine()
+                appendLine("Draft reply to translate:")
+                appendLine(it.trim())
+            }
+        }.trim()
+
+    /**
+     * Překlad konceptu (C8): tým napíše odpověď svým jazykem a model ji jen převede do
+     * jazyka recenzenta. Žádné „vylepšování" — co klient napsal, má odejít, jen jinou řečí.
+     */
+    private fun translationSystem(request: ReplySuggestionRequest): String =
+        buildString {
+            appendLine(
+                "You translate public replies to app store reviews written by the team behind \"${request.appName}\".",
+            )
+            appendLine("Rules:")
+            appendLine("- Translate the draft reply into ${language(request)}.")
+            appendLine("- Keep the meaning, tone and level of formality; do not add, remove or soften anything.")
+            appendLine("- Stay under ${request.maxLength} characters including spaces.")
+            appendLine("- Plain text only: no markdown, no surrounding quotes, no commentary.")
+            appendLine("- Output the translated reply and nothing else.")
+        }.trim()
+
+    private fun suggestionSystem(request: ReplySuggestionRequest): String =
         buildString {
             appendLine(
                 "You write public replies to app store reviews on behalf of the team behind \"${request.appName}\".",
@@ -34,15 +68,6 @@ object ReplyPrompt {
                 appendLine("Team instructions (they take precedence over the rules above):")
                 append(it.trim())
             }
-        }.trim()
-
-    fun user(request: ReplySuggestionRequest): String =
-        buildString {
-            appendLine("Rating: ${request.starRating}/5")
-            request.title?.takeIf { it.isNotBlank() }?.let { appendLine("Title: ${it.trim()}") }
-            val body = request.body?.takeIf { it.isNotBlank() }?.trim()
-            // Recenze bez textu (jen hvězdičky) se stát může; model to musí vědět, ne hádat.
-            appendLine("Review: ${body ?: "(no text, rating only)"}")
         }.trim()
 
     /**

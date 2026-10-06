@@ -38,6 +38,17 @@ V *Zabezpečení účtu* si každý může zapnout **druhý faktor** — kód z 
 (Google Authenticator, 1Password, Aegis). Součástí zapnutí je deset záchranných kódů pro
 případ ztraceného telefonu ([ADR 0015](docs/adr/0015-druhy-faktor-totp.md)).
 
+**Recenze** jsou inbox, ne výpis: řazení (nejnovější, nejhorší napřed), stránkování, hromadné
+odložení, klávesy `j`/`k`/`r`/`i`, a u odpovědi **AI návrh na vyžádání**, **překlad konceptu**
+do jazyka recenzenta a **šablony odpovědí** per appka (proměnné `{jmeno}`, `{appka}`, `{verze}`).
+Stejný provider a prompt jako u zprávy do Slacku — v konzoli se jen nepočítá u každé recenze,
+ale až když o něj někdo stojí.
+
+**Sledování konkurence**: cizí appka se přidá bez klíče jako *konkurence*. Recenze se berou
+z veřejného App Store RSS feedu (Google Play veřejné API na recenze nemá — tam jsou jen
+hodnocení ze storu), nikdy se nenotifikují a nedá se na ně odpovídat; rozbory, témata
+a dopad verzí nad nimi jedou stejně jako nad vlastní appkou.
+
 Buildí se do statických souborů, které **servíruje Ktor ze stejného image** — žádný CDN,
 žádný druhý deploy. Vývoj konzole: [console/README.md](console/README.md).
 
