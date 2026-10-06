@@ -28,9 +28,12 @@ import type {
   Platform,
   RatingsRunResult,
   RatingsSeries,
+  ReplyAssist,
+  ReplyTemplate,
   ReportingBucketCheck,
   Review,
   ReviewDetail,
+  ReviewSort,
   ReviewState,
   ReviewType,
   StoreApp,
@@ -132,7 +135,12 @@ export function useLogout() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: () => api.post<void>('/api/auth/logout'),
-    onSuccess: () => client.clear(),
+    // `clear()` namountovanému `useMe` nic neřekne a SPA by zůstala na stránce organizace;
+    // nastavit „nikdo" a zbytek zahodit je to, co router potřebuje k přesměrování na login.
+    onSuccess: () => {
+      client.setQueryData(['me'], null)
+      client.removeQueries({ predicate: (query) => query.queryKey[0] !== 'me' })
+    },
   })
 }
 
@@ -376,11 +384,21 @@ export function useCreateChannel(org: string, appId: string) {
 }
 
 /** Které druhy zpráv do kanálu chodí. Vynechané pole se nemění. */
-export function useUpdateChannelDeliveries(org: string, appId: string) {
+/** Úprava kanálu: co chodí, jazyk zpráv a zapnutí. Vynechané pole se nemění. */
+export function useUpdateChannel(org: string, appId: string) {
   const client = useQueryClient()
   return useMutation({
-    mutationFn: (input: { id: string; deliverReviews?: boolean; deliverRatings?: boolean; deliverAnalyses?: boolean }) =>
+    mutationFn: (input: {
+      id: string
+      enabled?: boolean
+      locale?: 'cs' | 'en'
+      deliverReviews?: boolean
+      deliverRatings?: boolean
+      deliverAnalyses?: boolean
+    }) =>
       api.patch<void>(`/api/orgs/${org}/apps/${appId}/channels/${input.id}`, {
+        enabled: input.enabled,
+        locale: input.locale,
         deliverReviews: input.deliverReviews,
         deliverRatings: input.deliverRatings,
         deliverAnalyses: input.deliverAnalyses,
@@ -388,6 +406,9 @@ export function useUpdateChannelDeliveries(org: string, appId: string) {
     onSuccess: () => client.invalidateQueries({ queryKey: ['channels', org, appId] }),
   })
 }
+
+/** @deprecated použij [useUpdateChannel] — ponecháno kvůli stávajícím přepínačům. */
+export const useUpdateChannelDeliveries = useUpdateChannel
 
 export function useDeleteChannel(org: string, appId: string) {
   const client = useQueryClient()
@@ -421,9 +442,14 @@ export interface ReviewFilters {
   /** Z dopadu verzí se sem chodí odkazem „ukaž mi recenze téhle verze". */
   version?: string
   platform?: Platform | ''
+  /** Kolik recenzí vrátit; server má strop 200. */
+  limit?: number
+  offset?: number
+  sort?: ReviewSort
 }
 
-export function useReviews(org: string, appId: string, filters: ReviewFilters = {}) {
+/** Dotaz na seznam i na počet se skládá stejně — jinak by „43 recenzí" platilo pro jiný filtr. */
+function reviewQuery(filters: ReviewFilters, withPage: boolean): string {
   const params = new URLSearchParams()
   if (filters.states?.length) params.set('state', filters.states.join(','))
   if (filters.topic) params.set('topic', filters.topic)
@@ -431,11 +457,84 @@ export function useReviews(org: string, appId: string, filters: ReviewFilters = 
   if (filters.urgency) params.set('urgency', filters.urgency)
   if (filters.version) params.set('version', filters.version)
   if (filters.platform) params.set('platform', filters.platform)
-  const query = params.toString() ? `?${params}` : ''
+  if (withPage) {
+    if (filters.sort) params.set('sort', filters.sort)
+    if (filters.limit) params.set('limit', String(filters.limit))
+    if (filters.offset) params.set('offset', String(filters.offset))
+  }
+  return params.toString() ? `?${params}` : ''
+}
+
+export function useReviews(org: string, appId: string, filters: ReviewFilters = {}) {
+  const query = reviewQuery(filters, true)
   return useQuery({
     queryKey: ['reviews', org, appId, query],
     queryFn: () => api.get<Review[]>(`/api/orgs/${org}/apps/${appId}/reviews${query}`),
     enabled: appId !== '',
+    // Při přepnutí stránky nebo řazení drž starý seznam, ať obsah neblikne na „Načítám".
+    placeholderData: (previous) => previous,
+  })
+}
+
+export function useReviewCount(org: string, appId: string, filters: ReviewFilters = {}) {
+  const query = reviewQuery(filters, false)
+  return useQuery({
+    queryKey: ['reviews', org, appId, 'count', query],
+    queryFn: () => api.get<{ count: number }>(`/api/orgs/${org}/apps/${appId}/reviews/count${query}`),
+    enabled: appId !== '',
+    placeholderData: (previous) => previous,
+  })
+}
+
+/** AI návrh odpovědi na vyžádání (C1). Nic neukládá — text přistane ve formuláři. */
+export function useSuggestReply(org: string) {
+  return useMutation({
+    mutationFn: (reviewId: string) => api.post<ReplyAssist>(`/api/orgs/${org}/reviews/${reviewId}/suggest`, {}),
+  })
+}
+
+/** Překlad konceptu do jazyka recenze (C8). */
+export function useTranslateReply(org: string) {
+  return useMutation({
+    mutationFn: (input: { reviewId: string; body: string }) =>
+      api.post<ReplyAssist>(`/api/orgs/${org}/reviews/${input.reviewId}/translate`, { body: input.body }),
+  })
+}
+
+export function useReplyTemplates(org: string, appId: string) {
+  return useQuery({
+    queryKey: ['reply-templates', org, appId],
+    queryFn: () => api.get<ReplyTemplate[]>(`/api/orgs/${org}/apps/${appId}/reply-templates`),
+    enabled: appId !== '',
+  })
+}
+
+export function useCreateReplyTemplate(org: string, appId: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (body: { name: string; body: string }) =>
+      api.post<ReplyTemplate>(`/api/orgs/${org}/apps/${appId}/reply-templates`, body),
+    onSuccess: () => client.invalidateQueries({ queryKey: ['reply-templates', org, appId] }),
+  })
+}
+
+export function useUpdateReplyTemplate(org: string, appId: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (input: { id: string; name: string; body: string }) =>
+      api.patch<ReplyTemplate>(`/api/orgs/${org}/apps/${appId}/reply-templates/${input.id}`, {
+        name: input.name,
+        body: input.body,
+      }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ['reply-templates', org, appId] }),
+  })
+}
+
+export function useDeleteReplyTemplate(org: string, appId: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/api/orgs/${org}/apps/${appId}/reply-templates/${id}`),
+    onSuccess: () => client.invalidateQueries({ queryKey: ['reply-templates', org, appId] }),
   })
 }
 
@@ -632,8 +731,13 @@ export function useHealth(org: string) {
   return useQuery({ queryKey: ['health', org], queryFn: () => api.get<Health>(`/api/orgs/${org}/health`) })
 }
 
-export function useAudit(org: string) {
-  return useQuery({ queryKey: ['audit', org], queryFn: () => api.get<AuditEntry[]>(`/api/orgs/${org}/audit`) })
+/** Audit po stránkách: `limit` je velikost stránky, `offset` kolik přeskočit (server stránkuje od nejnovějšího). */
+export function useAudit(org: string, limit = 50, offset = 0) {
+  return useQuery({
+    queryKey: ['audit', org, limit, offset],
+    queryFn: () => api.get<AuditEntry[]>(`/api/orgs/${org}/audit?limit=${limit}&offset=${offset}`),
+    placeholderData: (previous) => previous,
+  })
 }
 
 /** Vývoj hodnocení pro graf. Prázdná řada je legitimní stav — appka může být čerstvá. */

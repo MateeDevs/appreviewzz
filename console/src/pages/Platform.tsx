@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import {
+  useMe,
   usePlatformApps,
   usePlatformAudit,
   usePlatformOverview,
@@ -26,6 +27,18 @@ import { Select } from '../components/Select'
  * odsud nekoukalo na samé chyby.
  */
 export function PlatformDialog({ onClose }: { onClose: () => void }) {
+  const me = useMe()
+  // Bez druhého faktoru server všechno odmítne 403 — pět stejných chyb pod spinnery by
+  // nikomu neřeklo, co udělat. Jedna věta s cestou k nápravě, a dotazy se vůbec nespouští.
+  if (me.data?.mfaEnabled === false) {
+    return (
+      <Modal title="Správa platformy" wide onClose={onClose}>
+        <div className="notice">
+          Správa platformy vyžaduje zapnutý druhý faktor. Zapni ho v Zabezpečení účtu a otevři sekci znovu.
+        </div>
+      </Modal>
+    )
+  }
   return (
     <Modal title="Správa platformy" wide onClose={onClose}>
       <p className="small muted">
@@ -223,7 +236,7 @@ function SecretsCard() {
     <Card title="Klíče">
       {secrets.isPending ? <Loading /> : null}
       <ErrorBox error={secrets.error} />
-      {definitions.length === 0 ? <Empty>Žádné klíče k nastavení.</Empty> : null}
+      {!secrets.isPending && definitions.length === 0 ? <Empty>Žádné klíče k nastavení.</Empty> : null}
       {definitions.map((definition) => (
         <SecretRow key={definition.key} setting={definition} stored={stored[definition.key] ?? null} />
       ))}

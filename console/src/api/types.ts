@@ -106,6 +106,8 @@ export interface App {
   autoThanksEnabled: boolean
   /** Záložní text, když AI návrh chybí; `null` = bez návrhu se nic neodešle. */
   autoThanksTemplate: string | null
+  /** Konkurenční appka: jen veřejné recenze z App Storu, bez klíče, kanálu a odpovídání. */
+  competitor: boolean
   analysisThresholdSource: 'PLATFORM' | 'APP'
   enabled: boolean
   /** Co appce chybí, aby recenze tekly — počítá server, console to jen ukazuje. */
@@ -158,6 +160,24 @@ export interface StoreApp {
   identifier: string
   name: string
   bundleId: string | null
+}
+
+/** Pořadí v inboxu. */
+export type ReviewSort = 'NEWEST' | 'OLDEST' | 'LOWEST_STARS' | 'HIGHEST_STARS'
+
+/** Šablona odpovědi per appka; proměnné {jmeno}, {appka}, {verze} dosazuje konzole. */
+export interface ReplyTemplate {
+  id: string
+  name: string
+  body: string
+  updatedAt: string
+}
+
+/** Návrh/překlad odpovědi. `text` chybí, když AI není nastavená nebo selhala — `message` říká proč. */
+export interface ReplyAssist {
+  text: string | null
+  model: string | null
+  message: string | null
 }
 
 export interface Channel {
@@ -440,6 +460,10 @@ export interface AppHealth {
   enabled: boolean
   lastReviewAt: string | null
   pendingReviews: number
+  /** Z toho s naléhavostí HIGH. */
+  pendingUrgent: number
+  /** Konkurence: bez klíče a kanálu, nic nečeká na odpověď. */
+  competitor: boolean
   channels: { id: string; targetRef: string; enabled: boolean; hasCredential: boolean }[]
   credentials: { id: string; label: string; validationStatus: ValidationStatus; validationError: string | null }[]
 }

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import {
+  useApps,
   useAudit,
   useChangePlan,
   useChangeRole,
@@ -95,7 +96,7 @@ export function OrganizationPage() {
                   <When iso={member.since} />
                 </td>
                 <td>
-                  {canManage ? (
+                  {canManage && member.userId !== me.data?.id ? (
                     <button type="button" className="danger" onClick={() => remove.mutate(member.userId)}>
                       Odebrat
                     </button>
@@ -211,7 +212,12 @@ function PlanCard({ org, canManage }: { org: string; canManage: boolean }) {
             <Select
               value={plan}
               disabled={changePlan.isPending}
-              options={PLANS.map((item) => ({ value: item.value, label: item.label }))}
+              // Enterprise se zatím nedá zvolit — nastavuje ho provozovatel. V nabídce zůstává jen
+              // tehdy, když ho organizace už má, aby select měl co ukázat.
+              options={PLANS.filter((item) => item.value !== 'ENTERPRISE' || plan === 'ENTERPRISE').map((item) => ({
+                value: item.value,
+                label: item.label,
+              }))}
               onChange={(value) => changePlan.mutate(value as OrgPlan)}
               ariaLabel="Tarif organizace"
             />
@@ -232,9 +238,106 @@ function PlanCard({ org, canManage }: { org: string; canManage: boolean }) {
   )
 }
 
+/**
+ * Klíče akcí z auditu přeložené pro člověka. Neznámý klíč se ukáže tak, jak přišel —
+ * lepší syrový `credential.rotated` než prázdné místo.
+ */
+const AUDIT_ACTIONS: Record<string, string> = {
+  'org.created': 'založení organizace',
+  'org.plan_changed': 'změna tarifu',
+  'member.added': 'přidání člena',
+  'member.role_changed': 'změna role',
+  'member.removed': 'odebrání člena',
+  'invitation.sent': 'odeslání pozvánky',
+  'invitation.revoked': 'zrušení pozvánky',
+  'invitation.accepted': 'přijetí pozvánky',
+  'app.created': 'přidání aplikace',
+  'app.updated': 'úprava nastavení aplikace',
+  'credential.created': 'nahrání klíče',
+  'credential.provisioned': 'vytvoření spravovaného účtu',
+  'credential.attached': 'přiřazení klíče k appce',
+  'credential.validated': 'ověření klíče',
+  'credential.validation_failed': 'klíč neprošel ověřením',
+  'credential.validation_recovered': 'klíč znovu funguje',
+  'credential.revoked': 'odebrání klíče',
+  'slack.installed': 'připojení Slacku',
+  'teams.connected': 'připojení Teams',
+  'channel.created': 'připojení kanálu',
+  'channel.deleted': 'odpojení kanálu',
+  'channel.tested': 'zkušební zpráva',
+  'channel.locale_changed': 'změna jazyka kanálu',
+  'channel.enabled_changed': 'zapnutí/vypnutí kanálu',
+  'channel.deliveries_changed': 'změna obsahu kanálu',
+  'review.state_changed': 'změna stavu recenze',
+  'reply.published': 'publikování odpovědi',
+  'reply_template.created': 'přidání šablony odpovědi',
+  'reply_template.updated': 'úprava šablony odpovědi',
+  'reply_template.deleted': 'smazání šablony odpovědi',
+  'analysis.manual': 'ruční odeslání rozboru',
+  'analysis.backfill': 'doplnění výkladů za historii',
+  'history.import': 'import historie recenzí',
+  'topic.created': 'přidání vlastního tématu',
+  'topic.deleted': 'smazání vlastního tématu',
+  'app_topic.created': 'přidání vlastního tématu',
+  'app_topic.updated': 'úprava vlastního tématu',
+  'app_topic.deleted': 'smazání vlastního tématu',
+  'report.generated': 'vygenerování reportu',
+  'report.shared': 'sdílení reportu',
+  'report.unshared': 'zrušení sdílení reportu',
+}
+
+/** Skupiny akcí podle prefixu klíče — filtr „jen klíče" nebo „jen kanály" bez výčtu všech akcí. */
+const AUDIT_GROUPS: Record<string, string> = {
+  org: 'organizace',
+  member: 'členové',
+  invitation: 'pozvánky',
+  app: 'aplikace',
+  credential: 'klíče',
+  channel: 'kanály',
+  slack: 'Slack',
+  teams: 'Teams',
+  review: 'recenze',
+  reply: 'odpovědi',
+  reply_template: 'šablony odpovědí',
+  analysis: 'rozbory',
+  history: 'historie recenzí',
+  topic: 'vlastní témata',
+  app_topic: 'vlastní témata',
+  report: 'reporty',
+}
+
+const AUDIT_PAGE = 50
+
+/** UUID poznáme podle tvaru; v podrobnostech se za ně dosazuje jméno appky, ostatní zůstávají. */
+const isUuid = (value: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
+
 export function AuditPage() {
   const { org = '' } = useParams()
-  const audit = useAudit(org)
+  const [offset, setOffset] = useState(0)
+  const audit = useAudit(org, AUDIT_PAGE, offset)
+  const apps = useApps(org)
+  const [group, setGroup] = useState('')
+  const [actor, setActor] = useState('')
+
+  // Audit nese jen UUID appky; jméno se doplňuje z katalogu, ať v řádku stojí „Můj Up", ne hash.
+  // Smazaná appka v katalogu není — té zůstane UUID, což je pořád lepší než nic.
+  const appName = (id: string) => apps.data?.find((app) => app.id === id)?.name ?? id
+  const describe = (key: string, value: string) =>
+    key === 'app' && isUuid(value) ? `${key}: ${appName(value)}` : `${key}: ${value}`
+
+  const entries = audit.data ?? []
+  // Zvolená hodnota musí v nabídce zůstat i na stránce, kde se nevyskytuje — jinak by se
+  // filtr po přechodu na další stránku potichu „ztratil" ze selectu.
+  const groups = [...new Set([...entries.map((entry) => entry.action.split('.')[0] ?? ''), group])]
+    .filter(Boolean)
+    .sort()
+  const actors = [...new Set([...entries.map((entry) => entry.actor ?? 'systém'), actor])].filter(Boolean).sort()
+  // Filtruje se nad načtenou stránkou: server stránkuje bez filtru a padesátka je přehledná
+  // i bez dalšího dotazu. Prázdný výsledek tedy znamená „na téhle stránce nic", ne „nikdy".
+  const visible = entries.filter(
+    (entry) =>
+      (group === '' || entry.action.startsWith(`${group}.`)) && (actor === '' || (entry.actor ?? 'systém') === actor),
+  )
 
   return (
     <div className="stack">
@@ -243,6 +346,25 @@ export function AuditPage() {
         <p className="muted">Kdo co v organizaci udělal — včetně toho, co udělal systém.</p>
       </div>
       <Card>
+        <div className="row" style={{ marginBottom: '0.75rem' }}>
+          <Select
+            value={group}
+            options={[
+              { value: '', label: 'Všechny akce' },
+              ...groups.map((item) => ({ value: item, label: AUDIT_GROUPS[item] ?? item })),
+            ]}
+            onChange={setGroup}
+            ariaLabel="Druh akce"
+            fitContent
+          />
+          <Select
+            value={actor}
+            options={[{ value: '', label: 'Kdokoli' }, ...actors.map((item) => ({ value: item, label: item }))]}
+            onChange={setActor}
+            ariaLabel="Kdo"
+            fitContent
+          />
+        </div>
         {audit.isPending ? <Loading /> : null}
         <ErrorBox error={audit.error} />
         <table>
@@ -255,22 +377,52 @@ export function AuditPage() {
             </tr>
           </thead>
           <tbody>
-            {audit.data?.map((entry, index) => (
+            {visible.map((entry, index) => (
               <tr key={`${entry.action}-${entry.at}-${index}`}>
-                <td className="small">
+                <td className="small nowrap">
                   <When iso={entry.at} />
                 </td>
-                <td className="small">{entry.actor ?? 'systém'}</td>
-                <td className="small">{entry.action}</td>
-                <td className="small muted">
-                  {Object.entries(entry.metadata)
-                    .map(([key, value]) => `${key}: ${value}`)
-                    .join(', ')}
+                <td className="small nowrap">{entry.actor ?? 'systém'}</td>
+                <td className="small nowrap" title={entry.action}>
+                  {AUDIT_ACTIONS[entry.action] ?? entry.action}
+                </td>
+                <td className="small muted wrap">
+                  {[
+                    ...(entry.targetType === 'app' && entry.targetId && !('app' in entry.metadata)
+                      ? [`app: ${appName(entry.targetId)}`]
+                      : []),
+                    ...Object.entries(entry.metadata).map(([key, value]) => describe(key, value)),
+                  ].join(', ')}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+        {!audit.isPending && entries.length > 0 && visible.length === 0 ? (
+          <p className="small muted">Na téhle stránce auditu filtru nic neodpovídá — zkus další stránku.</p>
+        ) : null}
+        <div className="row audit-pager">
+          <button
+            type="button"
+            className="secondary"
+            disabled={offset === 0 || audit.isFetching}
+            onClick={() => setOffset(Math.max(0, offset - AUDIT_PAGE))}
+          >
+            Předchozí
+          </button>
+          <span className="small muted">
+            {entries.length > 0 ? `${offset + 1}–${offset + entries.length}` : '—'}
+          </span>
+          <button
+            type="button"
+            className="secondary"
+            // Kratší stránka než plná = poslední. Server počet celkem neposílá, a tenhle test stačí.
+            disabled={entries.length < AUDIT_PAGE || audit.isFetching}
+            onClick={() => setOffset(offset + AUDIT_PAGE)}
+          >
+            Další
+          </button>
+        </div>
       </Card>
     </div>
   )

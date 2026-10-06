@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { NavLink, Navigate, Outlet, useParams } from 'react-router-dom'
 import { useLogout, useMe } from '../api/hooks'
 import { Brand } from '../components/ui'
@@ -24,8 +24,20 @@ export function OrgLayout() {
   const logout = useLogout()
   const [security, setSecurity] = useState(false)
   const [platform, setPlatform] = useState(false)
+  // Odhlášení na dvě kliknutí místo `confirm()`: tlačítko sedí pod seznamem odkazů a jedno
+  // ukliknutí by zahodilo rozepsanou odpověď. Bez druhého kliknutí se po chvíli vrátí samo.
+  const [confirmLogout, setConfirmLogout] = useState(false)
+  useEffect(() => {
+    if (!confirmLogout) return
+    const timer = window.setTimeout(() => setConfirmLogout(false), 4000)
+    return () => window.clearTimeout(timer)
+  }, [confirmLogout])
 
   const membership = me.data?.organizations.find((item) => item.slug === org)
+  // Po odhlášení se cache zahodí a profil vrátí „nikdo". Rám to vidí dřív než App (jeho
+  // `useMe` se o zahozené cache nedozví), takže na login odvede sám — jinak by stránka
+  // zůstala stát s prázdnými daty, dokud by ji někdo neobnovil.
+  if (me.isSuccess && me.data === null) return <Navigate to="/login" replace />
   // Než dorazí profil, nic nepřesměrováváme — jinak by refresh stránky vyhodil ven.
   if (me.isSuccess && me.data && !membership) return <Navigate to="/organizace" replace />
 
@@ -79,9 +91,20 @@ export function OrgLayout() {
           {me.data && me.data.organizations.length > 1 ? (
             <NavLink to="/organizace">Přepnout organizaci</NavLink>
           ) : null}
-          <button type="button" className="link" onClick={() => logout.mutate()}>
-            Odhlásit se
-          </button>
+          {confirmLogout ? (
+            <span className="logout-confirm">
+              <button type="button" className="link" disabled={logout.isPending} onClick={() => logout.mutate()}>
+                Opravdu odhlásit?
+              </button>
+              <button type="button" className="link small" onClick={() => setConfirmLogout(false)}>
+                zrušit
+              </button>
+            </span>
+          ) : (
+            <button type="button" className="link" onClick={() => setConfirmLogout(true)}>
+              Odhlásit se
+            </button>
+          )}
         </div>
       </aside>
       <main className="content">

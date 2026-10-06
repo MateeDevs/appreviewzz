@@ -8,7 +8,8 @@ import type { RatingsSeries } from '../api/types'
  * u hodnocení v rozsahu 1–5 se pohyb o desetinu jinak vůbec nepozná.
  */
 export function RatingsChart({ series }: { series: RatingsSeries }) {
-  const points = series.points.filter((point) => point.average != null)
+  // Nula není hodnocení — tak vypadá rozpracovaný den v exportu. Do grafu nepatří.
+  const points = series.points.filter((point) => point.average != null && point.average > 0)
   if (points.length < 2) {
     return <p className="muted small">Na graf je potřeba aspoň dva dny — první přehled je zítra.</p>
   }

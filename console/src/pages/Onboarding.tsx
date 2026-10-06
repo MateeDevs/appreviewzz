@@ -121,19 +121,47 @@ export function OnboardingPage() {
       ) : null}
       <ErrorBox error={apps.error ?? credentials.error ?? health.error} />
 
-      <div className="steps">
-        {steps.map((step) => (
-          <span key={step.title} className={step.done ? 'step done' : 'step'}>
-            {step.done ? '✓' : '○'} {step.title}
-          </span>
-        ))}
-      </div>
+      {/* Hotový průvodce: šest karet „✓ hotovo" nikomu nic neřekne, tak místo nich jedna s tím, co dává smysl udělat dál. */}
+      {remaining === 0 ? (
+        <Card title="Všechno je nastavené">
+          <div className="steps">
+            {steps.map((step) => (
+              <span key={step.title} className="step done">
+                ✓ {step.title}
+              </span>
+            ))}
+          </div>
+          <h3>Co dál</h3>
+          <ul className="next-steps">
+            <li>
+              <Link to={`${appPath}?tab=odpovedi`}>Nastavit instrukce pro AI návrhy</Link>
+              <span className="small muted">Tón, podpis a co v odpovědích nikdy nepsat.</span>
+            </li>
+            <li>
+              <Link to={`${appPath}?tab=nastaveni`}>Přidat vlastní téma rozboru</Link>
+              <span className="small muted">Třeba název funkce, kterou chcete v recenzích sledovat zvlášť.</span>
+            </li>
+            <li>
+              <Link to={`/${org}/organizace`}>Pozvat kolegu</Link>
+              <span className="small muted">Pozvánka přijde e-mailem; člen vidí recenze a odpovídá.</span>
+            </li>
+          </ul>
+        </Card>
+      ) : (
+        <div className="steps">
+          {steps.map((step) => (
+            <span key={step.title} className={step.done ? 'step done' : 'step'}>
+              {step.done ? '✓' : '○'} {step.title}
+            </span>
+          ))}
+        </div>
+      )}
 
       {connect ? (
         <ConnectStoreWizard org={org} app={connect.app} platform={connect.platform} onClose={() => setConnect(null)} />
       ) : null}
 
-      {steps.map((step) => (
+      {remaining === 0 ? null : steps.map((step) => (
         <Card key={step.title}>
           <div className="spread">
             <h2 style={{ margin: 0 }}>

@@ -15,9 +15,10 @@ import {
   useVersionImpact,
 } from '../api/hooks'
 import type { AnalysisCalendarPeriod } from '../api/hooks'
-import { Badge, Card, Empty, ErrorBox, Loading } from '../components/ui'
+import { Badge, Card, Empty, ErrorBox, Loading, Modal } from '../components/ui'
 import { SentimentChart, Sparkline } from '../components/SentimentChart'
 import { Select } from '../components/Select'
+import { countryLabel } from '../components/countries'
 import type { AnalysisOverview, Platform, TopicStatus, VersionImpact } from '../api/types'
 
 const STATUS_LABELS: Record<TopicStatus, { label: string; tone?: 'ok' | 'warn' | 'bad' }> = {
@@ -71,6 +72,24 @@ const formatPeriod = (start: string, end: string) => {
 }
 
 const percent = (share: number) => `${Math.round(share * 100)} %`
+
+/** „439.0 h" nikdo nepřepočítává; od dvou dnů se čte ve dnech. */
+const formatHours = (hours: number) => {
+  if (hours < 1) return `${Math.round(hours * 60)} min`
+  if (hours < 48) return `${hours.toFixed(hours < 10 ? 1 : 0)} h`
+  return `${Math.round(hours / 24)} d`
+}
+
+const languageNames = new Intl.DisplayNames(['cs'], { type: 'language' })
+
+/** Store posílá kód; člověk chce jméno. Kód, který prohlížeč nezná, zůstane kódem. */
+const languageLabel = (code: string) => {
+  try {
+    return languageNames.of(code) ?? code
+  } catch {
+    return code
+  }
+}
 
 /**
  * Rozbory recenzí (F8).
@@ -164,7 +183,17 @@ export function AnalysisPage() {
         <div className="row">
           <Select
             value={selected}
-            options={apps.data?.map((app) => ({ value: app.id, label: app.name }))}
+            options={apps.data?.filter((app) => !app.competitor).map((app) => ({ value: app.id, label: app.name }))}
+            groups={
+              apps.data?.some((app) => app.competitor)
+                ? [
+                    {
+                      label: 'Konkurence',
+                      options: apps.data.filter((app) => app.competitor).map((app) => ({ value: app.id, label: app.name })),
+                    },
+                  ]
+                : undefined
+            }
             onChange={(value) => setParam('app', value)}
             ariaLabel="Aplikace"
             fitContent
@@ -215,6 +244,7 @@ export function AnalysisPage() {
           org={org}
           appId={selected}
           overview={analysis.data}
+          minTopicCount={apps.data?.find((app) => app.id === selected)?.analysisMinTopicCount}
           moodScope={moodScope}
           onMoodScopeChange={(value) => setParam('mood', value === 'with-text' ? value : '')}
         />
@@ -373,12 +403,15 @@ function Overview({
   org,
   appId,
   overview,
+  minTopicCount,
   moodScope,
   onMoodScopeChange,
 }: {
   org: string
   appId: string
   overview: AnalysisOverview
+  /** Práh zmínek, od kterého se téma dostane do tabulky — platí pro appku, ne pro období. */
+  minTopicCount: number | undefined
   moodScope: 'with-text' | 'all'
   onMoodScopeChange: (value: 'with-text' | 'all') => void
 }) {
@@ -421,6 +454,10 @@ function Overview({
             </button>
           </div>
         </div>
+        <p className="small muted" style={{ marginTop: 0 }}>
+          Všechny recenze = i hodnocení bez textu (nálada z hvězd). Jen s textem = recenze, které AI rozebrala;
+          z nich jsou témata a jazyky níž.
+        </p>
         {mood.reviews === 0 ? (
           <p className="muted">Za tohle období ve vybraném rozsahu žádné recenze nepřišly.</p>
         ) : (
@@ -463,7 +500,10 @@ function Overview({
 
       <Card title="Témata">
         {overview.topics.length === 0 ? (
-          <Empty>Žádné téma se neopakovalo natolik, aby stálo za zmínku.</Empty>
+          <Empty>
+            Žádné téma nepřekročilo práh {minTopicCount ?? '—'} zmínek za období.{' '}
+            <Link to={`/${org}/aplikace/${appId}?tab=nastaveni`}>Práh nastavíš v detailu aplikace</Link>.
+          </Empty>
         ) : (
           <table>
             <thead>
@@ -510,7 +550,8 @@ function Overview({
         )}
         {overview.improved.length > 0 ? (
           <p className="small muted" style={{ marginTop: '0.75rem' }}>
-            Zlepšilo se:{' '}
+            {/* Bez tabulky by „zlepšilo se" působilo jako jediný výsledek — proto je u prázdného stavu až druhá věta. */}
+            {overview.topics.length === 0 ? 'Oproti minulému období ubylo: ' : 'Zlepšilo se: '}
             {overview.improved.map((item) => `${item.name} (z ${item.before}× na ${item.after}×)`).join(', ')}.
           </p>
         ) : null}
@@ -531,14 +572,24 @@ function Overview({
                 </tr>
               </thead>
               <tbody>
-                {overview.territories.slice(0, 8).map((item) => (
-                  <tr key={item.territory}>
-                    <td>{item.territory}</td>
-                    <td>{item.reviews}</td>
-                    <td>{percent(item.negativeShare)}</td>
-                    <td>{item.avgStars?.toFixed(1) ?? '—'}</td>
-                  </tr>
-                ))}
+                {overview.territories.slice(0, 8).map((item) => {
+                  const country = countryLabel(item.territory)
+                  return (
+                    <tr key={item.territory}>
+                      <td title={item.territory}>
+                        {country.flag ? (
+                          <span className="country-flag" aria-hidden="true">
+                            {country.flag}
+                          </span>
+                        ) : null}
+                        {country.name}
+                      </td>
+                      <td>{item.reviews}</td>
+                      <td>{percent(item.negativeShare)}</td>
+                      <td>{item.avgStars?.toFixed(1) ?? '—'}</td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           )}
@@ -554,7 +605,7 @@ function Overview({
             </div>
             <div>
               <div className="metric-value">
-                {overview.replies.medianHours != null ? `${overview.replies.medianHours.toFixed(1)} h` : '—'}
+                {overview.replies.medianHours != null ? formatHours(overview.replies.medianHours) : '—'}
               </div>
               <div className="metric-label">medián do odpovědi</div>
             </div>
@@ -571,7 +622,7 @@ function Overview({
           )}
           {overview.languages.length > 0 ? (
             <p className="small muted">
-              Jazyky: {overview.languages.slice(0, 5).map((item) => `${item.language} (${item.reviews})`).join(', ')}.
+              Jazyky: {overview.languages.slice(0, 5).map((item) => `${languageLabel(item.language)} (${item.reviews})`).join(', ')}.
             </p>
           ) : null}
         </Card>
@@ -596,6 +647,9 @@ function ReportsCard({ org, appId }: { org: string; appId: string }) {
   const share = useShareReport(org, appId)
   const unshare = useUnshareReport(org, appId)
   const [copied, setCopied] = useState('')
+  const months = completedMonths(12)
+  const [month, setMonth] = useState(months[0]?.value ?? '')
+  const [confirm, setConfirm] = useState(false)
 
   const copy = (url: string, id: string) => {
     navigator.clipboard?.writeText(url).then(
@@ -605,16 +659,51 @@ function ReportsCard({ org, appId }: { org: string; appId: string }) {
     )
   }
 
+  // Report za měsíc už existuje → přegenerování přepíše čísla, která klient vidí na sdíleném
+  // odkazu. Proto se napřed ptáme; nový měsíc se generuje rovnou.
+  const existing = reports.data?.some((report) => report.periodStart.slice(0, 7) === month) ?? false
+  const monthLabel = months.find((item) => item.value === month)?.label ?? month
+  const run = () => {
+    setConfirm(false)
+    generate.mutate(month)
+  }
+
   return (
     <Card title="Měsíční reporty">
       <div className="spread" style={{ marginBottom: '0.75rem' }}>
         <p className="small muted" style={{ margin: 0 }}>
           Stránka pro klienta se sdílitelným odkazem. V prohlížeči se dá uložit jako PDF.
         </p>
-        <button type="button" className="secondary" onClick={() => generate.mutate(undefined)} disabled={generate.isPending}>
-          Vygenerovat minulý měsíc
-        </button>
+        <div className="row" style={{ flex: 'none' }}>
+          <Select value={month} options={months} onChange={setMonth} ariaLabel="Měsíc reportu" fitContent />
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => (existing ? setConfirm(true) : run())}
+            disabled={generate.isPending || !month}
+          >
+            Vygenerovat
+          </button>
+        </div>
       </div>
+      {confirm ? (
+        <Modal title="Přegenerovat report" onClose={() => setConfirm(false)}>
+          <div className="stack">
+            <p>
+              Report za {monthLabel} už existuje. Přegenerování přepíše čísla, která klient vidí na sdíleném
+              odkazu.
+            </p>
+            <div className="row">
+              <button type="button" className="danger" onClick={run}>
+                Přegenerovat
+              </button>
+              <button type="button" className="secondary" onClick={() => setConfirm(false)}>
+                Nechat
+              </button>
+            </div>
+          </div>
+        </Modal>
+      ) : null}
       <ErrorBox error={generate.error ?? share.error ?? unshare.error} />
       {reports.isPending ? <Loading /> : null}
       {reports.data?.length === 0 ? (
@@ -643,7 +732,8 @@ function ReportsCard({ org, appId }: { org: string; appId: string }) {
                     <>
                       <a href={report.shareUrl} target="_blank" rel="noreferrer">
                         Otevřít
-                      </a>{' '}
+                      </a>
+                      <span className="muted"> · </span>
                       <button type="button" className="link" onClick={() => copy(report.shareUrl as string, report.id)}>
                         {copied === report.id ? 'zkopírováno' : 'zkopírovat odkaz'}
                       </button>
@@ -670,6 +760,21 @@ function ReportsCard({ org, appId }: { org: string; appId: string }) {
       ) : null}
     </Card>
   )
+}
+
+/**
+ * Posledních `count` ukončených měsíců, nejnovější první. Běžící měsíc se nenabízí — report
+ * z půlky měsíce by vypadal hotově a za týden by lhal.
+ */
+function completedMonths(count: number): { value: string; label: string }[] {
+  const now = new Date()
+  return Array.from({ length: count }, (_, index) => {
+    const date = new Date(now.getFullYear(), now.getMonth() - 1 - index, 1)
+    return {
+      value: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`,
+      label: date.toLocaleDateString('cs-CZ', { month: 'long', year: 'numeric' }),
+    }
+  })
 }
 
 /**
@@ -745,31 +850,53 @@ function VersionImpactCard({ org, appId }: { org: string; appId: string }) {
     )
   }
 
+  // Verze, na které je brzy, nepatří do tabulky vedle těch zhodnocených: osm řádků
+  // „zatím nejde zhodnotit" zakryje jediný řádek, který něco říká.
+  const assessed = versions.data.filter((item) => item.assessable)
+  const collecting = versions.data.filter((item) => !item.assessable)
+
   return (
     <Card title="Dopad verzí">
-      <table>
-        <thead>
-          <tr>
-            <th>Verze</th>
-            <th>Ø ★ před → po</th>
-            <th>Nespokojených před → po</th>
-            <th>Co se změnilo</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {versions.data.map((item) => (
-            <VersionRow
-              key={`${item.platform}-${item.version}`}
-              org={org}
-              appId={appId}
-              item={item}
-              open={open === `${item.platform}-${item.version}`}
-              onToggle={() => setOpen(open === `${item.platform}-${item.version}` ? '' : `${item.platform}-${item.version}`)}
-            />
-          ))}
-        </tbody>
-      </table>
+      {assessed.length === 0 ? (
+        <Empty>Žádná verze zatím nemá po vydání dost recenzí s textem, aby se dopad dal zhodnotit.</Empty>
+      ) : (
+        <table>
+          <thead>
+            <tr>
+              <th>Verze</th>
+              <th>Ø ★ před → po</th>
+              <th>Nespokojených před → po</th>
+              <th>Co se změnilo</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {assessed.map((item) => (
+              <VersionRow
+                key={`${item.platform}-${item.version}`}
+                org={org}
+                appId={appId}
+                item={item}
+                open={open === `${item.platform}-${item.version}`}
+                onToggle={() => setOpen(open === `${item.platform}-${item.version}` ? '' : `${item.platform}-${item.version}`)}
+              />
+            ))}
+          </tbody>
+        </table>
+      )}
+      {collecting.length > 0 ? (
+        <>
+          <h3 style={{ marginTop: '1.25rem' }}>Sbírají recenze</h3>
+          <p className="small muted" style={{ margin: 0 }}>
+            Dopad se hodnotí od {collecting[0]?.minReviews} recenzí s textem po vydání.
+          </p>
+          <ul className="collecting-list">
+            {collecting.map((item) => (
+              <VersionCollecting key={`${item.platform}-${item.version}`} org={org} appId={appId} item={item} />
+            ))}
+          </ul>
+        </>
+      ) : null}
     </Card>
   )
 }
@@ -795,7 +922,7 @@ function VersionRow({
           <span className="small muted">{item.platform === 'ANDROID' ? 'Google Play' : 'App Store'}</span>
           <div className="small muted">od {new Date(item.firstSeen).toLocaleDateString('cs-CZ')}</div>
         </td>
-        {item.assessable ? <VersionMetrics item={item} /> : <VersionCollecting item={item} />}
+        <VersionMetrics item={item} />
         <td>
           <button type="button" className="secondary" onClick={onToggle}>
             {open ? 'Skrýt' : 'Rozbalit'}
@@ -871,27 +998,29 @@ function VersionMetrics({ item }: { item: VersionImpact }) {
 
 /**
  * Verze, o které už víme, ale na dopad je brzy. Čísla ze dvou recenzí by vypadala jako
- * závěr, takže místo nich ukazujeme, kolik recenzí s textem chybí.
+ * závěr, takže místo nich ukazujeme, kolik recenzí s textem už je — a odkaz na ně.
  */
-function VersionCollecting({ item }: { item: VersionImpact }) {
+function VersionCollecting({ org, appId, item }: { org: string; appId: string; item: VersionImpact }) {
   const have = Math.min(item.after.reviews, item.minReviews)
   return (
-    <td colSpan={3}>
-      <div className="version-collecting">
-        <span className="data-dots" aria-hidden="true">
-          {Array.from({ length: item.minReviews }, (_, index) => (
-            <span key={index} className={index < have ? 'filled' : undefined} />
-          ))}
-        </span>
-        <span>
-          <strong>Dopad zatím nejde zhodnotit</strong>
-          <span className="small muted">
-            {' '}
-            — po vydání {reviewsWithText(item.after.reviews)}, potřebujeme aspoň {item.minReviews}.
-          </span>
-        </span>
-      </div>
-    </td>
+    <li>
+      <span className="data-dots" aria-hidden="true" title={`${item.after.reviews} z ${item.minReviews}`}>
+        {Array.from({ length: item.minReviews }, (_, index) => (
+          <span key={index} className={index < have ? 'filled' : undefined} />
+        ))}
+      </span>
+      <strong>{item.version}</strong>
+      <span>{item.platform === 'ANDROID' ? 'Google Play' : 'App Store'}</span>
+      <span>od {new Date(item.firstSeen).toLocaleDateString('cs-CZ')}</span>
+      <span>·</span>
+      {item.after.reviews > 0 ? (
+        <Link to={`/${org}/recenze?app=${appId}&version=${encodeURIComponent(item.version)}`}>
+          {reviewsWithText(item.after.reviews)}
+        </Link>
+      ) : (
+        <span>zatím bez recenze s textem</span>
+      )}
+    </li>
   )
 }
 
@@ -919,7 +1048,11 @@ function TerritorySelect({
       value={value}
       options={[
         { value: '', label: 'Všechny trhy' },
-        ...options.map((item) => ({ value: item, label: item })),
+        // Stejné jméno jako v tabulce Trhy — jinak by člověk hledal „CZE" vedle „Česko".
+        ...options.map((item) => {
+          const country = countryLabel(item)
+          return { value: item, label: country.flag ? `${country.flag} ${country.name}` : country.name }
+        }),
       ]}
       onChange={onChange}
       ariaLabel="Trh"
