@@ -379,7 +379,7 @@ function BrokenCard({ issues, failedJobs }: { issues: Issue[]; failedJobs: Healt
       {failedJobs.length > 0 ? (
         <>
           <h3 className="issue-heading">Úlohy, které se nepovedly</h3>
-          <table>
+          <table className="row-cards">
             <thead>
               <tr>
                 <th>Úloha</th>
@@ -391,12 +391,12 @@ function BrokenCard({ issues, failedJobs }: { issues: Issue[]; failedJobs: Healt
             <tbody>
               {failedJobs.map((job) => (
                 <tr key={`${job.task}-${job.firstFailedAt}`}>
-                  <td>{job.task}</td>
-                  <td>{job.attempts}</td>
+                  <td className="lead">{job.task}</td>
+                  <td data-label="pokusů">{job.attempts}</td>
                   <td>
                     <When iso={job.lastFailedAt} />
                   </td>
-                  <td className="small">{job.error ?? '—'}</td>
+                  <td className="small full">{job.error ?? '—'}</td>
                 </tr>
               ))}
             </tbody>

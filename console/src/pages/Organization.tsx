@@ -60,7 +60,7 @@ export function OrganizationPage() {
       <Card title="Členové">
         {members.isPending ? <Loading /> : null}
         <ErrorBox error={members.error ?? changeRole.error ?? remove.error} />
-        <table>
+        <table className="row-cards">
           <thead>
             <tr>
               <th>Člověk</th>
@@ -72,7 +72,7 @@ export function OrganizationPage() {
           <tbody>
             {members.data?.map((member) => (
               <tr key={member.userId}>
-                <td>
+                <td className="lead">
                   {member.displayName ?? member.email}
                   <div className="small muted">{member.email}</div>
                 </td>
@@ -92,10 +92,10 @@ export function OrganizationPage() {
                     <Badge>{member.role.toLowerCase()}</Badge>
                   )}
                 </td>
-                <td className="small">
+                <td className="small" data-label="v organizaci od">
                   <When iso={member.since} />
                 </td>
-                <td>
+                <td className="end">
                   {canManage && member.userId !== me.data?.id ? (
                     <button type="button" className="danger" onClick={() => remove.mutate(member.userId)}>
                       Odebrat
@@ -113,7 +113,7 @@ export function OrganizationPage() {
           {invitations.data?.length === 0 ? (
             <p className="muted">Na nikoho se nečeká.</p>
           ) : (
-            <table>
+            <table className="row-cards">
               <thead>
                 <tr>
                   <th>E-mail</th>
@@ -125,12 +125,12 @@ export function OrganizationPage() {
               <tbody>
                 {invitations.data?.map((invitation) => (
                   <tr key={invitation.id}>
-                    <td>{invitation.email}</td>
+                    <td className="lead">{invitation.email}</td>
                     <td className="small">{invitation.role.toLowerCase()}</td>
-                    <td className="small">
+                    <td className="small" data-label="platí do">
                       <When iso={invitation.expiresAt} />
                     </td>
-                    <td>
+                    <td className="end">
                       <button type="button" className="danger" onClick={() => revoke.mutate(invitation.id)}>
                         Zrušit
                       </button>
@@ -367,7 +367,7 @@ export function AuditPage() {
         </div>
         {audit.isPending ? <Loading /> : null}
         <ErrorBox error={audit.error} />
-        <table>
+        <table className="row-cards">
           <thead>
             <tr>
               <th>Kdy</th>
@@ -383,10 +383,10 @@ export function AuditPage() {
                   <When iso={entry.at} />
                 </td>
                 <td className="small nowrap">{entry.actor ?? 'systém'}</td>
-                <td className="small nowrap" title={entry.action}>
+                <td className="small nowrap lead" title={entry.action}>
                   {AUDIT_ACTIONS[entry.action] ?? entry.action}
                 </td>
-                <td className="small muted wrap">
+                <td className="small muted wrap full">
                   {[
                     ...(entry.targetType === 'app' && entry.targetId && !('app' in entry.metadata)
                       ? [`app: ${appName(entry.targetId)}`]

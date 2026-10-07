@@ -230,7 +230,7 @@ export function InboxPage() {
       </div>
 
       <Card>
-        <div className="row">
+        <div className="row inbox-filters">
           <Select
             value={selected}
             options={apps.data?.filter((app) => !app.competitor).map((app) => ({ value: app.id, label: app.name }))}
@@ -274,7 +274,7 @@ export function InboxPage() {
             ))}
           </div>
         </div>
-        <div className="row" style={{ marginTop: '0.5rem' }}>
+        <div className="row inbox-filters" style={{ marginTop: '0.5rem' }}>
           <TopicSelect topics={topics.data} value={topic} onChange={setTopic} />
           <Select
             value={type}
@@ -322,7 +322,7 @@ export function InboxPage() {
         {readOnly ? (
           <p className="small muted inbox-keys">Konkurence — recenze jen ke čtení, odpovídat se nedá.</p>
         ) : (
-          <p className="small muted inbox-keys">Klávesy: j/k pohyb · r odpovědět · i odložit</p>
+          <p className="small muted inbox-keys keyboard-only">Klávesy: j/k pohyb · r odpovědět · i odložit</p>
         )}
       </Card>
 

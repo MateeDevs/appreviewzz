@@ -710,7 +710,7 @@ function ReportsCard({ org, appId }: { org: string; appId: string }) {
         <Empty>Zatím žádný report. První se vygeneruje prvního dne příštího měsíce — nebo tlačítkem výš.</Empty>
       ) : null}
       {reports.data && reports.data.length > 0 ? (
-        <table>
+        <table className="row-cards">
           <thead>
             <tr>
               <th>Období</th>
@@ -722,11 +722,11 @@ function ReportsCard({ org, appId }: { org: string; appId: string }) {
           <tbody>
             {reports.data.map((report) => (
               <tr key={report.id}>
-                <td>
+                <td className="lead">
                   {new Date(report.periodStart).toLocaleDateString('cs-CZ')} –{' '}
                   {new Date(report.periodEnd).toLocaleDateString('cs-CZ')}
                 </td>
-                <td>{report.reviews}</td>
+                <td data-label="recenzí">{report.reviews}</td>
                 <td>
                   {report.shareUrl ? (
                     <>
@@ -742,7 +742,7 @@ function ReportsCard({ org, appId }: { org: string; appId: string }) {
                     <span className="muted">nesdílí se</span>
                   )}
                 </td>
-                <td>
+                <td className="end">
                   {report.shareUrl ? (
                     <button type="button" className="secondary" onClick={() => unshare.mutate(report.id)}>
                       Zrušit sdílení

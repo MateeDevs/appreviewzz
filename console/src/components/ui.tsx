@@ -101,6 +101,12 @@ export function Modal({
       <div className="modal-body">
         <div className="modal-head">
           <h2>{title}</h2>
+          {/* Viditelné zavření: na telefonu není Escape a klepnutí vedle karty nikoho nenapadne. */}
+          <button type="button" className="modal-close" aria-label="Zavřít" onClick={() => ref.current?.close()}>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
         </div>
         {children}
       </div>

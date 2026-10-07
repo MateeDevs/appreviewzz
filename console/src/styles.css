@@ -171,19 +171,81 @@ h1 + p { margin-top: 0.3rem; color: var(--muted); }
 .sidebar nav a.active { background: var(--accent-soft); color: var(--accent); }
 .sidebar nav a.active svg { opacity: 1; }
 
-.sidebar-foot {
-  border-top: 1px solid var(--border);
-  padding: 0.85rem 0.6rem 0;
+/*
+ * Účet za avatarem: na desktopu řádek v patě sidebaru, nabídka se otevírá nahoru.
+ * Na telefonu (viz media query níž) jen kolečko v horní liště a nabídka spadne dolů.
+ */
+.account { position: relative; border-top: 1px solid var(--border); padding-top: 0.7rem; }
+button.account-trigger {
+  width: 100%;
+  justify-content: flex-start;
+  gap: 0.6rem;
+  padding: 0.4rem 0.45rem;
+  background: transparent;
+  color: var(--text);
+  font-weight: inherit;
+  text-align: left;
+}
+button.account-trigger:hover:not(:disabled),
+button.account-trigger[aria-expanded="true"] { background: var(--surface-2); }
+button.account-trigger:active:not(:disabled) { transform: none; }
+.avatar {
+  width: 32px;
+  height: 32px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: linear-gradient(140deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #22d3ee));
+  color: var(--accent-text);
+  font-size: 0.78rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+.avatar.large { width: 40px; height: 40px; font-size: 0.92rem; }
+.account-who { display: flex; flex-direction: column; min-width: 0; line-height: 1.3; }
+.account-name, .account-email { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-name { font-size: 0.88rem; font-weight: 550; }
+.account-email { font-size: 0.78rem; color: var(--muted); }
+.account-menu {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 0.4rem);
+  z-index: 50;
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  font-size: 0.85rem;
+  padding: 0.35rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  animation: rise 0.14s ease both;
 }
-.sidebar-foot .who { color: var(--text); font-weight: 500; overflow: hidden; text-overflow: ellipsis; }
-/* Odkazy i tlačítka v patičce jsou jeden seznam, ať se z něj nic nevytrhává barvou. */
-.sidebar-foot a, .sidebar-foot button.link { color: var(--muted); text-decoration: none; }
-.sidebar-foot a:hover, .sidebar-foot button.link:hover:not(:disabled) { color: var(--accent); }
-.sidebar-foot button.link { align-self: flex-start; font-size: inherit; }
+.account-menu-head { display: flex; align-items: center; gap: 0.65rem; padding: 0.55rem 0.6rem 0.7rem; margin-bottom: 0.3rem; border-bottom: 1px solid var(--border); }
+/* Hlavička v nabídce je jen na telefonu — na desktopu jméno ukazuje řádek, který ji otevřel. */
+@media (min-width: 861px) { .account-menu-head { display: none; } }
+.account-menu hr { border: 0; border-top: 1px solid var(--border); margin: 0.3rem 0; }
+.account-menu [role="menuitem"] {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.6rem;
+  padding: 0.5rem 0.6rem;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-decoration: none;
+}
+.account-menu [role="menuitem"] svg { width: 17px; height: 17px; flex: none; color: var(--muted); }
+.account-menu [role="menuitem"]:hover:not(:disabled),
+.account-menu [role="menuitem"]:focus-visible { background: var(--surface-2); outline: none; }
+.account-menu [role="menuitem"]:active:not(:disabled) { transform: none; }
+.account-menu .account-logout, .account-menu .account-logout svg { color: var(--error); }
+.account-menu .account-logout:hover:not(:disabled) { background: var(--error-bg); }
 
 .content {
   padding: 2rem 2.25rem 4rem;
@@ -192,27 +254,59 @@ h1 + p { margin-top: 0.3rem; color: var(--muted); }
 }
 
 @media (max-width: 860px) {
-  .shell { grid-template-columns: 1fr; }
+  /* Řádky `auto 1fr`: jinak by grid na krátké stránce rozdělil volné místo i do horní lišty. */
+  .shell { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  /* Doskok na kotvu (sekce v detailu, recenze z klávesnice) nesmí skončit pod lepicí lištou. */
+  html { scroll-padding-top: 8rem; }
+  /* Telefon: horní lišta se značkou a avatarem, pod ní posuvný řádek sekcí. Lišta drží
+     nahoře i při scrollu, ať je navigace na palec a nemusí se jezdit zpátky na začátek. */
   .sidebar {
-    position: static;
+    position: sticky;
+    top: 0;
+    z-index: 40;
     height: auto;
+    overflow: visible;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 0.55rem 0.75rem;
     border-right: none;
     border-bottom: 1px solid var(--border);
-    gap: 0.75rem;
-    padding: 0.85rem 1rem;
+    padding: 0.6rem 1rem 0;
+    background: color-mix(in srgb, var(--surface) 92%, transparent);
+    backdrop-filter: saturate(1.4) blur(10px);
   }
+  .brand { padding: 0; min-width: 0; }
+  .brand-org { max-width: 55vw; }
   .sidebar nav {
+    grid-column: 1 / -1;
+    grid-row: 2;
     flex-direction: row;
-    gap: 0.25rem;
+    gap: 0.15rem;
     overflow-x: auto;
     scrollbar-width: none;
     margin: 0 -1rem;
-    padding: 0 1rem;
+    padding: 0 1rem 0.5rem;
+    /* Vyblednutí u pravé hrany napovídá, že řádek pokračuje. */
+    mask-image: linear-gradient(90deg, #000 calc(100% - 2.5rem), transparent);
   }
   .sidebar nav::-webkit-scrollbar { display: none; }
-  .sidebar nav a { white-space: nowrap; }
+  /* Položky jako dotykové terče: aspoň 40 px na výšku. */
+  .sidebar nav a { white-space: nowrap; padding: 0.55rem 0.7rem; }
   .sidebar .grow { display: none; }
-  .sidebar-foot { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 0.75rem; padding: 0.6rem 0 0; }
+  .account { grid-column: 2; grid-row: 1; border-top: 0; padding-top: 0; }
+  button.account-trigger { width: auto; padding: 0.2rem; border-radius: 50%; }
+  button.account-trigger[aria-expanded="true"] .avatar { box-shadow: 0 0 0 3px var(--accent-ring); }
+  .account-trigger .account-who { display: none; }
+  .avatar { width: 36px; height: 36px; }
+  .account-menu {
+    left: auto;
+    right: 0;
+    bottom: auto;
+    top: calc(100% + 0.4rem);
+    width: min(18rem, calc(100vw - 2rem));
+  }
+  .account-menu [role="menuitem"] { padding: 0.7rem 0.65rem; font-size: 0.95rem; }
   .content { padding: 1.25rem 1rem 3rem; }
   /* Přepínač stavů se musí zalomit — jinak roztáhne kartu a s ní celou stránku do šířky. */
   .segmented { flex-wrap: wrap; }
@@ -473,7 +567,27 @@ button.link:hover:not(:disabled) { background: none; color: var(--accent-hover);
   max-height: calc(100vh - 3rem);
   overflow-y: auto;
 }
-.modal-head { padding-bottom: 0.85rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border); }
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-bottom: 0.85rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+button.modal-close {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  margin: -0.4rem -0.5rem -0.4rem 0;
+  padding: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+}
+button.modal-close:hover:not(:disabled) { background: var(--surface-2); color: var(--text); }
+button.modal-close svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
 .modal-head h2 { margin: 0; }
 
 /* Dialog s tabulkami (správa platformy) — na 560 px se sloupce lepí na sebe. */
@@ -559,6 +673,7 @@ button.choice:focus-visible { outline: 2px solid var(--accent-ring); outline-off
 
 .badge {
   display: inline-flex;
+  white-space: nowrap;
   align-items: center;
   gap: 0.3rem;
   padding: 0.15rem 0.55rem;
@@ -824,14 +939,14 @@ a.button:hover { background: var(--surface-2); border-color: var(--faint); text-
 .picklist { gap: 0.2rem; }
 .pick {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.6rem;
   padding: 0.5rem 0.6rem;
   border-radius: var(--radius-sm);
   cursor: pointer;
 }
 .pick:hover { background: var(--surface-2); }
-.pick input { width: auto; margin: 0; }
+.pick input { width: auto; margin: 0.3rem 0 0; flex: none; }
 .pick > span { flex: 1; }
 
 .error-inline { color: var(--error); }
@@ -862,7 +977,9 @@ a.button:hover { background: var(--surface-2); border-color: var(--faint); text-
 
 /* Seznam verzí, které na hodnocení dopadu teprve sbírají recenze — jedna řádka na verzi. */
 .collecting-list { list-style: none; margin: 0.85rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.35rem; }
-.collecting-list li { display: flex; align-items: center; gap: 0.6rem; font-size: 0.88rem; color: var(--muted); }
+.collecting-list li { display: flex; align-items: center; flex-wrap: wrap; gap: 0.15rem 0.6rem; font-size: 0.88rem; color: var(--muted); }
+/* Na úzkém displeji se řádek láme mezi údaji, ne uprostřed „App Store“ nebo data. */
+.collecting-list li > * { white-space: nowrap; }
 .collecting-list strong { color: var(--text); font-weight: 600; }
 
 /* Velké číslo nad blokem: nálada, počet recenzí, podíl odpovědí. */
@@ -946,10 +1063,6 @@ a.button:hover { background: var(--surface-2); border-color: var(--faint); text-
 .next-steps { list-style: none; margin: 0.5rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.7rem; }
 .next-steps li { display: flex; flex-direction: column; gap: 0.1rem; }
 
-/* Odhlášení na dvě kliknutí: dotaz a „zrušit" vedle sebe, ať patička v sidebaru neposkočí. */
-.logout-confirm { display: inline-flex; align-items: baseline; gap: 0.6rem; }
-.logout-confirm button.link:first-child { color: var(--error); }
-.logout-confirm button.link.small { font-size: 0.8rem; }
 
 /* --- detail aplikace --- */
 /* Záložky pod hlavičkou: podtržené taby, ne segmentovaný přepínač — přepínají celé karty,
@@ -995,3 +1108,44 @@ a.button:hover { background: var(--surface-2); border-color: var(--faint); text-
    obrazovce mají buňky `nowrap`) roztáhla celou stránku místo toho, aby se posouvala v kartě.
    S nulovým minimem karta skutečně dostane `overflow-x: auto`, jak bylo myšleno. */
 .shell > .content { min-width: 0; }
+
+/* --- telefon --- */
+@media (max-width: 620px) {
+  /* Nadpis a akce vedle sebe: když se nevejdou, akce spadne pod text, místo aby ho drtila. */
+  .spread { flex-wrap: wrap; }
+
+  /* Filtry v inboxu ve dvou sloupcích přes celou šířku, stavy jako mřížka 2×2 — místo
+     sedmi různě širokých pilulek, které zaberou celou obrazovku. */
+  .inbox-filters { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+  .inbox-filters .select-root.fit-content { width: 100%; }
+  .inbox-filters .segmented { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; }
+  .inbox-filters .segmented button { padding: 0.5rem; }
+  .inbox-filters > .badge { justify-self: start; align-self: center; }
+
+  /*
+   * Tabulky se seznamem (členové, pozvánky, audit) se na telefonu skládají do řádků-karet:
+   * hlavní údaj nahoře, zbytek pod ním. Posouvání tabulky do strany schová sloupec s akcí.
+   * `.lead` je hlavní údaj, `.full` sloupec přes celou šířku, `.end` akce vpravo.
+   */
+  table.row-cards { margin-top: 0.75rem; }
+  .card > table.row-cards:first-child, .card > h2 + table.row-cards { margin-top: 0; }
+  table.row-cards thead { display: none; }
+  table.row-cards, table.row-cards tbody { display: block; }
+  table.row-cards tbody tr { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 0.75rem; padding: 0.75rem 0; border-bottom: 1px solid var(--border); }
+  table.row-cards tbody tr:first-child { padding-top: 0; }
+  table.row-cards tbody tr:last-child { border-bottom: none; padding-bottom: 0; }
+  table.row-cards tbody tr:hover { background: none; }
+  table.row-cards tbody td { display: block; padding: 0; border: 0; white-space: normal; }
+  table.row-cards tbody td:empty { display: none; }
+  table.row-cards tbody td.lead { order: -1; flex-basis: 100%; font-weight: 550; }
+  table.row-cards tbody td.lead .small { font-weight: 400; }
+  table.row-cards tbody td.full { flex-basis: 100%; }
+  table.row-cards tbody td.end { margin-left: auto; }
+  table.row-cards tbody td[data-label]::before { content: attr(data-label) ' '; color: var(--muted); }
+  table.row-cards .select-root { width: auto; min-width: 9rem; }
+}
+
+/* Klávesové zkratky nemá smysl ukazovat na dotykovém zařízení bez klávesnice. */
+@media (hover: none) and (pointer: coarse) {
+  .keyboard-only { display: none; }
+}

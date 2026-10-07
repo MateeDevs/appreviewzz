@@ -66,7 +66,7 @@ export function AppsPage() {
         <ErrorBox error={apps.error} />
         {apps.data?.length === 0 ? <p className="muted">Zatím žádná.</p> : null}
         {apps.data && apps.data.length > 0 ? (
-          <table>
+          <table className="row-cards">
             <thead>
               <tr>
                 <th>Název</th>
@@ -77,7 +77,7 @@ export function AppsPage() {
             <tbody>
               {apps.data.map((app) => (
                 <tr key={app.id}>
-                  <td>
+                  <td className="lead">
                     <Link to={`/${org}/aplikace/${app.id}`}>{app.name}</Link>
                     {app.competitor ? <> <Badge>konkurence</Badge></> : null}
                   </td>
@@ -971,7 +971,7 @@ function ReplyTemplatesCard({ org, appId }: { org: string; appId: string }) {
         </p>
       ) : null}
       {templates.data && templates.data.length > 0 ? (
-        <table>
+        <table className="row-cards">
           <thead>
             <tr>
               <th>Název</th>
@@ -982,9 +982,9 @@ function ReplyTemplatesCard({ org, appId }: { org: string; appId: string }) {
           <tbody>
             {templates.data.map((template) => (
               <tr key={template.id}>
-                <td>{template.name}</td>
-                <td className="small muted wrap">{shorten(template.body, 80)}</td>
-                <td className="nowrap">
+                <td className="lead">{template.name}</td>
+                <td className="small muted wrap full">{shorten(template.body, 80)}</td>
+                <td className="nowrap end">
                   <div className="row">
                     <button type="button" className="secondary" onClick={() => setEditing(template)}>
                       Upravit
@@ -1285,7 +1285,7 @@ function CredentialsCard({
       {storeKeys.length === 0 ? (
         <p className="muted">Zatím žádný klíč — bez něj nemáme čím recenze stáhnout.</p>
       ) : (
-        <table>
+        <table className="row-cards">
           <thead>
             <tr>
               <th>Klíč</th>
@@ -1297,11 +1297,11 @@ function CredentialsCard({
           <tbody>
             {storeKeys.map((credential) => (
               <tr key={credential.id}>
-                <td>
+                <td className="lead">
                   {credential.label} {credential.origin === 'PROVISIONED' ? <Badge>spravovaný námi</Badge> : null}
                   <div className="small muted">{credential.hint}</div>
                 </td>
-                <td className="small muted">{credential.fingerprint}</td>
+                <td className="small muted full">{credential.fingerprint}</td>
                 <td>
                   {credential.validationStatus === 'VALID' ? (
                     <>
@@ -1316,7 +1316,7 @@ function CredentialsCard({
                     <Badge tone="warn">neověřený</Badge>
                   )}
                 </td>
-                <td className="nowrap">
+                <td className="nowrap end">
                   <div className="row">
                     {/* Organizace může mít pro tentýž store víc klíčů — spravovaný účet vedle
                         vlastního enterprise klíče. Přiřazovat jde jen ten, který appka
@@ -1505,7 +1505,7 @@ function AnalysisCard({ org, appId }: { org: string; appId: string }) {
           synchronizaci s konkrétním zařízením nebo školní účty.
         </p>
       ) : (
-        <table>
+        <table className="row-cards">
           <thead>
             <tr>
               <th>Téma</th>
@@ -1517,13 +1517,13 @@ function AnalysisCard({ org, appId }: { org: string; appId: string }) {
           <tbody>
             {custom.map((topic) => (
               <tr key={topic.key}>
-                <td>
+                <td className="lead">
                   {topic.name}
                   {topic.enabled ? null : <div className="small muted">vypnuté</div>}
                 </td>
-                <td className="small muted">{topic.description}</td>
-                <td>{topic.recentCount}</td>
-                <td>
+                <td className="small muted full">{topic.description}</td>
+                <td data-label="za 30 dní">{topic.recentCount}</td>
+                <td className="end">
                   <button
                     type="button"
                     className="danger"
@@ -1724,7 +1724,7 @@ function ChannelsCard({ org, app }: { org: string; app: App }) {
       {channels.data?.length === 0 ? (
         <p className="muted">Zatím žádný kanál — recenze nemají kam chodit.</p>
       ) : (
-        <table>
+        <table className="row-cards">
           <thead>
             <tr>
               <th>Kanál</th>
@@ -1737,14 +1737,14 @@ function ChannelsCard({ org, app }: { org: string; app: App }) {
           <tbody>
             {channels.data?.map((channel) => (
               <tr key={channel.id}>
-                <td>
+                <td className="lead">
                   {channel.targetLabel ?? channel.targetRef}
                   {channel.targetLabel ? <div className="small muted">{channel.targetRef}</div> : null}
                 </td>
                 <td className="small">{localeLabel(channel.locale)}</td>
                 <td className="small muted">{deliveriesLabel(channel)}</td>
                 <td>{channel.enabled ? <Badge tone="ok">zapnutý</Badge> : <Badge tone="warn">pozastavený</Badge>}</td>
-                <td className="nowrap">
+                <td className="nowrap end">
                   <div className="row">
                     <button type="button" className="secondary" onClick={() => setEditing(channel)}>
                       Upravit
