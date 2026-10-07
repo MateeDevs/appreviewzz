@@ -652,20 +652,73 @@ interface ReviewRepository {
     ): List<ReviewTimeKey>
 
     /**
-     * Převezme recenzi z archivu pod ID z API: přepíše `store_review_id` a doplní jméno
-     * autora, které export nenese. Řádek (a s ním výklad, revize i stav) zůstává, jen se
-     * od teď páruje s API a jde na něj odpovědět.
+     * Označí recenzi jako smazanou ve storu — dohledání podle ID ji nenašlo.
      *
-     * @return převzatá recenze, nebo `null`, když archivní řádek neexistuje nebo recenze
-     *   pod ID z API už v databázi je — pak by přejmenování porušilo unikátní klíč.
+     * @return false, když recenze neexistuje nebo už označená je
      */
-    fun adoptArchived(
+    fun markRemoved(
+        orgId: OrganizationId,
+        id: ReviewId,
+        removedAt: Instant,
+    ): Boolean
+
+    /**
+     * Označí jako smazané recenze, které měl výpis ze storu obsahovat, ale nebyly v něm.
+     * Jen pro store, který vrací výpis od nejnovější bez mezer (App Store): co je novější
+     * než nejstarší vrácená recenze a v běhu se neobjevilo, ve storu už není.
+     *
+     * @param listedSince čas nejstarší recenze ve výpisu (podle posledního znění)
+     * @param seenAt čas běhu; recenze z výpisu ho mají v `last_seen_at`
+     * @return kolik recenzí se právě označilo
+     */
+    fun markUnlistedRemoved(
         orgId: OrganizationId,
         appId: AppId,
-        archivedStoreReviewId: String,
+        platform: Platform,
+        listedSince: Instant,
+        seenAt: Instant,
+    ): Int
+
+    /**
+     * Recenze daných autorů — podklad pro párování přepsané iOS recenze s původní.
+     *
+     * App Store po editaci vydá recenzi pod **novým ID** a s novým `createdDate`, odpověď
+     * vývojáře k ní ale nechá přivěšenou. Podle ID by tak vznikla druhá recenze s čerstvým
+     * datem a odpovědí starou třeba měsíce, zatímco původní by zůstala viset vedle ní.
+     */
+    fun listAuthorKeys(
+        orgId: OrganizationId,
+        appId: AppId,
+        platform: Platform,
+        authorNames: Set<String>,
+    ): List<ReviewAuthorKey>
+
+    /**
+     * Převezme existující recenzi pod ID, které jí store dal teď: přepíše `store_review_id`
+     * a doplní jméno autora, pokud ho dřív neznal. Řádek (a s ním výklad, revize i stav)
+     * zůstává, jen se od teď páruje s novým ID. Slouží dvěma případům:
+     *
+     * - recenze z archivu (`csv:` ID), kterou teď vidí i API — export jméno autora nenese;
+     * - iOS recenze, kterou autor přepsal a App Store ji vydal pod novým ID.
+     *
+     * @return převzatá recenze, nebo `null`, když původní řádek neexistuje nebo recenze
+     *   pod novým ID už v databázi je — pak by přejmenování porušilo unikátní klíč.
+     */
+    fun adopt(
+        orgId: OrganizationId,
+        appId: AppId,
+        previousStoreReviewId: String,
         observed: ObservedReview,
     ): Review?
 }
+
+/** Čím se recenze pozná podle autora, když jí store po editaci změní ID. */
+data class ReviewAuthorKey(
+    val storeReviewId: String,
+    val authorName: String,
+    val territory: String?,
+    val submittedAt: Instant,
+)
 
 /** Čím se recenze pozná v čase, když se ID ze dvou zdrojů nepotkají. */
 data class ReviewTimeKey(

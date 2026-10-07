@@ -7,6 +7,7 @@ import cz.matee.appreviewzz.core.model.OrganizationId
 import cz.matee.appreviewzz.core.model.Platform
 import cz.matee.appreviewzz.core.model.ReviewState
 import cz.matee.appreviewzz.core.model.ValidationStatus
+import cz.matee.appreviewzz.core.port.ReviewAuthorKey
 import cz.matee.appreviewzz.core.port.ReviewSource
 import cz.matee.appreviewzz.core.port.ReviewTimeKey
 import cz.matee.appreviewzz.core.port.StoreConnectorException
@@ -133,6 +134,85 @@ class IngestReviewsUseCaseTest :
             reviews.adoptions.map { it.first } shouldContainExactly listOf("csv:1f964d28")
             report.notifiable.shouldBeEmpty()
             reviews.stateUpdates.shouldBeEmpty()
+        }
+
+        /**
+         * App Store vydá přepsanou recenzi pod novým ID s novým datem a starou odpověď k ní
+         * nechá. Bez párování vznikla druhá recenze „před týdnem" s odpovědí z června.
+         */
+        test("přepsanou iOS recenzi pod novým ID ingest spáruje s původní") {
+            val app = apps.put(Ingest.app(org, gpPackageName = null, ascAppId = "1499998888"))
+            credentials.attach(app.id, CredentialPurpose.REVIEWS, Ingest.credential(org, CredentialType.ASC_API_KEY))
+            val original = Instant.parse("2026-06-02T07:11:06Z")
+            val rewritten = Instant.parse("2026-09-30T10:35:06Z")
+            reviews.authorKeys += ReviewAuthorKey("asc:old", "Jana N.", "CZ", original)
+            val source =
+                FakeReviewSource(Platform.IOS) {
+                    listOf(Ingest.observed("asc:new", platform = Platform.IOS, submittedAt = rewritten))
+                }
+
+            val report = runBlocking { useCase(source).ingest(org, app.id) }
+
+            reviews.adoptions shouldContainExactly listOf("asc:old" to "asc:new")
+            val stored = reviews.calls.single().observed
+            stored.submittedAt shouldBe original
+            stored.storeUpdatedAt shouldBe rewritten
+            report.platforms
+                .single()
+                .shouldBeInstanceOf<PlatformIngest.Ingested>()
+                .rewritten shouldBe 1
+        }
+
+        test("iOS recenzi téhož autora ingest nespáruje, když store vrací i tu původní nebo nesedí území") {
+            val app = apps.put(Ingest.app(org, gpPackageName = null, ascAppId = "1499998888"))
+            credentials.attach(app.id, CredentialPurpose.REVIEWS, Ingest.credential(org, CredentialType.ASC_API_KEY))
+            val older = Instant.parse("2026-06-02T07:11:06Z")
+            reviews.authorKeys += ReviewAuthorKey("asc:visible", "Jana N.", "CZ", older)
+            reviews.authorKeys += ReviewAuthorKey("asc:elsewhere", "Jana N.", "SK", older)
+            val source =
+                FakeReviewSource(Platform.IOS) {
+                    listOf(
+                        Ingest.observed("asc:visible", platform = Platform.IOS, submittedAt = older),
+                        Ingest.observed("asc:new", platform = Platform.IOS),
+                    )
+                }
+
+            val report = runBlocking { useCase(source).ingest(org, app.id) }
+
+            reviews.adoptions.shouldBeEmpty()
+            report.platforms
+                .single()
+                .shouldBeInstanceOf<PlatformIngest.Ingested>()
+                .rewritten shouldBe 0
+        }
+
+        test("u storu s výpisem bez mezer hledá smazané recenze od nejstarší ve výpisu") {
+            val app = apps.put(Ingest.app(org, gpPackageName = null, ascAppId = "1499998888"))
+            credentials.attach(app.id, CredentialPurpose.REVIEWS, Ingest.credential(org, CredentialType.ASC_API_KEY))
+            val oldest = Instant.parse("2026-01-10T08:00:00Z")
+            val source =
+                FakeReviewSource(Platform.IOS, listsWithoutGaps = true) {
+                    listOf(
+                        Ingest.observed("asc:new", platform = Platform.IOS),
+                        Ingest.observed("asc:old", platform = Platform.IOS, submittedAt = oldest),
+                    )
+                }
+
+            runBlocking { useCase(source).ingest(org, app.id) }
+
+            reviews.unlistedChecks shouldContainExactly listOf(oldest)
+        }
+
+        test("prázdný výpis ani store s mezerami ve výpisu smazané recenze nehledají") {
+            val app = apps.put(Ingest.app(org, ascAppId = "1499998888"))
+            credentials.attach(app.id, CredentialPurpose.REVIEWS, Ingest.credential(org, CredentialType.GP_SERVICE_ACCOUNT))
+            credentials.attach(app.id, CredentialPurpose.REVIEWS, Ingest.credential(org, CredentialType.ASC_API_KEY))
+            val android = FakeReviewSource(Platform.ANDROID) { listOf(Ingest.observed("gp:1")) }
+            val ios = FakeReviewSource(Platform.IOS, listsWithoutGaps = true) { emptyList() }
+
+            runBlocking { useCase(android, ios).ingest(org, app.id) }
+
+            reviews.unlistedChecks.shouldBeEmpty()
         }
 
         test("appka bez watermarku notifikuje jen recenze mladší, než je sama") {

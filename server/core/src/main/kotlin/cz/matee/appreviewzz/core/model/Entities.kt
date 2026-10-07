@@ -168,6 +168,8 @@ data class Review(
     val state: ReviewState,
     val firstSeenAt: Instant,
     val lastSeenAt: Instant,
+    /** Kdy jsme zjistili, že recenzi autor ve storu smazal; `null` = ve storu je. */
+    val removedAt: Instant? = null,
 )
 
 data class ReviewMessage(

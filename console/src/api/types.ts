@@ -431,6 +431,10 @@ export interface Review {
   appVersion: string | null
   territory: string | null
   submittedAt: string
+  /** Čas posledního znění ve storu; pozdější než submittedAt = autor recenzi přepsal. */
+  storeUpdatedAt?: string | null
+  /** Kdy jsme zjistili, že recenzi autor ve storu smazal; null = ve storu je. */
+  removedAt?: string | null
   state: ReviewState
   developerResponseBody: string | null
   developerResponseAt: string | null

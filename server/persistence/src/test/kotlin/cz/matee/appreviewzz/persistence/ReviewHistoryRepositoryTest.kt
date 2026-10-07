@@ -3,6 +3,8 @@ package cz.matee.appreviewzz.persistence
 import cz.matee.appreviewzz.core.model.Platform
 import cz.matee.appreviewzz.core.model.ReviewState
 import cz.matee.appreviewzz.core.port.NewApp
+import cz.matee.appreviewzz.core.port.ReviewAuthorKey
+import cz.matee.appreviewzz.core.port.ReviewUpsertOutcome
 import cz.matee.appreviewzz.persistence.repository.ExposedAnalysisAggregateRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedAppRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedOrganizationRepository
@@ -132,7 +134,7 @@ class ReviewHistoryRepositoryTest :
             keys.single().storeUpdatedAt shouldBe edited
         }
 
-        test("adoptArchived přejmenuje archivní řádek na ID z API a doplní autora") {
+        test("adopt přejmenuje archivní řádek na ID z API a doplní autora") {
             val org = organizations.create("Matee", "matee")
             val app = apps.create(org.id, NewApp(name = "MujUp", gpPackageName = "cz.myup.customer"))
             val submitted = Instant.parse("2026-09-22T06:11:11.374Z")
@@ -147,7 +149,7 @@ class ReviewHistoryRepositoryTest :
                     ).review
             val fromApi = Fixtures.observedReview(storeReviewId = "gp:AOqpTOfresh", submittedAt = submitted)
 
-            val adopted = reviews.adoptArchived(org.id, app.id, "csv:c999e68a", fromApi)
+            val adopted = reviews.adopt(org.id, app.id, "csv:c999e68a", fromApi)
 
             adopted?.id shouldBe archived.id
             val stored = reviews.findByStoreId(org.id, app.id, Platform.ANDROID, "gp:AOqpTOfresh")
@@ -156,7 +158,55 @@ class ReviewHistoryRepositoryTest :
             reviews.findByStoreId(org.id, app.id, Platform.ANDROID, "csv:c999e68a") shouldBe null
         }
 
-        test("adoptArchived nic nepřejmenuje, když recenze pod ID z API už existuje") {
+        /**
+         * Přepsaná iOS recenze: App Store ji vydá pod novým ID s novým datem a starou odpovědí.
+         * Ingest najde původní řádek podle autora, převezme ho a upsert ho vezme jako editaci.
+         */
+        test("přepsaná iOS recenze převezme původní řádek, nechá si čas odeslání a čeká na odpověď") {
+            val org = organizations.create("Matee", "matee")
+            val app = apps.create(org.id, NewApp(name = "MujUp", ascAppId = "123"))
+            val original = Instant.parse("2026-06-02T07:11:06Z")
+            val rewritten = Instant.parse("2026-09-30T10:35:06Z")
+            val response = "Dobrý den, děkujeme za krásnou recenzi!"
+            val stored =
+                reviews
+                    .upsert(
+                        org.id,
+                        app.id,
+                        Fixtures.observedReview(
+                            storeReviewId = "asc:old",
+                            platform = Platform.IOS,
+                            body = "Dobrá aplikace",
+                            developerResponseBody = response,
+                            submittedAt = original,
+                        ),
+                        Fixtures.seenAt,
+                        ReviewState.REPLIED,
+                    ).review
+            reviews.listAuthorKeys(org.id, app.id, Platform.IOS, setOf("Jana N.")) shouldBe
+                listOf(ReviewAuthorKey("asc:old", "Jana N.", "CZ", original))
+            val fresh =
+                Fixtures.observedReview(
+                    storeReviewId = "asc:new",
+                    platform = Platform.IOS,
+                    body = "Díky za super aplikaci:)",
+                    developerResponseBody = response,
+                    submittedAt = rewritten,
+                    storeUpdatedAt = rewritten,
+                )
+
+            reviews.adopt(org.id, app.id, "asc:old", fresh)?.id shouldBe stored.id
+            val result = reviews.upsert(org.id, app.id, fresh.copy(submittedAt = original), Fixtures.seenAt, ReviewState.NEW)
+
+            result.outcome shouldBe ReviewUpsertOutcome.UPDATED
+            result.review.id shouldBe stored.id
+            result.review.state shouldBe ReviewState.UPDATED
+            result.review.submittedAt shouldBe original
+            result.review.storeUpdatedAt shouldBe rewritten
+            reviews.findByStoreId(org.id, app.id, Platform.IOS, "asc:old") shouldBe null
+        }
+
+        test("adopt nic nepřejmenuje, když recenze pod ID z API už existuje") {
             val org = organizations.create("Matee", "matee")
             val app = apps.create(org.id, NewApp(name = "MujUp", gpPackageName = "cz.myup.customer"))
             val submitted = Instant.parse("2026-09-22T06:11:11Z")
@@ -170,7 +220,7 @@ class ReviewHistoryRepositoryTest :
                 ReviewState.SUPPRESSED,
             )
 
-            reviews.adoptArchived(org.id, app.id, "csv:c999e68a", fromApi) shouldBe null
+            reviews.adopt(org.id, app.id, "csv:c999e68a", fromApi) shouldBe null
         }
 
         /**

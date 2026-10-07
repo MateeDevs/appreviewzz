@@ -185,7 +185,7 @@ export function InboxPage() {
           moveFocus(-1)
           break
         case 'r':
-          if (focusedId) {
+          if (focusedId && !list.find((review) => review.id === focusedId)?.removedAt) {
             event.preventDefault()
             setOpenReview(focusedId)
           }
@@ -378,11 +378,19 @@ export function InboxPage() {
                   <strong>{review.authorName ?? 'Anonym'}</strong>
                   <span className="small muted">
                     <RelativeWhen iso={review.submittedAt} />
+                    <RewrittenWhen review={review} />
                     {review.appVersion ? ` · verze ${review.appVersion}` : ''}
                     {review.territory ? ` · ${review.territory}` : ''}
                   </span>
                 </div>
-                <StateBadge state={review.state} />
+                <div className="row" style={{ gap: '0.35rem' }}>
+                  {review.removedAt ? (
+                    <span title={`Ze storu zmizela ${new Date(review.removedAt).toLocaleString('cs-CZ')}`}>
+                      <Badge tone="bad">smazaná ve storu</Badge>
+                    </span>
+                  ) : null}
+                  <StateBadge state={review.state} />
+                </div>
               </div>
               <InsightBadges insight={review.insight} />
               {review.title ? <div style={{ marginTop: '0.35rem' }}><strong>{review.title}</strong></div> : null}
@@ -400,6 +408,7 @@ export function InboxPage() {
                     <span className="small">
                       {' '}
                       · <When iso={review.developerResponseAt} />
+                      {answersEarlierWording(review) ? ' · k dřívějšímu znění recenze' : ''}
                     </span>
                   ) : null}
                   <div style={{ marginTop: '0.2rem' }}>{review.developerResponseBody}</div>
@@ -413,7 +422,10 @@ export function InboxPage() {
                   review={review}
                   onClose={() => setOpenReview('')}
                 />
-              ) : readOnly ? null : (
+              ) : readOnly ? null : review.removedAt ? (
+                // Na smazanou recenzi store odpověď nepřijme; tlačítko by vedlo jen k chybě.
+                <div className="review-actions small muted">Autor recenzi ve storu smazal, odpovědět už nejde.</div>
+              ) : (
                 <div className="review-actions">
                   <button type="button" className="secondary" onClick={() => setOpenReview(review.id)}>
                     {review.developerResponseBody ? 'Upravit odpověď' : 'Odpovědět'}
@@ -495,6 +507,30 @@ function relativeTime(iso: string, now: Date = new Date()): string | null {
   if (days >= 30) return null
   if (days === 1) return 'včera'
   return `před ${days} dny`
+}
+
+/** „· upraveno před 7 dny", když autor recenzi po odeslání přepsal. */
+function RewrittenWhen({ review }: { review: Review }) {
+  const updated = review.storeUpdatedAt
+  // Android posílá čas změny i u nepřepsané recenze, shodný s časem odeslání.
+  if (!updated || Date.parse(updated) - Date.parse(review.submittedAt) < 60_000) return null
+  return (
+    <>
+      {' · upraveno '}
+      <RelativeWhen iso={updated} />
+    </>
+  )
+}
+
+/**
+ * Odpověď starší než to, co v recenzi teď stojí: autor ji po odpovědi přepsal. App Store
+ * u přepsané recenze nechá původní odpověď viset, takže bez téhle poznámky to vypadá,
+ * jako bychom odpověděli dřív, než recenze vůbec přišla.
+ */
+function answersEarlierWording(review: Review): boolean {
+  if (!review.developerResponseAt) return false
+  const wording = review.storeUpdatedAt ?? review.submittedAt
+  return Date.parse(review.developerResponseAt) < Date.parse(wording)
 }
 
 function RelativeWhen({ iso }: { iso: string }) {

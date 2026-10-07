@@ -37,6 +37,7 @@ import cz.matee.appreviewzz.core.port.ReplyRepository
 import cz.matee.appreviewzz.core.port.ReplySuggestion
 import cz.matee.appreviewzz.core.port.ReplySuggestionRequest
 import cz.matee.appreviewzz.core.port.ReplyTarget
+import cz.matee.appreviewzz.core.port.ReviewAuthorKey
 import cz.matee.appreviewzz.core.port.ReviewFilter
 import cz.matee.appreviewzz.core.port.ReviewMessageRepository
 import cz.matee.appreviewzz.core.port.ReviewRepository
@@ -183,10 +184,31 @@ internal class FakeReviewRepository(
         before: Instant,
     ): List<ReviewTimeKey> = emptyList()
 
-    override fun adoptArchived(
+    override fun markRemoved(
+        orgId: OrganizationId,
+        id: ReviewId,
+        removedAt: Instant,
+    ): Boolean = false
+
+    override fun markUnlistedRemoved(
         orgId: OrganizationId,
         appId: AppId,
-        archivedStoreReviewId: String,
+        platform: Platform,
+        listedSince: Instant,
+        seenAt: Instant,
+    ): Int = 0
+
+    override fun listAuthorKeys(
+        orgId: OrganizationId,
+        appId: AppId,
+        platform: Platform,
+        authorNames: Set<String>,
+    ): List<ReviewAuthorKey> = emptyList()
+
+    override fun adopt(
+        orgId: OrganizationId,
+        appId: AppId,
+        previousStoreReviewId: String,
         observed: ObservedReview,
     ): Review? = null
 }

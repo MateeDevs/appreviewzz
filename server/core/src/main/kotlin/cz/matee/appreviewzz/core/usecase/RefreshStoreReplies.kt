@@ -153,6 +153,7 @@ class RefreshStoreRepliesUseCase(
                 }
             if (observed == null) {
                 gone++
+                reviews.markRemoved(app.orgId, review.id, now)
                 return@forEach
             }
             // Stav se předává, i když se nepoužije: kdyby řádek mezitím zmizel, ať se recenze

@@ -19,6 +19,7 @@ import cz.matee.appreviewzz.core.model.ReviewState
 import cz.matee.appreviewzz.core.model.sha256Hex
 import cz.matee.appreviewzz.core.port.NewReply
 import cz.matee.appreviewzz.core.port.ReplyRepository
+import cz.matee.appreviewzz.core.port.ReviewAuthorKey
 import cz.matee.appreviewzz.core.port.ReviewFilter
 import cz.matee.appreviewzz.core.port.ReviewMessageRepository
 import cz.matee.appreviewzz.core.port.ReviewRepository
@@ -33,12 +34,14 @@ import cz.matee.appreviewzz.persistence.schema.ReviewInsights
 import cz.matee.appreviewzz.persistence.schema.ReviewMessages
 import cz.matee.appreviewzz.persistence.schema.ReviewRevisions
 import cz.matee.appreviewzz.persistence.schema.Reviews
+import org.jetbrains.exposed.v1.core.Coalesce
 import org.jetbrains.exposed.v1.core.Expression
 import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.greater
 import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.inSubQuery
@@ -46,6 +49,7 @@ import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.core.like
+import org.jetbrains.exposed.v1.core.notLike
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.Query
 import org.jetbrains.exposed.v1.jdbc.insert
@@ -90,8 +94,12 @@ class ExposedReviewRepository(
                 }
 
                 existing.contentHash == hash -> {
-                    Reviews.update({ Reviews.id eq existing.id }) { it[lastSeenAt] = seenAt }
-                    ReviewUpsertResult(existing.copy(lastSeenAt = seenAt), ReviewUpsertOutcome.UNCHANGED)
+                    // Recenze, kterou jsme měli za smazanou, je ve storu zpátky — štítek pryč.
+                    Reviews.update({ Reviews.id eq existing.id }) {
+                        it[lastSeenAt] = seenAt
+                        it[removedAt] = null
+                    }
+                    ReviewUpsertResult(existing.copy(lastSeenAt = seenAt, removedAt = null), ReviewUpsertOutcome.UNCHANGED)
                 }
 
                 else -> {
@@ -121,6 +129,7 @@ class ExposedReviewRepository(
                         it[developerResponseBody] = observed.developerResponseBody
                         it[developerResponseAt] = observed.developerResponseAt
                         it[lastSeenAt] = seenAt
+                        it[removedAt] = null
                     }
                     insertRevision(existing.id, observed, hash, seenAt)
                     val updated =
@@ -138,6 +147,7 @@ class ExposedReviewRepository(
                             developerResponseBody = observed.developerResponseBody,
                             developerResponseAt = observed.developerResponseAt,
                             lastSeenAt = seenAt,
+                            removedAt = null,
                         )
                     ReviewUpsertResult(updated, ReviewUpsertOutcome.UPDATED, changes)
                 }
@@ -222,6 +232,11 @@ class ExposedReviewRepository(
                 var condition: Op<Boolean> = (Reviews.orgId eq orgId) and (Reviews.appId eq appId)
                 val states = filter.states.ifEmpty { ReviewState.entries.toSet() }
                 condition = condition and (Reviews.state inList states.toList())
+                // Smazanou recenzi už nejde zodpovědět, do fronty „čeká na odpověď" nepatří.
+                // V ostatních pohledech zůstává, jen se štítkem.
+                if (filter.states.isNotEmpty() && AWAITING_REPLY.containsAll(filter.states)) {
+                    condition = condition and Reviews.removedAt.isNull()
+                }
                 if (filter.types.isNotEmpty()) condition = condition and (ReviewInsights.reviewType inList filter.types.toList())
                 if (filter.urgencies.isNotEmpty()) {
                     condition = condition and (ReviewInsights.urgency inList filter.urgencies.toList())
@@ -263,6 +278,7 @@ class ExposedReviewRepository(
                         (Reviews.platform eq platform) and
                         (Reviews.state inList AWAITING_REPLY.toList()) and
                         Reviews.developerResponseBody.isNull() and
+                        Reviews.removedAt.isNull() and
                         (Reviews.submittedAt greaterEq submittedAfter) and
                         (Reviews.submittedAt less submittedBefore)
                 }.orderBy(Reviews.submittedAt to SortOrder.DESC)
@@ -324,10 +340,67 @@ class ExposedReviewRepository(
                 }
         }
 
-    override fun adoptArchived(
+    override fun markRemoved(
+        orgId: OrganizationId,
+        id: ReviewId,
+        removedAt: Instant,
+    ): Boolean =
+        transaction(database) {
+            Reviews.update({ (Reviews.orgId eq orgId) and (Reviews.id eq id) and Reviews.removedAt.isNull() }) {
+                it[Reviews.removedAt] = removedAt
+            } > 0
+        }
+
+    override fun markUnlistedRemoved(
         orgId: OrganizationId,
         appId: AppId,
-        archivedStoreReviewId: String,
+        platform: Platform,
+        listedSince: Instant,
+        seenAt: Instant,
+    ): Int =
+        transaction(database) {
+            // Čas, podle kterého store výpis řadí: poslední znění, u starých řádků čas odeslání.
+            val listedAt = Coalesce(Reviews.storeUpdatedAt, Reviews.submittedAt)
+            // Databáze drží mikrosekundy, hodiny nanosekundy: řádky z tohoto běhu mají
+            // `last_seen_at` o kousek menší než `seenAt`. Na milisekundy oříznuté se už nepletou.
+            val runStart = Instant.fromEpochMilliseconds(seenAt.toEpochMilliseconds())
+            Reviews.update({
+                (Reviews.orgId eq orgId) and
+                    (Reviews.appId eq appId) and
+                    (Reviews.platform eq platform) and
+                    Reviews.removedAt.isNull() and
+                    (Reviews.lastSeenAt less runStart) and
+                    (listedAt greater listedSince) and
+                    (Reviews.storeReviewId notLike "${ObservedReview.ARCHIVE_ID_PREFIX}%")
+            }) { it[removedAt] = seenAt }
+        }
+
+    override fun listAuthorKeys(
+        orgId: OrganizationId,
+        appId: AppId,
+        platform: Platform,
+        authorNames: Set<String>,
+    ): List<ReviewAuthorKey> {
+        if (authorNames.isEmpty()) return emptyList()
+        return transaction(database) {
+            Reviews
+                .select(Reviews.storeReviewId, Reviews.authorName, Reviews.territory, Reviews.submittedAt)
+                .where {
+                    (Reviews.orgId eq orgId) and
+                        (Reviews.appId eq appId) and
+                        (Reviews.platform eq platform) and
+                        (Reviews.authorName inList authorNames)
+                }.mapNotNull { row ->
+                    val author = row[Reviews.authorName] ?: return@mapNotNull null
+                    ReviewAuthorKey(row[Reviews.storeReviewId], author, row[Reviews.territory], row[Reviews.submittedAt])
+                }
+        }
+    }
+
+    override fun adopt(
+        orgId: OrganizationId,
+        appId: AppId,
+        previousStoreReviewId: String,
         observed: ObservedReview,
     ): Review? =
         transaction(database) {
@@ -343,12 +416,12 @@ class ExposedReviewRepository(
                     ?.toReview()
 
             if (find(observed.storeReviewId) != null) return@transaction null
-            val archived = find(archivedStoreReviewId) ?: return@transaction null
-            Reviews.update({ Reviews.id eq archived.id }) {
+            val previous = find(previousStoreReviewId) ?: return@transaction null
+            Reviews.update({ Reviews.id eq previous.id }) {
                 it[storeReviewId] = observed.storeReviewId
-                it[authorName] = observed.authorName ?: archived.authorName
+                it[authorName] = observed.authorName ?: previous.authorName
             }
-            archived.copy(storeReviewId = observed.storeReviewId, authorName = observed.authorName ?: archived.authorName)
+            previous.copy(storeReviewId = observed.storeReviewId, authorName = observed.authorName ?: previous.authorName)
         }
 
     private fun insertReview(

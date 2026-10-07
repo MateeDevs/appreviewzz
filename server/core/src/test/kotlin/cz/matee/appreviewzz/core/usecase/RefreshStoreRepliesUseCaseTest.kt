@@ -10,6 +10,7 @@ import cz.matee.appreviewzz.core.model.Review
 import cz.matee.appreviewzz.core.model.ReviewChange
 import cz.matee.appreviewzz.core.model.ReviewId
 import cz.matee.appreviewzz.core.model.ReviewState
+import cz.matee.appreviewzz.core.port.ReviewAuthorKey
 import cz.matee.appreviewzz.core.port.ReviewFilter
 import cz.matee.appreviewzz.core.port.ReviewRefreshSource
 import cz.matee.appreviewzz.core.port.ReviewRepository
@@ -96,14 +97,15 @@ class RefreshStoreRepliesUseCaseTest :
             reviews.stateUpdates.shouldBeEmpty()
         }
 
-        test("recenzi, kterou store už nezná, jen započítá") {
+        test("recenzi, kterou store už nezná, označí jako smazanou a stav nechá") {
             val appId = appWithKey()
-            reviews.put(pending(org, appId, "gp:deleted"))
+            val deleted = reviews.put(pending(org, appId, "gp:deleted"))
 
             val report = runBlocking { useCase(FakeRefreshSource { null }).refresh(org, appId) }
 
             report.platforms shouldContainExactly
                 listOf(PlatformRefresh.Refreshed(Platform.ANDROID, checked = 1, answered = 0, gone = 1))
+            reviews.removed shouldContainExactly listOf(deleted.id)
             reviews.stateUpdates.shouldBeEmpty()
         }
 
@@ -190,6 +192,7 @@ private class FakeRefreshSource(
 private class RefreshReviewRepository : ReviewRepository {
     private val pending = mutableListOf<Review>()
     val stateUpdates = mutableListOf<Pair<ReviewId, ReviewState>>()
+    val removed = mutableListOf<ReviewId>()
     var bounds: Pair<Instant, Instant>? = null
     var limit: Int? = null
     var changes: Set<ReviewChange> = setOf(ReviewChange.DEVELOPER_RESPONSE)
@@ -225,10 +228,34 @@ private class RefreshReviewRepository : ReviewRepository {
         before: Instant,
     ): List<ReviewTimeKey> = emptyList()
 
-    override fun adoptArchived(
+    override fun markRemoved(
+        orgId: OrganizationId,
+        id: ReviewId,
+        removedAt: Instant,
+    ): Boolean {
+        removed += id
+        return true
+    }
+
+    override fun markUnlistedRemoved(
         orgId: OrganizationId,
         appId: AppId,
-        archivedStoreReviewId: String,
+        platform: Platform,
+        listedSince: Instant,
+        seenAt: Instant,
+    ): Int = 0
+
+    override fun listAuthorKeys(
+        orgId: OrganizationId,
+        appId: AppId,
+        platform: Platform,
+        authorNames: Set<String>,
+    ): List<ReviewAuthorKey> = emptyList()
+
+    override fun adopt(
+        orgId: OrganizationId,
+        appId: AppId,
+        previousStoreReviewId: String,
         observed: ObservedReview,
     ): Review? = null
 

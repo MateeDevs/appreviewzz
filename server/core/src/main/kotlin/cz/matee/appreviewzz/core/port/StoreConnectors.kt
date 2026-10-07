@@ -201,6 +201,14 @@ interface ReviewSource {
     val platform: Platform
 
     /**
+     * Vrací store výpis od nejnovější recenze bez mezer? Pak se z toho, co ve výpisu chybí,
+     * pozná recenze smazaná autorem. Google Play to neumí: `reviews.list` sahá jen ~týden
+     * zpátky a hodnocení bez textu nevrací vůbec.
+     */
+    val listsWithoutGaps: Boolean
+        get() = false
+
+    /**
      * Stáhne recenze, které store zrovna vrací. Stránkování si řeší konektor sám;
      * volající dostane už normalizovaná data.
      */

@@ -193,6 +193,7 @@ internal fun ResultRow.toReview(): Review =
         state = this[Reviews.state],
         firstSeenAt = this[Reviews.firstSeenAt],
         lastSeenAt = this[Reviews.lastSeenAt],
+        removedAt = this[Reviews.removedAt],
     )
 
 internal fun ResultRow.toReviewMessage(): ReviewMessage =

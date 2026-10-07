@@ -265,6 +265,7 @@ internal object Reviews : Table("review") {
     val state = enumerationByName<ReviewState>("state", ENUM_LENGTH)
     val firstSeenAt = instant("first_seen_at")
     val lastSeenAt = instant("last_seen_at")
+    val removedAt = instant("removed_at").nullable()
     val updatedAt = instant("updated_at")
 
     override val primaryKey = PrimaryKey(id)

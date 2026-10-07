@@ -24,6 +24,7 @@ import cz.matee.appreviewzz.core.port.AuditLogRepository
 import cz.matee.appreviewzz.core.port.CredentialRepository
 import cz.matee.appreviewzz.core.port.NewApp
 import cz.matee.appreviewzz.core.port.NewCredential
+import cz.matee.appreviewzz.core.port.ReviewAuthorKey
 import cz.matee.appreviewzz.core.port.ReviewFilter
 import cz.matee.appreviewzz.core.port.ReviewRepository
 import cz.matee.appreviewzz.core.port.ReviewSource
@@ -262,7 +263,13 @@ internal class RecordingReviewRepository : ReviewRepository {
     /** Recenze z archivu, které si ingest z API může převzít (`csv:` ID). */
     val archivedKeys = mutableListOf<ReviewTimeKey>()
 
-    /** Převzatá archivní ID → ID z API, v pořadí převzetí. */
+    /** Volání [markUnlistedRemoved]: od kdy výpis sahal. */
+    val unlistedChecks = mutableListOf<Instant>()
+
+    /** Recenze podle autora — pro párování přepsaných iOS recenzí. */
+    val authorKeys = mutableListOf<ReviewAuthorKey>()
+
+    /** Převzatá původní ID → nové ID ze storu, v pořadí převzetí. */
     val adoptions = mutableListOf<Pair<String, String>>()
 
     override fun upsert(
@@ -358,15 +365,41 @@ internal class RecordingReviewRepository : ReviewRepository {
             listOfNotNull(key.submittedAt, key.storeUpdatedAt).any { it >= after && it <= before }
         }
 
-    override fun adoptArchived(
+    override fun markRemoved(
+        orgId: OrganizationId,
+        id: ReviewId,
+        removedAt: Instant,
+    ): Boolean = notUsed()
+
+    override fun markUnlistedRemoved(
         orgId: OrganizationId,
         appId: AppId,
-        archivedStoreReviewId: String,
+        platform: Platform,
+        listedSince: Instant,
+        seenAt: Instant,
+    ): Int {
+        unlistedChecks += listedSince
+        return 0
+    }
+
+    override fun listAuthorKeys(
+        orgId: OrganizationId,
+        appId: AppId,
+        platform: Platform,
+        authorNames: Set<String>,
+    ): List<ReviewAuthorKey> = authorKeys.filter { it.authorName in authorNames }
+
+    override fun adopt(
+        orgId: OrganizationId,
+        appId: AppId,
+        previousStoreReviewId: String,
         observed: ObservedReview,
     ): Review? {
-        if (archivedKeys.none { it.storeReviewId == archivedStoreReviewId }) return null
-        archivedKeys.removeAll { it.storeReviewId == archivedStoreReviewId }
-        adoptions += archivedStoreReviewId to observed.storeReviewId
+        val known = archivedKeys.map { it.storeReviewId } + authorKeys.map { it.storeReviewId }
+        if (previousStoreReviewId !in known) return null
+        archivedKeys.removeAll { it.storeReviewId == previousStoreReviewId }
+        authorKeys.removeAll { it.storeReviewId == previousStoreReviewId }
+        adoptions += previousStoreReviewId to observed.storeReviewId
         return upsert(orgId, appId, observed, Ingest.now, ReviewState.SUPPRESSED).review.also { calls.removeAt(calls.lastIndex) }
     }
 }
@@ -387,6 +420,7 @@ internal class RecordingAuditLog : AuditLogRepository {
 /** Konektor, který místo storu vrací připravený výsledek (nebo připravené selhání). */
 internal class FakeReviewSource(
     override val platform: Platform,
+    override val listsWithoutGaps: Boolean = false,
     private val response: () -> List<ObservedReview>,
 ) : ReviewSource {
     var receivedIdentifier: String? = null

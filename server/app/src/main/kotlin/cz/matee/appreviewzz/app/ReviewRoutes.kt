@@ -52,6 +52,10 @@ data class ReviewResponse(
     val appVersion: String?,
     val territory: String?,
     val submittedAt: String,
+    /** Čas posledního znění ve storu; když se liší od [submittedAt], autor recenzi přepsal. */
+    val storeUpdatedAt: String? = null,
+    /** Kdy jsme zjistili, že recenzi autor ve storu smazal; `null` = ve storu je. */
+    val removedAt: String? = null,
     val state: ReviewState,
     val developerResponseBody: String?,
     val developerResponseAt: String?,
@@ -559,6 +563,8 @@ private fun Review.toResponse(
     appVersion = appVersion,
     territory = territory,
     submittedAt = submittedAt.toString(),
+    storeUpdatedAt = storeUpdatedAt?.toString(),
+    removedAt = removedAt?.toString(),
     state = state,
     developerResponseBody = developerResponseBody,
     developerResponseAt = developerResponseAt?.toString(),

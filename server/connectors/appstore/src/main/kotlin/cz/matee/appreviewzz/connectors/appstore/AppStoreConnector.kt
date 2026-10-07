@@ -62,6 +62,9 @@ class AppStoreConnector(
     StoreAppCatalog {
     override val platform: Platform = Platform.IOS
 
+    /** Výpis je řazený podle `-createdDate` a stránkuje se souvisle od nejnovější. */
+    override val listsWithoutGaps: Boolean = true
+
     /** Apple přijme odpověď do 5 970 znaků; delší vrací jako chybu požadavku. */
     override val replyMaxLength: Int = platform.storeReplyMaxLength
 
@@ -410,7 +413,9 @@ internal fun CustomerReviewDto.toObservedReview(responses: Map<String, IncludedR
         appVersion = null,
         device = null,
         submittedAt = createdAt,
-        storeUpdatedAt = null,
+        // `createdDate` je ve skutečnosti čas posledního znění: přepsanou recenzi App Store
+        // vydá pod novým ID s novým datem. Původní čas odeslání doplní ingest, když ji spáruje.
+        storeUpdatedAt = createdAt,
         developerResponseBody = response?.responseBody,
         developerResponseAt = response?.lastModifiedDate?.toInstantOrNull(),
     )

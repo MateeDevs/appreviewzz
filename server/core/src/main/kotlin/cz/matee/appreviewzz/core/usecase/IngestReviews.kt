@@ -14,6 +14,7 @@ import cz.matee.appreviewzz.core.port.AppRepository
 import cz.matee.appreviewzz.core.port.AuditLogRepository
 import cz.matee.appreviewzz.core.port.CredentialRepository
 import cz.matee.appreviewzz.core.port.PublicReviewSource
+import cz.matee.appreviewzz.core.port.ReviewAuthorKey
 import cz.matee.appreviewzz.core.port.ReviewRepository
 import cz.matee.appreviewzz.core.port.ReviewSource
 import cz.matee.appreviewzz.core.port.ReviewTimeKey
@@ -67,6 +68,10 @@ sealed interface PlatformIngest {
         val notifiable: List<ReviewUpsertResult>,
         /** Recenze, které už založil import z exportu a teď se přejmenovaly na ID z API. */
         val adopted: Int = 0,
+        /** iOS recenze, které autor přepsal a App Store je vydal pod novým ID. */
+        val rewritten: Int = 0,
+        /** Recenze, které z výpisu storu zmizely — autor je smazal. */
+        val removed: Int = 0,
     ) : PlatformIngest
 
     data class Skipped(
@@ -186,7 +191,7 @@ class IngestReviewsUseCase(
             }
 
         revalidate(credential)
-        return store(app, platform, observed)
+        return store(app, platform, observed, detectRemoved = source.listsWithoutGaps)
     }
 
     /**
@@ -215,6 +220,7 @@ class IngestReviewsUseCase(
         app: App,
         platform: Platform,
         observed: List<ObservedReview>,
+        detectRemoved: Boolean = false,
     ): PlatformIngest.Ingested {
         val seenAt = clock.now()
         var created = 0
@@ -223,15 +229,28 @@ class IngestReviewsUseCase(
         var suppressed = 0
         var answeredInStore = 0
         var adopted = 0
+        var rewritten = 0
         val notifiable = mutableListOf<ReviewUpsertResult>()
         val archived = archivedTwins(app, platform, observed)
+        val originals = rewrittenOriginals(app, platform, observed)
 
         // Chronologicky: v kanálu má starší recenze přistát dřív než novější.
-        observed.sortedBy { it.submittedAt }.forEach { review ->
+        observed.sortedBy { it.submittedAt }.forEach { fresh ->
+            val original =
+                originals[fresh.storeReviewId]?.takeIf { reviews.adopt(app.orgId, app.id, it.storeReviewId, fresh) != null }
+            // Přepsaná recenze si nechává původní čas odeslání; čas přepsání jde do storeUpdatedAt.
+            // Upsert ji pak vezme jako editaci (UPDATED) — stejně jako na Androidu, kde ID zůstává.
+            val review =
+                if (original == null) {
+                    fresh
+                } else {
+                    rewritten++
+                    fresh.copy(submittedAt = original.submittedAt, storeUpdatedAt = fresh.storeUpdatedAt ?: fresh.submittedAt)
+                }
             // Konkurence se nikdy nenotifikuje — slouží rozborům, ne kanálu.
             val initialState =
                 if (app.competitor || isUnderWatermark(app, review)) ReviewState.SUPPRESSED else ReviewState.NEW
-            val twin = archived.twinOf(review)?.let { reviews.adoptArchived(app.orgId, app.id, it, review) }
+            val twin = archived.twinOf(review)?.let { reviews.adopt(app.orgId, app.id, it, review) }
             var result = reviews.upsert(app.orgId, app.id, review, seenAt, initialState)
             if (twin != null) {
                 adopted++
@@ -253,6 +272,15 @@ class IngestReviewsUseCase(
             }
         }
 
+        // Prázdný výpis nic nedokazuje — spíš výpadek než to, že autoři smazali všechno.
+        val removed =
+            if (detectRemoved && observed.isNotEmpty()) {
+                val listedSince = observed.minOf { it.storeUpdatedAt ?: it.submittedAt }
+                reviews.markUnlistedRemoved(app.orgId, app.id, platform, listedSince, seenAt)
+            } else {
+                0
+            }
+
         return PlatformIngest.Ingested(
             platform = platform,
             fetched = observed.size,
@@ -263,7 +291,41 @@ class IngestReviewsUseCase(
             answeredInStore = answeredInStore,
             notifiable = notifiable,
             adopted = adopted,
+            rewritten = rewritten,
+            removed = removed,
         )
+    }
+
+    /**
+     * Přepsané iOS recenze: nové ID ze storu → původní řádek u nás.
+     *
+     * App Store po editaci vydá recenzi pod novým ID a s novým `createdDate`, starou odpověď
+     * k ní ale nechá. Bez párování vznikne druhá recenze s čerstvým datem a odpovědí starou
+     * třeba měsíce, a původní zůstane viset vedle ní. Páruje se podle autora — přezdívka je
+     * v App Storu unikátní a jeden účet má k aplikaci jedinou recenzi. Pojistky proti spojení
+     * dvou různých recenzí: původní ID store už nevrací, území sedí a původní je starší.
+     */
+    private fun rewrittenOriginals(
+        app: App,
+        platform: Platform,
+        observed: List<ObservedReview>,
+    ): Map<String, ReviewAuthorKey> {
+        if (platform != Platform.IOS) return emptyMap()
+        val authors = observed.mapNotNullTo(mutableSetOf()) { it.authorName }
+        val known = reviews.listAuthorKeys(app.orgId, app.id, platform, authors)
+        if (known.isEmpty()) return emptyMap()
+        val knownIds = known.mapTo(mutableSetOf()) { it.storeReviewId }
+        val visibleIds = observed.mapTo(mutableSetOf()) { it.storeReviewId }
+        val goneByAuthor = known.filter { it.storeReviewId !in visibleIds }.groupBy { it.authorName }
+        return observed
+            .filter { it.storeReviewId !in knownIds }
+            .mapNotNull { fresh ->
+                goneByAuthor[fresh.authorName]
+                    .orEmpty()
+                    .filter { it.territory == fresh.territory && it.submittedAt < fresh.submittedAt }
+                    .maxByOrNull { it.submittedAt }
+                    ?.let { fresh.storeReviewId to it }
+            }.toMap()
     }
 
     /**
@@ -393,7 +455,8 @@ private fun PlatformIngest.describe(): String =
     when (this) {
         is PlatformIngest.Ingested ->
             "$platform fetched=$fetched new=$created updated=$updated unchanged=$unchanged " +
-                "suppressed=$suppressed answered=$answeredInStore adopted=$adopted notify=${notifiable.size}"
+                "suppressed=$suppressed answered=$answeredInStore adopted=$adopted rewritten=$rewritten removed=$removed " +
+                "notify=${notifiable.size}"
 
         is PlatformIngest.Skipped -> "$platform skipped=$reason"
         is PlatformIngest.Failed -> "$platform failed=$kind"
