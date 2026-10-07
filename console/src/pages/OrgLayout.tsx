@@ -132,22 +132,24 @@ function AccountMenu({
   onPlatform: () => void
 }) {
   const logout = useLogout()
-  const [open, setOpen] = useState(false)
   const root = useRef<HTMLDivElement>(null)
   const menuId = useId()
   const location = useLocation()
 
-  // Přechod na jinou stránku nabídku zavře — jinak by po „Přepnout organizaci" visela dál.
-  useEffect(() => setOpen(false), [location.pathname])
+  // Nabídka patří ke stránce, na které se otevřela. Přechod jinam ji tím zavře sám —
+  // jinak by po „Přepnout organizaci" visela dál.
+  const [openOn, setOpenOn] = useState<string | null>(null)
+  const open = openOn === location.pathname
+  const setOpen = (next: boolean) => setOpenOn(next ? location.pathname : null)
 
   useEffect(() => {
     if (!open) return
     const onPointer = (event: PointerEvent) => {
-      if (!root.current?.contains(event.target as Node)) setOpen(false)
+      if (!root.current?.contains(event.target as Node)) setOpenOn(null)
     }
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return
-      setOpen(false)
+      setOpenOn(null)
       root.current?.querySelector<HTMLButtonElement>('.account-trigger')?.focus()
     }
     document.addEventListener('pointerdown', onPointer)
@@ -174,7 +176,7 @@ function AccountMenu({
         aria-expanded={open}
         aria-controls={menuId}
         aria-label="Účet a odhlášení"
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => setOpen(!open)}
       >
         <span className="avatar" aria-hidden="true">
           {initials(name, email)}

@@ -3,7 +3,7 @@ package cz.matee.appreviewzz.app.cli
 import cz.matee.appreviewzz.persistence.Database
 import cz.matee.appreviewzz.persistence.DatabaseConfig
 import cz.matee.appreviewzz.persistence.asDataSource
-import org.testcontainers.containers.PostgreSQLContainer
+import org.testcontainers.postgresql.PostgreSQLContainer
 import java.sql.Statement
 
 /**
@@ -11,7 +11,7 @@ import java.sql.Statement
  * testy routes si berou [database]; my držíme jen kontejner a úklid mezi testy.
  */
 object TestDatabase {
-    private val container: PostgreSQLContainer<*> by lazy {
+    private val container: PostgreSQLContainer by lazy {
         PostgreSQLContainer("postgres:17-alpine")
             .withDatabaseName("appreviewzz_cli_test")
             .withUsername("appreviewzz")

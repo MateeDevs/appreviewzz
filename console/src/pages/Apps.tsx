@@ -210,9 +210,13 @@ function useSetupFocus(id: string): string | undefined {
     const node = document.getElementById(id)
     if (!node) return
     node.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    setFocused(true)
+    // Zvýraznění až v dalším snímku, kdy se karta začala posouvat — ne synchronně v efektu.
+    const frame = requestAnimationFrame(() => setFocused(true))
     const timer = setTimeout(() => setFocused(false), 1800)
-    return () => clearTimeout(timer)
+    return () => {
+      cancelAnimationFrame(frame)
+      clearTimeout(timer)
+    }
   }, [hash, id])
 
   return focused ? 'ripple' : undefined

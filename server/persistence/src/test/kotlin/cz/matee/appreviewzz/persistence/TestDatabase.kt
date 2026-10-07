@@ -1,6 +1,6 @@
 package cz.matee.appreviewzz.persistence
 
-import org.testcontainers.containers.PostgreSQLContainer
+import org.testcontainers.postgresql.PostgreSQLContainer
 import java.sql.Statement
 
 /**
@@ -9,7 +9,7 @@ import java.sql.Statement
  * natáhl o desítky sekund bez jakéhokoli přínosu.
  */
 object TestDatabase {
-    private val container: PostgreSQLContainer<*> by lazy {
+    private val container: PostgreSQLContainer by lazy {
         PostgreSQLContainer("postgres:17-alpine")
             .withDatabaseName("appreviewzz_test")
             .withUsername("appreviewzz")

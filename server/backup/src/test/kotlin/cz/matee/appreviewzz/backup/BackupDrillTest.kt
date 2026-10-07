@@ -11,7 +11,7 @@ import io.kotest.matchers.comparables.shouldBeGreaterThan
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldMatch
-import org.testcontainers.containers.PostgreSQLContainer
+import org.testcontainers.postgresql.PostgreSQLContainer
 import java.sql.Connection
 import java.sql.DriverManager
 
@@ -30,7 +30,7 @@ class BackupDrillTest :
             check(PgTools.available) { PgTools.explanation }
 
             val container =
-                PostgreSQLContainer<Nothing>("postgres:17-alpine").apply {
+                PostgreSQLContainer("postgres:17-alpine").apply {
                     withDatabaseName("appreviewzz_drill")
                     withUsername("appreviewzz")
                     withPassword("test")

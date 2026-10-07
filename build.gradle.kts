@@ -40,23 +40,23 @@ subprojects {
     dependencies {
         add("testImplementation", versionCatalog.findBundle("testing").get())
 
-        // AWS SDK (apache5-client) si přitáhne httpcore5 5.4.2 se dvěma HIGH CVE (DoS přes
-        // hlavičky a HPACK). Apache opravu vydal dřív, než ji SDK zvedlo, a Trivy sken v CI
-        // na tom shazuje build — po upgradu SDK se tenhle constraint dá zase smazat.
+        // AWS SDK (apache5-client) i httpclient5 si pořád říkají o httpcore5 5.4.3; drží se
+        // poslední opravená řada, protože starší verze měly HIGH CVE (DoS přes hlavičky
+        // a HPACK) a Trivy sken v CI na tom shazuje build. Smazat, až SDK chce aspoň tohle.
         constraints {
             val httpcore5 = versionCatalog.findVersion("httpcore5").get().requiredVersion
             add("implementation", "org.apache.httpcomponents.core5:httpcore5:$httpcore5")
             add("implementation", "org.apache.httpcomponents.core5:httpcore5-h2:$httpcore5")
         }
 
-        // Stejný případ o patro níž: Ktor 3.5.2 si přitáhne Netty 4.2.16 s CRITICAL CVE
-        // (CVE-2026-75595 v netty-handler). BOM sem nepatří kvůli jednomu modulu, ale kvůli
-        // rodině — nechat zbytek Netty na staré verzi je spolehlivý způsob, jak si vyrobit
-        // NoSuchMethodError. Po upgradu Ktoru se to dá zase smazat.
+        // Netty jednou rodinou: Ktor chce 4.2, AWS SDK (netty-nio-client) pořád 4.1. Bez BOM
+        // by se moduly rozjely na dvě řady — spolehlivý způsob, jak si vyrobit
+        // NoSuchMethodError — a stará řada navíc nesla CRITICAL CVE (CVE-2026-75595).
         add("implementation", platform("io.netty:netty-bom:${versionCatalog.findVersion("netty").get().requiredVersion}"))
 
-        // A ještě jednou: Flyway 13.3.0 si přitáhne Jackson 3.1.5 s HIGH CVE (CVE-2026-68497
-        // v jackson-databind). Zase celá rodina přes BOM. Po upgradu Flyway se to dá smazat.
+        // Jackson 3 celou rodinou přes BOM: logstash-logback-encoder 9.0 si říká o databind
+        // 3.0.1 a řada 3.1 měla HIGH CVE (CVE-2026-68497, CVE-2026-89407 a spol.).
+        // Smazat, až závislosti samy chtějí opravenou verzi.
         add("implementation", platform("tools.jackson:jackson-bom:${versionCatalog.findVersion("jackson").get().requiredVersion}"))
     }
 }

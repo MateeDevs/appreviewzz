@@ -1,30 +1,30 @@
 [versions]
-kotlin = "2.4.10"
-ktor = "3.5.2"
+kotlin = "2.4.20"
+ktor = "3.6.0"
 coroutines = "1.11.0"
 serialization = "1.11.0"
 datetime = "0.8.0"
 koin = "4.2.2"
-exposed = "1.4.0"
-flyway = "13.3.0"
+exposed = "1.5.0"
+flyway = "13.9.0"
 postgresql = "42.7.13"
 hikari = "7.1.0"
 dbScheduler = "16.12.0"
-tink = "1.18.0"
-bouncycastle = "1.85.2"
-awsSdk = "2.46.7"
+tink = "1.23.0"
+bouncycastle = "1.86"
+awsSdk = "2.55.12"
 # Vynucená verze tranzitivní závislosti AWS SDK, viz constraints v build.gradle.kts
-httpcore5 = "5.4.3"
+httpcore5 = "5.4.4"
 # Totéž pro Netty pod Ktorem, viz constraints v build.gradle.kts
-netty = "4.2.17.Final"
-jackson = "3.1.6"
-logback = "1.6.3"
+netty = "4.2.19.Final"
+jackson = "3.2.3"
+logback = "1.6.5"
 logstashEncoder = "9.0"
 kotlinLogging = "8.0.4"
-micrometer = "1.17.0"
-angusMail = "2.0.4"
-kotest = "6.2.4"
-testcontainers = "1.21.4"
+micrometer = "1.17.1"
+angusMail = "2.0.5"
+kotest = "6.2.5"
+testcontainers = "2.0.5"
 ktlintPlugin = "14.2.0"
 
 [libraries]
@@ -91,8 +91,7 @@ angus-mail = { module = "org.eclipse.angus:angus-mail", version.ref = "angusMail
 # Testy
 kotest-junit5 = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
 kotest-assertions = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
-testcontainers-junit = { module = "org.testcontainers:junit-jupiter", version.ref = "testcontainers" }
-testcontainers-postgresql = { module = "org.testcontainers:postgresql", version.ref = "testcontainers" }
+testcontainers-postgresql = { module = "org.testcontainers:testcontainers-postgresql", version.ref = "testcontainers" }
 
 [bundles]
 ktor-server = [
@@ -117,7 +116,7 @@ ktor-client = [
 exposed = ["exposed-core", "exposed-jdbc", "exposed-datetime", "exposed-json"]
 logging = ["logback-classic", "logstash-encoder", "kotlin-logging"]
 testing = ["kotest-junit5", "kotest-assertions"]
-testcontainers = ["testcontainers-junit", "testcontainers-postgresql"]
+testcontainers = ["testcontainers-postgresql"]
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }

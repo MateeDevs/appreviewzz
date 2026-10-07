@@ -4,7 +4,7 @@
 # Console (F3) se buildí do statických souborů, které servíruje Ktor ze stejného image —
 # odpadá tím CloudFront, S3 i certifikát v us-east-1 (ADR 0008). Vlastní stage kvůli cache:
 # změna v Kotlinu nepřestaví node_modules a naopak.
-FROM node:22-alpine AS console
+FROM node:24-alpine AS console
 WORKDIR /console
 COPY console/package.json console/package-lock.json ./
 RUN npm ci --no-audit --no-fund

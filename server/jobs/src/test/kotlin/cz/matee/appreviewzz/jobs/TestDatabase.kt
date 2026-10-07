@@ -3,12 +3,12 @@ package cz.matee.appreviewzz.jobs
 import cz.matee.appreviewzz.persistence.Database
 import cz.matee.appreviewzz.persistence.DatabaseConfig
 import cz.matee.appreviewzz.persistence.asDataSource
-import org.testcontainers.containers.PostgreSQLContainer
+import org.testcontainers.postgresql.PostgreSQLContainer
 import java.sql.Statement
 
 /** Postgres pro testy plánovače — schéma včetně `scheduled_tasks` dodá Flyway z persistence modulu. */
 object TestDatabase {
-    private val container: PostgreSQLContainer<*> by lazy {
+    private val container: PostgreSQLContainer by lazy {
         PostgreSQLContainer("postgres:17-alpine")
             .withDatabaseName("appreviewzz_jobs_test")
             .withUsername("appreviewzz")

@@ -51,6 +51,8 @@ const SORT_OPTIONS: { value: ReviewSort; label: string }[] = [
 /** Velikost stránky. Server má strop 200, ale padesát recenzí je tak akorát na jedno projití. */
 const PAGE = 50
 
+const NO_SELECTION: ReadonlySet<string> = new Set()
+
 const FILTERS: { label: string; states: ReviewState[] }[] = [
   { label: 'Čeká na odpověď', states: ['NEW', 'UPDATED', 'NOTIFIED'] },
   { label: 'Odpovězené', states: ['REPLIED'] },
@@ -75,7 +77,7 @@ export function InboxPage() {
   const [urgency, setUrgencyState] = useState<Urgency | ''>('')
   const [openReview, setOpenReview] = useState<string>('')
   const [focusedId, setFocusedId] = useState<string>('')
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
+  const [selection, setSelection] = useState<{ listKey: string; ids: ReadonlySet<string> }>(() => ({ listKey: '', ids: new Set() }))
   const [bulkBusy, setBulkBusy] = useState(false)
   const setState = useSetReviewState(org)
 
@@ -125,10 +127,13 @@ export function InboxPage() {
   const list = reviews.data ?? []
   const listKey = list.map((review) => review.id).join(',')
   // Výběr i zvýraznění se vážou k recenzím na obrazovce; po přepnutí stránky by ukazovaly
-  // na něco, co není vidět. Výběr se proto po změně seznamu zahodí.
-  useEffect(() => {
-    setSelectedIds(new Set())
-  }, [listKey])
+  // na něco, co není vidět. Výběr proto platí jen pro seznam, ke kterému vznikl.
+  const selectedIds = selection.listKey === listKey ? selection.ids : NO_SELECTION
+  const setSelectedIds = (next: ReadonlySet<string> | ((current: ReadonlySet<string>) => ReadonlySet<string>)) =>
+    setSelection((current) => {
+      const ids = current.listKey === listKey ? current.ids : NO_SELECTION
+      return { listKey, ids: typeof next === 'function' ? next(ids) : next }
+    })
   const selectedOnPage = list.filter((review) => selectedIds.has(review.id))
   const allOnPageSelected = list.length > 0 && selectedOnPage.length === list.length
 

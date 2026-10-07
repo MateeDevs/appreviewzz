@@ -42,7 +42,10 @@ export function Select({
   className,
   placeholder = 'Vyberte možnost',
 }: SelectProps) {
-  const [open, setOpen] = useState(false)
+  const [expanded, setOpen] = useState(false)
+  // Zakázaný výběr je zavřený, ať byl předtím jakkoli — bez efektu, který by to dorovnával.
+  const open = expanded && !disabled
+  const [portalTarget, setPortalTarget] = useState<HTMLElement>()
   const [menuStyle, setMenuStyle] = useState<CSSProperties>()
   const rootRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -50,10 +53,6 @@ export function Select({
   const menuId = useId()
   const allOptions = [...options, ...groups.flatMap((group) => group.options)]
   const selected = allOptions.find((option) => option.value === value)
-  // Modální `<dialog>` žije v top layer; obsah portálovaný do `body` by skončil pod ním
-  // a prohlížeč by mu navíc zablokoval interakci. Přímý potomek dialogu se neořízne jeho
-  // scrollovacím `.modal-body` a pořád zůstane v top layer.
-  const portalTarget = rootRef.current?.closest('dialog') ?? document.body
 
   useLayoutEffect(() => {
     if (!open || !triggerRef.current) return
@@ -101,9 +100,13 @@ export function Select({
     return () => document.removeEventListener('pointerdown', closeOutside)
   }, [open])
 
-  useEffect(() => {
-    if (disabled) setOpen(false)
-  }, [disabled])
+  const openMenu = () => {
+    // Modální `<dialog>` žije v top layer; obsah portálovaný do `body` by skončil pod ním
+    // a prohlížeč by mu navíc zablokoval interakci. Přímý potomek dialogu se neořízne jeho
+    // scrollovacím `.modal-body` a pořád zůstane v top layer.
+    setPortalTarget(rootRef.current?.closest('dialog') ?? document.body)
+    setOpen(true)
+  }
 
   const focusOption = (direction: 1 | -1) => {
     const items = [...(menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="option"]:not(:disabled)') ?? [])]
@@ -151,11 +154,11 @@ export function Select({
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
         disabled={disabled}
-        onClick={() => setOpen((current) => !current)}
+        onClick={() => (open ? setOpen(false) : openMenu())}
         onKeyDown={(event) => {
           if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
             event.preventDefault()
-            setOpen(true)
+            openMenu()
             requestAnimationFrame(() => focusOption(event.key === 'ArrowDown' ? 1 : -1))
           } else if (event.key === 'Escape' && open) {
             event.preventDefault()
@@ -168,7 +171,7 @@ export function Select({
           <path d="M2.5 4.5 6 8l3.5-3.5" />
         </svg>
       </button>
-      {open && menuStyle
+      {open && menuStyle && portalTarget
         ? createPortal(
             <div
               id={menuId}
