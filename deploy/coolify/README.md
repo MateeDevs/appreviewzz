@@ -159,3 +159,16 @@ Alarm si postav nad metrikou `appreviewzz_backup_last_success_age_seconds` (port
 prahem je zhruba 30 hodin, tedy jedna zmeškaná noční záloha. Náš provoz to řeší mimo
 hostitele terraform modulem `backup-freshness`, který se ptá přímo S3: to, že job doběhl,
 totiž ještě neznamená, že objekt někam dosedl.
+
+## Limity paměti JVM
+
+Stejné limity platí pro staging i produkci:
+
+| Služba | Cílová velikost haldy | Maximum haldy | Limit RAM kontejneru |
+|---|---|---|---|
+| API | 256 MiB | 768 MiB | 1536 MiB |
+| Worker | 512 MiB | 1024 MiB | 2048 MiB |
+
+ZGC může při špičce překročit cílovou velikost až po maximum haldy.
+Zbytek limitu ponechává prostor pro paměť mimo haldu a zálohy.
+`ZCollectionInterval=300` spustí úklid nejméně každých pět minut.
