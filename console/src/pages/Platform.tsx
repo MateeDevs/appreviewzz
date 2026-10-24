@@ -42,8 +42,8 @@ export function PlatformDialog({ onClose }: { onClose: () => void }) {
   return (
     <Modal title="Správa platformy" wide onClose={onClose}>
       <p className="small muted">
-        Nastavení, které platí pro všechny klienty. Změny se projeví do půl minuty — worker si je
-        vyzvedne sám, restart není potřeba.
+        Nastavení, které platí pro všechny klienty. Změny se projeví do půl minuty — worker si je vyzvedne
+        sám, restart není potřeba.
       </p>
       <OverviewCard />
       <SettingsCard />
@@ -62,7 +62,7 @@ function OverviewCard() {
       {overview.isPending ? <Loading /> : null}
       <ErrorBox error={overview.error} />
       {overview.data ? (
-        <table className="table">
+        <table tabIndex={0} className="table">
           <tbody>
             <tr>
               <td>Organizace</td>
@@ -89,11 +89,7 @@ function OverviewCard() {
             <tr>
               <td>Nevyřešené úlohy</td>
               <td className="small">
-                {overview.data.failedJobs > 0 ? (
-                  <Badge tone="bad">{overview.data.failedJobs}</Badge>
-                ) : (
-                  '0'
-                )}
+                {overview.data.failedJobs > 0 ? <Badge tone="bad">{overview.data.failedJobs}</Badge> : '0'}
               </td>
             </tr>
           </tbody>
@@ -193,7 +189,10 @@ function SettingField({
       ) : setting.type === 'BOOL' ? (
         <Select
           value={value}
-          options={[{ value: 'true', label: 'ano' }, { value: 'false', label: 'ne' }]}
+          options={[
+            { value: 'true', label: 'ano' },
+            { value: 'false', label: 'ne' },
+          ]}
           onChange={onChange}
           ariaLabel={setting.label}
         />
@@ -321,7 +320,7 @@ function AppOverridesCard() {
         <Empty>Žádná aplikace nemá vlastní interval — všechny jedou na platformní hodnotě.</Empty>
       ) : null}
       {apps.data && apps.data.length > 0 ? (
-        <table className="table">
+        <table tabIndex={0} className="table">
           <tbody>
             {apps.data.map((app) => (
               <tr key={app.id}>
@@ -355,7 +354,7 @@ function AuditCard() {
       <ErrorBox error={audit.error} />
       {audit.data?.length === 0 ? <Empty>Zatím nic.</Empty> : null}
       {audit.data && audit.data.length > 0 ? (
-        <table className="table">
+        <table tabIndex={0} className="table">
           <tbody>
             {audit.data.map((entry, index) => (
               <tr key={index}>

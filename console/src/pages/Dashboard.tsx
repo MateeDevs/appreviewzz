@@ -1,7 +1,8 @@
+import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useAnalysis, useAnalysisAlerts, useHealth, useRatings } from '../api/hooks'
-import { Badge, Card, ErrorBox, Loading, PlatformBadge, When } from '../components/ui'
-import type { AnalysisAlert, AppHealth, Health, RatingsSeries } from '../api/types'
+import { Badge, Card, ErrorBox, Loading, PageHeader, PlatformBadge, SignalArt, When } from '../components/ui'
+import type { AppHealth, Health, RatingsSeries } from '../api/types'
 
 /**
  * „Co mám dnes udělat" na jedné obrazovce: kolik recenzí čeká, které hoří, jak se appkám
@@ -21,127 +22,237 @@ export function DashboardPage() {
   const issues = apps.filter((app) => !app.competitor).flatMap((app) => appIssues(org, app))
   const somethingBroken = issues.length > 0 || failedJobs.length > 0
 
+  const own = apps.filter((app) => !app.competitor)
+  const urgent = own.reduce((sum, app) => sum + app.pendingUrgent, 0)
+  const pending = own.reduce((sum, app) => sum + app.pendingReviews, 0)
+  const queue = [...own].sort(
+    (a, b) => b.pendingUrgent - a.pendingUrgent || b.pendingReviews - a.pendingReviews,
+  )
+  const first = queue.find((app) => app.pendingReviews > 0) ?? own[0]
   return (
-    <div className="stack">
-      <div>
-        <h1>Přehled</h1>
-        <p className="muted">Co dnes čeká na odpověď a jak se appkám daří.</p>
-      </div>
-
+    <div className="stack dashboard-page">
+      <PageHeader
+        eyebrow="Vaše portfolio"
+        title="Přehled"
+        action={
+          <Link className="button" to={`/${org}/aplikace`}>
+            Spravovat aplikace ↗
+          </Link>
+        }
+      >
+        Jasné priority. Souvislosti pro další krok.
+      </PageHeader>
       {apps.length === 0 ? (
         <Card>
-          <p>Zatím tu není žádná aplikace.</p>
-          <Link to={`/${org}/onboarding`}>Projít průvodce nastavením</Link>
+          <div className="empty-state">
+            <SignalArt />
+            <div>
+              <h2>První signál začíná vaší aplikací.</h2>
+              <p>Připojte App Store nebo Google Play. Recenze a jejich souvislosti se potkají tady.</p>
+              <Link className="button" to={`/${org}/onboarding`}>
+                Připojit první aplikaci →
+              </Link>
+            </div>
+          </div>
         </Card>
       ) : (
         <>
-          <Summary org={org} apps={apps} />
-          <div className="overview-grid">
-            {apps.map((app) => (
-              <AppCard key={app.appId} org={org} app={app} />
-            ))}
-          </div>
-          {somethingBroken ? (
-            <BrokenCard issues={issues} failedJobs={failedJobs} />
-          ) : (
-            <p className="small muted">Klíče i kanály fungují, žádná úloha nevázne.</p>
-          )}
+          <section className="overview-hero" aria-label="Pracovní souhrn">
+            <div>
+              <div className="eyebrow">Vaše pracovní fronta</div>
+              <div className="hero-number">{pending.toLocaleString('cs-CZ')}</div>
+              <div className="hero-label">
+                {pending === 1
+                  ? 'recenze čeká na odpověď'
+                  : pending >= 2 && pending <= 4
+                    ? 'recenze čekají na odpověď'
+                    : 'recenzí čeká na odpověď'}
+              </div>
+              <p className="small">Aktuální stav · {own.length} vlastních aplikací</p>
+              {first ? (
+                <Link
+                  className="button"
+                  to={`/${org}/recenze?app=${first.appId}${urgent ? '&urgency=HIGH' : ''}`}
+                >
+                  {urgent ? 'Začít naléhavými' : 'Otevřít recenze'} →
+                </Link>
+              ) : null}
+            </div>
+            <div className="hero-priority">
+              <div className="eyebrow">Přednostně</div>
+              <h2>
+                {urgent > 0
+                  ? `${urgent} naléhavých recenzí`
+                  : pending > 0
+                    ? 'Prostor pro dobrou odpověď.'
+                    : 'Žádná čekající odpověď.'}
+              </h2>
+              <p className="small">
+                {urgent > 0
+                  ? 'Nejprve projděte zpětnou vazbu, která vyžaduje pozornost.'
+                  : 'Nové recenze se objeví při dalším stažení ze storu.'}
+              </p>
+              <ul>
+                {queue
+                  .filter((app) => app.pendingReviews > 0)
+                  .slice(0, 3)
+                  .map((app) => (
+                    <li key={app.appId}>
+                      <Link
+                        to={`/${org}/recenze?app=${app.appId}${app.pendingUrgent ? '&urgency=HIGH' : ''}`}
+                      >
+                        <span>{app.name}</span>
+                        <strong>
+                          {app.pendingUrgent ? `${app.pendingUrgent} naléhavé` : `${app.pendingReviews} čeká`}{' '}
+                          ↗
+                        </strong>
+                      </Link>
+                    </li>
+                  ))}
+              </ul>
+            </div>
+            <SignalArt />
+          </section>
+          {somethingBroken ? <BrokenCard issues={issues} failedJobs={failedJobs} /> : null}
+          {first ? <PrioritySignals org={org} app={first} /> : null}
+          <section aria-labelledby="portfolio-title">
+            <div className="section-heading">
+              <div>
+                <div className="eyebrow">01 / Portfolio</div>
+                <h2 id="portfolio-title">Aplikace pod dohledem</h2>
+              </div>
+              <span className="small muted">Store rating a nálada jsou samostatné metriky.</span>
+            </div>
+            <div className="portfolio">
+              <div className="portfolio-row header">
+                <div>Aplikace</div>
+                <div>Čeká na odpověď</div>
+                <div>Store rating · 7 dní</div>
+                <div>Nálada · 30 dní</div>
+              </div>
+              {apps.map((app) => (
+                <AppRow key={app.appId} org={org} app={app} />
+              ))}
+            </div>
+          </section>
+          {!somethingBroken ? (
+            <p className="small muted">✓ Klíče a kanály bez hlášených potíží. Žádná selhaná úloha.</p>
+          ) : null}
         </>
       )}
     </div>
   )
 }
 
-/** Součty přes všechny appky. Jen z `health` — nic dalšího se kvůli nim nenačítá. */
-function Summary({ org, apps }: { org: string; apps: AppHealth[] }) {
-  const pending = apps.reduce((sum, app) => sum + app.pendingReviews, 0)
-  const urgent = apps.reduce((sum, app) => sum + app.pendingUrgent, 0)
+function PrioritySignals({ org, app }: { org: string; app: AppHealth }) {
+  const alerts = useAnalysisAlerts(org, app.appId)
+  if (alerts.error) return <ErrorBox error={alerts.error} />
+  const items = (alerts.data ?? []).slice(0, 3)
+  if (!items.length) return null
   return (
-    <Card>
-      <div className="metrics">
+    <section>
+      <div className="section-heading">
         <div>
-          <div className="metric-value">
-            {pending > 0 ? <Link to={`/${org}/recenze`}>{pending}</Link> : <span className="muted">0</span>}
-          </div>
-          <div className="metric-label">čeká na odpověď</div>
+          <div className="eyebrow">Ze zpětné vazby</div>
+          <h2>Signály · {app.name}</h2>
         </div>
-        <div>
-          <div className={`metric-value ${urgent > 0 ? 'overview-urgent' : ''}`}>
-            {/* `urgency` v adrese Inbox zatím nečte; odkaz je připravený na to, až bude. */}
-            {urgent > 0 ? <Link to={`/${org}/recenze?urgency=HIGH`}>{urgent}</Link> : <span className="muted">0</span>}
-          </div>
-          <div className="metric-label">naléhavých</div>
-        </div>
+        <Link to={`/${org}/rozbory?app=${app.appId}`}>Otevřít rozbory ↗</Link>
       </div>
-    </Card>
+      <div className="signal-stream">
+        {items.map((alert, index) => (
+          <div className="signal-row" key={alert.id}>
+            <span className="signal-index">0{index + 1}</span>
+            <div className="grow">
+              <strong>{alert.topicName ?? 'Nárůst záporných recenzí'}</strong>
+              <div className="small muted">
+                {new Date(alert.windowDate).toLocaleDateString('cs-CZ')} · {alert.observed} místo obvyklých{' '}
+                {alert.expected.toFixed(1)} za den · baseline 28 dní
+              </div>
+            </div>
+            <Link
+              to={`/${org}/recenze?app=${app.appId}&state=all&textOnly=true&from=${alert.windowDate}&to=${alert.windowDate}${alert.kind === 'NEGATIVE_SPIKE' ? '&sentiment=NEGATIVE' : ''}${alert.topicKey ? `&topic=${encodeURIComponent(alert.topicKey)}` : ''}`}
+            >
+              Prohlédnout recenze ↗
+            </Link>
+          </div>
+        ))}
+      </div>
+      <p className="small muted">
+        Výkyvy za 90 dní u aplikace s nejvyšší prioritou. Odkaz otevře recenze daného dne.
+      </p>
+    </section>
   )
 }
 
-function AppCard({ org, app }: { org: string; app: AppHealth }) {
+function AppRow({ org, app }: { org: string; app: AppHealth }) {
+  const root = useRef<HTMLDivElement>(null)
+  const [visible, setVisible] = useState(false)
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setVisible(true)
+          observer.disconnect()
+        }
+      },
+      { rootMargin: '100px' },
+    )
+    if (root.current) observer.observe(root.current)
+    return () => observer.disconnect()
+  }, [])
   return (
-    <Card>
-      <div className="spread">
-        <h2 style={{ margin: 0 }}>
-          <Link to={`/${org}/aplikace/${app.appId}`}>{app.name}</Link>
-        </h2>
-        <span className="row" style={{ gap: '0.35rem' }}>
-          {app.competitor ? <Badge>konkurence</Badge> : null}
-          {app.enabled ? <Badge tone="ok">zapnutá</Badge> : <Badge tone="warn">vypnutá</Badge>}
+    <div className="portfolio-row" ref={root}>
+      <div className="app-identity">
+        <span className="app-monogram" aria-hidden="true">
+          {app.name.slice(0, 1)}
         </span>
+        <div>
+          <Link to={`/${org}/aplikace/${app.appId}`}>{app.name}</Link>
+          <div className="small muted">
+            Poslední recenze: <When iso={app.lastReviewAt} />
+          </div>
+          <div className="small muted">
+            {app.competitor
+              ? 'Konkurence · pouze ke čtení'
+              : app.enabled
+                ? 'Vlastní aplikace'
+                : 'Sledování vypnuté'}
+          </div>
+        </div>
       </div>
-      <table className="overview-rows" style={{ marginTop: '0.75rem' }}>
-        <tbody>
-          {/* Na cizí recenze se neodpovídá, řádek by jen mátl nulou. */}
-          {app.competitor ? null : (
-            <tr>
-              <th>Čeká na odpověď</th>
-              <td>
-                {app.pendingReviews > 0 ? (
-                  <Link to={`/${org}/recenze?app=${app.appId}`}>{app.pendingReviews}</Link>
-                ) : (
-                  <span className="muted">žádná</span>
-                )}
-                {app.pendingUrgent > 0 ? (
-                  <>
-                    {' '}
-                    <Link to={`/${org}/recenze?app=${app.appId}&urgency=HIGH`} className="plain">
-                      <Badge tone="bad">
-                        z toho {app.pendingUrgent} naléhav
-                        {app.pendingUrgent === 1 ? 'á' : 'é'}
-                      </Badge>
-                    </Link>
-                  </>
-                ) : null}
-              </td>
-            </tr>
-          )}
-          <tr>
-            <th>Nálada 30 dní</th>
-            <td>
-              <MoodLine org={org} appId={app.appId} />
-            </td>
-          </tr>
-          <tr>
-            <th>Hodnocení 7 dní</th>
-            <td>
-              <RatingsLine org={org} appId={app.appId} />
-            </td>
-          </tr>
-          <tr>
-            <th>Poslední alert</th>
-            <td>
-              <LastAlert org={org} appId={app.appId} />
-            </td>
-          </tr>
-          <tr>
-            <th>Poslední recenze</th>
-            <td>
-              <When iso={app.lastReviewAt} />
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </Card>
+      <div>
+        {app.competitor ? (
+          <span className="small muted">Pouze ke čtení</span>
+        ) : (
+          <>
+            <div className="portfolio-waiting">
+              <Link to={`/${org}/recenze?app=${app.appId}`}>{app.pendingReviews}</Link>
+            </div>
+            {app.pendingUrgent > 0 ? (
+              <Link to={`/${org}/recenze?app=${app.appId}&urgency=HIGH`}>
+                <Badge tone="bad">{app.pendingUrgent} naléhavé ↗</Badge>
+              </Link>
+            ) : (
+              <span className="small muted">žádná naléhavá</span>
+            )}
+          </>
+        )}
+      </div>
+      <div>
+        {visible ? (
+          <RatingsLine org={org} appId={app.appId} />
+        ) : (
+          <span className="small muted">Trend načteme po zobrazení.</span>
+        )}
+      </div>
+      <div>
+        {visible ? (
+          <MoodLine org={org} appId={app.appId} />
+        ) : (
+          <span className="small muted">Náladu načteme po zobrazení.</span>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -156,26 +267,30 @@ function AppCard({ org, app }: { org: string; app: AppHealth }) {
 function MoodLine({ org, appId }: { org: string; appId: string }) {
   const analysis = useAnalysis(org, appId, { days: 30 })
   if (analysis.isPending) return <span className="muted">…</span>
+  if (analysis.error) return <span className="small error-inline">Náladu se nepodařilo načíst.</span>
   const mood = analysis.data?.allReviewsMood
   if (!mood || mood.reviews === 0) {
     return <span className="muted">zatím není z čeho</span>
   }
   const { sentiment, previousSentiment, reviews } = mood
-  const delta = previousSentiment ? Math.round((sentiment.negative - previousSentiment.negative) * 100) : 0
+  const delta = previousSentiment ? Math.round((sentiment.positive - previousSentiment.positive) * 100) : 0
   return (
-    <span>
+    <span className="mood-compact">
       <Link to={`/${org}/rozbory?app=${appId}`}>{Math.round(sentiment.positive * 100)} % spokojených</Link>{' '}
       <span className="small muted">z {reviews} hodnocení</span>
       {/* Roste podíl nespokojených = nálada jde dolů; znaménko se čte obráceně. */}
       {delta !== 0 ? (
         <span
-          className={`small metric-delta ${delta > 0 ? 'down' : 'up'}`}
-          title="Změna podílu spokojených proti předchozím 30 dnům"
+          className={`small metric-delta ${delta > 0 ? 'up' : 'down'}`}
+          title="Změna podílu spokojených proti předchozím 30 dnům v procentních bodech"
         >
           {' '}
-          {delta > 0 ? '↓' : '↑'} {Math.abs(delta)} b.
+          {delta > 0 ? '↑' : '↓'} {Math.abs(delta)} b.
         </span>
       ) : null}
+      <span className="mood-strip" aria-hidden="true">
+        <span style={{ width: `${sentiment.positive * 100}%` }} />
+      </span>
     </span>
   )
 }
@@ -184,6 +299,7 @@ function MoodLine({ org, appId }: { org: string; appId: string }) {
 function RatingsLine({ org, appId }: { org: string; appId: string }) {
   const ratings = useRatings(org, appId, 7)
   if (ratings.isPending) return <span className="muted">…</span>
+  if (ratings.error) return <span className="small error-inline">Rating se nepodařilo načíst.</span>
   const series = (ratings.data ?? []).filter((item) => validAverages(item).length > 0)
   if (series.length === 0) return <span className="muted">zatím bez přehledu hodnocení</span>
   return (
@@ -218,6 +334,7 @@ function RatingTrend({ series }: { series: RatingsSeries }) {
   return (
     <span className="rating-trend">
       <PlatformBadge platform={series.platform} />
+      <span className="small muted">{series.territory}</span>
       {/* Čára, číslo a změna drží pohromadě; na úzkém displeji se pod odznak přesunou celé. */}
       <span className="rating-trend-value">
         <MiniLine values={values} />
@@ -263,35 +380,6 @@ function MiniLine({ values }: { values: number[] }) {
 const MINI_WIDTH = 80
 const MINI_HEIGHT = 20
 const MINI_PAD = 2
-
-/** Nejnovější výkyv v recenzích appky. Server vrací alerty za 90 dní, nejnovější první. */
-function LastAlert({ org, appId }: { org: string; appId: string }) {
-  const alerts = useAnalysisAlerts(org, appId)
-  if (alerts.isPending) return <span className="muted">…</span>
-  const latest = newestAlert(alerts.data ?? [])
-  if (!latest) return <span className="muted">žádný za 90 dní</span>
-  return (
-    <span className="alert-line">
-      <Link to={`/${org}/rozbory?app=${appId}`}>{new Date(latest.windowDate).toLocaleDateString('cs-CZ')}</Link>
-      {latest.kind === 'NEGATIVE_SPIKE' ? (
-        <Badge tone="bad">záporné recenze</Badge>
-      ) : (
-        <Badge tone="warn">{latest.topicName ?? latest.topicKey}</Badge>
-      )}
-      <span className="small muted">
-        {latest.observed} místo obvyklých {latest.expected.toFixed(1)}
-      </span>
-    </span>
-  )
-}
-
-/** Pořadí ze serveru se nespoléhá — stačí, aby ho někdo změnil, a tady by stál starý alert. */
-function newestAlert(alerts: AnalysisAlert[]): AnalysisAlert | null {
-  return alerts.reduce<AnalysisAlert | null>(
-    (best, alert) => (best === null || alert.windowDate > best.windowDate ? alert : best),
-    null,
-  )
-}
 
 // ---------------------------------------------------------------- co nefunguje
 
@@ -363,7 +451,7 @@ function appIssues(org: string, app: AppHealth): Issue[] {
 
 function BrokenCard({ issues, failedJobs }: { issues: Issue[]; failedJobs: Health['failedJobs'] }) {
   return (
-    <Card title="Co nefunguje">
+    <Card title="Nastavení vyžaduje pozornost" className="diagnostics">
       {issues.length > 0 ? (
         <ul className="issue-list">
           {issues.map((issue) => (
@@ -379,7 +467,7 @@ function BrokenCard({ issues, failedJobs }: { issues: Issue[]; failedJobs: Healt
       {failedJobs.length > 0 ? (
         <>
           <h3 className="issue-heading">Úlohy, které se nepovedly</h3>
-          <table className="row-cards">
+          <table tabIndex={0} className="row-cards">
             <thead>
               <tr>
                 <th>Úloha</th>

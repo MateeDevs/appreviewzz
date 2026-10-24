@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query'
+import { clearDrafts } from '../state/replyDrafts'
 import { ApiError, api } from './client'
 import type {
   AnalysisAlert,
@@ -56,7 +57,10 @@ export function useMe(): UseQueryResult<Me | null> {
       try {
         return await api.get<Me>('/api/auth/me')
       } catch (error) {
-        if (error instanceof ApiError && error.status === 401) return null
+        if (error instanceof ApiError && error.status === 401) {
+          clearDrafts()
+          return null
+        }
         throw error
       }
     },
@@ -74,7 +78,11 @@ export function useLogin() {
   return useMutation({
     mutationFn: (input: { email: string; password: string }) =>
       api.post<LoginOutcome>('/api/auth/login', input),
-    onSuccess: () => client.invalidateQueries(),
+    onSuccess: () => {
+      clearDrafts()
+      client.removeQueries({ predicate: (query) => query.queryKey[0] !== 'me' })
+      client.invalidateQueries()
+    },
   })
 }
 
@@ -82,7 +90,11 @@ export function useVerifySecondFactor() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: (input: { challenge: string; code: string }) => api.post<Me>('/api/auth/mfa/verify', input),
-    onSuccess: () => client.invalidateQueries(),
+    onSuccess: () => {
+      clearDrafts()
+      client.removeQueries({ predicate: (query) => query.queryKey[0] !== 'me' })
+      client.invalidateQueries()
+    },
   })
 }
 
@@ -117,7 +129,8 @@ export function useRegenerateRecoveryCodes() {
 export function useDisableTotp() {
   const client = useQueryClient()
   return useMutation({
-    mutationFn: (input: { password: string; code: string }) => api.post<void>('/api/auth/totp/disable', input),
+    mutationFn: (input: { password: string; code: string }) =>
+      api.post<void>('/api/auth/totp/disable', input),
     onSuccess: () => client.invalidateQueries(),
   })
 }
@@ -138,6 +151,7 @@ export function useLogout() {
     // `clear()` namountovanému `useMe` nic neřekne a SPA by zůstala na stránce organizace;
     // nastavit „nikdo" a zbytek zahodit je to, co router potřebuje k přesměrování na login.
     onSuccess: () => {
+      clearDrafts()
       client.setQueryData(['me'], null)
       client.removeQueries({ predicate: (query) => query.queryKey[0] !== 'me' })
     },
@@ -157,12 +171,15 @@ export function useResendVerification() {
 }
 
 export function useForgotPassword() {
-  return useMutation({ mutationFn: (email: string) => api.post<void>('/api/auth/password/forgot', { email }) })
+  return useMutation({
+    mutationFn: (email: string) => api.post<void>('/api/auth/password/forgot', { email }),
+  })
 }
 
 export function useResetPassword() {
   return useMutation({
-    mutationFn: (input: { token: string; password: string }) => api.post<void>('/api/auth/password/reset', input),
+    mutationFn: (input: { token: string; password: string }) =>
+      api.post<void>('/api/auth/password/reset', input),
   })
 }
 
@@ -201,7 +218,10 @@ export function useChangePlan(org: string) {
 }
 
 export function useMembers(org: string) {
-  return useQuery({ queryKey: ['members', org], queryFn: () => api.get<Member[]>(`/api/orgs/${org}/members`) })
+  return useQuery({
+    queryKey: ['members', org],
+    queryFn: () => api.get<Member[]>(`/api/orgs/${org}/members`),
+  })
 }
 
 export function useInvitations(org: string) {
@@ -287,8 +307,13 @@ export function useCredentials(org: string) {
 export function useAddCredential(org: string) {
   const client = useQueryClient()
   return useMutation({
-    mutationFn: (input: { type: string; label: string; content: string; keyId?: string; issuerId?: string }) =>
-      api.post<Credential>(`/api/orgs/${org}/credentials`, input),
+    mutationFn: (input: {
+      type: string
+      label: string
+      content: string
+      keyId?: string
+      issuerId?: string
+    }) => api.post<Credential>(`/api/orgs/${org}/credentials`, input),
     onSuccess: () => client.invalidateQueries({ queryKey: ['credentials', org] }),
   })
 }
@@ -421,14 +446,17 @@ export function useDeleteChannel(org: string, appId: string) {
 export function useTestChannels(org: string, appId: string) {
   return useMutation({
     mutationFn: (channelId?: string) =>
-      api.post<ChannelCheck[]>(`/api/orgs/${org}/apps/${appId}/channels/test`, { channelId: channelId ?? null }),
+      api.post<ChannelCheck[]>(`/api/orgs/${org}/apps/${appId}/channels/test`, {
+        channelId: channelId ?? null,
+      }),
   })
 }
 
 export function useConnectSlack(org: string) {
   const client = useQueryClient()
   return useMutation({
-    mutationFn: (input: { token: string; label?: string }) => api.post(`/api/orgs/${org}/slack/connect`, input),
+    mutationFn: (input: { token: string; label?: string }) =>
+      api.post(`/api/orgs/${org}/slack/connect`, input),
     onSuccess: () => client.invalidateQueries({ queryKey: ['credentials', org] }),
   })
 }
@@ -437,6 +465,11 @@ export function useConnectSlack(org: string) {
 export interface ReviewFilters {
   states?: ReviewState[]
   topic?: string
+  from?: string
+  to?: string
+  territory?: string
+  textOnly?: boolean
+  sentiment?: string
   type?: ReviewType | ''
   urgency?: Urgency | ''
   /** Z dopadu verzí se sem chodí odkazem „ukaž mi recenze téhle verze". */
@@ -453,6 +486,9 @@ function reviewQuery(filters: ReviewFilters, withPage: boolean): string {
   const params = new URLSearchParams()
   if (filters.states?.length) params.set('state', filters.states.join(','))
   if (filters.topic) params.set('topic', filters.topic)
+  for (const key of ['from', 'to', 'territory', 'sentiment'] as const)
+    if (filters[key]) params.set(key, filters[key])
+  if (filters.textOnly) params.set('textOnly', 'true')
   if (filters.type) params.set('type', filters.type)
   if (filters.urgency) params.set('urgency', filters.urgency)
   if (filters.version) params.set('version', filters.version)
@@ -472,7 +508,8 @@ export function useReviews(org: string, appId: string, filters: ReviewFilters = 
     queryFn: () => api.get<Review[]>(`/api/orgs/${org}/apps/${appId}/reviews${query}`),
     enabled: appId !== '',
     // Při přepnutí stránky nebo řazení drž starý seznam, ať obsah neblikne na „Načítám".
-    placeholderData: (previous) => previous,
+    placeholderData: (previous, query) =>
+      query?.queryKey[1] === org && query?.queryKey[2] === appId ? previous : undefined,
   })
 }
 
@@ -482,14 +519,16 @@ export function useReviewCount(org: string, appId: string, filters: ReviewFilter
     queryKey: ['reviews', org, appId, 'count', query],
     queryFn: () => api.get<{ count: number }>(`/api/orgs/${org}/apps/${appId}/reviews/count${query}`),
     enabled: appId !== '',
-    placeholderData: (previous) => previous,
+    placeholderData: (previous, query) =>
+      query?.queryKey[1] === org && query?.queryKey[2] === appId ? previous : undefined,
   })
 }
 
 /** AI návrh odpovědi na vyžádání (C1). Nic neukládá — text přistane ve formuláři. */
 export function useSuggestReply(org: string) {
   return useMutation({
-    mutationFn: (reviewId: string) => api.post<ReplyAssist>(`/api/orgs/${org}/reviews/${reviewId}/suggest`, {}),
+    mutationFn: (reviewId: string) =>
+      api.post<ReplyAssist>(`/api/orgs/${org}/reviews/${reviewId}/suggest`, {}),
   })
 }
 
@@ -578,12 +617,7 @@ export function useDeleteTopic(org: string, appId: string) {
 
 /** Filtr stránky Rozbory. Prázdná hodnota znamená „neomezuj". */
 export type AnalysisCalendarPeriod =
-  | 'THIS_WEEK'
-  | 'PREVIOUS_WEEK'
-  | 'THIS_MONTH'
-  | 'PREVIOUS_MONTH'
-  | 'THIS_YEAR'
-  | 'PREVIOUS_YEAR'
+  'THIS_WEEK' | 'PREVIOUS_WEEK' | 'THIS_MONTH' | 'PREVIOUS_MONTH' | 'THIS_YEAR' | 'PREVIOUS_YEAR'
 
 export interface AnalysisFilters {
   days?: number
@@ -656,7 +690,8 @@ export function useGenerateReport(org: string, appId: string) {
 export function useShareReport(org: string, appId: string) {
   const client = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => api.post<{ shareUrl: string }>(`/api/orgs/${org}/apps/${appId}/reports/${id}/share`, {}),
+    mutationFn: (id: string) =>
+      api.post<{ shareUrl: string }>(`/api/orgs/${org}/apps/${appId}/reports/${id}/share`, {}),
     onSuccess: () => client.invalidateQueries({ queryKey: ['reports', org, appId] }),
   })
 }
@@ -704,6 +739,8 @@ export function useReview(org: string, reviewId: string) {
     queryKey: ['review', org, reviewId],
     queryFn: () => api.get<ReviewDetail>(`/api/orgs/${org}/reviews/${reviewId}`),
     enabled: reviewId !== '',
+    refetchInterval: (query) =>
+      query.state.data?.replies.some((reply) => reply.status === 'PENDING') ? 3000 : false,
   })
 }
 
@@ -736,7 +773,7 @@ export function useAudit(org: string, limit = 50, offset = 0) {
   return useQuery({
     queryKey: ['audit', org, limit, offset],
     queryFn: () => api.get<AuditEntry[]>(`/api/orgs/${org}/audit?limit=${limit}&offset=${offset}`),
-    placeholderData: (previous) => previous,
+    placeholderData: (previous, query) => (query?.queryKey[1] === org ? previous : undefined),
   })
 }
 

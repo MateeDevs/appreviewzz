@@ -14,7 +14,7 @@ import {
   useRevokeInvitation,
 } from '../api/hooks'
 import type { OrgPlan } from '../api/types'
-import { Badge, Card, ErrorBox, Field, Loading, When } from '../components/ui'
+import { Badge, Card, ErrorBox, Field, Loading, PageHeader, When } from '../components/ui'
 import { Select } from '../components/Select'
 
 /**
@@ -22,9 +22,17 @@ import { Select } from '../components/Select'
  * slibovat v selectu funkce, které nejsou hotové, je nejrychlejší cesta ke zklamání.
  */
 const PLANS: { value: OrgPlan; label: string; unlocks: string }[] = [
-  { value: 'STARTER', label: 'Starter', unlocks: 'recenze, odpovědi, týdenní rozbory — bez měsíčního reportu' },
+  {
+    value: 'STARTER',
+    label: 'Starter',
+    unlocks: 'recenze, odpovědi, týdenní rozbory — bez měsíčního reportu',
+  },
   { value: 'REGULAR', label: 'Regular', unlocks: 'navíc měsíční report pro klienta (odkaz i PDF)' },
-  { value: 'ENTERPRISE', label: 'Enterprise', unlocks: 'totéž co Regular; místo pro limity, které přijdou s fakturací' },
+  {
+    value: 'ENTERPRISE',
+    label: 'Enterprise',
+    unlocks: 'totéž co Regular; místo pro limity, které přijdou s fakturací',
+  },
 ]
 
 function planLabel(plan: OrgPlan): string {
@@ -50,17 +58,16 @@ export function OrganizationPage() {
 
   return (
     <div className="stack">
-      <div>
-        <h1>{organization.data?.name ?? 'Organizace'}</h1>
-        <p className="muted">Tarif, kdo do organizace vidí a co smí.</p>
-      </div>
+      <PageHeader eyebrow="Tým a přístup" title={organization.data?.name ?? 'Organizace'}>
+        Lidé, oprávnění a sdílený pracovní prostor.
+      </PageHeader>
 
       <PlanCard org={org} canManage={myRole === 'OWNER'} />
 
       <Card title="Členové">
         {members.isPending ? <Loading /> : null}
         <ErrorBox error={members.error ?? changeRole.error ?? remove.error} />
-        <table className="row-cards">
+        <table tabIndex={0} className="row-cards">
           <thead>
             <tr>
               <th>Člověk</th>
@@ -113,7 +120,7 @@ export function OrganizationPage() {
           {invitations.data?.length === 0 ? (
             <p className="muted">Na nikoho se nečeká.</p>
           ) : (
-            <table className="row-cards">
+            <table tabIndex={0} className="row-cards">
               <thead>
                 <tr>
                   <th>E-mail</th>
@@ -163,7 +170,10 @@ export function OrganizationPage() {
             <Field label="E-mail">
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
             </Field>
-            <Field label="Role" hint="Člen vidí recenze a odpovídá; správce navíc spravuje appky, klíče a kanály.">
+            <Field
+              label="Role"
+              hint="Člen vidí recenze a odpovídá; správce navíc spravuje appky, klíče a kanály."
+            >
               <Select
                 value={role}
                 options={[
@@ -205,19 +215,18 @@ function PlanCard({ org, canManage }: { org: string; canManage: boolean }) {
       <ErrorBox error={organization.error ?? changePlan.error} />
       {plan ? (
         canManage ? (
-          <Field
-            label="Tarif organizace"
-            hint={PLANS.find((item) => item.value === plan)?.unlocks}
-          >
+          <Field label="Tarif organizace" hint={PLANS.find((item) => item.value === plan)?.unlocks}>
             <Select
               value={plan}
               disabled={changePlan.isPending}
               // Enterprise se zatím nedá zvolit — nastavuje ho provozovatel. V nabídce zůstává jen
               // tehdy, když ho organizace už má, aby select měl co ukázat.
-              options={PLANS.filter((item) => item.value !== 'ENTERPRISE' || plan === 'ENTERPRISE').map((item) => ({
-                value: item.value,
-                label: item.label,
-              }))}
+              options={PLANS.filter((item) => item.value !== 'ENTERPRISE' || plan === 'ENTERPRISE').map(
+                (item) => ({
+                  value: item.value,
+                  label: item.label,
+                }),
+              )}
               onChange={(value) => changePlan.mutate(value as OrgPlan)}
               ariaLabel="Tarif organizace"
             />
@@ -230,8 +239,8 @@ function PlanCard({ org, canManage }: { org: string; canManage: boolean }) {
         )
       ) : null}
       <p className="small muted">
-        Tarify se zatím nefakturují a nic jiného neomezují — jediné, co tarif dnes rozhoduje, je
-        měsíční report pro klienta. Ten se generuje na Regularu a výš.
+        Tarify se zatím nefakturují a nic jiného neomezují — jediné, co tarif dnes rozhoduje, je měsíční
+        report pro klienta. Ten se generuje na Regularu a výš.
         {canManage ? '' : ' Změnit ho může vlastník organizace.'}
       </p>
     </Card>
@@ -309,7 +318,8 @@ const AUDIT_GROUPS: Record<string, string> = {
 const AUDIT_PAGE = 50
 
 /** UUID poznáme podle tvaru; v podrobnostech se za ně dosazuje jméno appky, ostatní zůstávají. */
-const isUuid = (value: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
+const isUuid = (value: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
 
 export function AuditPage() {
   const { org = '' } = useParams()
@@ -331,17 +341,21 @@ export function AuditPage() {
   const groups = [...new Set([...entries.map((entry) => entry.action.split('.')[0] ?? ''), group])]
     .filter(Boolean)
     .sort()
-  const actors = [...new Set([...entries.map((entry) => entry.actor ?? 'systém'), actor])].filter(Boolean).sort()
+  const actors = [...new Set([...entries.map((entry) => entry.actor ?? 'systém'), actor])]
+    .filter(Boolean)
+    .sort()
   // Filtruje se nad načtenou stránkou: server stránkuje bez filtru a padesátka je přehledná
   // i bez dalšího dotazu. Prázdný výsledek tedy znamená „na téhle stránce nic", ne „nikdy".
   const visible = entries.filter(
     (entry) =>
-      (group === '' || entry.action.startsWith(`${group}.`)) && (actor === '' || (entry.actor ?? 'systém') === actor),
+      (group === '' || entry.action.startsWith(`${group}.`)) &&
+      (actor === '' || (entry.actor ?? 'systém') === actor),
   )
 
   return (
     <div className="stack">
       <div>
+        <div className="eyebrow">Dohledatelné změny</div>
         <h1>Audit</h1>
         <p className="muted">Kdo co v organizaci udělal — včetně toho, co udělal systém.</p>
       </div>
@@ -359,7 +373,10 @@ export function AuditPage() {
           />
           <Select
             value={actor}
-            options={[{ value: '', label: 'Kdokoli' }, ...actors.map((item) => ({ value: item, label: item }))]}
+            options={[
+              { value: '', label: 'Kdokoli' },
+              ...actors.map((item) => ({ value: item, label: item })),
+            ]}
             onChange={setActor}
             ariaLabel="Kdo"
             fitContent
@@ -367,7 +384,7 @@ export function AuditPage() {
         </div>
         {audit.isPending ? <Loading /> : null}
         <ErrorBox error={audit.error} />
-        <table className="row-cards">
+        <table tabIndex={0} className="row-cards">
           <thead>
             <tr>
               <th>Kdy</th>

@@ -1,6 +1,16 @@
-import { useEffect, useRef, type ReactNode } from 'react'
+import {
+  Children,
+  cloneElement,
+  isValidElement,
+  useEffect,
+  useId,
+  useRef,
+  type ReactNode,
+  type ReactElement,
+} from 'react'
 import { ApiError } from '../api/client'
 import type { Platform } from '../api/types'
+import { ThemeSwitch } from './Theme'
 import { IconAndroid, IconApple } from './icons'
 
 export function Card({
@@ -23,18 +33,53 @@ export function Card({
   )
 }
 
-/** Hvězdička ve čtverečku — tentýž tvar jako favicona, ať se značka nerozchází. */
-function BrandMark() {
+/** Tři odezvy a bod: značka signálu, sdílená s faviconou. */
+export function BrandMark() {
   return (
     <span className="brand-mark" aria-hidden="true">
-      <svg viewBox="0 0 32 32" fill="currentColor">
-        <path d="M16 6.5l3.1 6.3 7 1-5 4.9 1.2 6.9-6.3-3.3-6.3 3.3 1.2-6.9-5-4.9 7-1z" />
+      <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+        <path d="M8 16v8m9-14v20m9-16v12" />
+        <circle cx="32" cy="9" r="2.5" fill="currentColor" stroke="none" />
       </svg>
     </span>
   )
 }
 
-/** Značka: hvězdička a název. Jinde než v hlavičkách se nepoužívá. */
+export function SignalArt() {
+  return (
+    <svg className="signal-art" viewBox="0 0 480 280" fill="none" aria-hidden="true">
+      {[40, 70, 100, 130, 160, 190, 220].map((r) => (
+        <circle key={r} cx="240" cy="140" r={r} stroke="currentColor" opacity={1 - r / 260} />
+      ))}
+      <path d="M10 140h150l20-30 24 60 28-100 28 140 24-70h186" stroke="currentColor" strokeWidth="2" />
+    </svg>
+  )
+}
+
+export function PageHeader({
+  eyebrow,
+  title,
+  children,
+  action,
+}: {
+  eyebrow?: string
+  title: string
+  children?: ReactNode
+  action?: ReactNode
+}) {
+  return (
+    <header className="page-header">
+      <div>
+        {eyebrow ? <div className="eyebrow">{eyebrow}</div> : null}
+        <h1>{title}</h1>
+        {children ? <p className="muted">{children}</p> : null}
+      </div>
+      {action}
+    </header>
+  )
+}
+
+/** Značka: signál a název. Jinde než v hlavičkách se nepoužívá. */
 export function Brand({ subtitle }: { subtitle?: ReactNode }) {
   return (
     <div className="brand">
@@ -53,14 +98,36 @@ export function Brand({ subtitle }: { subtitle?: ReactNode }) {
  */
 export function AuthShell({ wide, children }: { wide?: boolean; children: ReactNode }) {
   return (
-    <div className="center">
-      <div className={wide ? 'auth wide' : 'auth'}>
-        <div className="auth-brand">
-          <BrandMark />
-          <span className="brand-name">appreviewzz</span>
+    <div className="auth-layout">
+      <aside className="auth-story">
+        <Brand />
+        <div className="auth-story-copy">
+          <div className="eyebrow">Každá recenze je signál.</div>
+          <h1>
+            Naslouchejte.
+            <br />
+            Rozumějte.
+            <br />
+            <em>Odpovídejte.</em>
+          </h1>
+          <p>
+            Souvislosti, které potřebujete.
+            <br />
+            Od prvního postřehu k další dobré odpovědi.
+          </p>
+          <SignalArt />
         </div>
-        {children}
-      </div>
+        <span className="small">App Store & Google Play · V jednom pracovním prostoru</span>
+      </aside>
+      <main className="auth-form">
+        <div className={wide ? 'auth wide' : 'auth'}>
+          <div className="auth-brand">
+            <Brand />
+          </div>
+          {children}
+        </div>
+        <ThemeSwitch />
+      </main>
     </div>
   )
 }
@@ -82,6 +149,7 @@ export function Modal({
   children: ReactNode
 }) {
   const ref = useRef<HTMLDialogElement>(null)
+  const titleId = useId()
 
   useEffect(() => {
     const dialog = ref.current
@@ -91,6 +159,7 @@ export function Modal({
   return (
     <dialog
       ref={ref}
+      aria-labelledby={titleId}
       className={wide ? 'modal wide' : 'modal'}
       onClose={onClose}
       // Kliknutí mimo kartu zavírá; `<dialog>` hlásí kliknutí na překryv sám na sobě.
@@ -100,9 +169,14 @@ export function Modal({
     >
       <div className="modal-body">
         <div className="modal-head">
-          <h2>{title}</h2>
+          <h2 id={titleId}>{title}</h2>
           {/* Viditelné zavření: na telefonu není Escape a klepnutí vedle karty nikoho nenapadne. */}
-          <button type="button" className="modal-close" aria-label="Zavřít" onClick={() => ref.current?.close()}>
+          <button
+            type="button"
+            className="modal-close"
+            aria-label="Zavřít"
+            onClick={() => ref.current?.close()}
+          >
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M6 6l12 12M18 6L6 18" />
             </svg>
@@ -114,20 +188,25 @@ export function Modal({
   )
 }
 
-export function Field({
-  label,
-  hint,
-  children,
-}: {
-  label: string
-  hint?: ReactNode
-  children: ReactNode
-}) {
+export function Field({ label, hint, children }: { label: string; hint?: ReactNode; children: ReactNode }) {
+  const id = useId()
+  const controls = Children.map(children, (child) =>
+    isValidElement(child)
+      ? cloneElement(child as ReactElement<{ id?: string; 'aria-describedby'?: string }>, {
+          id,
+          'aria-describedby': hint ? `${id}-hint` : undefined,
+        })
+      : child,
+  )
   return (
     <div className="field">
-      <label>{label}</label>
-      {children}
-      {hint ? <div className="hint">{hint}</div> : null}
+      <label htmlFor={id}>{label}</label>
+      {controls}
+      {hint ? (
+        <div className="hint" id={`${id}-hint`}>
+          {hint}
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -140,12 +219,16 @@ export function ErrorBox({ error }: { error: unknown }) {
   if (!error) return null
   const message =
     error instanceof ApiError ? error.message : error instanceof Error ? error.message : String(error)
-  return <div className="error">{message}</div>
+  return (
+    <div className="error" role="alert">
+      {message}
+    </div>
+  )
 }
 
 export function Loading({ what = 'Načítám…' }: { what?: string }) {
   return (
-    <div className="loading">
+    <div className="loading" role="status">
       <span className="spinner" aria-hidden="true" />
       <span>{what}</span>
     </div>
@@ -153,7 +236,12 @@ export function Loading({ what = 'Načítám…' }: { what?: string }) {
 }
 
 export function Empty({ children }: { children: ReactNode }) {
-  return <p className="muted">{children}</p>
+  return (
+    <div className="empty-state">
+      <BrandMark />
+      <p>{children}</p>
+    </div>
+  )
 }
 
 export function Badge({ tone, children }: { tone?: 'ok' | 'warn' | 'bad'; children: ReactNode }) {

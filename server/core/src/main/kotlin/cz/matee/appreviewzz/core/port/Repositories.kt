@@ -544,6 +544,14 @@ data class ReviewFilter(
     val version: String? = null,
     /** Store; prázdná množina jsou obě platformy. */
     val platforms: Set<Platform> = emptySet(),
+    /** Kalendářní rozsah v zóně aplikace. Oba konce včetně. */
+    val from: kotlinx.datetime.LocalDate? = null,
+    val to: kotlinx.datetime.LocalDate? = null,
+    val territory: String? = null,
+    val textOnly: Boolean = false,
+    /** Odvozené hranice pro databázi; horní je exkluzivní. */
+    val submittedFrom: Instant? = null,
+    val submittedBefore: Instant? = null,
     val sort: ReviewSort = ReviewSort.NEWEST,
     /** Kolik recenzí přeskočit — stránkování inboxu. Řazení určuje [sort]. */
     val offset: Int = 0,

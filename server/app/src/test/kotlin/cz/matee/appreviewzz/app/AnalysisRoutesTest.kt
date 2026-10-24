@@ -203,6 +203,57 @@ class AnalysisRoutesTest :
             }
         }
 
+        "analytický rozsah inboxu zachová lokální den, trh i počet a odmítne neplatné datum" {
+            testApplication {
+                consoleModule(mailer, analysisQueue = analysis)
+                val (owner, appId) = ownerWithApp(mailer)
+                owner.patchJson("/api/orgs/$SLUG/apps/$appId", """{"name":"Testovací appka","timezone":"Europe/Prague"}""")
+                seedReview(
+                    appId,
+                    "in-range",
+                    "Po aktualizaci to padá",
+                    emptyList(),
+                    territory = "CZ",
+                    submittedAt = Instant.parse("2026-08-18T22:00:00Z"),
+                )
+                seedReview(
+                    appId,
+                    "before",
+                    "Je to drahé",
+                    emptyList(),
+                    territory = "CZ",
+                    submittedAt = Instant.parse("2026-08-18T21:59:59Z"),
+                )
+                seedReview(
+                    appId,
+                    "after",
+                    "Je to drahé",
+                    emptyList(),
+                    territory = "CZ",
+                    submittedAt = Instant.parse("2026-08-19T22:00:00Z"),
+                )
+                seedReview(
+                    appId,
+                    "other-market",
+                    "Je to drahé",
+                    emptyList(),
+                    territory = "SK",
+                    submittedAt = Instant.parse("2026-08-19T09:00:00Z"),
+                )
+                seedReview(appId, "without-text", null, emptyList(), territory = "CZ", submittedAt = Instant.parse("2026-08-19T09:00:00Z"))
+                val query = "from=2026-08-19&to=2026-08-19&territory=CZ&textOnly=true"
+                val body = owner.get("/api/orgs/$SLUG/apps/$appId/reviews?$query").bodyAsText()
+                body shouldContain "in-range"
+                body shouldNotContain "before"
+                body shouldNotContain "after"
+                body shouldNotContain "other-market"
+                body shouldNotContain "without-text"
+                owner.get("/api/orgs/$SLUG/apps/$appId/reviews/count?$query").bodyAsText() shouldContain "\"count\":1"
+                owner.get("/api/orgs/$SLUG/apps/$appId/reviews?from=nesmysl").status shouldBe HttpStatusCode.BadRequest
+                owner.get("/api/orgs/$SLUG/apps/$appId/reviews?from=2026-08-20&to=2026-08-19").status shouldBe HttpStatusCode.BadRequest
+            }
+        }
+
         "recenze se dvěma tématy se ve filtru neobjeví dvakrát" {
             testApplication {
                 consoleModule(mailer, analysisQueue = analysis)

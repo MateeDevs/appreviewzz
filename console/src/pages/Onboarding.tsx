@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useApps, useCredentials, useHealth, useMe } from '../api/hooks'
-import { Card, ErrorBox, Loading } from '../components/ui'
+import { Card, ErrorBox, Loading, PageHeader } from '../components/ui'
 import { ConnectStoreWizard } from '../components/ConnectStoreWizard'
 import type { App, Platform } from '../api/types'
 
@@ -32,13 +32,18 @@ export function OnboardingPage() {
 
   if (apps.isPending || credentials.isPending || health.isPending) return <Loading />
 
-  const firstApp = apps.data?.[0]
+  const firstApp = apps.data?.find((app) => !app.competitor)
   const storeKeys = (credentials.data ?? []).filter(
     (credential) => credential.type === 'GP_SERVICE_ACCOUNT' || credential.type === 'ASC_API_KEY',
   )
   const validated = storeKeys.filter((credential) => credential.validationStatus === 'VALID')
-  const slackInstalls = (credentials.data ?? []).filter((credential) => credential.type === 'SLACK_INSTALL')
-  const channels = (health.data?.apps ?? []).flatMap((app) => app.channels)
+  const slackInstalls = (credentials.data ?? []).filter(
+    (credential) => credential.type === 'SLACK_INSTALL' || credential.type === 'TEAMS_BOT_REF',
+  )
+  const channels = (health.data?.apps ?? [])
+    .filter((app) => app.appId === firstApp?.id)
+    .flatMap((app) => app.channels)
+    .filter((channel) => channel.enabled && channel.hasCredential)
   const appPath = firstApp ? `/${org}/aplikace/${firstApp.id}` : `/${org}/aplikace`
 
   const steps: Step[] = [
@@ -59,7 +64,9 @@ export function OnboardingPage() {
     },
     {
       title: 'Klíč ke storu',
-      done: validated.length > 0,
+      done: Boolean(
+        firstApp && !firstApp.setup.gaps.some((gap) => gap === 'STORE_KEY' || gap === 'STORE_KEY_WAITING'),
+      ),
       detail:
         validated.length > 0
           ? 'Klíč je nahraný a ověřený proti storu.'
@@ -73,13 +80,13 @@ export function OnboardingPage() {
       },
     },
     {
-      title: 'Slack',
+      title: 'Týmový prostor',
       done: slackInstalls.length > 0,
       detail:
         slackInstalls.length > 0
-          ? `Workspace ${slackInstalls[0]?.hint ?? ''} je připojený.`
+          ? `Slack nebo Teams je připojený: ${slackInstalls[0]?.hint ?? 'týmový prostor'}.`
           : 'Připoj workspace bot tokenem ze své Slack Appky (scopes chat:write, chat:write.public, channels:read).',
-      action: { label: 'Připojit Slack', to: appPath },
+      action: { label: 'Připojit Slack / Teams', to: appPath },
     },
     {
       title: 'Kanál',
@@ -106,15 +113,12 @@ export function OnboardingPage() {
   const remaining = steps.filter((step) => !step.done).length
 
   return (
-    <div className="stack">
-      <div>
-        <h1>Průvodce nastavením</h1>
-        <p className="muted">
-          {remaining === 0
-            ? 'Všechno je hotové — recenze budou chodit do kanálu automaticky.'
-            : `Zbývá ${remaining} ${remaining === 1 ? 'krok' : remaining < 5 ? 'kroky' : 'kroků'}.`}
-        </p>
-      </div>
+    <div className="stack onboarding-page">
+      <PageHeader eyebrow="Zprovoznění" title="Od aplikace k první recenzi">
+        {remaining === 0
+          ? 'Nastavení je připravené. Další recenze se stáhnou automaticky.'
+          : `Zbývá dokončit ${remaining} kroků. Rozpracované nastavení je uložené u aplikace.`}
+      </PageHeader>
 
       {!me.data?.emailVerified ? (
         <div className="notice">Nezapomeň potvrdit e-mail — odkaz jsme poslali na {me.data?.email}.</div>
@@ -138,8 +142,10 @@ export function OnboardingPage() {
               <span className="small muted">Tón, podpis a co v odpovědích nikdy nepsat.</span>
             </li>
             <li>
-              <Link to={`${appPath}?tab=nastaveni`}>Přidat vlastní téma rozboru</Link>
-              <span className="small muted">Třeba název funkce, kterou chcete v recenzích sledovat zvlášť.</span>
+              <Link to={`${appPath}?tab=nastaveni&settings=rozbory`}>Přidat vlastní téma rozboru</Link>
+              <span className="small muted">
+                Třeba název funkce, kterou chcete v recenzích sledovat zvlášť.
+              </span>
             </li>
             <li>
               <Link to={`/${org}/organizace`}>Pozvat kolegu</Link>
@@ -158,33 +164,45 @@ export function OnboardingPage() {
       )}
 
       {connect ? (
-        <ConnectStoreWizard org={org} app={connect.app} platform={connect.platform} onClose={() => setConnect(null)} />
+        <ConnectStoreWizard
+          org={org}
+          app={connect.app}
+          platform={connect.platform}
+          onClose={() => setConnect(null)}
+        />
       ) : null}
 
-      {remaining === 0 ? null : steps.map((step) => (
-        <Card key={step.title}>
-          <div className="spread">
-            <h2 style={{ margin: 0 }}>
-              {step.done ? '✓ ' : ''}
-              {step.title}
-            </h2>
-            {step.connect ? (
-              <button
-                type="button"
-                className="link"
-                onClick={() => setConnect({ app: firstApp, platform: step.connect!.platform })}
-              >
-                {step.connect.label}
-              </button>
-            ) : step.action ? (
-              <Link to={step.action.to}>{step.action.label}</Link>
-            ) : null}
-          </div>
-          <p className="muted" style={{ marginTop: '0.5rem', marginBottom: 0 }}>
-            {step.detail}
-          </p>
-        </Card>
-      ))}
+      {remaining === 0
+        ? null
+        : steps.map((step, index) => (
+            <Card key={step.title} className={`onboarding-step${step.done ? ' complete' : ''}`}>
+              <span className="step-number" aria-hidden="true">
+                {step.done ? '✓' : String(index + 1).padStart(2, '0')}
+              </span>
+              <div className="step-content">
+                <div className="spread">
+                  <h2 style={{ margin: 0 }}>
+                    {step.done ? '✓ ' : ''}
+                    {step.title}
+                  </h2>
+                  {step.connect ? (
+                    <button
+                      type="button"
+                      className="link"
+                      onClick={() => setConnect({ app: firstApp, platform: step.connect!.platform })}
+                    >
+                      {step.connect.label}
+                    </button>
+                  ) : step.action ? (
+                    <Link to={step.action.to}>{step.action.label}</Link>
+                  ) : null}
+                </div>
+                <p className="muted" style={{ marginTop: '0.5rem', marginBottom: 0 }}>
+                  {step.detail}
+                </p>
+              </div>
+            </Card>
+          ))}
     </div>
   )
 }

@@ -84,7 +84,24 @@ jobs:
 
       - name: Typecheck a build
         working-directory: console
-        run: npm run build
+        run: |
+          npm run typecheck
+          npm run build
+
+      - name: Browser regrese a přístupnost (izolované fixtures)
+        working-directory: console
+        run: |
+          npx playwright install --with-deps chromium
+          npm run test:browser
+
+      - name: Browser traces při selhání
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: browser-traces
+          path: console/test-results/
+          retention-days: 7
+          if-no-files-found: ignore
 
   docker:
     name: Docker image & scan

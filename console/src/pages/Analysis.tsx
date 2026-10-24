@@ -15,7 +15,7 @@ import {
   useVersionImpact,
 } from '../api/hooks'
 import type { AnalysisCalendarPeriod } from '../api/hooks'
-import { Badge, Card, Empty, ErrorBox, Loading, Modal } from '../components/ui'
+import { Badge, Card, Empty, ErrorBox, Loading, Modal, PageHeader } from '../components/ui'
 import { SentimentChart, Sparkline } from '../components/SentimentChart'
 import { Select } from '../components/Select'
 import { countryLabel } from '../components/countries'
@@ -113,11 +113,12 @@ export function AnalysisPage() {
   const requestedDays = daysParam ? Number(daysParam) : 30
   const days = Number.isInteger(requestedDays) ? Math.min(365, Math.max(7, requestedDays)) : 30
   const isPresetDays = ROLLING_PERIODS.some((item) => item.days === days)
-  const platform: Platform | '' = (params.get('platform') as Platform | null) ?? ''
+  const rawPlatform = params.get('platform')
+  const platform: Platform | '' = rawPlatform === 'IOS' || rawPlatform === 'ANDROID' ? rawPlatform : ''
   const territory = params.get('territory') ?? ''
   const moodScope = params.get('mood') === 'with-text' ? 'with-text' : 'all'
 
-  const selected = appId || (apps.data?.[0]?.id ?? '')
+  const selected = apps.data?.some((app) => app.id === appId) ? appId : (apps.data?.[0]?.id ?? '')
   const filters = custom
     ? { ...custom, platform, territory }
     : { days: period ? undefined : days, period, platform, territory }
@@ -128,7 +129,7 @@ export function AnalysisPage() {
     const next = new URLSearchParams(params)
     if (value) next.set(key, value)
     else next.delete(key)
-    setParams(next, { replace: true })
+    setParams(next)
   }
 
   const setCustomRange = (nextFrom: string, nextTo: string) => {
@@ -137,14 +138,17 @@ export function AnalysisPage() {
     next.set('to', nextTo)
     next.delete('period')
     next.delete('days')
-    setParams(next, { replace: true })
+    setParams(next)
   }
 
   const setPeriod = (value: string) => {
     if (value === CUSTOM_PERIOD) {
       // Vlastní rozsah začíná tím, co je právě vidět — prázdná pole by stránku vyprázdnila.
       const today = toIsoDate(new Date())
-      setCustomRange(analysis.data?.periodStart ?? shiftIsoDate(today, -29), analysis.data?.periodEnd ?? today)
+      setCustomRange(
+        analysis.data?.periodStart ?? shiftIsoDate(today, -29),
+        analysis.data?.periodEnd ?? today,
+      )
       return
     }
     const next = new URLSearchParams(params)
@@ -157,13 +161,14 @@ export function AnalysisPage() {
       next.set('period', value)
       next.delete('days')
     }
-    setParams(next, { replace: true })
+    setParams(next)
   }
 
   const role = me.data?.organizations.find((item) => item.slug === org)?.role
   const canRun = role === 'OWNER' || role === 'ADMIN'
 
   if (apps.isPending) return <Loading />
+  if (apps.error) return <ErrorBox error={apps.error} />
   if (apps.data?.length === 0) {
     return (
       <Card>
@@ -173,23 +178,25 @@ export function AnalysisPage() {
   }
 
   return (
-    <div className="stack">
-      <div>
-        <h1>Rozbory</h1>
-        <p className="muted">O čem lidé píšou, jak se to vyvíjí a co s tím udělalo vydání.</p>
-      </div>
-
-      <Card>
+    <div className="stack analysis-page">
+      <PageHeader eyebrow="Souvislosti a vývoj" title="Rozbory">
+        Co se opakuje. Co změnila poslední verze. A které recenze to dokládají.
+      </PageHeader>
+      <Card className="filter-panel">
         <div className="row">
           <Select
             value={selected}
-            options={apps.data?.filter((app) => !app.competitor).map((app) => ({ value: app.id, label: app.name }))}
+            options={apps.data
+              ?.filter((app) => !app.competitor)
+              .map((app) => ({ value: app.id, label: app.name }))}
             groups={
               apps.data?.some((app) => app.competitor)
                 ? [
                     {
                       label: 'Konkurence',
-                      options: apps.data.filter((app) => app.competitor).map((app) => ({ value: app.id, label: app.name })),
+                      options: apps.data
+                        .filter((app) => app.competitor)
+                        .map((app) => ({ value: app.id, label: app.name })),
                     },
                   ]
                 : undefined
@@ -228,6 +235,12 @@ export function AnalysisPage() {
         </div>
       </Card>
 
+      <nav className="analysis-sections" aria-label="Sekce rozborů">
+        <a href="#nalada">Nálada a témata</a>
+        <a href="#verze">Dopad verzí</a>
+        <a href="#vykyvy">Výkyvy</a>
+        <a href="#reporty">Reporty</a>
+      </nav>
       <CoverageBar
         org={org}
         appId={selected}
@@ -243,6 +256,8 @@ export function AnalysisPage() {
         <Overview
           org={org}
           appId={selected}
+          platform={platform}
+          territory={territory}
           overview={analysis.data}
           minTopicCount={apps.data?.find((app) => app.id === selected)?.analysisMinTopicCount}
           moodScope={moodScope}
@@ -308,7 +323,8 @@ function DateRangeInputs({
   const changeTo = (value: string) => {
     if (!isIsoDate(value)) return
     let start = from > value ? value : from
-    if (start < shiftIsoDate(value, -(MAX_CUSTOM_DAYS - 1))) start = shiftIsoDate(value, -(MAX_CUSTOM_DAYS - 1))
+    if (start < shiftIsoDate(value, -(MAX_CUSTOM_DAYS - 1)))
+      start = shiftIsoDate(value, -(MAX_CUSTOM_DAYS - 1))
     onChange(start, value)
   }
   return (
@@ -358,16 +374,21 @@ function CoverageBar({
   const [sent, setSent] = useState<string | null>(null)
 
   return (
-    <Card>
+    <Card className="analysis-coverage">
       <div className="spread">
         <div className="small muted">
-          Výklad má {analyzed} z {analyzed + missing} recenzí.
+          Výklad za celou historii má {analyzed} z {analyzed + missing} recenzí.
           {overview?.dataSince ? ` Data od ${new Date(overview.dataSince).toLocaleDateString('cs-CZ')}.` : ''}
           {missing > 0 ? ' Zbytek se dopočítá na pozadí.' : ''}
         </div>
         <div className="row">
           {missing > 0 ? (
-            <button type="button" className="secondary" onClick={() => backfill.mutate()} disabled={backfill.isPending}>
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => backfill.mutate()}
+              disabled={backfill.isPending}
+            >
               Doplnit za historii
             </button>
           ) : null}
@@ -406,145 +427,174 @@ function Overview({
   minTopicCount,
   moodScope,
   onMoodScopeChange,
+  platform,
+  territory,
 }: {
   org: string
   appId: string
   overview: AnalysisOverview
+  platform: Platform | ''
+  territory: string
   /** Práh zmínek, od kterého se téma dostane do tabulky — platí pro appku, ne pro období. */
   minTopicCount: number | undefined
   moodScope: 'with-text' | 'all'
   onMoodScopeChange: (value: 'with-text' | 'all') => void
 }) {
-  if (overview.analyzed === 0) {
-    return (
-      <Card title="Zatím není co rozebírat">
-        <p>
-          Žádná recenze téhle aplikace nemá výklad. Buď ještě žádná nepřišla, nebo není nastavená AI —
-          bez ní se recenze doručují, ale netagují.
-        </p>
-      </Card>
-    )
+  const inbox = (topic?: string) => {
+    const query = new URLSearchParams({
+      app: appId,
+      state: 'all',
+      from: overview.periodStart,
+      to: overview.periodEnd,
+      textOnly: 'true',
+    })
+    if (topic) query.set('topic', topic)
+    if (platform) query.set('platform', platform)
+    if (territory) query.set('territory', territory)
+    return `/${org}/recenze?${query}`
   }
-  const inbox = (topic?: string) =>
-    `/${org}/recenze${topic ? `?app=${appId}&topic=${encodeURIComponent(topic)}` : ''}`
   const mood = moodScope === 'all' ? overview.allReviewsMood : overview
-  const delta = mood.previousSentiment ? mood.sentiment.negative - mood.previousSentiment.negative : null
+  const delta = mood.previousSentiment ? mood.sentiment.positive - mood.previousSentiment.positive : null
 
   return (
     <>
-      <Card>
-        <div className="card-heading">
-          <h2>Nálada v čase</h2>
-          <div className="segmented" role="group" aria-label="Recenze zahrnuté do nálady">
-            <button
-              type="button"
-              className={moodScope === 'all' ? 'active' : undefined}
-              aria-pressed={moodScope === 'all'}
-              onClick={() => onMoodScopeChange('all')}
-            >
-              Všechny recenze
-            </button>
-            <button
-              type="button"
-              className={moodScope === 'with-text' ? 'active' : undefined}
-              aria-pressed={moodScope === 'with-text'}
-              onClick={() => onMoodScopeChange('with-text')}
-            >
-              Jen s textem
-            </button>
+      <section id="nalada" className="analysis-hero" aria-label="Nálada v čase">
+        <div>
+          <div className="eyebrow">
+            {moodScope === 'all' ? 'Nálada všech hodnocení' : 'Sentiment textových recenzí'}
           </div>
-        </div>
-        <p className="small muted" style={{ marginTop: 0 }}>
-          Všechny recenze = i hodnocení bez textu (nálada z hvězd). Jen s textem = recenze, které AI rozebrala;
-          z nich jsou témata a jazyky níž.
-        </p>
-        {mood.reviews === 0 ? (
-          <p className="muted">Za tohle období ve vybraném rozsahu žádné recenze nepřišly.</p>
-        ) : (
-          <>
-            <div className="metrics" style={{ marginBottom: '1rem' }}>
-              <div>
-                <div className="metric-value">{percent(mood.sentiment.positive)}</div>
-                <div className="metric-label">spokojených</div>
-                {delta != null && Math.round(delta * 100) !== 0 ? (
-                  // Roste podíl nespokojených = nálada jde dolů; znaménko se čte obráceně.
-                  <div className={`metric-delta ${delta > 0 ? 'down' : 'up'}`}>
-                    {delta > 0 ? '↓' : '↑'} {Math.abs(Math.round(delta * 100))} b. proti minulému období
-                  </div>
-                ) : null}
-              </div>
-              <div>
-                <div className="metric-value">{mood.reviews}</div>
-                <div className="metric-label">{moodScope === 'all' ? 'všech recenzí' : 'recenzí s textem'}</div>
-              </div>
-              <div>
-                <div className="metric-value">{mood.avgStars?.toFixed(2) ?? '—'}</div>
-                <div className="metric-label">průměr hvězd</div>
+          <div className="metrics">
+            <div>
+              <div className="metric-value">{mood.reviews ? percent(mood.sentiment.positive) : '—'}</div>
+              <div className="metric-label">kladná nálada</div>
+              {delta != null && mood.reviews > 0 ? (
+                <div
+                  className={`metric-delta ${delta > 0 ? 'up' : delta < 0 ? 'down' : ''}`}
+                  title="Změna podílu kladné nálady proti předchozímu stejně dlouhému období"
+                >
+                  {delta > 0 ? '+' : ''}
+                  {Math.round(delta * 100)} p. b. proti minulému období
+                </div>
+              ) : (
+                <span className="small muted">Bez srovnávacího období</span>
+              )}
+            </div>
+            <div>
+              <div className="metric-value">{mood.reviews.toLocaleString('cs-CZ')}</div>
+              <div className="metric-label">
+                {moodScope === 'all' ? 'hodnocení ve vzorku' : 'textových recenzí ve vzorku'}
               </div>
             </div>
-            {moodScope === 'all' && mood.reviews > overview.reviews ? (
-              <p className="muted small">
-                Zahrnuto i {mood.reviews - overview.reviews} hodnocení bez textu. Témata a jazyky níž vycházejí z{' '}
-                {overview.reviews} recenzí s textem.
-              </p>
-            ) : moodScope === 'with-text' && overview.tooFewReviews ? (
-              <p className="muted small">
-                Za období je jen {overview.reviews} recenzí s textem; do kanálu se rozbor posílá až od{' '}
-                {overview.minReviews}. Čísla níž jsou orientační.
-              </p>
-            ) : null}
+            <div>
+              <div className="metric-value">
+                {mood.avgStars?.toFixed(2) ?? '—'} <span className="small">/ 5</span>
+              </div>
+              <div className="metric-label">průměr hvězd ve vzorku</div>
+              <span className="small muted">Store rating najdete u aplikace.</span>
+            </div>
+          </div>
+        </div>
+        <div className="analysis-trend">
+          <div className="card-heading">
+            <h2>Nálada v čase</h2>
+            <div className="segmented" role="group" aria-label="Recenze zahrnuté do nálady">
+              <button
+                type="button"
+                className={moodScope === 'all' ? 'active' : undefined}
+                aria-pressed={moodScope === 'all'}
+                onClick={() => onMoodScopeChange('all')}
+              >
+                Všechna hodnocení
+              </button>
+              <button
+                type="button"
+                className={moodScope === 'with-text' ? 'active' : undefined}
+                aria-pressed={moodScope === 'with-text'}
+                onClick={() => onMoodScopeChange('with-text')}
+              >
+                Jen s textem
+              </button>
+            </div>
+          </div>
+          <p className="small muted">
+            {formatPeriod(overview.periodStart, overview.periodEnd)} ·{' '}
+            {moodScope === 'all'
+              ? 'Textové recenze a hodnocení bez textu. U hodnocení bez textu se nálada odvozuje z hvězd.'
+              : 'Sentiment textu určený AI. Hvězdy jsou samostatná metrika.'}
+          </p>
+          {mood.reviews ? (
             <SentimentChart weeks={mood.weekly} />
-          </>
-        )}
-      </Card>
+          ) : (
+            <Empty>Za toto období nemáme hodnocení. Nula ve vzorku není údaj o spokojenosti.</Empty>
+          )}
+          <p className="small muted">
+            {overview.analyzed} rozebraných recenzí · {overview.missing} bez výkladu za celou historii.
+            {overview.tooFewReviews ? ` Malý vzorek: hranice pro rozbor je ${overview.minReviews}.` : ''}
+          </p>
+        </div>
+      </section>
 
-      <Card title="Témata">
+      <Card title="Problémy a příležitosti" className="analysis-topics">
+        <p className="small muted">
+          Témata z {overview.reviews} textových recenzí ·{' '}
+          {formatPeriod(overview.periodStart, overview.periodEnd)}. Jedna recenze může zmínit více témat.
+          Řazeno podle počtu záporných zmínek.
+        </p>
+
         {overview.topics.length === 0 ? (
           <Empty>
             Žádné téma nepřekročilo práh {minTopicCount ?? '—'} zmínek za období.{' '}
-            <Link to={`/${org}/aplikace/${appId}?tab=nastaveni`}>Práh nastavíš v detailu aplikace</Link>.
+            <Link to={`/${org}/aplikace/${appId}?tab=nastaveni&settings=rozbory`}>
+              Práh nastavíš v detailu aplikace
+            </Link>
+            .
           </Empty>
         ) : (
-          <table>
+          <table tabIndex={0}>
             <thead>
               <tr>
                 <th>Téma</th>
                 <th>Podíl recenzí</th>
-                <th>Ø ★</th>
-                <th>Vývoj</th>
+                <th>Ø ★ recenzí</th>
+                <th>Vývoj v období</th>
                 <th />
               </tr>
             </thead>
             <tbody>
-              {overview.topics.map((topic) => {
-                const status = STATUS_LABELS[topic.status]
-                return (
-                  <tr key={topic.key}>
-                    <td>
-                      <Link to={inbox(topic.key)}>{topic.name}</Link>{' '}
-                      {topic.status === 'STABLE' ? null : <Badge tone={status.tone}>{status.label}</Badge>}
-                    </td>
-                    <td>
-                      <span className="share-bar" title={`${topic.count}× · ${percent(topic.negativeShare)} záporných`}>
+              {[...overview.topics]
+                .sort((a, b) => b.count * b.negativeShare - a.count * a.negativeShare)
+                .map((topic) => {
+                  const status = STATUS_LABELS[topic.status]
+                  return (
+                    <tr key={topic.key}>
+                      <td>
+                        <Link to={inbox(topic.key)}>{topic.name}</Link>{' '}
+                        {topic.status === 'STABLE' ? null : <Badge tone={status.tone}>{status.label}</Badge>}
+                      </td>
+                      <td>
                         <span
-                          className={topic.negativeShare >= 0.5 ? 'bad' : undefined}
-                          style={{ width: `${Math.min(topic.share * 100, 100)}%` }}
-                        />
-                      </span>
-                      <span className="small muted">
-                        {percent(topic.share)} · {topic.count}×
-                      </span>
-                    </td>
-                    <td>{topic.avgStars?.toFixed(1) ?? '—'}</td>
-                    <td>
-                      <Sparkline points={topic.trend} />
-                    </td>
-                    <td className="small muted">
-                      {topic.previousCount > 0 ? `minule ${topic.previousCount}×` : 'minule nic'}
-                    </td>
-                  </tr>
-                )
-              })}
+                          className="share-bar"
+                          title={`${topic.count}× · ${percent(topic.negativeShare)} záporných`}
+                        >
+                          <span
+                            className={topic.negativeShare >= 0.5 ? 'bad' : undefined}
+                            style={{ width: `${Math.min(topic.share * 100, 100)}%` }}
+                          />
+                        </span>
+                        <span className="small muted">
+                          {percent(topic.share)} · {topic.count}× · {percent(topic.negativeShare)} záporných
+                        </span>
+                      </td>
+                      <td>{topic.avgStars?.toFixed(1) ?? '—'}</td>
+                      <td>
+                        <Sparkline points={topic.trend} />
+                      </td>
+                      <td className="small muted">
+                        {topic.previousCount > 0 ? `minule ${topic.previousCount}×` : 'minule nic'}
+                      </td>
+                    </tr>
+                  )
+                })}
             </tbody>
           </table>
         )}
@@ -552,23 +602,27 @@ function Overview({
           <p className="small muted" style={{ marginTop: '0.75rem' }}>
             {/* Bez tabulky by „zlepšilo se" působilo jako jediný výsledek — proto je u prázdného stavu až druhá věta. */}
             {overview.topics.length === 0 ? 'Oproti minulému období ubylo: ' : 'Zlepšilo se: '}
-            {overview.improved.map((item) => `${item.name} (z ${item.before}× na ${item.after}×)`).join(', ')}.
+            {overview.improved.map((item) => `${item.name} (z ${item.before}× na ${item.after}×)`).join(', ')}
+            .
           </p>
         ) : null}
       </Card>
 
       <div className="cards-2">
         <Card title="Trhy">
+          <p className="small muted">
+            Textové recenze · {formatPeriod(overview.periodStart, overview.periodEnd)}
+          </p>
           {overview.territories.length === 0 ? (
             <Empty>Store u těchhle recenzí neuvedl zemi.</Empty>
           ) : (
-            <table>
+            <table tabIndex={0}>
               <thead>
                 <tr>
                   <th>Země</th>
                   <th>Recenzí</th>
                   <th>Nespokojených</th>
-                  <th>Ø ★</th>
+                  <th>Ø ★ recenzí</th>
                 </tr>
               </thead>
               <tbody>
@@ -596,9 +650,15 @@ function Overview({
         </Card>
 
         <Card title="Odpovídání">
+          <p className="small muted">
+            {formatPeriod(overview.periodStart, overview.periodEnd)} · publikované odpovědi včetně odpovědí ze
+            storu
+          </p>
           <div className="metrics">
             <div>
-              <div className="metric-value">{percent(overview.replies.share)}</div>
+              <div className="metric-value">
+                {overview.replies.total ? percent(overview.replies.share) : '—'}
+              </div>
               <div className="metric-label">
                 odpovězeno ({overview.replies.replied} z {overview.replies.total})
               </div>
@@ -622,7 +682,12 @@ function Overview({
           )}
           {overview.languages.length > 0 ? (
             <p className="small muted">
-              Jazyky: {overview.languages.slice(0, 5).map((item) => `${languageLabel(item.language)} (${item.reviews})`).join(', ')}.
+              Jazyky:{' '}
+              {overview.languages
+                .slice(0, 5)
+                .map((item) => `${languageLabel(item.language)} (${item.reviews})`)
+                .join(', ')}
+              .
             </p>
           ) : null}
         </Card>
@@ -669,7 +734,7 @@ function ReportsCard({ org, appId }: { org: string; appId: string }) {
   }
 
   return (
-    <Card title="Měsíční reporty">
+    <Card title="Měsíční reporty" id="reporty">
       <div className="spread" style={{ marginBottom: '0.75rem' }}>
         <p className="small muted" style={{ margin: 0 }}>
           Stránka pro klienta se sdílitelným odkazem. V prohlížeči se dá uložit jako PDF.
@@ -707,10 +772,12 @@ function ReportsCard({ org, appId }: { org: string; appId: string }) {
       <ErrorBox error={generate.error ?? share.error ?? unshare.error} />
       {reports.isPending ? <Loading /> : null}
       {reports.data?.length === 0 ? (
-        <Empty>Zatím žádný report. První se vygeneruje prvního dne příštího měsíce — nebo tlačítkem výš.</Empty>
+        <Empty>
+          Zatím žádný report. První se vygeneruje prvního dne příštího měsíce — nebo tlačítkem výš.
+        </Empty>
       ) : null}
       {reports.data && reports.data.length > 0 ? (
-        <table className="row-cards">
+        <table tabIndex={0} className="row-cards">
           <thead>
             <tr>
               <th>Období</th>
@@ -734,7 +801,11 @@ function ReportsCard({ org, appId }: { org: string; appId: string }) {
                         Otevřít
                       </a>
                       <span className="muted"> · </span>
-                      <button type="button" className="link" onClick={() => copy(report.shareUrl as string, report.id)}>
+                      <button
+                        type="button"
+                        className="link"
+                        onClick={() => copy(report.shareUrl as string, report.id)}
+                      >
                         {copied === report.id ? 'zkopírováno' : 'zkopírovat odkaz'}
                       </button>
                     </>
@@ -783,17 +854,20 @@ function completedMonths(count: number): { value: string; label: string }[] {
  */
 function AlertsCard({ org, appId }: { org: string; appId: string }) {
   const alerts = useAnalysisAlerts(org, appId)
-  if (alerts.isPending) return null
+  if (alerts.isPending) return <Loading />
+  if (alerts.error) return <ErrorBox error={alerts.error} />
   if (!alerts.data || alerts.data.length === 0) {
     return (
-      <Card title="Výkyvy za 90 dní">
-        <Empty>Nic mimo obvyklý provoz. Alert chodí, až je záporných recenzí za den výrazně víc než obvykle.</Empty>
+      <Card title="Výkyvy za 90 dní" id="vykyvy">
+        <Empty>
+          Nic mimo obvyklý provoz. Alert chodí, až je záporných recenzí za den výrazně víc než obvykle.
+        </Empty>
       </Card>
     )
   }
   return (
-    <Card title="Výkyvy za 90 dní">
-      <table>
+    <Card title="Výkyvy za 90 dní" id="vykyvy">
+      <table tabIndex={0}>
         <thead>
           <tr>
             <th>Den</th>
@@ -819,7 +893,7 @@ function AlertsCard({ org, appId }: { org: string; appId: string }) {
               <td>
                 <Link
                   className="small"
-                  to={`/${org}/recenze?app=${appId}${alert.topicKey ? `&topic=${encodeURIComponent(alert.topicKey)}` : ''}`}
+                  to={`/${org}/recenze?app=${appId}&state=all&from=${alert.windowDate}&to=${alert.windowDate}${alert.kind === 'NEGATIVE_SPIKE' ? '&sentiment=NEGATIVE' : ''}${alert.topicKey ? `&topic=${encodeURIComponent(alert.topicKey)}` : ''}`}
                 >
                   Ukázat recenze
                 </Link>
@@ -838,10 +912,27 @@ function AlertsCard({ org, appId }: { org: string; appId: string }) {
  */
 function VersionImpactCard({ org, appId }: { org: string; appId: string }) {
   const versions = useVersionImpact(org, appId)
-  const [open, setOpen] = useState('')
+  const [versionParams, setVersionParams] = useSearchParams()
+  const open = versionParams.get('version-open') ?? ''
+  const setOpen = (value: string) => {
+    const next = new URLSearchParams(versionParams)
+    if (value) next.set('version-open', value)
+    else next.delete('version-open')
+    setVersionParams(next)
+  }
 
-  if (versions.isPending) return <Card title="Dopad verzí"><Loading /></Card>
-  if (versions.error) return <Card title="Dopad verzí"><ErrorBox error={versions.error} /></Card>
+  if (versions.isPending)
+    return (
+      <Card title="Dopad verzí">
+        <Loading />
+      </Card>
+    )
+  if (versions.error)
+    return (
+      <Card title="Dopad verzí">
+        <ErrorBox error={versions.error} />
+      </Card>
+    )
   if (!versions.data || versions.data.length === 0) {
     return (
       <Card title="Dopad verzí">
@@ -856,11 +947,15 @@ function VersionImpactCard({ org, appId }: { org: string; appId: string }) {
   const collecting = versions.data.filter((item) => !item.assessable)
 
   return (
-    <Card title="Dopad verzí">
+    <Card title="Dopad verzí" id="verze">
+      <p className="small muted">
+        Všechny platformy · dostupné verze za poslední rok. Před = 30 dní před prvním výskytem verze, po =
+        recenze této verze. Výběr období nahoře tento blok neomezuje.
+      </p>
       {assessed.length === 0 ? (
         <Empty>Žádná verze zatím nemá po vydání dost recenzí s textem, aby se dopad dal zhodnotit.</Empty>
       ) : (
-        <table>
+        <table tabIndex={0}>
           <thead>
             <tr>
               <th>Verze</th>
@@ -878,7 +973,11 @@ function VersionImpactCard({ org, appId }: { org: string; appId: string }) {
                 appId={appId}
                 item={item}
                 open={open === `${item.platform}-${item.version}`}
-                onToggle={() => setOpen(open === `${item.platform}-${item.version}` ? '' : `${item.platform}-${item.version}`)}
+                onToggle={() =>
+                  setOpen(
+                    open === `${item.platform}-${item.version}` ? '' : `${item.platform}-${item.version}`,
+                  )
+                }
               />
             ))}
           </tbody>
@@ -892,7 +991,12 @@ function VersionImpactCard({ org, appId }: { org: string; appId: string }) {
           </p>
           <ul className="collecting-list">
             {collecting.map((item) => (
-              <VersionCollecting key={`${item.platform}-${item.version}`} org={org} appId={appId} item={item} />
+              <VersionCollecting
+                key={`${item.platform}-${item.version}`}
+                org={org}
+                appId={appId}
+                item={item}
+              />
             ))}
           </ul>
         </>
@@ -934,13 +1038,18 @@ function VersionRow({
           <td colSpan={5}>
             <div className="small">
               <strong>Po vydání</strong> ({item.after.reviews} recenzí):{' '}
-              {item.after.topics.map((topic) => `${topic.name} ${topic.count}×`).join(', ') || 'žádné téma se neopakovalo'}
+              {item.after.topics.map((topic) => `${topic.name} ${topic.count}×`).join(', ') ||
+                'žádné téma se neopakovalo'}
             </div>
             <div className="small muted">
               <strong>Před vydáním</strong> ({item.before.reviews} recenzí):{' '}
-              {item.before.topics.map((topic) => `${topic.name} ${topic.count}×`).join(', ') || 'žádné téma se neopakovalo'}
+              {item.before.topics.map((topic) => `${topic.name} ${topic.count}×`).join(', ') ||
+                'žádné téma se neopakovalo'}
             </div>
-            <Link className="small" to={`/${org}/recenze?app=${appId}&version=${encodeURIComponent(item.version)}`}>
+            <Link
+              className="small"
+              to={`/${org}/recenze?app=${appId}&state=all&textOnly=true&platform=${item.platform}&version=${encodeURIComponent(item.version)}`}
+            >
               Ukázat recenze verze {item.version}
             </Link>
           </td>
@@ -1014,7 +1123,9 @@ function VersionCollecting({ org, appId, item }: { org: string; appId: string; i
       <span>od {new Date(item.firstSeen).toLocaleDateString('cs-CZ')}</span>
       <span>·</span>
       {item.after.reviews > 0 ? (
-        <Link to={`/${org}/recenze?app=${appId}&version=${encodeURIComponent(item.version)}`}>
+        <Link
+          to={`/${org}/recenze?app=${appId}&state=all&textOnly=true&platform=${item.platform}&version=${encodeURIComponent(item.version)}`}
+        >
           {reviewsWithText(item.after.reviews)}
         </Link>
       ) : (

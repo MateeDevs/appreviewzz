@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   useAcceptInvitation,
@@ -28,7 +28,8 @@ export function LoginPage() {
   const next = params.get('next')
   const goOn = () => navigate(next && next.startsWith('/') ? next : '/')
 
-  if (challenge) return <SecondFactorForm challenge={challenge} onDone={goOn} onCancel={() => setChallenge(null)} />
+  if (challenge)
+    return <SecondFactorForm challenge={challenge} onDone={goOn} onCancel={() => setChallenge(null)} />
 
   return (
     <AuthShell>
@@ -48,7 +49,13 @@ export function LoginPage() {
           }}
         >
           <Field label="E-mail">
-            <input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <input
+              type="email"
+              autoComplete="username"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
           </Field>
           <Field label="Heslo">
             <input
@@ -146,9 +153,18 @@ export function RegisterPage() {
             <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} autoComplete="name" />
           </Field>
           <Field label="E-mail">
-            <input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <input
+              type="email"
+              autoComplete="username"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
           </Field>
-          <Field label="Heslo" hint={`Aspoň ${MIN_PASSWORD} znaků. Délka je důležitější než speciální znaky.`}>
+          <Field
+            label="Heslo"
+            hint={`Aspoň ${MIN_PASSWORD} znaků. Délka je důležitější než speciální znaky.`}
+          >
             <input
               type="password"
               autoComplete="new-password"
@@ -179,9 +195,12 @@ export function VerifyEmailPage() {
   const token = params.get('token') ?? ''
   const verify = useVerifyEmail()
   const { mutate } = verify
-
+  const appliedToken = useRef('')
   useEffect(() => {
-    if (token) mutate(token)
+    if (token && appliedToken.current !== token) {
+      appliedToken.current = token
+      mutate(token)
+    }
   }, [token, mutate])
 
   return (
@@ -272,7 +291,9 @@ export function ResetPasswordPage() {
               />
             </Field>
             <div className="stack" style={{ marginTop: '1rem' }}>
-              {!token ? <div className="error">Odkaz nemá token — otevři ho prosím přímo z e-mailu.</div> : null}
+              {!token ? (
+                <div className="error">Odkaz nemá token — otevři ho prosím přímo z e-mailu.</div>
+              ) : null}
               <ErrorBox error={reset.error} />
               <button type="submit" disabled={reset.isPending || !token}>
                 Nastavit heslo

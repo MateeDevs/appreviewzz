@@ -16,7 +16,7 @@ import { InboxPage } from './pages/Inbox'
 import { OnboardingPage } from './pages/Onboarding'
 import { OrgLayout } from './pages/OrgLayout'
 import { OrganizationsPage } from './pages/Organizations'
-import { Loading } from './components/ui'
+import { AuthShell, Card, ErrorBox, Loading } from './components/ui'
 
 export function App() {
   const me = useMe()
@@ -29,6 +29,18 @@ export function App() {
       </div>
     )
   }
+
+  if (me.isError)
+    return (
+      <AuthShell>
+        <Card title="Připojení se nepodařilo">
+          <ErrorBox error={me.error} />
+          <button type="button" onClick={() => me.refetch()}>
+            Zkusit znovu
+          </button>
+        </Card>
+      </AuthShell>
+    )
 
   const signedIn = me.data != null
 
@@ -43,7 +55,12 @@ export function App() {
 
       {!signedIn ? (
         // Adresu si pamatujeme, ať se po přihlášení člověk vrátí tam, kam mířil.
-        <Route path="*" element={<Navigate to={`/login?next=${encodeURIComponent(location.pathname)}`} replace />} />
+        <Route
+          path="*"
+          element={
+            <Navigate to={`/login?next=${encodeURIComponent(location.pathname + location.search)}`} replace />
+          }
+        />
       ) : (
         <>
           <Route path="/organizace" element={<OrganizationsPage />} />
@@ -68,6 +85,7 @@ export function App() {
 function HomeRedirect() {
   const me = useMe()
   const organizations = me.data?.organizations ?? []
-  if (organizations.length === 1 && organizations[0]) return <Navigate to={`/${organizations[0].slug}`} replace />
+  if (organizations.length === 1 && organizations[0])
+    return <Navigate to={`/${organizations[0].slug}`} replace />
   return <Navigate to="/organizace" replace />
 }

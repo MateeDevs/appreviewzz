@@ -31,12 +31,18 @@ object ReportPage {
             append("<style>$CSS</style>\n")
             append("</head>\n<body>\n")
 
+            append("<div class=\"report-brand\"><svg viewBox=\"0 0 40 40\" aria-hidden=\"true\">")
+            append("<path d=\"M8 16v8m9-14v20m9-16v12\" fill=\"none\" stroke=\"currentColor\" ")
+            append("stroke-width=\"3\" stroke-linecap=\"round\"/>")
+            append("<circle cx=\"32\" cy=\"9\" r=\"2.5\" fill=\"currentColor\"/></svg>")
+            append("appreviewzz<span>${escape(t.title)}</span></div>")
             append("<header>")
             append("<div class=\"org\">${escape(snapshot.organizationName)}</div>")
             append("<h1>${escape(snapshot.appName)}</h1>")
             append("<div class=\"period\">${escape(t.title)} · ${escape(snapshot.periodStart)} – ${escape(snapshot.periodEnd)}</div>")
             append("</header>\n")
 
+            append("<main>")
             append(summary(snapshot, t))
             append(moodSection(snapshot, t))
             append(topicsSection(snapshot, t))
@@ -45,7 +51,7 @@ object ReportPage {
             append(territoriesSection(snapshot, t))
             append(repliesSection(snapshot, t))
 
-            append("<footer>")
+            append("</main><footer>")
             append("<p>${escape(t.source)}")
             snapshot.dataSince?.let { append(" ${escape(t.dataSince)} ${escape(it)}.") }
             append("</p>")
@@ -86,7 +92,28 @@ object ReportPage {
     ): String {
         val weeks = snapshot.weekly.filter { it.reviews > 0 }
         if (weeks.size < MIN_CHART_POINTS) return ""
-        return "<section><h2>${escape(t.mood)}</h2>${SvgCharts.moodBars(weeks)}</section>\n"
+        return buildString {
+            append("<section><h2>${escape(t.mood)}</h2>")
+            append(
+                "<div class=\"legend\"><span>● ${escape(
+                    t.positive,
+                )}</span><span>□ ${escape(
+                    if (snapshot.locale == MessageLocale.CS) "neutrální" else "neutral",
+                )}</span><span>▨ ${escape(t.negative)}</span></div>",
+            )
+            append(SvgCharts.moodBars(weeks))
+            append(
+                "<div class=\"chart-table\"><table><thead><tr><th>${escape(
+                    if (snapshot.locale == MessageLocale.CS) "Týden od" else "Week of",
+                )}</th><th>${escape(t.reviews)}</th><th>${escape(t.positive)}</th><th>${escape(t.negative)}</th></tr></thead><tbody>",
+            )
+            weeks.forEach { week ->
+                append(
+                    "<tr><td>${escape(week.weekStart)}</td><td>${week.reviews}</td><td>${week.positive}</td><td>${week.negative}</td></tr>",
+                )
+            }
+            append("</tbody></table></div></section>\n")
+        }
     }
 
     private fun topicsSection(
@@ -104,7 +131,7 @@ object ReportPage {
                 append("</td><td>${topic.count}</td>")
                 append("<td>${percent(topic.share)} %</td>")
                 append("<td>${percent(topic.negativeShare)} %</td>")
-                append("<td>${topic.avgStars?.let { format(it) } ?: "—"}</td></tr>")
+                append("<td class=\"number\">${topic.avgStars?.let { format(it) } ?: "—"}</td></tr>")
             }
             append("</tbody></table>")
             if (snapshot.improved.isNotEmpty()) {
@@ -127,7 +154,7 @@ object ReportPage {
             snapshot.versions.forEach { version ->
                 append("<tr><td>${escape(version.version)} <span class=\"muted\">${escape(version.platform)}</span></td>")
                 append("<td>${version.reviews}</td>")
-                append("<td>${version.avgStars?.let { format(it) } ?: "—"}</td>")
+                append("<td class=\"number\">${version.avgStars?.let { format(it) } ?: "—"}</td>")
                 append("<td>${percent(version.negativeShare)} %</td>")
                 append("<td>${version.newTopics.joinToString(", ") { escape(it) }.ifEmpty { "—" }}</td></tr>")
             }
@@ -319,34 +346,51 @@ object ReportPage {
         """
         :root { color-scheme: light; }
         * { box-sizing: border-box; }
-        body {
-          margin: 0 auto; padding: 2.5rem 1.5rem; max-width: 52rem; background: #fff; color: #14181f;
-          font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-        }
-        header { border-bottom: 2px solid #14181f; padding-bottom: 1rem; margin-bottom: 2rem; }
-        .org { font-size: .85rem; letter-spacing: .06em; text-transform: uppercase; color: #5f6b7a; }
-        h1 { font-size: 1.9rem; margin: .2rem 0 .3rem; }
-        .period { color: #5f6b7a; }
-        h2 { font-size: 1.1rem; margin: 2rem 0 .6rem; }
-        section { break-inside: avoid; }
-        .metrics { display: flex; gap: 2.5rem; flex-wrap: wrap; margin-bottom: .5rem; }
-        .metric .value { font-size: 2rem; font-weight: 600; line-height: 1.1; }
-        .metric .label { font-size: .82rem; color: #5f6b7a; }
-        table { width: 100%; border-collapse: collapse; margin-top: .4rem; }
-        th, td { text-align: left; padding: .5rem .4rem; border-bottom: 1px solid #e3e7ee; vertical-align: top; }
+        body { margin: 0 auto; padding: 3rem 2rem; max-width: 62rem; background: #f5f4f0; color: #172724; font: 15px/1.65 system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+        .report-brand { display: flex; align-items: center; gap: .5rem; font-size: 1.15rem; font-weight: 650; letter-spacing: -.04em; padding-bottom: 1.2rem; border-bottom: 1px solid #a7b1a8; }
+        .report-brand svg { width: 32px; height: 32px; color: #146c60; }
+        .report-brand span { margin-left: auto; font-weight: 400; font-size: .75rem; letter-spacing: .04em; color: #58675f; }
+        header { padding: 2.8rem 0 2rem; }
+        .org { font-size: .75rem; letter-spacing: .12em; text-transform: uppercase; color: #58675f; }
+        h1 { font-family: Georgia, serif; font-size: clamp(2.5rem, 6vw, 4rem); line-height: 1.1; font-weight: 400; letter-spacing: -.045em; margin: .6rem 0 1rem; overflow-wrap: anywhere; }
+        .period { color: #58675f; font-size: .9rem; }
+        main { counter-reset: sections; }
+        h2 { font-size: 1.35rem; font-weight: 550; letter-spacing: -.03em; margin: 2.8rem 0 1rem; break-after: avoid; }
+        h2::before { counter-increment: sections; content: counter(sections, decimal-leading-zero) ' / '; color: #58675f; font-size: .7rem; letter-spacing: .08em; margin-right: .6rem; }
+        .metrics { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 1.5rem; background: #172724; color: #f0f5ee; padding: 2rem; border-radius: 6px; break-inside: avoid; }
+        .metric .value { font-size: 2.5rem; font-weight: 500; line-height: 1.1; letter-spacing: -.06em; }
+        .metric .label { font-size: .75rem; color: #c2d2c7; margin-top: .6rem; }
+        table { width: 100%; border-collapse: collapse; margin-top: .8rem; font-size: .9rem; }
+        thead { display: table-header-group; }
+        td.number { white-space: nowrap; }
+        tr { break-inside: avoid; }
+        th, td { text-align: left; padding: .9rem .5rem; border-bottom: 1px solid #d9ddd6; vertical-align: top; overflow-wrap: anywhere; }
         th:first-child, td:first-child { padding-left: 0; }
-        th { font-size: .74rem; text-transform: uppercase; letter-spacing: .04em; color: #5f6b7a; font-weight: 600; }
-        .quote { font-size: .85rem; color: #5f6b7a; font-style: italic; margin-top: .15rem; }
-        .muted { color: #8a94a3; font-size: .85rem; }
-        .note { font-size: .88rem; color: #5f6b7a; }
-        ul { padding-left: 1.1rem; }
-        li { margin: .2rem 0; }
+        th { font-size: .65rem; text-transform: uppercase; letter-spacing: .07em; color: #58675f; font-weight: 600; }
+        .quote { font-family: Georgia, serif; font-size: .95rem; color: #58675f; font-style: italic; margin-top: .3rem; max-width: 30rem; }
+        .muted, .note { color: #58675f; font-size: .85rem; }
+        ul { padding-left: 1.1rem; } li { margin: .4rem 0; }
         svg { width: 100%; height: auto; display: block; }
-        footer { margin-top: 2.5rem; padding-top: 1rem; border-top: 1px solid #e3e7ee; font-size: .82rem; color: #8a94a3; }
+        svg text { fill: currentColor; }
+        .legend { display: flex; flex-wrap: wrap; gap: 1.5rem; font-size: .75rem; color: #58675f; }
+        .legend span:first-child { color: #216641; } .legend span:last-child { color: #ab3d2c; }
+        .chart-table { font-size: .75rem; } .chart-table th, .chart-table td { padding-block: .35rem; }
+        footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #a7b1a8; font-size: .75rem; color: #58675f; }
+        @media (prefers-color-scheme: dark) { body { background: #101b19; color: #e9f0e9; } .org, .period, th, .quote, .muted, .note, footer, .legend, .report-brand span, h2::before { color: #afbeb2; } th, td { border-color: #354b41; } .legend span:first-child { color: #a4d6af; } .legend span:last-child { color: #ffb7a3; } }
+        @media (prefers-color-scheme: dark) { svg rect[fill="#216641"] { fill: #a4d6af; } svg rect[fill="#ab3d2c"] { fill: #ffb7a3; } }
+        @media(max-width: 620px) { svg text { font-size: 24px; } body { padding: 1.5rem 1rem; } .metrics { grid-template-columns: repeat(2,minmax(0,1fr)); padding: 1.5rem; } .metric .value { font-size: 2rem; } table { font-size: .75rem; } th, td { padding: .65rem .3rem; } .report-brand span { display: none; } }
         @media print {
-          body { padding: 0; max-width: none; font-size: 11pt; }
-          h2 { margin-top: 1.2rem; }
-          @page { margin: 16mm; }
+          :root { color-scheme: light; }
+          body { padding: 0; max-width: none; font-size: 10pt; color: #172724; background: #fff; }
+          header { padding-top: 1.5rem; }
+          h1 { font-size: 34pt; } h2 { margin-top: 1.5rem; }
+          .metrics { background: #fff; color: #172724; border-block: 2px solid #172724; border-radius: 0; padding: 1.3rem 0; }
+          .metric .label, .org, .period, th, .quote, .muted, .note, footer, .legend, .report-brand span, h2::before { color: #364d3d; }
+          .metric .value { font-size: 26pt; }
+          .legend span:first-child { color: #216641; } .legend span:last-child { color: #ab3d2c; }
+          svg, .legend { break-inside: avoid; }
+          svg rect[fill="#216641"] { fill: #216641; } svg rect[fill="#ab3d2c"] { fill: #ab3d2c; }
+          @page { size: A4; margin: 16mm; }
         }
         """.trimIndent()
 }
@@ -363,15 +407,21 @@ internal object SvgCharts {
         val plot = HEIGHT - MARGIN - BOTTOM
         return buildString {
             append("<svg viewBox=\"0 0 $WIDTH $HEIGHT\" role=\"img\" xmlns=\"http://www.w3.org/2000/svg\">")
+            append("<title>0–100 %</title>")
+            listOf(0, 50, 100).forEach { value ->
+                val y = MARGIN + plot * (1 - value / 100.0)
+                append("<text x=\"0\" y=\"${y + 4}\" font-size=\"10\" fill=\"#58675f\">$value%</text>")
+                append("<line x1=\"$MARGIN\" x2=\"${WIDTH - MARGIN}\" y1=\"$y\" y2=\"$y\" stroke=\"#d9ddd6\"/>")
+            }
             weeks.forEachIndexed { index, week ->
                 val centre = MARGIN + slot * index + slot / 2
                 val x = centre - barWidth / 2
                 val negative = week.negative.toDouble() / week.reviews * plot
                 val neutral = week.neutral.toDouble() / week.reviews * plot
                 val positive = plot - negative - neutral
-                rect(x, MARGIN.toDouble(), barWidth, positive, "#2f9e6f")
+                rect(x, MARGIN.toDouble(), barWidth, positive, "#216641")
                 rect(x, MARGIN + positive, barWidth, neutral, "#d2d8e2")
-                rect(x, MARGIN + positive + neutral, barWidth, negative, "#cf4a3f")
+                rect(x, MARGIN + positive + neutral, barWidth, negative, "#ab3d2c")
                 append("<text x=\"$centre\" y=\"${HEIGHT - 6}\" text-anchor=\"middle\" ")
                 append("font-size=\"10\" fill=\"#8a94a3\">${ReportPage.escape(week.weekStart.substring(5))}</text>")
             }
@@ -396,7 +446,7 @@ internal object SvgCharts {
 
     private const val WIDTH = 640
     private const val HEIGHT = 190
-    private const val MARGIN = 16
+    private const val MARGIN = 64
     private const val BOTTOM = 26
     private const val BAR_RATIO = 0.68
     private const val MAX_BAR = 48.0

@@ -1,0 +1,68 @@
+[
+  {
+    "pair": "light text",
+    "foreground": "#172724",
+    "background": "#f5f4f0",
+    "ratio": 14.11
+  },
+  {
+    "pair": "light muted",
+    "foreground": "#58675f",
+    "background": "#f5f4f0",
+    "ratio": 5.42
+  },
+  {
+    "pair": "light secondary text",
+    "foreground": "#58675f",
+    "background": "#ffffff",
+    "ratio": 5.97
+  },
+  {
+    "pair": "light action",
+    "foreground": "#ffffff",
+    "background": "#146c60",
+    "ratio": 6.28
+  },
+  {
+    "pair": "light input boundary",
+    "foreground": "#7c8e80",
+    "background": "#ffffff",
+    "ratio": 3.48
+  },
+  {
+    "pair": "dark text",
+    "foreground": "#e9f0e9",
+    "background": "#192924",
+    "ratio": 13.08
+  },
+  {
+    "pair": "dark muted",
+    "foreground": "#afbeb2",
+    "background": "#192924",
+    "ratio": 7.83
+  },
+  {
+    "pair": "dark action",
+    "foreground": "#12281e",
+    "background": "#9dd7c1",
+    "ratio": 9.59
+  },
+  {
+    "pair": "dark input boundary",
+    "foreground": "#5e796b",
+    "background": "#192924",
+    "ratio": 3.2
+  },
+  {
+    "pair": "navigation text",
+    "foreground": "#b2c2b8",
+    "background": "#172724",
+    "ratio": 8.36
+  },
+  {
+    "pair": "focus navigation",
+    "foreground": "#b9e7d8",
+    "background": "#172724",
+    "ratio": 11.45
+  }
+]

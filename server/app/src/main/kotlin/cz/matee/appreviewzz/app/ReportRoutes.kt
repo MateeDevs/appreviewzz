@@ -159,9 +159,25 @@ private val NOT_FOUND_PAGE =
     """
     <!doctype html>
     <html lang="cs"><head><meta charset="utf-8"><meta name="robots" content="noindex, nofollow">
-    <title>Report není k dispozici</title></head>
-    <body style="font:15px/1.6 system-ui, sans-serif; margin:4rem auto; max-width:32rem; padding:0 1.5rem">
-    <h1 style="font-size:1.3rem">Report není k dispozici</h1>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Report není k dispozici</title>
+    <style>
+    :root { color-scheme: light; --bg:#f5f4f0; --text:#172724; --muted:#58675f; --accent:#146c60; }
+    @media(prefers-color-scheme:dark) {
+      :root { color-scheme:dark; --bg:#101b19; --text:#e9f0e9; --muted:#afbeb2; --accent:#9dd7c1; }
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--text); font:15px/1.7 system-ui,sans-serif; }
+    main { max-width:34rem; margin:20vh auto 3rem; padding:0 1.5rem; }
+    .brand { display:flex; align-items:center; gap:.6rem; font-weight:650; letter-spacing:-.04em; }
+    svg { width:32px; height:32px; color:var(--accent); }
+    h1 { font-size:2.3rem; line-height:1.2; letter-spacing:-.045em; font-weight:500; margin:2.5rem 0 1rem; }
+    p { color:var(--muted); }
+    </style></head><body><main>
+    <div class="brand"><svg viewBox="0 0 40 40" aria-hidden="true">
+    <path d="M8 16v8m9-14v20m9-16v12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="32" cy="9" r="2.5" fill="currentColor"/></svg>appreviewzz</div>
+    <h1>Report není k dispozici</h1>
     <p>Odkaz buď neplatí, nebo bylo sdílení zrušeno. Zkuste si o něj říct tomu, kdo vám ho poslal.</p>
-    </body></html>
+    </main></body></html>
     """.trimIndent()
