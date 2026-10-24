@@ -1,0 +1,25 @@
+{
+  "checkedAt": "2026-10-24T21:26:15.376Z",
+  "checks": [
+    {
+      "width": 1440,
+      "theme": "light",
+      "violations": 0
+    },
+    {
+      "width": 390,
+      "theme": "light",
+      "violations": 0
+    },
+    {
+      "width": 1440,
+      "theme": "dark",
+      "violations": 0
+    },
+    {
+      "width": 390,
+      "theme": "dark",
+      "violations": 0
+    }
+  ]
+}

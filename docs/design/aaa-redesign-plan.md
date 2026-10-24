@@ -5,15 +5,19 @@ Implementační zadání pro novou session: [aaa-redesign-prompt.md](aaa-redesig
 
 ## Stav implementace 24. 10. 2026
 
-Implementace probíhá ve větvi `feat/aaa-signal-redesign`; aktuální stav, kontroly a staging
+Implementace Signál je integrovaná přes PR #3, návazná oprava přes PR #4. Pracovní větve
+`feat/aaa-signal-redesign` a `fix/aaa-login-return`; aktuální stav, kontroly a staging
 jsou v [aaa/progress.md](aaa/progress.md). Doplněný [audit](aaa/audit.md),
 [výběr směru a reference](aaa/direction.md), [návrat](aaa/rollback.md).
 
-Ověřené změny proti přípravě: přímý headless browser staging login nyní funguje; Docker byl
-spuštěn a backendové testy běží lokálně. Přihlášený staging účet zatím chybí a byl vyžádán.
+Ověřené změny proti přípravě: přímý headless browser staging login funguje; uživatel dodal
+autorizovaný účet přes 1Password a skutečné heslo/MFA i přihlášené hlavní plochy byly
+ověřeny. Docker a lokální Ktor/Postgres fungují, backendové i browser testy prošly.
+Nasazení a výsledky posledního SHA jsou v průběžném protokolu.
 Při implementaci byly navíc potvrzeny chyby health (strop 200 čekajících a klíče celé
 organizace u každé appky), analytického rozsahu inboxu a dvojího spotřebování ověřovacího
-tokenu ve StrictMode. Jde o úzké opravy nutné pro pravdivé pracovní UI, nikoli nové moduly.
+tokenu ve StrictMode, ztraceného návratu po přihlášení při pomalém profilu a závodu
+rychlých kláves j/j. Jde o úzké opravy nutné pro pravdivé pracovní UI, nikoli nové moduly.
 
 ## 1. Výsledek, který chceme
 

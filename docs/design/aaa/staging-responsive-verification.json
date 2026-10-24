@@ -1,0 +1,153 @@
+{
+  "checkedAt": "2026-10-24T21:21:41.057Z",
+  "expectedSha": "88141f6a6e0457a5a4ef681412a083517935f2bd",
+  "checks": [
+    {
+      "name": "overview",
+      "width": 1280,
+      "theme": "light",
+      "overflow": false
+    },
+    {
+      "name": "inbox",
+      "width": 1280,
+      "theme": "light",
+      "overflow": false
+    },
+    {
+      "name": "analysis",
+      "width": 1280,
+      "theme": "light",
+      "overflow": false
+    },
+    {
+      "name": "overview",
+      "width": 1024,
+      "theme": "light",
+      "overflow": false
+    },
+    {
+      "name": "inbox",
+      "width": 1024,
+      "theme": "light",
+      "overflow": false
+    },
+    {
+      "name": "analysis",
+      "width": 1024,
+      "theme": "light",
+      "overflow": false
+    },
+    {
+      "name": "overview",
+      "width": 768,
+      "theme": "light",
+      "overflow": false
+    },
+    {
+      "name": "inbox",
+      "width": 768,
+      "theme": "light",
+      "overflow": false
+    },
+    {
+      "name": "analysis",
+      "width": 768,
+      "theme": "light",
+      "overflow": false
+    },
+    {
+      "name": "overview",
+      "width": 360,
+      "theme": "light",
+      "overflow": false
+    },
+    {
+      "name": "inbox",
+      "width": 360,
+      "theme": "light",
+      "overflow": false
+    },
+    {
+      "name": "analysis",
+      "width": 360,
+      "theme": "light",
+      "overflow": false
+    },
+    {
+      "name": "overview",
+      "width": 1280,
+      "theme": "dark",
+      "overflow": false
+    },
+    {
+      "name": "inbox",
+      "width": 1280,
+      "theme": "dark",
+      "overflow": false
+    },
+    {
+      "name": "analysis",
+      "width": 1280,
+      "theme": "dark",
+      "overflow": false
+    },
+    {
+      "name": "overview",
+      "width": 1024,
+      "theme": "dark",
+      "overflow": false
+    },
+    {
+      "name": "inbox",
+      "width": 1024,
+      "theme": "dark",
+      "overflow": false
+    },
+    {
+      "name": "analysis",
+      "width": 1024,
+      "theme": "dark",
+      "overflow": false
+    },
+    {
+      "name": "overview",
+      "width": 768,
+      "theme": "dark",
+      "overflow": false
+    },
+    {
+      "name": "inbox",
+      "width": 768,
+      "theme": "dark",
+      "overflow": false
+    },
+    {
+      "name": "analysis",
+      "width": 768,
+      "theme": "dark",
+      "overflow": false
+    },
+    {
+      "name": "overview",
+      "width": 360,
+      "theme": "dark",
+      "overflow": false
+    },
+    {
+      "name": "inbox",
+      "width": 360,
+      "theme": "dark",
+      "overflow": false
+    },
+    {
+      "name": "analysis",
+      "width": 360,
+      "theme": "dark",
+      "overflow": false
+    }
+  ],
+  "pageErrors": [],
+  "apiErrors": [],
+  "result": "PASSED"
+}
