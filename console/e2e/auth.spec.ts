@@ -50,3 +50,66 @@ test('MFA challenge má samostatný krok a neodesílá heslo znovu', async ({ pa
   await expect(page.getByLabel('Heslo', { exact: true })).toHaveCount(0)
   await expect(page.getByRole('textbox')).toHaveCount(1)
 })
+
+for (const mfa of [false, true])
+  test(`přihlášení ${mfa ? "s MFA" : "heslem"} vrátí přímý odkaz i při pomalém profilu`, async ({
+    page,
+  }) => {
+    await mockApi(page);
+    let signedIn = false;
+    const profile = {
+      id: "user-1",
+      email: "example@example.test",
+      displayName: "Test",
+      emailVerified: true,
+      mfaEnabled: mfa,
+      platformRole: null,
+      organizations: [
+        { id: "org-1", slug: "studio", name: "Studio", role: "OWNER" },
+      ],
+    };
+    await page.route("**/api/auth/me", async (route) => {
+      if (!signedIn) return route.fulfill({ status: 401, json: {} });
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      return route.fulfill({ json: profile });
+    });
+    await page.route("**/api/auth/login", (route) => {
+      if (mfa)
+        return route.fulfill({
+          status: 202,
+          json: {
+            challenge: "test-challenge",
+            expiresAt: "2026-10-24T23:00:00Z",
+          },
+        });
+      signedIn = true;
+      return route.fulfill({ json: profile });
+    });
+    await page.route("**/api/auth/mfa/verify", (route) => {
+      signedIn = true;
+      return route.fulfill({ json: profile });
+    });
+    await page.goto("/studio/recenze?app=app-1&urgency=HIGH");
+    await page
+      .getByLabel("E-mail", { exact: true })
+      .fill("example@example.test");
+    await page
+      .getByLabel("Heslo", { exact: true })
+      .fill("Dlouhe-testovaci-heslo");
+    await page
+      .getByRole("button", { name: "Přihlásit se", exact: true })
+      .click();
+    if (mfa) {
+      await page.getByLabel("Šestimístný kód", { exact: true }).fill("123456");
+      await page
+        .getByRole("button", { name: "Pokračovat", exact: true })
+        .click();
+    }
+    await expect(
+      page.getByRole("heading", { name: "Recenze", exact: true }),
+    ).toBeVisible();
+    await expect(page).toHaveURL("/studio/recenze?app=app-1&urgency=HIGH");
+    await expect(
+      page.getByRole("button", { name: "Naléhavost recenze" }),
+    ).toContainText("naléhavé");
+  });

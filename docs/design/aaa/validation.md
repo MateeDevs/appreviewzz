@@ -87,3 +87,13 @@ k dispozici; byl konkrétně vyžádán. Lokální fixtures ani lokální backen
 Aktualizace před integrací: uživatel dodal autorizovaný přístup přes 1Password. Skutečné
 přihlášení včetně TOTP na původním stagingu prošlo; baseline hlavních ploch je zachycena
 v before/staging-*. Výsledky po nasazení budou níže/progress.md. Tajemství zůstala mimo repo.
+
+## Přímé ověření prvního staging deploye
+
+Na SHA `6886d7df50e219ee6b638ec1b3b0a40c58957a18` prošlo 30 skutečných kontrol
+proti staging API; podrobně staging-verification.json. Přehled/inbox/Rozbory desktop a mobil
+v obou tématech, axe bez nálezů, koncept a návrat, téma i verze se zdroji a Back, nastavení,
+security a platformní správa. Žádné API mutace, odpovědi ani zprávy se neposílaly.
+Původní veřejný snapshot má totožný SHA256 obsahu po deployi a nový SSR dokument bez JS.
+Čerstvé MFA přihlášení odhalilo závod návratu na deep link; navazuje samostatná oprava
+a dvě nové regrese. Finální výsledky po opravném deployi doplní progress.md.

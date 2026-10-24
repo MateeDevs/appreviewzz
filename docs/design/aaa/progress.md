@@ -75,3 +75,18 @@ Další krok: poslední browser/asset render po grafu ratingů; skill pr-shot pr
 - CI fd3315a je celé zelené: https://github.com/MateeDevs/appreviewzz/actions/runs/40131390458. Finální responzivní grafy a report vyžadují ještě nové CI po následujícím commitu.
 - Uživatel dodal 1Password sdílení. Přihlášení heslem + TOTP na skutečném stagingu úspěšné, organizace matee. Původní hlavní plochy se zachycují před integrací. Žádná store odpověď ani zpráva se neposílá.
 - Další krok: push finálního kandidáta, nové PR CI celé zelené, merge do epic/v2, sledování deploye a skutečný přihlášený staging smoke.
+
+## Integrace stagingu
+- PR #3 integrován po všech zelených kontrolách finálního headu f52f212. PR CI: https://github.com/MateeDevs/appreviewzz/actions/runs/40131956096.
+- Merge/deploy SHA: `6886d7df50e219ee6b638ec1b3b0a40c58957a18`. Předchozí epic/v2 před merge znovu ověřen jako 59ac017. Produkční větev se neměnila.
+- Následuje CI/deploy merge commitu a smoke přímo na stagingu. Předchozí veřejný snapshot má zaznamenaný SHA256 obsahu pro srovnání po deployi; share token a session jsou pouze v dočasných souborech mimo repo.
+
+## Přihlášený staging a oprava návratu
+- První deploy úspěšný: https://github.com/MateeDevs/appreviewzz/actions/runs/40132314957. Merge CI také celé zelené: https://github.com/MateeDevs/appreviewzz/actions/runs/40132314897. Health live/ready a SHA 6886d7d ověřeny přímo.
+- Skutečný staging smoke: 30 kontrol prošlo. Detail/refresh/Back, koncept mezi recenzemi i plochami, r, téma (90 dnů) i verze → zdroje → Back, aplikace/detail/onboarding/organizace/audit, MFA dialog s fokusem a platformní správa. Hlavní plochy 1440/390 obě témata, axe bez nálezů, žádná API chyba ani mutace. Veřejný report bez JS, A4 PDF a SHA256 snapshotu před/po shodné. JSON a staging snímky v této složce.
+- Čerstvé přihlášení heslem + TOTP funguje, ale návrat z přímého odkazu při pomalém /me skončil na Přehledu. Reprodukováno dvěma novými browser testy (heslo/MFA), oba před opravou červené. Opravena i přesměrovávací větev přihlášeného /login, aby respektovala bezpečné `next`.
+- Následná paralelní sada zachytila závod rychlého j/j: pasivní efekt mohl přepsat navigační ref starým detail ID. Synchronizace je nyní v layout effectu; stejná regrese prošla 10× souběžně.
+- Upravena česká copy Přehledu pro jednu aplikaci a pro stav s čekajícími, ale bez naléhavých recenzí.
+- Aktivní oprava ve větvi fix/aaa-login-return od origin/epic/v2. Následuje celý browser rerun, nový PR s kontrolami a opravný staging deploy.
+
+- Oprava: console lint/typecheck/build zelené; 28 browser testů prošlo, 3 opt-in přeskočené; Gradle build zelený. JS gzip 144,57 kB, CSS 9,13 kB. Připravuje se opravný PR.

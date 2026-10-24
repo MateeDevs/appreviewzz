@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import {
   useApps,
@@ -110,7 +110,7 @@ export function InboxPage() {
   )
   const openReview = params.get('review') ?? ''
   const navigationReview = useRef(openReview)
-  useEffect(() => {
+  useLayoutEffect(() => {
     navigationReview.current = openReview
   }, [openReview])
   const focusedId = openReview

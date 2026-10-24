@@ -1,0 +1,138 @@
+{
+  "checkedAt": "2026-10-24T21:08:03.978Z",
+  "expectedSha": "6886d7df50e219ee6b638ec1b3b0a40c58957a18",
+  "checks": [
+    {
+      "name": "health/live",
+      "data": {
+        "status": "UP",
+        "version": "0.1.0-SNAPSHOT",
+        "gitSha": "6886d7df50e219ee6b638ec1b3b0a40c58957a18"
+      }
+    },
+    {
+      "name": "health/ready",
+      "data": {
+        "status": "UP",
+        "checks": {
+          "database": "UP"
+        }
+      }
+    },
+    {
+      "name": "urgency URL + refresh",
+      "passed": true
+    },
+    {
+      "name": "detail refresh + Back + draft across review/routes + r",
+      "passed": true
+    },
+    {
+      "name": "actual version -> source reviews -> Back",
+      "passed": true
+    },
+    {
+      "name": "actual 90-day topic -> source reviews -> Back",
+      "passed": true
+    },
+    {
+      "name": "settings route aplikace",
+      "passed": true
+    },
+    {
+      "name": "settings route 78157729-c46b-4a98-b01c-103fd26adaf7",
+      "passed": true
+    },
+    {
+      "name": "settings route onboarding",
+      "passed": true
+    },
+    {
+      "name": "settings route organizace",
+      "passed": true
+    },
+    {
+      "name": "settings route audit",
+      "passed": true
+    },
+    {
+      "name": "security MFA dialog focus + Escape",
+      "passed": true
+    },
+    {
+      "name": "authorized platform administration read-only + axe",
+      "passed": true
+    },
+    {
+      "name": "render + axe overview/1440/light",
+      "passed": true
+    },
+    {
+      "name": "render + axe inbox/1440/light",
+      "passed": true
+    },
+    {
+      "name": "render + axe analysis/1440/light",
+      "passed": true
+    },
+    {
+      "name": "render + axe overview/390/light",
+      "passed": true
+    },
+    {
+      "name": "render + axe inbox/390/light",
+      "passed": true
+    },
+    {
+      "name": "mobile detail return light",
+      "passed": true
+    },
+    {
+      "name": "render + axe analysis/390/light",
+      "passed": true
+    },
+    {
+      "name": "render + axe overview/1440/dark",
+      "passed": true
+    },
+    {
+      "name": "render + axe inbox/1440/dark",
+      "passed": true
+    },
+    {
+      "name": "render + axe analysis/1440/dark",
+      "passed": true
+    },
+    {
+      "name": "render + axe overview/390/dark",
+      "passed": true
+    },
+    {
+      "name": "render + axe inbox/390/dark",
+      "passed": true
+    },
+    {
+      "name": "mobile detail return dark",
+      "passed": true
+    },
+    {
+      "name": "render + axe analysis/390/dark",
+      "passed": true
+    },
+    {
+      "name": "unknown public report neutral 404",
+      "passed": true
+    },
+    {
+      "name": "public snapshot content SHA256 unchanged before/after deploy",
+      "passed": true
+    },
+    {
+      "name": "existing public frozen snapshot SSR/no JS + A4 PDF",
+      "passed": true
+    }
+  ],
+  "pageErrors": [],
+  "failedApi": [],
+  "blockedMutations": []
+}
