@@ -66,3 +66,12 @@ Další krok: poslední browser/asset render po grafu ratingů; skill pr-shot pr
 - Staging dosud nezměněn. Následuje opravené PR CI a teprve pak integrace.
 
 - Čisté `npm ci`, lint, typecheck aplikace/testů a build po CI opravě prošly. 13 inbox regresí včetně skutečných odkazů Přehledu prošlo.
+- Závěrečné vizuální review zachytilo příliš malé popisky SVG os na úzkém telefonu. Grafy nyní používají souřadnice podle skutečné šířky sloupce (ResizeObserver); mobil tak nesmrští text osy na 5 px. Sentiment má jeden tab stop a šipky místo desítek zastávek po týdnech. Období/vzorky a datová alternativa zůstávají.
+- Dotažena i veřejná 404 reportu ve stejném směru; status a nerozlišitelnost zrušeného/neexistujícího tokenu beze změny.
+
+## Finální kandidát
+- Poslední lint/typecheck/build prošly; počáteční JS gzip 144,42 kB (baseline 146,25), CSS 9,13 kB. Browser sada 26/26 + 3 opt-in skips, mobilní rating a report vyrenderované zvlášť.
+- Poslední izolovaný `./gradlew build` prošel za 55 s včetně backup drillu s explicitním PG klientem.
+- CI fd3315a je celé zelené: https://github.com/MateeDevs/appreviewzz/actions/runs/40131390458. Finální responzivní grafy a report vyžadují ještě nové CI po následujícím commitu.
+- Uživatel dodal 1Password sdílení. Přihlášení heslem + TOTP na skutečném stagingu úspěšné, organizace matee. Původní hlavní plochy se zachycují před integrací. Žádná store odpověď ani zpráva se neposílá.
+- Další krok: push finálního kandidáta, nové PR CI celé zelené, merge do epic/v2, sledování deploye a skutečný přihlášený staging smoke.

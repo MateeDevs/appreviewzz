@@ -131,7 +131,7 @@ object ReportPage {
                 append("</td><td>${topic.count}</td>")
                 append("<td>${percent(topic.share)} %</td>")
                 append("<td>${percent(topic.negativeShare)} %</td>")
-                append("<td>${topic.avgStars?.let { format(it) } ?: "—"}</td></tr>")
+                append("<td class=\"number\">${topic.avgStars?.let { format(it) } ?: "—"}</td></tr>")
             }
             append("</tbody></table>")
             if (snapshot.improved.isNotEmpty()) {
@@ -154,7 +154,7 @@ object ReportPage {
             snapshot.versions.forEach { version ->
                 append("<tr><td>${escape(version.version)} <span class=\"muted\">${escape(version.platform)}</span></td>")
                 append("<td>${version.reviews}</td>")
-                append("<td>${version.avgStars?.let { format(it) } ?: "—"}</td>")
+                append("<td class=\"number\">${version.avgStars?.let { format(it) } ?: "—"}</td>")
                 append("<td>${percent(version.negativeShare)} %</td>")
                 append("<td>${version.newTopics.joinToString(", ") { escape(it) }.ifEmpty { "—" }}</td></tr>")
             }
@@ -362,6 +362,7 @@ object ReportPage {
         .metric .label { font-size: .75rem; color: #c2d2c7; margin-top: .6rem; }
         table { width: 100%; border-collapse: collapse; margin-top: .8rem; font-size: .9rem; }
         thead { display: table-header-group; }
+        td.number { white-space: nowrap; }
         tr { break-inside: avoid; }
         th, td { text-align: left; padding: .9rem .5rem; border-bottom: 1px solid #d9ddd6; vertical-align: top; overflow-wrap: anywhere; }
         th:first-child, td:first-child { padding-left: 0; }
@@ -377,7 +378,7 @@ object ReportPage {
         footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #a7b1a8; font-size: .75rem; color: #58675f; }
         @media (prefers-color-scheme: dark) { body { background: #101b19; color: #e9f0e9; } .org, .period, th, .quote, .muted, .note, footer, .legend, .report-brand span, h2::before { color: #afbeb2; } th, td { border-color: #354b41; } .legend span:first-child { color: #a4d6af; } .legend span:last-child { color: #ffb7a3; } }
         @media (prefers-color-scheme: dark) { svg rect[fill="#216641"] { fill: #a4d6af; } svg rect[fill="#ab3d2c"] { fill: #ffb7a3; } }
-        @media(max-width: 620px) { body { padding: 1.5rem 1rem; } .metrics { grid-template-columns: repeat(2,minmax(0,1fr)); padding: 1.5rem; } .metric .value { font-size: 2rem; } table { font-size: .75rem; } th, td { padding: .65rem .3rem; } .report-brand span { display: none; } }
+        @media(max-width: 620px) { svg text { font-size: 24px; } body { padding: 1.5rem 1rem; } .metrics { grid-template-columns: repeat(2,minmax(0,1fr)); padding: 1.5rem; } .metric .value { font-size: 2rem; } table { font-size: .75rem; } th, td { padding: .65rem .3rem; } .report-brand span { display: none; } }
         @media print {
           :root { color-scheme: light; }
           body { padding: 0; max-width: none; font-size: 10pt; color: #172724; background: #fff; }
@@ -445,7 +446,7 @@ internal object SvgCharts {
 
     private const val WIDTH = 640
     private const val HEIGHT = 190
-    private const val MARGIN = 36
+    private const val MARGIN = 64
     private const val BOTTOM = 26
     private const val BAR_RATIO = 0.68
     private const val MAX_BAR = 48.0

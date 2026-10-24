@@ -70,7 +70,7 @@ neprokazují latenci staging DB ani reálný uživatelský INP. Raw výsledky: p
 načte jejich trendy. Backend health nadále pracuje po aplikacích; dávkový portfolio endpoint
 by byl další optimalizace, ne součást tohoto redesignu.
 
-Počáteční gzip JS baseline 146,25 kB, po změně přibližně 144,1 kB; security a platform se
+Počáteční gzip JS baseline 146,25 kB, po změně 144,42 kB; security a platform se
 načítají až při otevření. CSS gzip přibližně 9,1 kB proti 6,73 kB. Geist variable 69 760 B,
 žádné CDN. Výraznější UI tedy nezvětšilo počáteční JavaScript. LCP přidává zejména vlastní font,
 ale v tomto měření zůstává pod cílem 2,5 s; CLS pod 0,1.
@@ -83,3 +83,7 @@ nikoli INP. Skutečný uživatelský INP bez RUM dat neprohlašujeme za změřen
 Předchozí health/live SHA i dostupnost image jsou v rollback.md. Aktuální doručení a CI/deploy
 odkazy doplní progress.md po integraci. Přihlášený staging účet nebyl v době těchto kontrol
 k dispozici; byl konkrétně vyžádán. Lokální fixtures ani lokální backend se za staging E2E nevydávají.
+
+Aktualizace před integrací: uživatel dodal autorizovaný přístup přes 1Password. Skutečné
+přihlášení včetně TOTP na původním stagingu prošlo; baseline hlavních ploch je zachycena
+v before/staging-*. Výsledky po nasazení budou níže/progress.md. Tajemství zůstala mimo repo.
