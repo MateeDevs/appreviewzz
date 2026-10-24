@@ -170,7 +170,7 @@ function PrioritySignals({ org, app }: { org: string; app: AppHealth }) {
               </div>
             </div>
             <Link
-              to={`/${org}/recenze?app=${app.appId}&state=all${alert.topicKey ? `&topic=${encodeURIComponent(alert.topicKey)}` : ''}`}
+              to={`/${org}/recenze?app=${app.appId}&state=all&textOnly=true&from=${alert.windowDate}&to=${alert.windowDate}${alert.kind === 'NEGATIVE_SPIKE' ? '&sentiment=NEGATIVE' : ''}${alert.topicKey ? `&topic=${encodeURIComponent(alert.topicKey)}` : ''}`}
             >
               Prohlédnout recenze ↗
             </Link>
@@ -178,7 +178,7 @@ function PrioritySignals({ org, app }: { org: string; app: AppHealth }) {
         ))}
       </div>
       <p className="small muted">
-        Výkyvy za 90 dní u aplikace s nejvyšší prioritou. Přesný den a podklady najdete v rozborech.
+        Výkyvy za 90 dní u aplikace s nejvyšší prioritou. Odkaz otevře recenze daného dne.
       </p>
     </section>
   )

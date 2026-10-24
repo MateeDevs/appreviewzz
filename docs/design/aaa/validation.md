@@ -12,7 +12,7 @@ Výsledky před integrací do stagingu, 24. 10. 2026. [Srovnání před/po](comp
 | `npm run typecheck` | Prošlo pro aplikaci i browser testy. |
 | `npm run build` | Prošlo; společný Ktor/Docker image zachován. |
 | `./gradlew build` | Prošlo, 745 testů / 0 chyb. Obnovovací drill byl nejprve přeskočen bez pg_dump v PATH; po explicitním PG_DUMP_PATH/PG_RESTORE_PATH na lokální PostgreSQL 18.6 prošel samostatně i tento test. JDK 21, OrbStack. |
-| `npm run test:browser` | 25 testů prošlo; 3 opt-in utility přeskočeny (capture, skutečný lokální backend, performance). Browser/a11y regrese přidány i do CI. |
+| `npm run test:browser` | 26 testů prošlo; 3 opt-in utility přeskočeny (capture, skutečný lokální backend, performance). Browser/a11y regrese přidány i do CI. |
 | `LOCAL_API_SMOKE=1 … local-smoke` | Samostatně prošlo na skutečném lokálním Ktor/Postgres. |
 | `MEASURE_PERF=1 … performance` | Samostatně prošlo, 3 studené běhy každé trasy a varianty. |
 | `CAPTURE_MATRIX=1 … visual` | Rendery při 1440/1280/1024/768/390/360 px, oba režimy, bez horizontálního overflow celé stránky. |

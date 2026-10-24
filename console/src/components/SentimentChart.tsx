@@ -54,15 +54,12 @@ export function SentimentChart({ weeks }: { weeks: SentimentWeek[] }) {
           </g>
         ))}
         {lines.map(([key, , color, dash]) => {
-          let connected = false
           const path = weeks
             .map((week, index) => {
               if (!week.reviews) {
-                connected = false
                 return ''
               }
-              const command = connected ? 'L' : 'M'
-              connected = true
+              const command = (weeks[index - 1]?.reviews ?? 0) > 0 ? 'L' : 'M'
               return `${command}${x(index)} ${y(week[key] / week.reviews)}`
             })
             .join(' ')

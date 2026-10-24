@@ -39,7 +39,7 @@ Další krok: dokončit backendové testy a lokální průchod se skutečným Kt
 
 ## Kontroly před PR (22:41)
 - `./gradlew build` opakovaně zelený, naposledy 54 s; nové testy rozsahu, health >200, report rendereru a původní testy sdílení/revokace prošly. Log `/tmp/appreviewzz-redesign-gradle.log`.
-- Browser sada: 25 prošlo / 3 opt-in přeskočeno. Samostatně prošel skutečný lokální API smoke a měření výkonu. Následné malé úpravy grafu ratingu a stavu fronty se právě znovu kontrolují.
+- Browser sada: 26 prošlo / 3 opt-in přeskočeno. Samostatně prošel skutečný lokální API smoke a měření výkonu. Následné malé úpravy grafu ratingu a stavu fronty se právě znovu kontrolují.
 - Při rychlém j→r test zachytil načítací závod fokusu. Editor nyní přijme požadavek fokusu i během načítání detailu; rychlé j/k používá aktuální navigační ref. 12 inbox regresí po opravě prošlo.
 - Lokální API na :8080, Vite :5173. Nový oddělený testovací účet/org/app; žádný worker, klíče, store reply ani kanál. Registrace/ověření/přidání appky/nastavení/login skutečně prošly.
 - Veřejný report vygenerován skutečným `ReportPage` rendererem v testu, HTML v `/tmp/appreviewzz-report.html`; light/dark/print rendery a A4 PDF v after/. Není to zákaznický sdílený report.
@@ -53,8 +53,16 @@ Další krok: poslední browser/asset render po grafu ratingů; skill pr-shot pr
 
 ## Připraveno k PR
 - Poslední lint/typecheck/build zelené; build JS gzip 144,09 kB, CSS gzip 9,13 kB.
-- Finální browser sada 25 prošlo / 3 opt-in utility přeskočeny. Po poslední URL opravě navíc všech 12 inbox regresí zelených. Samostatná vizuální sada 7/7.
+- Finální browser sada 26 prošlo / 3 opt-in utility přeskočeny. Po poslední URL opravě navíc všech 12 inbox regresí zelených. Samostatná vizuální sada 7/7.
 - Backend 745 testů bez chyb; původně přeskočený backup drill dodatečně prošel s PG klientem 18.6 (`/tmp/appreviewzz-backup-drill.log`).
 - A4 PDF má dvě strany; obě renderované přes PDFKit a vizuálně prohlédnuté.
 - Připraveno comparison.html a validation.md. Screenshoty nahrány přes pr-shot; žádné tokeny/session nejsou v artefaktech.
 - Následuje commit/PR, CI; bez zeleného CI se do epic/v2 neintegruje.
+
+## PR a CI
+- PR: https://github.com/MateeDevs/appreviewzz/pull/3, base epic/v2; první implementační commit `8677ca6ed7ae2e9f2e85095721bbee947024fa70`.
+- První CI https://github.com/MateeDevs/appreviewzz/actions/runs/40131252045 zachytilo React immutability lint v novém RatingsChart. Lokální dříve instalované node_modules jej nehlásily. Opraveno čistým výpočtem sousedních bodů bez mutace proměnné; `npm ci` nyní znovu synchronizuje přesně lockfile.
+- Zároveň zpřesněn odkaz výkyvu z Přehledu na konkrétní den (stejný filtr jako z Rozborů) a přidána regrese skutečných odkazů z Přehledu.
+- Staging dosud nezměněn. Následuje opravené PR CI a teprve pak integrace.
+
+- Čisté `npm ci`, lint, typecheck aplikace/testů a build po CI opravě prošly. 13 inbox regresí včetně skutečných odkazů Přehledu prošlo.

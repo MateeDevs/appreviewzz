@@ -20,15 +20,13 @@ export function RatingsChart({ series }: { series: RatingsSeries }) {
   const x = (date: string) =>
     left + ((Date.parse(date) - firstDate) / (lastDate - firstDate || 1)) * (width - left - right)
   const y = (value: number) => top + ((high - value) / (high - low || 1)) * (height - top - bottom)
-  let connected = false
   const path = series.points
-    .map((point) => {
+    .map((point, index) => {
       if (!point.average || point.average < 1) {
-        connected = false
         return ''
       }
-      const command = connected ? 'L' : 'M'
-      connected = true
+      const previous = series.points[index - 1]?.average
+      const command = previous != null && previous >= 1 ? 'L' : 'M'
       return `${command}${x(point.date)} ${y(point.average)}`
     })
     .join(' ')

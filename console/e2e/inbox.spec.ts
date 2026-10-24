@@ -180,3 +180,15 @@ test('částečné selhání hromadného odložení má zprávu a nezahodí úsp
   await expect(page.getByRole('checkbox', { name: 'Vybrat recenzi od Petra Nováková' })).not.toBeChecked()
   expect(requests.length).toBeGreaterThan(0)
 })
+
+test('Přehled předává naléhavost a konkrétní den výkyvu', async ({ page }) => {
+  await mockApi(page)
+  await page.goto('/studio')
+  await page.getByRole('link', { name: 'Začít naléhavými →', exact: true }).click()
+  await expect(page).toHaveURL(/app=app-1&urgency=HIGH/)
+  await expect(page.getByRole('button', { name: 'Naléhavost recenze' })).toContainText('naléhavé')
+  await page.goBack()
+  await page.getByRole('link', { name: 'Prohlédnout recenze ↗', exact: true }).click()
+  await expect(page).toHaveURL(/from=2026-10-24&to=2026-10-24/)
+  await expect(page).toHaveURL(/topic=login/)
+})
