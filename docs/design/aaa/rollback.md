@@ -17,3 +17,8 @@ standardním revertem. Produkční resource ani `prod` nepřesměrovávat.
 
 Nasazení a CI jsou nezávislé: redesign se integruje až po lokálních kontrolách a zeleném PR CI.
 Samotný zelený deploy neprokazuje přihlášený smoke; ten je v validation.md oddělený.
+
+Integrační commit redesignu: `6886d7df50e219ee6b638ec1b3b0a40c58957a18` (merge PR #3).
+Konkrétní návrat na větvi od aktuálního origin/epic/v2: `git revert -m 1 6886d7df50e219ee6b638ec1b3b0a40c58957a18`,
+kontroly, PR do epic/v2 a standardní merge/deploy. Vytvoří nový SHA; health/live se musí shodovat
+s tímto novým SHA, nikoli s původním před redesignem. Nouzový image tag/digest je uveden výše.

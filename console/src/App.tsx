@@ -43,10 +43,15 @@ export function App() {
     )
 
   const signedIn = me.data != null
+  // Profil může doběhnout až po návratu na chráněný odkaz. I tato větev musí zachovat
+  // `next`, jinak pomalý /me (také po MFA) přesměruje člověka na Přehled.
+  const next = new URLSearchParams(location.search).get('next')
+  const loginTarget =
+    next?.startsWith('/') && !next.startsWith('//') && !/^\/login(?:[/?#]|$)/.test(next) ? next : '/'
 
   return (
     <Routes>
-      <Route path="/login" element={signedIn ? <Navigate to="/" replace /> : <LoginPage />} />
+      <Route path="/login" element={signedIn ? <Navigate to={loginTarget} replace /> : <LoginPage />} />
       <Route path="/registrace" element={signedIn ? <Navigate to="/" replace /> : <RegisterPage />} />
       <Route path="/overeni" element={<VerifyEmailPage />} />
       <Route path="/zapomenute-heslo" element={<ForgotPasswordPage />} />

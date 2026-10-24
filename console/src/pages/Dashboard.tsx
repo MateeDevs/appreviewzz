@@ -68,7 +68,10 @@ export function DashboardPage() {
                     ? 'recenze čekají na odpověď'
                     : 'recenzí čeká na odpověď'}
               </div>
-              <p className="small">Aktuální stav · {own.length} vlastních aplikací</p>
+              <p className="small">
+                Aktuální stav · {own.length}{' '}
+                {own.length >= 1 && own.length <= 4 ? 'vlastní aplikace' : 'vlastních aplikací'}
+              </p>
               {first ? (
                 <Link
                   className="button"
@@ -82,15 +85,21 @@ export function DashboardPage() {
               <div className="eyebrow">Přednostně</div>
               <h2>
                 {urgent > 0
-                  ? `${urgent} naléhavých recenzí`
+                  ? urgent === 1
+                    ? '1 naléhavá recenze'
+                    : urgent <= 4
+                      ? `${urgent} naléhavé recenze`
+                      : `${urgent} naléhavých recenzí`
                   : pending > 0
-                    ? 'Prostor pro dobrou odpověď.'
+                    ? 'Bez naléhavých recenzí.'
                     : 'Žádná čekající odpověď.'}
               </h2>
               <p className="small">
                 {urgent > 0
                   ? 'Nejprve projděte zpětnou vazbu, která vyžaduje pozornost.'
-                  : 'Nové recenze se objeví při dalším stažení ze storu.'}
+                  : pending > 0
+                    ? 'Ve frontě čekají běžné recenze. Otevřete je a pokračujte v odpovídání.'
+                    : 'Nové recenze se objeví při dalším stažení ze storu.'}
               </p>
               <ul>
                 {queue
