@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import {
   useApps,
@@ -12,10 +12,21 @@ import {
   useTopics,
   useTranslateReply,
 } from '../api/hooks'
-import { Badge, Card, ErrorBox, Field, Loading, PlatformBadge, Stars, When } from '../components/ui'
+import { draftKey, hasDrafts, readDraft, writeDraft } from '../state/replyDrafts'
+import {
+  Badge,
+  Card,
+  Empty,
+  ErrorBox,
+  Field,
+  Loading,
+  PageHeader,
+  PlatformBadge,
+  Stars,
+  When,
+} from '../components/ui'
 import { Select } from '../components/Select'
 import type {
-  Platform,
   Review,
   ReviewInsight,
   ReviewSort,
@@ -69,67 +80,119 @@ const FILTERS: { label: string; states: ReviewState[] }[] = [
 export function InboxPage() {
   const { org = '' } = useParams()
   const apps = useApps(org)
-  // Aplikace, téma, řazení i stránka jsou v adrese: z rozborů se sem chodí odkazem „ukaž mi
-  // těch devět recenzí o pádech" a ten musí jít poslat kolegovi.
   const [params, setParams] = useSearchParams()
-  const [filter, setFilterState] = useState(0)
-  const [type, setTypeState] = useState<ReviewType | ''>('')
-  const [urgency, setUrgencyState] = useState<Urgency | ''>('')
-  const [openReview, setOpenReview] = useState<string>('')
-  const [focusedId, setFocusedId] = useState<string>('')
-  const [selection, setSelection] = useState<{ listKey: string; ids: ReadonlySet<string> }>(() => ({ listKey: '', ids: new Set() }))
+  const [selection, setSelection] = useState<{ listKey: string; ids: ReadonlySet<string> }>(() => ({
+    listKey: '',
+    ids: new Set(),
+  }))
+  const [replyFocusId, setReplyFocusId] = useState('')
+  const [advanced, setAdvanced] = useState(false)
   const [bulkBusy, setBulkBusy] = useState(false)
+  const [bulkError, setBulkError] = useState<string | null>(null)
   const setState = useSetReviewState(org)
-
   const appId = params.get('app') ?? ''
+  const selected = apps.data?.some((app) => app.id === appId) ? appId : (apps.data?.[0]?.id ?? '')
   const topic = params.get('topic') ?? ''
   const version = params.get('version') ?? ''
-  const platform: Platform | '' = (params.get('platform') as Platform | null) ?? ''
-  const sort: ReviewSort = (params.get('sort') as ReviewSort | null) ?? 'NEWEST'
-  const page = Math.max(1, Number(params.get('page')) || 1)
+  const valid = <T extends string>(value: string | null, values: readonly T[], fallback: T) =>
+    values.includes(value as T) ? (value as T) : fallback
+  const platform = valid(params.get('platform'), ['', 'ANDROID', 'IOS'] as const, '')
+  const sort = valid(
+    params.get('sort'),
+    SORT_OPTIONS.map((item) => item.value),
+    'NEWEST',
+  )
+  const type = valid(params.get('type'), ['', ...Object.keys(TYPE_LABELS)] as (ReviewType | '')[], '')
+  const urgency = valid(params.get('urgency'), ['', 'LOW', 'MEDIUM', 'HIGH'] as const, '')
+  const filter = Math.max(
+    0,
+    ['pending', 'replied', 'ignored', 'all'].indexOf(params.get('state') ?? 'pending'),
+  )
+  const openReview = params.get('review') ?? ''
+  const navigationReview = useRef(openReview)
+  useEffect(() => {
+    navigationReview.current = openReview
+  }, [openReview])
+  const focusedId = openReview
+  const page = Math.min(100000, Math.max(1, Math.floor(Number(params.get('page')) || 1)))
   const offset = (page - 1) * PAGE
-
-  const setParam = (key: string, value: string) => {
+  const setParam = (key: string, value: string, replace = false) => {
     const next = new URLSearchParams(params)
+    if (key !== 'app' && selected) next.set('app', selected)
     if (value) next.set(key, value)
     else next.delete(key)
-    // Jiná podmínka = jiný seznam; stránka 3 ze starého výběru by ukázala prázdno.
-    if (key !== 'page') next.delete('page')
-    setParams(next, { replace: true })
+    if (key !== 'review') {
+      next.delete('review')
+      if (key !== 'page') next.delete('page')
+    }
+    setParams(next, { replace })
+  }
+  const setOpenReview = (value: string, replace = false) => {
+    navigationReview.current = value
+    setReplyFocusId('')
+    setParam('review', value, replace)
+    if (!value && openReview)
+      requestAnimationFrame(() =>
+        document
+          .getElementById(`review-${openReview}`)
+          ?.querySelector<HTMLButtonElement>('.review-preview')
+          ?.focus(),
+      )
   }
   const setAppId = (value: string) => setParam('app', value)
   const setTopic = (value: string) => setParam('topic', value)
   const setPage = (value: number) => setParam('page', value > 1 ? String(value) : '')
-  // Filtry mimo adresu musí stránku shodit taky — jinak by se dalo dostat na prázdnou.
-  const setFilter = (value: number) => {
-    setFilterState(value)
-    setPage(1)
-  }
-  const setType = (value: ReviewType | '') => {
-    setTypeState(value)
-    setPage(1)
-  }
-  const setUrgency = (value: Urgency | '') => {
-    setUrgencyState(value)
-    setPage(1)
-  }
+  const setFilter = (value: number) =>
+    setParam('state', ['pending', 'replied', 'ignored', 'all'][value] ?? 'pending')
+  const setType = (value: ReviewType | '') => setParam('type', value)
+  const setUrgency = (value: Urgency | '') => setParam('urgency', value)
 
-  const selected = appId || (apps.data?.[0]?.id ?? '')
+  useEffect(() => {
+    const warn = (event: BeforeUnloadEvent) => {
+      if (hasDrafts()) event.preventDefault()
+    }
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [])
   const selectedApp = apps.data?.find((app) => app.id === selected)
   const appName = selectedApp?.name ?? ''
   // Konkurence je jen ke čtení: cizí recenze, na které se neodpovídá.
   const readOnly = selectedApp?.competitor === true
-  const filters = { states: FILTERS[filter]?.states ?? [], topic, type, urgency, version, platform }
+  const date = (key: string) => (/^\d{4}-\d{2}-\d{2}$/.test(params.get(key) ?? '') ? params.get(key)! : '')
+  const from = date('from'),
+    to = date('to')
+  const territory = params.get('territory') ?? ''
+  const textOnly = params.get('textOnly') === 'true'
+  const sentiment = valid(
+    params.get('sentiment'),
+    ['', 'NEGATIVE', 'POSITIVE', 'NEUTRAL', 'MIXED'] as const,
+    '',
+  )
+  const filters = {
+    states: FILTERS[filter]?.states ?? [],
+    topic,
+    type,
+    urgency,
+    version,
+    platform,
+    from,
+    to,
+    territory,
+    textOnly,
+    sentiment,
+  }
   const reviews = useReviews(org, selected, { ...filters, limit: PAGE, offset, sort })
   const count = useReviewCount(org, selected, filters)
   const topics = useTopics(org, selected)
 
   const list = reviews.data ?? []
-  const listKey = list.map((review) => review.id).join(',')
+  const listKey = JSON.stringify([org, selected, filters, page, sort, list.map((review) => review.id)])
   // Výběr i zvýraznění se vážou k recenzím na obrazovce; po přepnutí stránky by ukazovaly
   // na něco, co není vidět. Výběr proto platí jen pro seznam, ke kterému vznikl.
   const selectedIds = selection.listKey === listKey ? selection.ids : NO_SELECTION
-  const setSelectedIds = (next: ReadonlySet<string> | ((current: ReadonlySet<string>) => ReadonlySet<string>)) =>
+  const setSelectedIds = (
+    next: ReadonlySet<string> | ((current: ReadonlySet<string>) => ReadonlySet<string>),
+  ) =>
     setSelection((current) => {
       const ids = current.listKey === listKey ? current.ids : NO_SELECTION
       return { listKey, ids: typeof next === 'function' ? next(ids) : next }
@@ -150,22 +213,36 @@ export function InboxPage() {
   // Každý úspěch sám zneplatní cache, takže seznam doběhne s posledním voláním.
   const ignoreSelected = async () => {
     setBulkBusy(true)
-    try {
-      for (const review of selectedOnPage) {
+    setBulkError(null)
+    let failed = 0
+    const remaining = new Set(selectedIds)
+    for (const review of selectedOnPage) {
+      try {
         await setState.mutateAsync({ reviewId: review.id, state: 'IGNORED' })
+        remaining.delete(review.id)
+      } catch {
+        failed++
       }
-      setSelectedIds(new Set())
-    } finally {
-      setBulkBusy(false)
     }
+    setSelectedIds(remaining)
+    if (failed)
+      setBulkError(
+        `Nepodařilo se odložit ${failed} recenzí. Úspěšné změny zůstaly uložené; zbývající můžete zkusit znovu.`,
+      )
+    setBulkBusy(false)
   }
 
   const moveFocus = (direction: 1 | -1) => {
     if (list.length === 0) return
-    const index = list.findIndex((review) => review.id === focusedId)
-    const next = index < 0 ? (direction === 1 ? 0 : list.length - 1) : Math.min(list.length - 1, Math.max(0, index + direction))
+    const index = list.findIndex((review) => review.id === navigationReview.current)
+    const next =
+      index < 0
+        ? direction === 1
+          ? 0
+          : list.length - 1
+        : Math.min(list.length - 1, Math.max(0, index + direction))
     const id = list[next]?.id ?? ''
-    setFocusedId(id)
+    setOpenReview(id, true)
     document.getElementById(`review-${id}`)?.scrollIntoView({ block: 'nearest' })
   }
 
@@ -173,6 +250,11 @@ export function InboxPage() {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return
+      if (
+        document.querySelector('dialog[open]') ||
+        (event.target as HTMLElement)?.closest('[role="listbox"], [role="menu"], [role="combobox"]')
+      )
+        return
       // Escape má zavřít formulář i z textarey — jediná klávesa, která v polích platí.
       if (event.key === 'Escape') {
         if (openReview) setOpenReview('')
@@ -190,19 +272,23 @@ export function InboxPage() {
           moveFocus(-1)
           break
         case 'r':
-          if (focusedId && !list.find((review) => review.id === focusedId)?.removedAt) {
+          if (
+            navigationReview.current &&
+            !readOnly &&
+            !list.find((review) => review.id === navigationReview.current)?.removedAt
+          ) {
             event.preventDefault()
-            setOpenReview(focusedId)
+            setReplyFocusId(navigationReview.current)
+            document.querySelector<HTMLTextAreaElement>('.reply-editor textarea')?.focus()
           }
           break
         case 'i':
-          if (focusedId && !setState.isPending) {
+          if (!readOnly && focusedId && !setState.isPending) {
             event.preventDefault()
             // Zvýraznění předem přeskočí na další — odložená recenze z pohledu zmizí.
             const index = list.findIndex((review) => review.id === focusedId)
             const nextId = list[index + 1]?.id ?? list[index - 1]?.id ?? ''
-            setFocusedId(nextId)
-            if (openReview === focusedId) setOpenReview('')
+            setOpenReview(nextId, true)
             setState.mutate({ reviewId: focusedId, state: 'IGNORED' })
           }
           break
@@ -213,6 +299,7 @@ export function InboxPage() {
   })
 
   if (apps.isPending) return <Loading />
+  if (apps.error) return <ErrorBox error={apps.error} />
   if (apps.data?.length === 0) {
     return (
       <Card>
@@ -228,23 +315,26 @@ export function InboxPage() {
   )
 
   return (
-    <div className="stack">
-      <div>
-        <h1>Recenze</h1>
-        <p className="muted">Co přišlo ze storu a co s tím.</p>
-      </div>
+    <div className={`stack inbox-page${openReview ? ' has-detail' : ''}`}>
+      <PageHeader eyebrow="Pracovní fronta" title="Recenze">
+        Od zpětné vazby k odpovědi. S celým kontextem.
+      </PageHeader>
 
-      <Card>
+      <Card className="filter-panel">
         <div className="row inbox-filters">
           <Select
             value={selected}
-            options={apps.data?.filter((app) => !app.competitor).map((app) => ({ value: app.id, label: app.name }))}
+            options={apps.data
+              ?.filter((app) => !app.competitor)
+              .map((app) => ({ value: app.id, label: app.name }))}
             groups={
               apps.data?.some((app) => app.competitor)
                 ? [
                     {
                       label: 'Konkurence',
-                      options: apps.data.filter((app) => app.competitor).map((app) => ({ value: app.id, label: app.name })),
+                      options: apps.data
+                        .filter((app) => app.competitor)
+                        .map((app) => ({ value: app.id, label: app.name })),
                     },
                   ]
                 : undefined
@@ -279,170 +369,304 @@ export function InboxPage() {
             ))}
           </div>
         </div>
-        <div className="row inbox-filters" style={{ marginTop: '0.5rem' }}>
-          <TopicSelect topics={topics.data} value={topic} onChange={setTopic} />
-          <Select
-            value={type}
-            options={[
-              { value: '', label: 'Jakýkoli typ' },
-              ...Object.entries(TYPE_LABELS).map(([value, label]) => ({ value, label })),
-            ]}
-            onChange={(value) => setType(value as ReviewType | '')}
-            ariaLabel="Typ recenze"
-            fitContent
-          />
-          <Select
-            value={urgency}
-            options={[
-              { value: '', label: 'Jakákoli naléhavost' },
-              ...Object.entries(URGENCY_LABELS).map(([value, label]) => ({ value, label })),
-            ]}
-            onChange={(value) => setUrgency(value as Urgency | '')}
-            ariaLabel="Naléhavost recenze"
-            fitContent
-          />
-          <Select
-            value={sort}
-            options={SORT_OPTIONS}
-            onChange={(value) => setParam('sort', value === 'NEWEST' ? '' : value)}
-            ariaLabel="Řazení"
-            fitContent
-          />
-          {version ? <Badge>verze {version}</Badge> : null}
-          {topic || type || urgency || version ? (
-            <button
-              type="button"
-              className="secondary"
-              onClick={() => {
-                setTopic('')
-                setParam('version', '')
-                setType('')
-                setUrgency('')
-              }}
-            >
-              Zrušit filtry
-            </button>
-          ) : null}
+        <button
+          type="button"
+          className="secondary mobile-filter-toggle"
+          aria-expanded={advanced}
+          onClick={() => setAdvanced(!advanced)}
+        >
+          Filtry
+          {urgency === 'HIGH'
+            ? ' · naléhavé'
+            : topic || type || version || from || to
+              ? ' · aktivní'
+              : ''}{' '}
+          {advanced ? '−' : '+'}
+        </button>
+        <div className={advanced ? 'advanced-filters expanded' : 'advanced-filters'}>
+          <div className="row inbox-filters" style={{ marginTop: '0.5rem' }}>
+            <TopicSelect topics={topics.data} value={topic} onChange={setTopic} />
+            <Select
+              value={type}
+              options={[
+                { value: '', label: 'Jakýkoli typ' },
+                ...Object.entries(TYPE_LABELS).map(([value, label]) => ({ value, label })),
+              ]}
+              onChange={(value) => setType(value as ReviewType | '')}
+              ariaLabel="Typ recenze"
+              fitContent
+            />
+            <Select
+              value={urgency}
+              options={[
+                { value: '', label: 'Jakákoli naléhavost' },
+                ...Object.entries(URGENCY_LABELS).map(([value, label]) => ({ value, label })),
+              ]}
+              onChange={(value) => setUrgency(value as Urgency | '')}
+              ariaLabel="Naléhavost recenze"
+              fitContent
+            />
+            <Select
+              value={sort}
+              options={SORT_OPTIONS}
+              onChange={(value) => setParam('sort', value === 'NEWEST' ? '' : value)}
+              ariaLabel="Řazení"
+              fitContent
+            />
+            {version ? <Badge>verze {version}</Badge> : null}
+            {from || to ? (
+              <Badge>
+                {from || '…'} – {to || '…'} · zóna aplikace
+              </Badge>
+            ) : null}
+            {territory ? <Badge>{territory}</Badge> : null}
+            {textOnly ? <Badge>S textem</Badge> : null}
+            {sentiment ? (
+              <Badge>
+                Nálada:{' '}
+                {sentiment === 'NEGATIVE'
+                  ? 'záporná'
+                  : sentiment === 'POSITIVE'
+                    ? 'kladná'
+                    : 'neutrální / smíšená'}
+              </Badge>
+            ) : null}
+            {topic || type || urgency || version || from || to || territory || textOnly || sentiment ? (
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => {
+                  const next = new URLSearchParams(params)
+                  for (const key of [
+                    'topic',
+                    'type',
+                    'urgency',
+                    'version',
+                    'page',
+                    'review',
+                    'from',
+                    'to',
+                    'territory',
+                    'sentiment',
+                    'textOnly',
+                  ])
+                    next.delete(key)
+                  setParams(next)
+                }}
+              >
+                Zrušit filtry
+              </button>
+            ) : null}
+          </div>
         </div>
         {readOnly ? (
           <p className="small muted inbox-keys">Konkurence — recenze jen ke čtení, odpovídat se nedá.</p>
         ) : (
-          <p className="small muted inbox-keys keyboard-only">Klávesy: j/k pohyb · r odpovědět · i odložit</p>
+          <p className="small muted inbox-keys keyboard-only">
+            Klávesy: j/k další / předchozí · r editor · i odložit · Escape seznam
+          </p>
         )}
       </Card>
 
-      <Card>
-        {reviews.isPending ? <Loading /> : null}
-        <ErrorBox error={reviews.error ?? setState.error} />
-        {reviews.data?.length === 0 ? <p className="muted">Tady nic není.</p> : null}
-        {list.length > 0 ? (
-          <div className="inbox-toolbar">
-            <label className="inbox-check">
+      <div className="inbox-workspace">
+        <section className="inbox-list" aria-label="Seznam recenzí">
+          <div className="inbox-list-head">
+            <h2>{FILTERS[filter]?.label}</h2>
+            {pager}
+          </div>
+          {reviews.isPending ? <Loading /> : null}
+          <ErrorBox error={reviews.error ?? setState.error ?? bulkError} />
+          {reviews.data?.length === 0 ? (
+            <Empty>Tomuto výběru neodpovídá žádná recenze. Zkuste upravit filtry.</Empty>
+          ) : null}
+          {list.length > 0 && !readOnly ? (
+            <label className="inbox-check inbox-select-all">
               <input
                 type="checkbox"
                 checked={allOnPageSelected}
-                onChange={(event) => setSelectedIds(event.target.checked ? new Set(list.map((review) => review.id)) : new Set())}
-                aria-label="Vybrat vše na stránce"
-              />
-              <span className="small">Vybrat vše na stránce</span>
+                onChange={(event) =>
+                  setSelectedIds(event.target.checked ? new Set(list.map((review) => review.id)) : new Set())
+                }
+              />{' '}
+              Vybrat stránku
             </label>
-            {pager}
-          </div>
-        ) : null}
-        {selectedOnPage.length > 0 ? (
-          <div className="inbox-bulk" role="toolbar" aria-label="Hromadné akce">
-            <strong>{selectedCount(selectedOnPage.length)}</strong>
-            <button type="button" className="secondary" onClick={ignoreSelected} disabled={bulkBusy}>
-              {bulkBusy ? 'Odkládám…' : 'Odložit vybrané'}
-            </button>
-            <button type="button" className="link" onClick={() => setSelectedIds(new Set())} disabled={bulkBusy}>
-              Zrušit výběr
-            </button>
-          </div>
-        ) : null}
-        {list.map((review) => (
-          <div
-            className={`review${review.id === focusedId ? ' focused' : ''}`}
-            id={`review-${review.id}`}
-            key={review.id}
-            onClick={() => setFocusedId(review.id)}
-          >
-            <label className="review-check">
-              <input
-                type="checkbox"
-                checked={selectedIds.has(review.id)}
-                onChange={(event) => toggleSelected(review.id, event.target.checked)}
-                aria-label={`Vybrat recenzi od ${review.authorName ?? 'anonyma'}`}
-              />
-            </label>
-            <div className="review-main">
-              <div className="spread">
-                <div className="review-head">
-                  <PlatformBadge platform={review.platform} />
-                  <Stars count={review.starRating} />
-                  <strong>{review.authorName ?? 'Anonym'}</strong>
+          ) : null}
+          {selectedOnPage.length > 0 ? (
+            <div className="inbox-bulk" role="toolbar" aria-label="Hromadné akce">
+              <strong>{selectedCount(selectedOnPage.length)}</strong>
+              <button className="secondary" type="button" disabled={bulkBusy} onClick={ignoreSelected}>
+                Odložit vybrané
+              </button>
+              <button
+                type="button"
+                className="link"
+                disabled={bulkBusy}
+                onClick={() => setSelectedIds(new Set())}
+              >
+                Zrušit výběr
+              </button>
+            </div>
+          ) : null}
+          {list.map((review) => (
+            <div
+              key={review.id}
+              id={`review-${review.id}`}
+              className={`inbox-item${openReview === review.id ? ' selected' : ''}`}
+            >
+              {!readOnly ? (
+                <input
+                  type="checkbox"
+                  checked={selectedIds.has(review.id)}
+                  onChange={(e) => toggleSelected(review.id, e.target.checked)}
+                  aria-label={`Vybrat recenzi od ${review.authorName ?? 'anonyma'}`}
+                />
+              ) : null}
+              <button
+                type="button"
+                className="review-preview"
+                aria-current={openReview === review.id ? 'true' : undefined}
+                onClick={() => setOpenReview(review.id)}
+              >
+                <span className="spread">
+                  <span className="review-author">{review.authorName ?? 'Anonym'}</span>
                   <span className="small muted">
                     <RelativeWhen iso={review.submittedAt} />
-                    <RewrittenWhen review={review} />
-                    {review.appVersion ? ` · verze ${review.appVersion}` : ''}
-                    {review.territory ? ` · ${review.territory}` : ''}
                   </span>
-                </div>
-                <div className="row" style={{ gap: '0.35rem' }}>
+                </span>
+                <span className="row">
+                  <Stars count={review.starRating} />
+                  <PlatformBadge platform={review.platform} />
+                  {review.insight?.urgency === 'HIGH' ? <Badge tone="bad">naléhavé</Badge> : null}
+                </span>
+                <strong className="preview-title">
+                  {review.title || review.body || 'Hodnocení bez textu'}
+                </strong>
+                {review.title ? <span className="preview-body">{review.body}</span> : null}
+                <span className="row small muted">
                   {review.removedAt ? (
-                    <span title={`Ze storu zmizela ${new Date(review.removedAt).toLocaleString('cs-CZ')}`}>
-                      <Badge tone="bad">smazaná ve storu</Badge>
-                    </span>
-                  ) : null}
-                  <StateBadge state={review.state} />
-                </div>
-              </div>
-              <InsightBadges insight={review.insight} />
-              {review.title ? <div style={{ marginTop: '0.35rem' }}><strong>{review.title}</strong></div> : null}
-              <p className="review-body">{review.body ?? <span className="muted">(bez textu)</span>}</p>
-              {/* Překlad pod originálem, ne místo něj: co člověk napsal, je fakt. */}
-              {review.insight?.translation ? (
-                <p className="small muted" style={{ fontStyle: 'italic' }}>
-                  Překlad: {review.insight.translation}
-                </p>
-              ) : null}
-              {review.developerResponseBody ? (
-                <div className="review-reply">
-                  <strong>Odpověď ve storu</strong>
-                  {review.developerResponseAt ? (
-                    <span className="small">
-                      {' '}
-                      · <When iso={review.developerResponseAt} />
-                      {answersEarlierWording(review) ? ' · k dřívějšímu znění recenze' : ''}
-                    </span>
-                  ) : null}
-                  <div style={{ marginTop: '0.2rem' }}>{review.developerResponseBody}</div>
-                </div>
-              ) : null}
-              {openReview === review.id ? (
-                <ReplyForm
-                  org={org}
-                  appId={selected}
-                  appName={appName}
-                  review={review}
-                  onClose={() => setOpenReview('')}
-                />
-              ) : readOnly ? null : review.removedAt ? (
-                // Na smazanou recenzi store odpověď nepřijme; tlačítko by vedlo jen k chybě.
-                <div className="review-actions small muted">Autor recenzi ve storu smazal, odpovědět už nejde.</div>
-              ) : (
-                <div className="review-actions">
-                  <button type="button" className="secondary" onClick={() => setOpenReview(review.id)}>
-                    {review.developerResponseBody ? 'Upravit odpověď' : 'Odpovědět'}
-                  </button>
-                </div>
-              )}
+                    <Badge tone="bad">smazaná ve storu</Badge>
+                  ) : (
+                    <StateBadge state={review.state} />
+                  )}
+                  {review.appVersion ? `v${review.appVersion}` : ''}
+                </span>
+              </button>
             </div>
-          </div>
-        ))}
-        {list.length > 0 && total != null && total > PAGE ? <div className="inbox-toolbar bottom">{pager}</div> : null}
-      </Card>
+          ))}
+          {total != null && total > PAGE ? <div className="inbox-list-head">{pager}</div> : null}
+        </section>
+        <section className="inbox-detail" aria-label="Detail recenze">
+          {openReview ? (
+            <ReviewPane
+              key={`${org}/${selected}/${openReview}`}
+              org={org}
+              appId={selected}
+              appName={appName}
+              id={openReview}
+              focusEditor={replyFocusId === openReview}
+              readOnly={readOnly}
+              onClose={() => setOpenReview('')}
+            />
+          ) : (
+            <div className="detail-placeholder">
+              <div className="eyebrow">Vyberte signál</div>
+              <h2>Každá odpověď začíná porozuměním.</h2>
+              <p>Otevřete recenzi ze seznamu. Najdete tu její kontext, historii i koncept odpovědi.</p>
+              <span className="small muted keyboard-only">j / k pro procházení · r pro psaní</span>
+            </div>
+          )}
+        </section>
+      </div>
     </div>
+  )
+}
+
+function ReviewPane({
+  org,
+  appId,
+  appName,
+  id,
+  readOnly,
+  focusEditor,
+  onClose,
+}: {
+  org: string
+  appId: string
+  appName: string
+  id: string
+  readOnly: boolean
+  focusEditor: boolean
+  onClose: () => void
+}) {
+  const detail = useReview(org, id)
+  const heading = useRef<HTMLHeadingElement>(null)
+  useEffect(() => {
+    if (detail.data && focusEditor) {
+      heading.current?.closest('article')?.querySelector<HTMLTextAreaElement>('textarea')?.focus()
+      return
+    }
+    if (detail.data && window.matchMedia('(max-width: 1180px)').matches) {
+      heading.current?.focus({ preventScroll: true })
+      heading.current?.closest('.inbox-detail')?.scrollIntoView({ block: 'start' })
+    }
+  }, [detail.data, focusEditor])
+  if (detail.isPending) return <Loading what="Načítám recenzi…" />
+  if (detail.error) return <ErrorBox error={detail.error} />
+  const review = detail.data?.review
+  if (!review) return <Empty>Recenzi se nepodařilo najít.</Empty>
+  return (
+    <article className="review-document">
+      <div className="detail-toolbar">
+        <button type="button" className="secondary" onClick={onClose}>
+          ← Zpět na seznam
+        </button>
+        <span className="small muted">{appName}</span>
+        <StateBadge state={review.state} />
+      </div>
+      <div className="review-source">
+        <div className="row">
+          <PlatformBadge platform={review.platform} />
+          <Stars count={review.starRating} />
+        </div>
+        <h2 ref={heading} tabIndex={-1}>
+          {review.title || 'Hodnocení aplikace'}
+        </h2>
+        <p className="small muted">
+          {review.authorName ?? 'Anonym'} · <When iso={review.submittedAt} />
+          <RewrittenWhen review={review} />
+          {review.appVersion ? ` · verze ${review.appVersion}` : ''}
+          {review.territory ? ` · ${review.territory}` : ''}
+        </p>
+        <p className="review-body">{review.body ?? 'Hodnocení bez textu.'}</p>
+        {review.insight?.translation ? (
+          <div className="review-translation">
+            <span className="eyebrow">Překlad</span>
+            <p>{review.insight.translation}</p>
+          </div>
+        ) : null}
+        <InsightBadges insight={review.insight} />
+        {review.insight ? (
+          <InsightDetail insight={review.insight} />
+        ) : (
+          <p className="small muted">Recenze zatím nemá AI výklad.</p>
+        )}
+      </div>
+      {review.developerResponseBody ? (
+        <div className="review-reply">
+          <strong>Odpověď ve storu</strong> · <When iso={review.developerResponseAt} />
+          {answersEarlierWording(review) ? <Badge tone="warn">k dřívějšímu znění</Badge> : null}
+          <p>{review.developerResponseBody}</p>
+        </div>
+      ) : null}
+      <ReplyForm
+        org={org}
+        appId={appId}
+        appName={appName}
+        review={review}
+        readOnly={readOnly || Boolean(review.removedAt)}
+        onClose={onClose}
+      />
+    </article>
   )
 }
 
@@ -486,10 +710,20 @@ function Pager({
         {total != null ? ` z ${total}` : ''}
       </span>
       <span className="pager-buttons">
-        <button type="button" className="secondary" onClick={() => onPage(page - 1)} disabled={page <= 1 || pending}>
+        <button
+          type="button"
+          className="secondary"
+          onClick={() => onPage(page - 1)}
+          disabled={page <= 1 || pending}
+        >
           Předchozí
         </button>
-        <button type="button" className="secondary" onClick={() => onPage(page + 1)} disabled={!hasNext || pending}>
+        <button
+          type="button"
+          className="secondary"
+          onClick={() => onPage(page + 1)}
+          disabled={!hasNext || pending}
+        >
           Další
         </button>
       </span>
@@ -597,7 +831,10 @@ function InsightBadges({ insight }: { insight?: ReviewInsight | null }) {
   return (
     <div className="row" style={{ marginTop: '0.35rem', gap: '0.35rem' }}>
       {insight.topics.map((topic) => (
-        <Badge key={topic.key} tone={topic.sentiment === 'NEGATIVE' ? 'bad' : topic.sentiment === 'POSITIVE' ? 'ok' : undefined}>
+        <Badge
+          key={topic.key}
+          tone={topic.sentiment === 'NEGATIVE' ? 'bad' : topic.sentiment === 'POSITIVE' ? 'ok' : undefined}
+        >
           {topic.name}
         </Badge>
       ))}
@@ -634,7 +871,9 @@ function InsightDetail({ insight }: { insight: ReviewInsight }) {
   return (
     <div className="notice" style={{ marginBottom: '0.75rem' }}>
       <div className="small">
-        Naléhavost {URGENCY_LABELS[insight.urgency]}
+        {insight.urgency === 'HIGH'
+          ? 'Vyžaduje přednostní pozornost'
+          : `Naléhavost: ${URGENCY_LABELS[insight.urgency]}`}
         {insight.language ? ` · jazyk ${insight.language}` : ''}
       </div>
       {quotes.map((topic) => (
@@ -669,10 +908,12 @@ function ReplyForm({
   appName,
   review,
   onClose,
+  readOnly,
 }: {
   org: string
   appId: string
   appName: string
+  readOnly: boolean
   review: Review
   onClose: () => void
 }) {
@@ -683,12 +924,19 @@ function ReplyForm({
   const suggest = useSuggestReply(org)
   const translate = useTranslateReply(org)
   const templates = useReplyTemplates(org, appId)
-  const [body, setBody] = useState('')
+  const key = draftKey(org, appId, reviewId)
+  const [body, updateBody] = useState(() => readDraft(key))
+  const setBody = (value: string | ((current: string) => string)) => {
+    const next = typeof value === 'function' ? value(readDraft(key)) : value
+    writeDraft(key, next)
+    updateBody(next)
+  }
   // Text před překladem. Překlad textareu přepíše a člověk musí mít cestu zpět.
   const [original, setOriginal] = useState<string | null>(null)
   const [assistMessage, setAssistMessage] = useState<string | null>(null)
   const [queued, setQueued] = useState<string | null>(null)
-  const limit = review.platform === 'ANDROID' ? GP_REPLY_LIMIT : null
+  const limit = review.platform === 'ANDROID' ? GP_REPLY_LIMIT : 5000
+  const pendingReply = detail.data?.replies.some((item) => item.status === 'PENDING') ?? false
   const overLimit = limit != null && body.length > limit
   const language = primaryLanguage(review.insight?.language)
   const foreign = language != null && language !== 'cs'
@@ -700,7 +948,8 @@ function ReplyForm({
       return
     }
     setAssistMessage(null)
-    setOriginal(keepOriginal ? body : null)
+    const current = readDraft(key)
+    setOriginal(keepOriginal || current ? current : null)
     setBody(result.text)
   }
 
@@ -712,19 +961,25 @@ function ReplyForm({
   }
 
   return (
-    <div style={{ marginTop: '0.75rem' }}>
-      {detail.data?.review.insight ? <InsightDetail insight={detail.data.review.insight} /> : null}
+    <div className="reply-editor">
+      <ErrorBox error={detail.error} />
       {detail.data && detail.data.replies.length > 0 ? (
         <div className="notice" style={{ marginBottom: '0.75rem' }}>
           {detail.data.replies.map((item) => (
             <div key={item.id} className="small">
               <strong>{item.authorDisplayName ?? item.source}</strong>
               {/* Kdo odpověděl, není detail: automatická odpověď šla ven bez schválení. */}
-              {item.source === 'AUTO' ? <> <Badge>auto</Badge></> : null}: {item.body}{' '}
+              {item.source === 'AUTO' ? (
+                <>
+                  {' '}
+                  <Badge>auto</Badge>
+                </>
+              ) : null}
+              : {item.body}{' '}
               {item.status === 'PUBLISHED' ? (
                 <Badge tone="ok">publikováno</Badge>
               ) : item.status === 'FAILED' ? (
-                <Badge tone="bad">{item.error ?? 'selhalo'}</Badge>
+                <Badge tone="bad">selhalo{item.error ? ` · ${item.error}` : ''}</Badge>
               ) : (
                 <Badge tone="warn">ve frontě</Badge>
               )}
@@ -733,113 +988,139 @@ function ReplyForm({
         </div>
       ) : null}
 
-      <form
-        onSubmit={(event) => {
-          event.preventDefault()
-          reply.mutate(
-            { reviewId, body },
-            {
-              onSuccess: (result) => {
-                setQueued(result.message)
-                setBody('')
-                setOriginal(null)
-              },
-            },
-          )
-        }}
-      >
-        <div className="reply-tools">
-          <button
-            type="button"
-            className="secondary"
-            disabled={suggest.isPending}
-            onClick={() => suggest.mutate(reviewId, { onSuccess: (result) => applyAssist(result, false) })}
-          >
-            {suggest.isPending ? 'Navrhuji…' : hasText ? 'Nahradit návrhem' : 'Navrhnout odpověď'}
-          </button>
-          {templates.data && templates.data.length > 0 ? (
-            <Select
-              value=""
-              placeholder="Vložit šablonu…"
-              options={templates.data.map((item) => ({ value: item.id, label: item.name }))}
-              onChange={insertTemplate}
-              ariaLabel="Vložit šablonu"
-              fitContent
-            />
-          ) : null}
+      {readOnly ? (
+        <div className="notice">
+          {review.removedAt
+            ? 'Autor recenzi ve storu smazal. Odpovědět už nejde.'
+            : 'Konkurenční aplikace · recenze pouze ke čtení.'}
         </div>
-        <Field
-          label="Odpověď"
-          hint={
-            <span className="spread">
-              <span>Odpověď publikuje worker, ve storu se objeví za chvíli.</span>
-              {limit != null ? (
-                <span className={overLimit ? 'reply-counter error-inline' : 'reply-counter'}>
-                  {body.length} / {limit}
-                </span>
-              ) : (
-                <span className="reply-counter">{body.length} / 5 000</span>
-              )}
-            </span>
-          }
-        >
-          <textarea value={body} onChange={(e) => setBody(e.target.value)} required autoFocus />
-        </Field>
-        {foreign || original != null ? (
-          <div className="row" style={{ marginTop: '0.5rem' }}>
-            {foreign ? (
-              <button
-                type="button"
-                className="secondary"
-                disabled={translate.isPending || !hasText}
-                onClick={() =>
-                  translate.mutate({ reviewId, body }, { onSuccess: (result) => applyAssist(result, true) })
-                }
-              >
-                {translate.isPending ? 'Překládám…' : `Přeložit do jazyka recenze (${language})`}
-              </button>
-            ) : null}
-            {original != null ? (
-              <button
-                type="button"
-                className="link"
-                onClick={() => {
-                  setBody(original)
+      ) : (
+        <form
+          onSubmit={(event) => {
+            event.preventDefault()
+            if (pendingReply || reply.isPending || !hasText || overLimit) return
+            reply.mutate(
+              { reviewId, body },
+              {
+                onSuccess: (result) => {
+                  setQueued(result.message)
+                  setBody('')
                   setOriginal(null)
-                }}
-              >
-                Vrátit původní
-              </button>
+                },
+              },
+            )
+          }}
+        >
+          <div className="reply-tools">
+            <button
+              type="button"
+              className="secondary"
+              disabled={suggest.isPending || reply.isPending || pendingReply}
+              onClick={() => suggest.mutate(reviewId, { onSuccess: (result) => applyAssist(result, false) })}
+            >
+              {suggest.isPending ? 'Navrhuji…' : hasText ? 'Nahradit návrhem' : 'Navrhnout odpověď'}
+            </button>
+            {templates.data && templates.data.length > 0 ? (
+              <Select
+                value=""
+                placeholder="Vložit šablonu…"
+                options={templates.data.map((item) => ({ value: item.id, label: item.name }))}
+                onChange={insertTemplate}
+                ariaLabel="Vložit šablonu"
+                fitContent
+              />
             ) : null}
           </div>
-        ) : null}
-        {templates.data && templates.data.length === 0 ? (
-          <p className="small muted" style={{ marginTop: '0.5rem' }}>
-            <Link to={`/${org}/aplikace/${appId}`}>Šablony odpovědí si nastavíš v detailu aplikace</Link>
-          </p>
-        ) : null}
-        <div className="row" style={{ marginTop: '0.75rem' }}>
-          <button type="submit" disabled={reply.isPending || overLimit}>
-            Odeslat do storu
-          </button>
-          <button
-            type="button"
-            className="secondary"
-            onClick={() => setState.mutate({ reviewId, state: 'IGNORED' }, { onSuccess: onClose })}
-            disabled={setState.isPending}
+          <Field
+            label="Koncept odpovědi"
+            hint={
+              <span className="spread">
+                <span>Koncept zůstává v této relaci i po přepnutí recenze.</span>
+                {limit != null ? (
+                  <span className={overLimit ? 'reply-counter error-inline' : 'reply-counter'}>
+                    {body.length} / {limit}
+                  </span>
+                ) : (
+                  <span className="reply-counter">{body.length} / 5 000</span>
+                )}
+              </span>
+            }
           >
-            Odložit
-          </button>
-          <button type="button" className="link" onClick={onClose}>
-            Zavřít
-          </button>
-        </div>
-        <div className="stack" style={{ marginTop: '0.5rem' }}>
-          <ErrorBox error={reply.error ?? setState.error ?? suggest.error ?? translate.error} />
-          {assistMessage ? <div className="notice">{assistMessage}</div> : null}
-          {queued ? <div className="notice">{queued}</div> : null}
-        </div>
-      </form>
+            <textarea
+              disabled={reply.isPending || pendingReply}
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              required
+              aria-label="Koncept odpovědi"
+              placeholder="Napište odpověď, nebo začněte AI návrhem…"
+            />
+          </Field>
+          {foreign || original != null ? (
+            <div className="row" style={{ marginTop: '0.5rem' }}>
+              {foreign ? (
+                <button
+                  type="button"
+                  className="secondary"
+                  disabled={translate.isPending || !hasText || reply.isPending || pendingReply}
+                  onClick={() =>
+                    translate.mutate({ reviewId, body }, { onSuccess: (result) => applyAssist(result, true) })
+                  }
+                >
+                  {translate.isPending ? 'Překládám…' : `Přeložit do jazyka recenze (${language})`}
+                </button>
+              ) : null}
+              {original != null ? (
+                <button
+                  type="button"
+                  className="link"
+                  onClick={() => {
+                    setBody(original)
+                    setOriginal(null)
+                  }}
+                >
+                  Vrátit původní
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+          {templates.data && templates.data.length === 0 ? (
+            <p className="small muted" style={{ marginTop: '0.5rem' }}>
+              <Link to={`/${org}/aplikace/${appId}`}>Šablony odpovědí si nastavíš v detailu aplikace</Link>
+            </p>
+          ) : null}
+          <div className="row" style={{ marginTop: '0.75rem' }}>
+            <button
+              type="submit"
+              disabled={
+                reply.isPending ||
+                overLimit ||
+                !hasText ||
+                pendingReply ||
+                detail.isPending ||
+                Boolean(queued && detail.isFetching)
+              }
+            >
+              {pendingReply ? 'Čeká na publikaci' : reply.isPending ? 'Zařazuji…' : 'Zařadit k odeslání'}
+            </button>
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => setState.mutate({ reviewId, state: 'IGNORED' }, { onSuccess: onClose })}
+              disabled={setState.isPending}
+            >
+              Odložit
+            </button>
+            <button type="button" className="link" onClick={onClose}>
+              Zavřít
+            </button>
+          </div>
+          <div className="stack" style={{ marginTop: '0.5rem' }}>
+            <ErrorBox error={reply.error ?? setState.error ?? suggest.error ?? translate.error} />
+            {assistMessage ? <div className="notice">{assistMessage}</div> : null}
+            {queued && (pendingReply || detail.isFetching) ? <div className="notice">{queued}</div> : null}
+          </div>
+        </form>
+      )}
     </div>
   )
 }

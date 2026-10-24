@@ -498,6 +498,10 @@ private fun ReplySuggestion.toResponse(): ReplyAssistResponse =
 private fun ApplicationCall.reviewFilter(): ReviewFilter =
     ReviewFilter(
         states = stateFilter(),
+        from = reviewDate("from"),
+        to = reviewDate("to"),
+        territory = request.queryParameters["territory"]?.trim()?.takeIf { it.isNotEmpty() },
+        textOnly = request.queryParameters["textOnly"] == "true",
         sort = request.queryParameters["sort"]?.let { enumValue<ReviewSort>(it, "řazení") } ?: ReviewSort.NEWEST,
         offset = request.queryParameters["offset"]?.toIntOrNull()?.coerceAtLeast(0) ?: 0,
         topics = values("topic").toSet(),
@@ -507,6 +511,13 @@ private fun ApplicationCall.reviewFilter(): ReviewFilter =
         version = request.queryParameters["version"]?.trim()?.takeIf { it.isNotEmpty() },
         platforms = values("platform").map { enumValue<Platform>(it, "platforma") }.toSet(),
     )
+
+private fun ApplicationCall.reviewDate(name: String): kotlinx.datetime.LocalDate? =
+    request.queryParameters[name]?.let { raw ->
+        runCatching { kotlinx.datetime.LocalDate.parse(raw) }.getOrElse {
+            throw ConsoleException(ConsoleFailure.INVALID_INPUT, "Neplatné datum pro $name.")
+        }
+    }
 
 private fun ApplicationCall.values(name: String): List<String> =
     request.queryParameters

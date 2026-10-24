@@ -14,6 +14,8 @@ export interface SelectGroup {
 
 type SelectProps = {
   value: string
+  id?: string
+  'aria-describedby'?: string
   options?: SelectOption[]
   groups?: SelectGroup[]
   onChange: (value: string) => void
@@ -33,6 +35,8 @@ type SelectProps = {
  */
 export function Select({
   value,
+  id,
+  'aria-describedby': describedBy,
   options = [],
   groups = [],
   onChange,
@@ -109,15 +113,24 @@ export function Select({
   }
 
   const focusOption = (direction: 1 | -1) => {
-    const items = [...(menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="option"]:not(:disabled)') ?? [])]
+    const items = [
+      ...(menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="option"]:not(:disabled)') ?? []),
+    ]
     if (items.length === 0) return
     const current = items.indexOf(document.activeElement as HTMLButtonElement)
-    const next = current < 0 ? (direction === 1 ? 0 : items.length - 1) : (current + direction + items.length) % items.length
+    const next =
+      current < 0
+        ? direction === 1
+          ? 0
+          : items.length - 1
+        : (current + direction + items.length) % items.length
     items[next]?.focus()
   }
 
   const focusEdge = (edge: 'first' | 'last') => {
-    const items = [...(menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="option"]:not(:disabled)') ?? [])]
+    const items = [
+      ...(menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="option"]:not(:disabled)') ?? []),
+    ]
     items[edge === 'first' ? 0 : items.length - 1]?.focus()
   }
 
@@ -138,14 +151,21 @@ export function Select({
         disabled={option.disabled}
         onClick={() => choose(option.value)}
       >
-        <span className="select-check" aria-hidden="true">{option.value === value ? '✓' : ''}</span>
+        <span className="select-check" aria-hidden="true">
+          {option.value === value ? '✓' : ''}
+        </span>
         <span>{option.label}</span>
       </button>
     ))
 
   return (
-    <div className={`select-root${fitContent ? ' fit-content' : ''}${className ? ` ${className}` : ''}`} ref={rootRef}>
+    <div
+      className={`select-root${fitContent ? ' fit-content' : ''}${className ? ` ${className}` : ''}`}
+      ref={rootRef}
+    >
       <button
+        id={id}
+        aria-describedby={describedBy}
         ref={triggerRef}
         type="button"
         className="select-trigger"

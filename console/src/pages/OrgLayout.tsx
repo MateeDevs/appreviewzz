@@ -1,9 +1,10 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useId, useRef, useState } from 'react'
 import { Link, NavLink, Navigate, Outlet, useLocation, useParams } from 'react-router-dom'
 import { useLogout, useMe } from '../api/hooks'
-import { Brand } from '../components/ui'
-import { PlatformDialog } from './Platform'
-import { SecurityDialog } from './Security'
+import { ThemeSwitch } from '../components/Theme'
+import { Brand, Loading } from '../components/ui'
+const PlatformDialog = lazy(() => import('./Platform').then((module) => ({ default: module.PlatformDialog })))
+const SecurityDialog = lazy(() => import('./Security').then((module) => ({ default: module.SecurityDialog })))
 import {
   IconAnalysis,
   IconApps,
@@ -51,9 +52,18 @@ export function OrgLayout() {
 
   return (
     <div className="shell">
+      <a className="skip-link" href="#main-content">
+        Přejít na obsah
+      </a>
       <aside className="sidebar">
-        <Brand subtitle={membership?.name ?? org} />
-        <nav ref={nav}>
+        <Brand />
+        <Link className="org-switch" to="/organizace">
+          <span className="org-monogram">{(membership?.name ?? org).slice(0, 1).toUpperCase()}</span>
+          <span>{membership?.name ?? org}</span>
+          <IconSwitch />
+        </Link>
+        <nav ref={nav} aria-label="Hlavní navigace">
+          <span className="nav-label">Pracovní prostor</span>
           <NavLink to={`/${org}`} end>
             <IconOverview />
             Přehled
@@ -70,6 +80,7 @@ export function OrgLayout() {
             <IconApps />
             Aplikace
           </NavLink>
+          <span className="nav-label secondary-nav">Správa</span>
           <NavLink to={`/${org}/organizace`}>
             <IconTeam />
             Organizace
@@ -84,6 +95,7 @@ export function OrgLayout() {
           </NavLink>
         </nav>
         <div className="grow" />
+        <ThemeSwitch />
         <AccountMenu
           name={me.data?.displayName ?? null}
           email={me.data?.email ?? ''}
@@ -93,11 +105,17 @@ export function OrgLayout() {
           onPlatform={() => setPlatform(true)}
         />
       </aside>
-      <main className="content">
-        <Outlet />
+      <main className="content" id="main-content" tabIndex={-1}>
+        <div className="workspace-bar">
+          <span>{membership?.name ?? org}</span>
+          <span>App Store & Google Play</span>
+        </div>
+        <Outlet key={org} />
       </main>
-      {security ? <SecurityDialog onClose={() => setSecurity(false)} /> : null}
-      {platform ? <PlatformDialog onClose={() => setPlatform(false)} /> : null}
+      <Suspense fallback={<Loading what="Načítám nastavení…" />}>
+        {security ? <SecurityDialog onClose={() => setSecurity(false)} /> : null}
+        {platform ? <PlatformDialog onClose={() => setPlatform(false)} /> : null}
+      </Suspense>
     </div>
   )
 }
@@ -227,6 +245,9 @@ function AccountMenu({
               Přepnout organizaci
             </Link>
           ) : null}
+          <div role="none">
+            <ThemeSwitch />
+          </div>
           <hr />
           <button
             type="button"

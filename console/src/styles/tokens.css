@@ -1,0 +1,96 @@
+@font-face {
+    font-family: Geist;
+    src: url('/fonts/geist-variable.woff2') format('woff2');
+    font-weight: 100 900;
+    font-style: normal;
+    font-display: swap;
+}
+:root {
+    color-scheme: light;
+    --bg: #f5f4f0;
+    --bg-tint: #eeede7;
+    --surface: #fff;
+    --surface-2: #efefea;
+    --border: #d9ddd6;
+    --border-strong: #7c8e80;
+    --text: #172724;
+    --muted: #58675f;
+    --faint: #63736a;
+    --accent: #146c60;
+    --accent-hover: #0d544a;
+    --accent-text: #fff;
+    --accent-soft: #e7f1eb;
+    --accent-ring: #b3d4c7;
+    --ok: #216641;
+    --ok-soft: #e8f3e9;
+    --warn: #8a4b10;
+    --warn-soft: #fbf0db;
+    --error: #ab3d2c;
+    --error-bg: #fbece5;
+    --star: #915b10;
+    --nav: #172724;
+    --nav-text: #eaf1ec;
+    --nav-muted: #b2c2b8;
+    --nav-active: #30483e;
+    --radius: 8px;
+    --radius-sm: 5px;
+    --shadow: none;
+    --shadow-lg: 0 16px 48px #10291e22;
+}
+:root[data-theme='dark'] {
+    color-scheme: dark;
+    --bg: #101b19;
+    --bg-tint: #162320;
+    --surface: #192924;
+    --surface-2: #21352e;
+    --border: #354b41;
+    --border-strong: #5e796b;
+    --text: #e9f0e9;
+    --muted: #afbeb2;
+    --faint: #a0b2a6;
+    --accent: #9dd7c1;
+    --accent-hover: #bae9d6;
+    --accent-text: #12281e;
+    --accent-soft: #29473a;
+    --accent-ring: #4b7c66;
+    --ok: #a4d6af;
+    --ok-soft: #243d2c;
+    --warn: #f0ce90;
+    --warn-soft: #3b3221;
+    --error: #ffb7a3;
+    --error-bg: #422d26;
+    --star: #e7c385;
+    --nav: #0c1613;
+    --nav-active: #294136;
+    --shadow-lg: 0 16px 48px #0006;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']):not([data-theme='dark']) {
+        color-scheme: dark;
+        --bg: #101b19;
+        --bg-tint: #162320;
+        --surface: #192924;
+        --surface-2: #21352e;
+        --border: #354b41;
+        --border-strong: #5e796b;
+        --text: #e9f0e9;
+        --muted: #afbeb2;
+        --faint: #a0b2a6;
+        --accent: #9dd7c1;
+        --accent-hover: #bae9d6;
+        --accent-text: #12281e;
+        --accent-soft: #29473a;
+        --accent-ring: #4b7c66;
+        --ok: #a4d6af;
+        --ok-soft: #243d2c;
+        --warn: #f0ce90;
+        --warn-soft: #3b3221;
+        --error: #ffb7a3;
+        --error-bg: #422d26;
+        --star: #e7c385;
+        --nav: #0c1613;
+        --nav-active: #294136;
+        --shadow-lg: 0 16px 48px #0006;
+    }
+}

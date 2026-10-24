@@ -1,0 +1,221 @@
+{
+  "environment": "Chromium, 1440×1000, production Vite preview, isolated API mocks, cold contexts, CPU ×4, 1.6 Mbps down / 750 Kbps up / 150 ms RTT. Laboratory data, NOT real user INP.",
+  "results": [
+    {
+      "revision": "before",
+      "view": "overview-1",
+      "run": 1,
+      "lcp": 1436,
+      "cls": 0.0013585185185185185,
+      "labOpenDetailMs": null,
+      "apiRequests": 6
+    },
+    {
+      "revision": "before",
+      "view": "overview-1",
+      "run": 2,
+      "lcp": 1412,
+      "cls": 0.0013585185185185185,
+      "labOpenDetailMs": null,
+      "apiRequests": 6
+    },
+    {
+      "revision": "before",
+      "view": "overview-1",
+      "run": 3,
+      "lcp": 1428,
+      "cls": 0.0013585185185185185,
+      "labOpenDetailMs": null,
+      "apiRequests": 6
+    },
+    {
+      "revision": "before",
+      "view": "overview-30",
+      "run": 1,
+      "lcp": 1656,
+      "cls": 0,
+      "labOpenDetailMs": null,
+      "apiRequests": 93
+    },
+    {
+      "revision": "before",
+      "view": "overview-30",
+      "run": 2,
+      "lcp": 1688,
+      "cls": 0,
+      "labOpenDetailMs": null,
+      "apiRequests": 93
+    },
+    {
+      "revision": "before",
+      "view": "overview-30",
+      "run": 3,
+      "lcp": 1676,
+      "cls": 0,
+      "labOpenDetailMs": null,
+      "apiRequests": 93
+    },
+    {
+      "revision": "before",
+      "view": "inbox",
+      "run": 1,
+      "lcp": 1452,
+      "cls": 0,
+      "labOpenDetailMs": 129,
+      "apiRequests": 8
+    },
+    {
+      "revision": "before",
+      "view": "inbox",
+      "run": 2,
+      "lcp": 1472,
+      "cls": 0,
+      "labOpenDetailMs": 146,
+      "apiRequests": 8
+    },
+    {
+      "revision": "before",
+      "view": "inbox",
+      "run": 3,
+      "lcp": 1468,
+      "cls": 0,
+      "labOpenDetailMs": 115,
+      "apiRequests": 8
+    },
+    {
+      "revision": "before",
+      "view": "analysis",
+      "run": 1,
+      "lcp": 1492,
+      "cls": 0,
+      "labOpenDetailMs": null,
+      "apiRequests": 8
+    },
+    {
+      "revision": "before",
+      "view": "analysis",
+      "run": 2,
+      "lcp": 1488,
+      "cls": 0,
+      "labOpenDetailMs": null,
+      "apiRequests": 8
+    },
+    {
+      "revision": "before",
+      "view": "analysis",
+      "run": 3,
+      "lcp": 1496,
+      "cls": 0,
+      "labOpenDetailMs": null,
+      "apiRequests": 8
+    },
+    {
+      "revision": "after",
+      "view": "overview-1",
+      "run": 1,
+      "lcp": 1788,
+      "cls": 0.04926983928915895,
+      "labOpenDetailMs": null,
+      "apiRequests": 6
+    },
+    {
+      "revision": "after",
+      "view": "overview-1",
+      "run": 2,
+      "lcp": 1772,
+      "cls": 0.04926983928915895,
+      "labOpenDetailMs": null,
+      "apiRequests": 6
+    },
+    {
+      "revision": "after",
+      "view": "overview-1",
+      "run": 3,
+      "lcp": 1772,
+      "cls": 0.04926983928915895,
+      "labOpenDetailMs": null,
+      "apiRequests": 6
+    },
+    {
+      "revision": "after",
+      "view": "overview-30",
+      "run": 1,
+      "lcp": 1804,
+      "cls": 0.03065690031828704,
+      "labOpenDetailMs": null,
+      "apiRequests": 10
+    },
+    {
+      "revision": "after",
+      "view": "overview-30",
+      "run": 2,
+      "lcp": 1812,
+      "cls": 0.03065690031828704,
+      "labOpenDetailMs": null,
+      "apiRequests": 10
+    },
+    {
+      "revision": "after",
+      "view": "overview-30",
+      "run": 3,
+      "lcp": 1808,
+      "cls": 0.03065690031828704,
+      "labOpenDetailMs": null,
+      "apiRequests": 10
+    },
+    {
+      "revision": "after",
+      "view": "inbox",
+      "run": 1,
+      "lcp": 1772,
+      "cls": 0,
+      "labOpenDetailMs": 152,
+      "apiRequests": 8
+    },
+    {
+      "revision": "after",
+      "view": "inbox",
+      "run": 2,
+      "lcp": 1756,
+      "cls": 0,
+      "labOpenDetailMs": 156,
+      "apiRequests": 8
+    },
+    {
+      "revision": "after",
+      "view": "inbox",
+      "run": 3,
+      "lcp": 1788,
+      "cls": 0,
+      "labOpenDetailMs": 160,
+      "apiRequests": 8
+    },
+    {
+      "revision": "after",
+      "view": "analysis",
+      "run": 1,
+      "lcp": 1864,
+      "cls": 0.0014068415135513118,
+      "labOpenDetailMs": null,
+      "apiRequests": 8
+    },
+    {
+      "revision": "after",
+      "view": "analysis",
+      "run": 2,
+      "lcp": 1876,
+      "cls": 0.0014068415135513118,
+      "labOpenDetailMs": null,
+      "apiRequests": 8
+    },
+    {
+      "revision": "after",
+      "view": "analysis",
+      "run": 3,
+      "lcp": 1924,
+      "cls": 0.0014068415135513118,
+      "labOpenDetailMs": null,
+      "apiRequests": 8
+    }
+  ]
+}

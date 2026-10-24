@@ -29,7 +29,17 @@ import {
   useUpdateReplyTemplate,
   useValidateCredential,
 } from '../api/hooks'
-import { Badge, Card, ErrorBox, Field, Loading, Modal, PlatformBadge, When } from '../components/ui'
+import {
+  Badge,
+  Card,
+  ErrorBox,
+  Field,
+  Loading,
+  Modal,
+  PageHeader,
+  PlatformBadge,
+  When,
+} from '../components/ui'
 import { Select } from '../components/Select'
 import { ConnectStoreWizard } from '../components/ConnectStoreWizard'
 import { RatingsChart } from '../components/RatingsChart'
@@ -55,47 +65,78 @@ export function AppsPage() {
   const [connect, setConnect] = useState<{ app: App; platform: Platform } | null>(null)
 
   return (
-    <div className="stack">
-      <div>
-        <h1>Aplikace</h1>
-        <p className="muted">Appky, jejichž recenze sledujeme.</p>
-      </div>
-
-      <Card>
-        {apps.isPending ? <Loading /> : null}
-        <ErrorBox error={apps.error} />
-        {apps.data?.length === 0 ? <p className="muted">Zatím žádná.</p> : null}
-        {apps.data && apps.data.length > 0 ? (
-          <table className="row-cards">
-            <thead>
-              <tr>
-                <th>Název</th>
-                <th>Store</th>
-                <th>Stav</th>
-              </tr>
-            </thead>
-            <tbody>
-              {apps.data.map((app) => (
-                <tr key={app.id}>
-                  <td className="lead">
-                    <Link to={`/${org}/aplikace/${app.id}`}>{app.name}</Link>
-                    {app.competitor ? <> <Badge>konkurence</Badge></> : null}
-                  </td>
-                  <td className="small muted">{app.gpPackageName ?? app.ascAppId}</td>
-                  <td>
-                    <AppStatus org={org} app={app} onConnect={(platform) => setConnect({ app, platform })} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : null}
-        <div style={{ marginTop: apps.data && apps.data.length > 0 ? '1.1rem' : '0.75rem' }}>
+    <div className="stack apps-page">
+      <PageHeader
+        eyebrow="Portfolio a propojení"
+        title="Aplikace"
+        action={
           <button type="button" onClick={() => setAdding(true)}>
-            Přidat aplikaci
+            + Přidat aplikaci
           </button>
-        </div>
-      </Card>
+        }
+      >
+        Vlastní aplikace a konkurence. Každá se svým kontextem.
+      </PageHeader>
+      {apps.isPending ? <Loading /> : null}
+      <ErrorBox error={apps.error} />
+      {apps.data?.length === 0 ? (
+        <Card>
+          <h2>Připojte svou první aplikaci.</h2>
+          <p className="muted">
+            Stačí odkaz na Google Play nebo App Store. Provedeme vás připojením i ověřením přístupu.
+          </p>
+          <button type="button" onClick={() => setAdding(true)}>
+            Přidat aplikaci →
+          </button>
+        </Card>
+      ) : null}
+      {[false, true].map((competitor) => {
+        const group = apps.data?.filter((app) => app.competitor === competitor) ?? []
+        return group.length ? (
+          <section key={String(competitor)}>
+            <div className="section-heading">
+              <div>
+                <div className="eyebrow">{competitor ? '02 / Srovnání trhu' : '01 / Vlastní portfolio'}</div>
+                <h2>
+                  {competitor ? 'Sledovaná konkurence' : 'Vaše aplikace'}{' '}
+                  <span className="small muted">{group.length}</span>
+                </h2>
+              </div>
+              {competitor ? <span className="small muted">Veřejná data · bez odpovídání</span> : null}
+            </div>
+            <div className="app-directory">
+              {group.map((app) => (
+                <article className="app-directory-row" key={app.id}>
+                  <div className="app-identity">
+                    <span className="app-monogram" aria-hidden="true">
+                      {app.name.slice(0, 1)}
+                    </span>
+                    <div>
+                      <Link to={`/${org}/aplikace/${app.id}`}>{app.name}</Link>
+                      <div className="small muted app-store-id">
+                        {[app.gpPackageName, app.ascAppId].filter(Boolean).join(' · ')}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="row">
+                    {app.platforms.map((platform) => (
+                      <PlatformBadge key={platform} platform={platform} />
+                    ))}
+                  </div>
+                  <AppStatus org={org} app={app} onConnect={(platform) => setConnect({ app, platform })} />
+                  <Link
+                    className="directory-open"
+                    to={`/${org}/aplikace/${app.id}`}
+                    aria-label={`Nastavení aplikace ${app.name}`}
+                  >
+                    Nastavení ↗
+                  </Link>
+                </article>
+              ))}
+            </div>
+          </section>
+        ) : null
+      })}
 
       {adding ? (
         <AddAppDialog
@@ -105,7 +146,12 @@ export function AppsPage() {
         />
       ) : null}
       {connect ? (
-        <ConnectStoreWizard org={org} app={connect.app} platform={connect.platform} onClose={() => setConnect(null)} />
+        <ConnectStoreWizard
+          org={org}
+          app={connect.app}
+          platform={connect.platform}
+          onClose={() => setConnect(null)}
+        />
       ) : null}
     </div>
   )
@@ -118,7 +164,15 @@ export function AppsPage() {
  * ani kam psát — a klient marně čeká na zprávy. Proto se nedodělané nastavení hlásí dřív
  * než zapnutí a rovnou nabídne, co doplnit.
  */
-function AppStatus({ org, app, onConnect }: { org: string; app: App; onConnect: (platform: Platform) => void }) {
+function AppStatus({
+  org,
+  app,
+  onConnect,
+}: {
+  org: string
+  app: App
+  onConnect: (platform: Platform) => void
+}) {
   if (!app.enabled) return <Badge tone="warn">vypnutá</Badge>
   // Konkurence nemá co nastavovat: čte se z veřejných zdrojů, bez klíče a bez kanálu.
   if (app.competitor) return <Badge tone="ok">sleduje se z veřejných zdrojů</Badge>
@@ -130,7 +184,9 @@ function AppStatus({ org, app, onConnect }: { org: string; app: App; onConnect: 
     return (
       <div className="setup-status">
         <Badge tone="warn">čeká na ověření klíče</Badge>
-        <p className="muted">Klíč je nahraný, ověřujeme přístup ke storu. Zkoušíme to sami každou čtvrthodinu.</p>
+        <p className="muted">
+          Klíč je nahraný, ověřujeme přístup ke storu. Zkoušíme to sami každou čtvrthodinu.
+        </p>
       </div>
     )
   }
@@ -153,17 +209,34 @@ function waitingOnly(app: App): boolean {
  * na kartu s klíči by ho postavilo před formulář, přes který právě nechceme, aby šel.
  * Zbytek zůstává odkazem na svou sekci v detailu appky.
  */
-function SetupTodos({ org, app, onConnect }: { org: string; app: App; onConnect: (platform: Platform) => void }) {
+function SetupTodos({
+  org,
+  app,
+  onConnect,
+}: {
+  org: string
+  app: App
+  onConnect: (platform: Platform) => void
+}) {
   return (
     <div className="setup-todo">
       {setupTodos(app).map((todo) =>
         todo.platform != null ? (
-          <button key={todo.label} type="button" className="setup-todo-item" onClick={() => onConnect(todo.platform!)}>
+          <button
+            key={todo.label}
+            type="button"
+            className="setup-todo-item"
+            onClick={() => onConnect(todo.platform!)}
+          >
             <span aria-hidden="true">+</span>
             {todo.label}
           </button>
         ) : (
-          <Link key={todo.label} className="setup-todo-item" to={`/${org}/aplikace/${app.id}#${todo.section}`}>
+          <Link
+            key={todo.label}
+            className="setup-todo-item"
+            to={`/${org}/aplikace/${app.id}#${todo.section}`}
+          >
             <span aria-hidden="true">+</span>
             {todo.label}
           </Link>
@@ -178,13 +251,12 @@ function SetupTodos({ org, app, onConnect }: { org: string; app: App; onConnect:
  * platformách neřekne, který z nich se čeká, a klient pak doplní ten, co už má.
  */
 function setupTodos(app: App): Array<{ label: string; section: string; platform?: Platform }> {
-  const todos: Array<{ label: string; section: string; platform?: Platform }> = app.setup.platformsWithoutKey.map(
-    (platform) => ({
+  const todos: Array<{ label: string; section: string; platform?: Platform }> =
+    app.setup.platformsWithoutKey.map((platform) => ({
       label: platform === 'ANDROID' ? 'klíč ke Google Play' : 'klíč k App Storu',
       section: 'klice',
       platform,
-    }),
-  )
+    }))
   // Pojistka pro případ, že by server hlásil chybějící klíč bez konkrétního storu.
   if (todos.length === 0 && app.setup.gaps.includes('STORE_KEY')) {
     todos.push({ label: 'klíč ke storu', section: 'klice' })
@@ -279,7 +351,9 @@ function AddAppDialog({
   const identifiers = [current?.googlePlay, current?.appStore].filter(
     (store): store is ResolvedStore => store != null && store.identifier !== '',
   )
-  const suggestions = [...new Set(identifiers.map((store) => store.name).filter((value): value is string => value != null))]
+  const suggestions = [
+    ...new Set(identifiers.map((store) => store.name).filter((value): value is string => value != null)),
+  ]
   // Vyplněný odkaz, ze kterého nic nekouká, přidání blokuje: jinak by se appka tiše založila
   // jen s tím druhým storem a klient by se to dozvěděl až tím, že recenze nechodí.
   const broken =
@@ -324,9 +398,16 @@ function AddAppDialog({
             autoFocus
           />
         </Field>
-        <StoreHint store={current?.googlePlay} filled={googlePlayUrl.trim() !== ''} pending={resolve.isPending} />
+        <StoreHint
+          store={current?.googlePlay}
+          filled={googlePlayUrl.trim() !== ''}
+          pending={resolve.isPending}
+        />
 
-        <Field label="Odkaz na App Store" hint="Adresa stránky appky v App Storu. Nech prázdné, když appka na iOS není.">
+        <Field
+          label="Odkaz na App Store"
+          hint="Adresa stránky appky v App Storu. Nech prázdné, když appka na iOS není."
+        >
           <input
             value={appStoreUrl}
             onChange={(e) => setAppStoreUrl(e.target.value)}
@@ -367,12 +448,16 @@ function AddAppDialog({
 
         {/* Konkurence je jiný druh appky, ne nastavení: bez klíče, bez kanálu, bez odpovídání. */}
         <label className="pick" style={{ marginTop: '0.85rem' }}>
-          <input type="checkbox" checked={competitor} onChange={(event) => setCompetitor(event.target.checked)} />
+          <input
+            type="checkbox"
+            checked={competitor}
+            onChange={(event) => setCompetitor(event.target.checked)}
+          />
           <span>
             Sleduju jako konkurenci
             <div className="small muted">
-              Cizí appka bez klíče: recenze z veřejného App Store feedu, u Google Play jen hodnocení ze
-              storu. Nikam se nenotifikuje a neodpovídá se — slouží rozborům.
+              Cizí appka bez klíče: recenze z veřejného App Store feedu, u Google Play jen hodnocení ze storu.
+              Nikam se nenotifikuje a neodpovídá se — slouží rozborům.
             </div>
           </span>
         </label>
@@ -386,22 +471,25 @@ function AddAppDialog({
               >
                 <Select
                   value={historyMonths}
-                  options={HISTORY_MONTHS.map((months) => ({ value: String(months), label: historyMonthsLabel(months) }))}
+                  options={HISTORY_MONTHS.map((months) => ({
+                    value: String(months),
+                    label: historyMonthsLabel(months),
+                  }))}
                   onChange={setHistoryMonths}
                   ariaLabel="Historie k rozboru"
                 />
               </Field>
               {googlePlayUrl.trim() !== '' ? (
                 <p className="small muted">
-                  U Androidu historii vydá jen reporting Play Console — vlož jeho bucket v nastavení
-                  aplikace, jinak budou recenze až ode dneška. Google Play API dál než týden zpátky nevidí.
+                  U Androidu historii vydá jen reporting Play Console — vlož jeho bucket v nastavení aplikace,
+                  jinak budou recenze až ode dneška. Google Play API dál než týden zpátky nevidí.
                 </p>
               ) : null}
             </div>
 
             <p className="small muted" style={{ marginTop: '0.85rem' }}>
-              Do kanálu půjdou recenze od chvíle, kdy appku přidáš. Starší se stáhnou do historie,
-              ale nikoho neupozorní — jinak by první stažení vysypalo do Slacku celou historii appky.
+              Do kanálu půjdou recenze od chvíle, kdy appku přidáš. Starší se stáhnou do historie, ale nikoho
+              neupozorní — jinak by první stažení vysypalo do Slacku celou historii appky.
             </p>
           </>
         )}
@@ -440,7 +528,12 @@ function StoreHint({
 }) {
   if (!filled) return null
   if (!store) return pending ? <div className="hint">Hledám appku ve storu…</div> : null
-  if (store.identifier === '') return <div className="hint" style={{ color: 'var(--error)' }}>{store.error}</div>
+  if (store.identifier === '')
+    return (
+      <div className="hint" style={{ color: 'var(--error)' }}>
+        {store.error}
+      </div>
+    )
   return (
     <div className="hint">
       <code>{store.identifier}</code>
@@ -476,16 +569,25 @@ export function AppDetailPage() {
   // Kliknutí na jinou záložku hash z URL zahodí, takže ho pak nic nedrží.
   const requested = params.get('tab')
   // Konkurence nemá klíče, kanály ani odpovědi — zbývají nastavení rozborů a hodnocení.
-  const tabs = app?.competitor ? APP_TABS.filter((item) => item.key === 'nastaveni' || item.key === 'hodnoceni') : APP_TABS
-  const wanted: AppTab = hash === '#klice' || hash === '#kanaly' ? 'klice' : isAppTab(requested) ? requested : 'nastaveni'
+  const tabs = app?.competitor
+    ? APP_TABS.filter((item) => item.key === 'nastaveni' || item.key === 'hodnoceni')
+    : APP_TABS
+  const wanted: AppTab =
+    hash === '#klice' || hash === '#kanaly' ? 'klice' : isAppTab(requested) ? requested : 'nastaveni'
   const tab: AppTab = tabs.some((item) => item.key === wanted) ? wanted : 'nastaveni'
 
   if (apps.isPending) return <Loading />
   if (!app) return <ErrorBox error={new Error('Taková aplikace tu není.')} />
 
   return (
-    <div className="stack">
+    <div className="stack app-detail-page">
       <div>
+        <Link className="small" to={`/${org}/aplikace`}>
+          ← Všechny aplikace
+        </Link>
+        <div className="eyebrow" style={{ marginTop: 20 }}>
+          Nastavení aplikace
+        </div>
         <h1>{app.name}</h1>
         <p className="muted">
           {app.platforms.map(storeName).join(' + ')} ·{' '}
@@ -498,7 +600,9 @@ export function AppDetailPage() {
             type="button"
             className="secondary"
             disabled={update.isPending}
-            onClick={() => update.mutate({ id: appId, body: { ...settingsBase(app), enabled: !app.enabled } })}
+            onClick={() =>
+              update.mutate({ id: appId, body: { ...settingsBase(app), enabled: !app.enabled } })
+            }
           >
             {app.enabled ? 'Pozastavit sledování' : 'Znovu spustit sledování'}
           </button>
@@ -506,41 +610,44 @@ export function AppDetailPage() {
         <ErrorBox error={update.error} />
       </div>
 
-      <div className="tabs" role="tablist" aria-label="Části nastavení aplikace">
-        {tabs.map((item) => (
-          <button
-            key={item.key}
-            type="button"
-            role="tab"
-            aria-selected={tab === item.key}
-            className={tab === item.key ? 'tab active' : 'tab'}
-            onClick={() => setParams({ tab: item.key })}
-          >
-            {item.label}
-          </button>
-        ))}
+      <div className="settings-layout">
+        <nav className="settings-nav" aria-label="Části nastavení aplikace">
+          {tabs.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              aria-current={tab === item.key ? 'page' : undefined}
+              onClick={() => setParams({ tab: item.key })}
+            >
+              {item.label}
+            </button>
+          ))}
+        </nav>
+        <div className="stack settings-panel">
+          {tab === 'nastaveni' ? (
+            <>
+              <AppSettingsCard org={org} app={app} />
+              {params.get('settings') === 'rozbory' ? <AnalysisCard org={org} appId={appId} /> : null}
+            </>
+          ) : null}
+          {tab === 'hodnoceni' ? <RatingsCard org={org} appId={appId} /> : null}
+          {tab === 'klice' ? (
+            <>
+              <CredentialsCard org={org} app={app} onConnect={setConnect} />
+              <ChannelsCard org={org} app={app} />
+            </>
+          ) : null}
+          {tab === 'odpovedi' ? (
+            <>
+              <ReplySettingsCard org={org} app={app} />
+              <ReplyTemplatesCard org={org} appId={appId} />
+            </>
+          ) : null}
+        </div>
       </div>
-
-      {tab === 'nastaveni' ? (
-        <>
-          <AppSettingsCard org={org} app={app} />
-          <AnalysisCard org={org} appId={appId} />
-        </>
+      {connect ? (
+        <ConnectStoreWizard org={org} app={app} platform={connect} onClose={() => setConnect(null)} />
       ) : null}
-      {tab === 'hodnoceni' ? <RatingsCard org={org} appId={appId} /> : null}
-      {tab === 'klice' ? (
-        <>
-          <CredentialsCard org={org} app={app} onConnect={setConnect} />
-          <ChannelsCard org={org} app={app} />
-        </>
-      ) : null}
-      {tab === 'odpovedi' ? (
-        <>
-          <ReplySettingsCard org={org} app={app} />
-          <ReplyTemplatesCard org={org} appId={appId} />
-        </>
-      ) : null}
-      {connect ? <ConnectStoreWizard org={org} app={app} platform={connect} onClose={() => setConnect(null)} /> : null}
     </div>
   )
 }
@@ -701,182 +808,240 @@ function SettingsSection<K extends string>({
  * záložku, protože se k nim chodí z jiného důvodu než k času přehledu.
  */
 function AppSettingsCard({ org, app }: { org: string; app: App }) {
+  const [params, setParams] = useSearchParams()
+  const sections = [
+    { key: 'zaklad', label: 'Základ' },
+    { key: 'zpravy', label: 'Zprávy a čas' },
+    { key: 'rozbory', label: 'Rozbory a historie' },
+  ]
+  const requested = params.get('settings')
+  const section = sections.some((item) => item.key === requested) ? requested : 'zaklad'
   return (
     <Card title="Nastavení">
-      <SettingsSection
-        org={org}
-        app={app}
-        title="Základ"
-        first
-        initial={{ name: app.name, gpReportingBucket: app.gpReportingBucket ?? '' }}
-        body={(values) => ({
-          name: values.name,
-          gpReportingBucket: values.gpReportingBucket === '' ? null : values.gpReportingBucket,
-        })}
-      >
-        {(values, set) => (
-          <>
-            <Field label="Název">
-              <input value={values.name} onChange={(e) => set('name', e.target.value)} required />
-            </Field>
-            {app.gpPackageName ? (
-              <>
-                <Field
-                  label="Bucket s reportingem Play Console"
-                  hint="Najdeš ho v Play Console → Stáhnout přehledy → Kopírovat URI (pubsite_prod_…). Bez něj se Android hodnocení berou z veřejné stránky storu, tedy zaokrouhlená."
-                >
-                  <input
-                    value={values.gpReportingBucket}
-                    placeholder="pubsite_prod_rev_01234567890123456789"
-                    onChange={(e) => set('gpReportingBucket', e.target.value)}
-                  />
-                </Field>
-                <ReportingBucketProbe org={org} appId={app.id} bucket={values.gpReportingBucket} />
-              </>
-            ) : null}
-          </>
-        )}
-      </SettingsSection>
+      <div className="settings-subnav" role="group" aria-label="Oblast nastavení">
+        {sections.map((item) => (
+          <button
+            type="button"
+            key={item.key}
+            className={section === item.key ? 'active' : undefined}
+            aria-pressed={section === item.key}
+            onClick={() => {
+              const next = new URLSearchParams(params)
+              next.set('settings', item.key)
+              setParams(next)
+            }}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+      {section === 'zaklad' ? (
+        <SettingsSection
+          org={org}
+          app={app}
+          title="Základ"
+          first
+          initial={{ name: app.name, gpReportingBucket: app.gpReportingBucket ?? '' }}
+          body={(values) => ({
+            name: values.name,
+            gpReportingBucket: values.gpReportingBucket === '' ? null : values.gpReportingBucket,
+          })}
+        >
+          {(values, set) => (
+            <>
+              <Field label="Název">
+                <input value={values.name} onChange={(e) => set('name', e.target.value)} required />
+              </Field>
+              {app.gpPackageName ? (
+                <>
+                  <Field
+                    label="Bucket s reportingem Play Console"
+                    hint="Najdeš ho v Play Console → Stáhnout přehledy → Kopírovat URI (pubsite_prod_…). Bez něj se Android hodnocení berou z veřejné stránky storu, tedy zaokrouhlená."
+                  >
+                    <input
+                      value={values.gpReportingBucket}
+                      placeholder="pubsite_prod_rev_01234567890123456789"
+                      onChange={(e) => set('gpReportingBucket', e.target.value)}
+                    />
+                  </Field>
+                  <ReportingBucketProbe org={org} appId={app.id} bucket={values.gpReportingBucket} />
+                </>
+              ) : null}
+            </>
+          )}
+        </SettingsSection>
+      ) : null}
 
-      <SettingsSection
-        org={org}
-        app={app}
-        title="Zprávy do kanálu"
-        initial={{
-          locale: app.locale.toLowerCase(),
-          timezone: app.timezone,
-          dailyDigestAt: app.dailyDigestAt.slice(0, 5),
-        }}
-        body={(values) => ({ locale: values.locale, timezone: values.timezone, dailyDigestAt: values.dailyDigestAt })}
-      >
-        {(values, set) => (
-          <>
-            <Field label="Jazyk zpráv" hint="Výchozí jazyk pro nové kanály; každý kanál si ho může přepnout zvlášť.">
-              <Select
-                value={values.locale}
-                options={LOCALE_OPTIONS}
-                onChange={(value) => set('locale', value)}
-                ariaLabel="Jazyk zpráv"
-              />
-            </Field>
-            <Field label="Časová zóna" hint="Podle ní se počítá čas denního přehledu.">
-              <input value={values.timezone} onChange={(e) => set('timezone', e.target.value)} />
-            </Field>
-            <Field label="Čas denního přehledu">
-              <input type="time" value={values.dailyDigestAt} onChange={(e) => set('dailyDigestAt', e.target.value)} />
-            </Field>
-            {/* Watermark se nenastavuje, jen ukazuje: je to čas přidání appky a měnit ho zpětně
-                by znamenalo buď zaplavit kanál historií, nebo zamlčet recenze, které už přišly. */}
-            <div className="field">
-              <label>Posílat recenze od</label>
-              <p className="small muted" style={{ margin: 0 }}>
-                Do kanálu jdou recenze od chvíle, kdy se appka přidala do console
-                {app.notifyFrom ? (
-                  <>
-                    {' '}
-                    (<When iso={app.notifyFrom} />)
-                  </>
-                ) : null}
-                . Starší zůstávají v historii, ale nikoho neupozorní.
-              </p>
-            </div>
-          </>
-        )}
-      </SettingsSection>
-
-      <SettingsSection
-        org={org}
-        app={app}
-        title="Rozbory"
-        initial={{
-          analysisCadence: app.analysisCadence,
-          weeklyDigestDay: String(app.weeklyDigestDay),
-          // Prázdné pole znamená „drž se platformy"; posílá se jako nula, což server bere
-          // jako zrušení výjimky.
-          analysisMinReviews: app.analysisThresholdSource === 'APP' ? String(app.analysisMinReviews) : '',
-          analysisMinTopicCount: app.analysisThresholdSource === 'APP' ? String(app.analysisMinTopicCount) : '',
-          historyMonths: String(app.historyMonths),
-        }}
-        body={(values) => ({
-          analysisCadence: values.analysisCadence,
-          weeklyDigestDay: Number(values.weeklyDigestDay),
-          analysisMinReviews: values.analysisMinReviews === '' ? 0 : Number(values.analysisMinReviews),
-          analysisMinTopicCount: values.analysisMinTopicCount === '' ? 0 : Number(values.analysisMinTopicCount),
-          historyMonths: Number(values.historyMonths),
-        })}
-      >
-        {(values, set) => (
-          <>
-            <Field label="Jak často chodí rozbor" hint="Měsíční kadence dává smysl u appky, které chodí pár recenzí týdně.">
-              <Select
-                value={values.analysisCadence}
-                options={[{ value: 'WEEKLY', label: 'týdně' }, { value: 'MONTHLY', label: 'měsíčně' }]}
-                onChange={(value) => set('analysisCadence', value)}
-                ariaLabel="Četnost rozboru"
-              />
-            </Field>
-            {values.analysisCadence === 'WEEKLY' ? (
-              <Field label="Den týdenního rozboru" hint="Rozbor recenzí odejde v tenhle den ve stejný čas jako denní přehled.">
+      {section === 'zpravy' ? (
+        <SettingsSection
+          org={org}
+          app={app}
+          title="Zprávy do kanálu"
+          initial={{
+            locale: app.locale.toLowerCase(),
+            timezone: app.timezone,
+            dailyDigestAt: app.dailyDigestAt.slice(0, 5),
+          }}
+          body={(values) => ({
+            locale: values.locale,
+            timezone: values.timezone,
+            dailyDigestAt: values.dailyDigestAt,
+          })}
+        >
+          {(values, set) => (
+            <>
+              <Field
+                label="Jazyk zpráv"
+                hint="Výchozí jazyk pro nové kanály; každý kanál si ho může přepnout zvlášť."
+              >
                 <Select
-                  value={values.weeklyDigestDay}
-                  options={WEEK_DAYS.map((day, index) => ({ value: String(index + 1), label: day }))}
-                  onChange={(value) => set('weeklyDigestDay', value)}
-                  ariaLabel="Den týdenního rozboru"
+                  value={values.locale}
+                  options={LOCALE_OPTIONS}
+                  onChange={(value) => set('locale', value)}
+                  ariaLabel="Jazyk zpráv"
                 />
               </Field>
-            ) : (
-              <p className="small muted">Měsíční rozbor chodí prvního dne v měsíci ve stejný čas jako denní přehled.</p>
-            )}
-            <Field
-              label="Nejmenší počet recenzí pro rozbor"
-              hint={
-                values.analysisMinReviews === ''
-                  ? `Prázdné = platformní hodnota (${app.analysisMinReviews}). Pod prahem se termín přeskočí a období se přičte k příštímu.`
-                  : 'Výjimka jen pro tuhle aplikaci. Smazáním pole se vrátí platformní hodnota.'
-              }
-            >
-              <input
-                type="number"
-                min={1}
-                value={values.analysisMinReviews}
-                placeholder={String(app.analysisMinReviews)}
-                onChange={(e) => set('analysisMinReviews', e.target.value)}
-              />
-            </Field>
-            <Field
-              label="Od kolika zmínek se ukáže téma"
-              hint={
-                values.analysisMinTopicCount === ''
-                  ? `Prázdné = platformní hodnota (${app.analysisMinTopicCount}).`
-                  : 'Výjimka jen pro tuhle aplikaci. Smazáním pole se vrátí platformní hodnota.'
-              }
-            >
-              <input
-                type="number"
-                min={1}
-                value={values.analysisMinTopicCount}
-                placeholder={String(app.analysisMinTopicCount)}
-                onChange={(e) => set('analysisMinTopicCount', e.target.value)}
-              />
-            </Field>
-            <Field
-              label="Historie k rozboru"
-              hint={
-                app.gpPackageName && !app.gpReportingBucket
-                  ? 'Android historii vydá jen reporting Play Console — bez bucketu v sekci Základ zůstane u recenzí ode dneška.'
-                  : 'Kolik měsíců zpátky se dotahují recenze pro rozbory. Prodloužení se dotáhne během chvíle.'
-              }
-            >
-              <Select
-                value={values.historyMonths}
-                options={HISTORY_MONTHS.map((months) => ({ value: String(months), label: historyMonthsLabel(months) }))}
-                onChange={(value) => set('historyMonths', value)}
-                ariaLabel="Historie k rozboru"
-              />
-            </Field>
-          </>
-        )}
-      </SettingsSection>
+              <Field label="Časová zóna" hint="Podle ní se počítá čas denního přehledu.">
+                <input value={values.timezone} onChange={(e) => set('timezone', e.target.value)} />
+              </Field>
+              <Field label="Čas denního přehledu">
+                <input
+                  type="time"
+                  value={values.dailyDigestAt}
+                  onChange={(e) => set('dailyDigestAt', e.target.value)}
+                />
+              </Field>
+              {/* Watermark se nenastavuje, jen ukazuje: je to čas přidání appky a měnit ho zpětně
+                by znamenalo buď zaplavit kanál historií, nebo zamlčet recenze, které už přišly. */}
+              <div className="field">
+                <label>Posílat recenze od</label>
+                <p className="small muted" style={{ margin: 0 }}>
+                  Do kanálu jdou recenze od chvíle, kdy se appka přidala do console
+                  {app.notifyFrom ? (
+                    <>
+                      {' '}
+                      (<When iso={app.notifyFrom} />)
+                    </>
+                  ) : null}
+                  . Starší zůstávají v historii, ale nikoho neupozorní.
+                </p>
+              </div>
+            </>
+          )}
+        </SettingsSection>
+      ) : null}
+
+      {section === 'rozbory' ? (
+        <SettingsSection
+          org={org}
+          app={app}
+          title="Rozbory"
+          initial={{
+            analysisCadence: app.analysisCadence,
+            weeklyDigestDay: String(app.weeklyDigestDay),
+            // Prázdné pole znamená „drž se platformy"; posílá se jako nula, což server bere
+            // jako zrušení výjimky.
+            analysisMinReviews: app.analysisThresholdSource === 'APP' ? String(app.analysisMinReviews) : '',
+            analysisMinTopicCount:
+              app.analysisThresholdSource === 'APP' ? String(app.analysisMinTopicCount) : '',
+            historyMonths: String(app.historyMonths),
+          }}
+          body={(values) => ({
+            analysisCadence: values.analysisCadence,
+            weeklyDigestDay: Number(values.weeklyDigestDay),
+            analysisMinReviews: values.analysisMinReviews === '' ? 0 : Number(values.analysisMinReviews),
+            analysisMinTopicCount:
+              values.analysisMinTopicCount === '' ? 0 : Number(values.analysisMinTopicCount),
+            historyMonths: Number(values.historyMonths),
+          })}
+        >
+          {(values, set) => (
+            <>
+              <Field
+                label="Jak často chodí rozbor"
+                hint="Měsíční kadence dává smysl u appky, které chodí pár recenzí týdně."
+              >
+                <Select
+                  value={values.analysisCadence}
+                  options={[
+                    { value: 'WEEKLY', label: 'týdně' },
+                    { value: 'MONTHLY', label: 'měsíčně' },
+                  ]}
+                  onChange={(value) => set('analysisCadence', value)}
+                  ariaLabel="Četnost rozboru"
+                />
+              </Field>
+              {values.analysisCadence === 'WEEKLY' ? (
+                <Field
+                  label="Den týdenního rozboru"
+                  hint="Rozbor recenzí odejde v tenhle den ve stejný čas jako denní přehled."
+                >
+                  <Select
+                    value={values.weeklyDigestDay}
+                    options={WEEK_DAYS.map((day, index) => ({ value: String(index + 1), label: day }))}
+                    onChange={(value) => set('weeklyDigestDay', value)}
+                    ariaLabel="Den týdenního rozboru"
+                  />
+                </Field>
+              ) : (
+                <p className="small muted">
+                  Měsíční rozbor chodí prvního dne v měsíci ve stejný čas jako denní přehled.
+                </p>
+              )}
+              <Field
+                label="Nejmenší počet recenzí pro rozbor"
+                hint={
+                  values.analysisMinReviews === ''
+                    ? `Prázdné = platformní hodnota (${app.analysisMinReviews}). Pod prahem se termín přeskočí a období se přičte k příštímu.`
+                    : 'Výjimka jen pro tuhle aplikaci. Smazáním pole se vrátí platformní hodnota.'
+                }
+              >
+                <input
+                  type="number"
+                  min={1}
+                  value={values.analysisMinReviews}
+                  placeholder={String(app.analysisMinReviews)}
+                  onChange={(e) => set('analysisMinReviews', e.target.value)}
+                />
+              </Field>
+              <Field
+                label="Od kolika zmínek se ukáže téma"
+                hint={
+                  values.analysisMinTopicCount === ''
+                    ? `Prázdné = platformní hodnota (${app.analysisMinTopicCount}).`
+                    : 'Výjimka jen pro tuhle aplikaci. Smazáním pole se vrátí platformní hodnota.'
+                }
+              >
+                <input
+                  type="number"
+                  min={1}
+                  value={values.analysisMinTopicCount}
+                  placeholder={String(app.analysisMinTopicCount)}
+                  onChange={(e) => set('analysisMinTopicCount', e.target.value)}
+                />
+              </Field>
+              <Field
+                label="Historie k rozboru"
+                hint={
+                  app.gpPackageName && !app.gpReportingBucket
+                    ? 'Android historii vydá jen reporting Play Console — bez bucketu v sekci Základ zůstane u recenzí ode dneška.'
+                    : 'Kolik měsíců zpátky se dotahují recenze pro rozbory. Prodloužení se dotáhne během chvíle.'
+                }
+              >
+                <Select
+                  value={values.historyMonths}
+                  options={HISTORY_MONTHS.map((months) => ({
+                    value: String(months),
+                    label: historyMonthsLabel(months),
+                  }))}
+                  onChange={(value) => set('historyMonths', value)}
+                  ariaLabel="Historie k rozboru"
+                />
+              </Field>
+            </>
+          )}
+        </SettingsSection>
+      ) : null}
     </Card>
   )
 }
@@ -934,7 +1099,10 @@ function ReplySettingsCard({ org, app }: { org: string; app: App }) {
               label="Instrukce pro AI návrhy"
               hint="Tón odpovědí, čemu se vyhnout, jak podepisovat. Nechej prázdné, když návrhy nechceš ovlivňovat."
             >
-              <textarea value={values.aiInstructions} onChange={(e) => set('aiInstructions', e.target.value)} />
+              <textarea
+                value={values.aiInstructions}
+                onChange={(e) => set('aiInstructions', e.target.value)}
+              />
             </Field>
           </>
         )}
@@ -970,12 +1138,12 @@ function ReplyTemplatesCard({ org, appId }: { org: string; appId: string }) {
       <ErrorBox error={templates.error} />
       {templates.data?.length === 0 ? (
         <p className="muted">
-          Zatím žádná. Šablona ušetří psaní u opakovaných odpovědí — poděkování, odkaz na podporu, „opraveno ve
-          verzi X".
+          Zatím žádná. Šablona ušetří psaní u opakovaných odpovědí — poděkování, odkaz na podporu, „opraveno
+          ve verzi X".
         </p>
       ) : null}
       {templates.data && templates.data.length > 0 ? (
-        <table className="row-cards">
+        <table tabIndex={0} className="row-cards">
           <thead>
             <tr>
               <th>Název</th>
@@ -1022,8 +1190,8 @@ function ReplyTemplatesCard({ org, appId }: { org: string; appId: string }) {
         <Modal title="Smazat šablonu" onClose={() => setRemoving(null)}>
           <div className="stack">
             <p>
-              Opravdu smazat <strong>{removing.name}</strong>? Odpovědi, které z ní už odešly, zůstanou — jen ji
-              příště nebude z čeho vybrat.
+              Opravdu smazat <strong>{removing.name}</strong>? Odpovědi, které z ní už odešly, zůstanou — jen
+              ji příště nebude z čeho vybrat.
             </p>
             <div className="row">
               <button
@@ -1075,7 +1243,13 @@ function ReplyTemplateDialog({
         }}
       >
         <Field label="Název" hint="Pod tímhle názvem šablonu vybereš v inboxu.">
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Poděkování" autoFocus required />
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Poděkování"
+            autoFocus
+            required
+          />
         </Field>
         <Field
           label="Text"
@@ -1092,7 +1266,9 @@ function ReplyTemplateDialog({
         </Field>
         <div className="template-count small muted">
           {body.length} / {TEMPLATE_MAX} znaků
-          {body.length > GOOGLE_PLAY_REPLY_MAX ? <span className="warn"> · delší než limit Google Play</span> : null}
+          {body.length > GOOGLE_PLAY_REPLY_MAX ? (
+            <span className="warn"> · delší než limit Google Play</span>
+          ) : null}
         </div>
         <div className="stack" style={{ marginTop: '1rem' }}>
           <ErrorBox error={create.error ?? update.error} />
@@ -1126,11 +1302,14 @@ function RatingsCard({ org, appId }: { org: string; appId: string }) {
 
       {ratings.data?.every((series) => series.points.length === 0) ? (
         <p className="muted">
-          Zatím žádná data. Přehled chodí každý den v čase ze záložky Nastavení; první běh jde spustit i rovnou.
+          Zatím žádná data. Přehled chodí každý den v čase ze záložky Nastavení; první běh jde spustit i
+          rovnou.
         </p>
       ) : null}
 
-      {ratings.data?.map((series) => (series.points.length === 0 ? null : <RatingsSeriesBlock key={series.platform} series={series} />))}
+      {ratings.data?.map((series) =>
+        series.points.length === 0 ? null : <RatingsSeriesBlock key={series.platform} series={series} />,
+      )}
 
       <div className="row" style={{ marginTop: '1rem' }}>
         <button type="button" onClick={() => run.mutate(appId)} disabled={run.isPending}>
@@ -1148,7 +1327,10 @@ function RatingsSeriesBlock({ series }: { series: RatingsSeries }) {
   const latest = valid[valid.length - 1]
   const first = valid[0]
   const newRatings = series.points.reduce((sum, point) => sum + (point.newCount ?? 0), 0)
-  const rawChange = latest?.average != null && first?.average != null && valid.length > 1 ? latest.average - first.average : null
+  const rawChange =
+    latest?.average != null && first?.average != null && valid.length > 1
+      ? latest.average - first.average
+      : null
   // Pod setinu je to šum: „▼ 0.00" by červeně hlásilo pokles, který neexistuje.
   const change = rawChange == null ? null : Math.abs(rawChange) < 0.005 ? 0 : rawChange
 
@@ -1159,7 +1341,8 @@ function RatingsSeriesBlock({ series }: { series: RatingsSeries }) {
         <strong>{latest?.average != null ? latest.average.toFixed(2) : '—'}</strong>
         {change != null ? (
           <Badge tone={change > 0 ? 'ok' : change < 0 ? 'bad' : undefined}>
-            {change > 0 ? '▲' : change < 0 ? '▼' : '='} {change === 0 ? 'beze změny' : `${Math.abs(change).toFixed(2)} za období`}
+            {change > 0 ? '▲' : change < 0 ? '▼' : '='}{' '}
+            {change === 0 ? 'beze změny' : `${Math.abs(change).toFixed(2)} za období`}
           </Badge>
         ) : null}
         <span className="muted small">
@@ -1168,12 +1351,20 @@ function RatingsSeriesBlock({ series }: { series: RatingsSeries }) {
         </span>
       </div>
       <RatingsChart series={series} />
-      {latest ? <p className="muted small">Poslední data k {latest.date} ({sourceLabel(latest.source)}).</p> : null}
+      {latest ? (
+        <p className="muted small">
+          Poslední data k {latest.date} ({sourceLabel(latest.source)}).
+        </p>
+      ) : null}
     </div>
   )
 }
 
-function RunSummary({ result }: { result: { platforms: number; sent: number; alreadySent: number; errors: string[] } }) {
+function RunSummary({
+  result,
+}: {
+  result: { platforms: number; sent: number; alreadySent: number; errors: string[] }
+}) {
   if (result.errors.length > 0) return <span className="muted small">{result.errors.join(' · ')}</span>
   if (result.sent > 0) return <span className="muted small">Odesláno do {result.sent} kanálů.</span>
   if (result.alreadySent > 0) return <span className="muted small">Dnešní přehled už odešel.</span>
@@ -1221,8 +1412,8 @@ function RemoveCredentialDialog({
     <Modal title="Odebrat klíč" onClose={onClose}>
       <div className="stack">
         <p>
-          Opravdu odebrat <strong>{credential.label}</strong>? Aplikace, které ho používají, spadnou zpátky do „čeká na
-          nastavení" a přestanou stahovat recenze.
+          Opravdu odebrat <strong>{credential.label}</strong>? Aplikace, které ho používají, spadnou zpátky do
+          „čeká na nastavení" a přestanou stahovat recenze.
         </p>
         <p className="small muted">
           {managed
@@ -1289,7 +1480,7 @@ function CredentialsCard({
       {storeKeys.length === 0 ? (
         <p className="muted">Zatím žádný klíč — bez něj nemáme čím recenze stáhnout.</p>
       ) : (
-        <table className="row-cards">
+        <table tabIndex={0} className="row-cards">
           <thead>
             <tr>
               <th>Klíč</th>
@@ -1302,7 +1493,8 @@ function CredentialsCard({
             {storeKeys.map((credential) => (
               <tr key={credential.id}>
                 <td className="lead">
-                  {credential.label} {credential.origin === 'PROVISIONED' ? <Badge>spravovaný námi</Badge> : null}
+                  {credential.label}{' '}
+                  {credential.origin === 'PROVISIONED' ? <Badge>spravovaný námi</Badge> : null}
                   <div className="small muted">{credential.hint}</div>
                 </td>
                 <td className="small muted full">{credential.fingerprint}</td>
@@ -1346,7 +1538,9 @@ function CredentialsCard({
                           { appId, credentialId: credential.id },
                           {
                             onSuccess: (outcome) =>
-                              setResult(outcome.valid ? 'Klíč funguje.' : (outcome.message ?? 'Klíč neprošel.')),
+                              setResult(
+                                outcome.valid ? 'Klíč funguje.' : (outcome.message ?? 'Klíč neprošel.'),
+                              ),
                           },
                         )
                       }
@@ -1363,7 +1557,11 @@ function CredentialsCard({
           </tbody>
         </table>
       )}
-      {result ? <div className="notice" style={{ marginTop: '0.75rem' }}>{result}</div> : null}
+      {result ? (
+        <div className="notice" style={{ marginTop: '0.75rem' }}>
+          {result}
+        </div>
+      ) : null}
       <ErrorBox error={attach.error ?? validate.error ?? remove.error} />
 
       {removing ? (
@@ -1380,77 +1578,77 @@ function CredentialsCard({
       <details className="optional" style={{ marginTop: '1.25rem' }}>
         <summary>Pokročilé: nahrát vlastní klíč</summary>
         <form
-        onSubmit={(event) => {
-          event.preventDefault()
-          add.mutate(
-            {
-              type,
-              label,
-              content,
-              keyId: keyId.trim() === '' ? undefined : keyId.trim(),
-              issuerId: issuerId.trim() === '' ? undefined : issuerId.trim(),
-            },
-            {
-              onSuccess: () => {
-                setContent('')
-                setLabel('')
-                setKeyId('')
-                setIssuerId('')
+          onSubmit={(event) => {
+            event.preventDefault()
+            add.mutate(
+              {
+                type,
+                label,
+                content,
+                keyId: keyId.trim() === '' ? undefined : keyId.trim(),
+                issuerId: issuerId.trim() === '' ? undefined : issuerId.trim(),
               },
-            },
-          )
-        }}
-      >
-        <Field label="Store">
-          <Select
-            value={type}
-            options={[
-              { value: 'gp', label: 'Google Play — service account (JSON)' },
-              { value: 'asc', label: 'App Store Connect — API klíč (.p8)' },
-            ]}
-            onChange={setType}
-            ariaLabel="Store"
-          />
-        </Field>
-        <Field label="Štítek" hint="Jak klíč poznáš ve výpisu.">
-          <input value={label} onChange={(e) => setLabel(e.target.value)} required />
-        </Field>
-        <Field
-          label="Soubor s klíčem"
-          hint={
-            type === 'gp'
-              ? 'JSON service accountu z Play Console → Setup → API access. Stačí právo číst recenze a odpovídat na ně.'
-              : '.p8 z App Store Connect → Users and Access → Integrations. Stačí role na čtení recenzí (Customer Support, případně Admin).'
-          }
+              {
+                onSuccess: () => {
+                  setContent('')
+                  setLabel('')
+                  setKeyId('')
+                  setIssuerId('')
+                },
+              },
+            )
+          }}
         >
-          <input
-            type="file"
-            accept={type === 'gp' ? '.json,application/json' : '.p8,text/plain'}
-            onChange={async (event) => {
-              const file = event.target.files?.[0]
-              if (file) setContent(await file.text())
-            }}
-          />
-        </Field>
-        {type === 'asc' ? (
-          <>
-            <Field label="Key ID" hint="Deset znaků, opíšeš je z tabulky klíčů v App Store Connect.">
-              <input value={keyId} onChange={(e) => setKeyId(e.target.value)} required />
-            </Field>
-            <Field label="Issuer ID">
-              <input value={issuerId} onChange={(e) => setIssuerId(e.target.value)} />
-            </Field>
-          </>
-        ) : null}
-        <div className="stack" style={{ marginTop: '1rem' }}>
-          <ErrorBox error={add.error} />
-          <button type="submit" disabled={add.isPending || content === ''}>
-            Nahrát klíč
-          </button>
-          <p className="small muted">
-            Klíč se zašifruje ještě před uložením a z vaultu už ven nevyjde — ve výpisu uvidíš jen otisk.
-          </p>
-        </div>
+          <Field label="Store">
+            <Select
+              value={type}
+              options={[
+                { value: 'gp', label: 'Google Play — service account (JSON)' },
+                { value: 'asc', label: 'App Store Connect — API klíč (.p8)' },
+              ]}
+              onChange={setType}
+              ariaLabel="Store"
+            />
+          </Field>
+          <Field label="Štítek" hint="Jak klíč poznáš ve výpisu.">
+            <input value={label} onChange={(e) => setLabel(e.target.value)} required />
+          </Field>
+          <Field
+            label="Soubor s klíčem"
+            hint={
+              type === 'gp'
+                ? 'JSON service accountu z Play Console → Setup → API access. Stačí právo číst recenze a odpovídat na ně.'
+                : '.p8 z App Store Connect → Users and Access → Integrations. Stačí role na čtení recenzí (Customer Support, případně Admin).'
+            }
+          >
+            <input
+              type="file"
+              accept={type === 'gp' ? '.json,application/json' : '.p8,text/plain'}
+              onChange={async (event) => {
+                const file = event.target.files?.[0]
+                if (file) setContent(await file.text())
+              }}
+            />
+          </Field>
+          {type === 'asc' ? (
+            <>
+              <Field label="Key ID" hint="Deset znaků, opíšeš je z tabulky klíčů v App Store Connect.">
+                <input value={keyId} onChange={(e) => setKeyId(e.target.value)} required />
+              </Field>
+              <Field label="Issuer ID">
+                <input value={issuerId} onChange={(e) => setIssuerId(e.target.value)} />
+              </Field>
+            </>
+          ) : null}
+          <div className="stack" style={{ marginTop: '1rem' }}>
+            <ErrorBox error={add.error} />
+            <button type="submit" disabled={add.isPending || content === ''}>
+              Nahrát klíč
+            </button>
+            <p className="small muted">
+              Klíč se zašifruje ještě před uložením a z vaultu už ven nevyjde — ve výpisu uvidíš jen otisk.
+            </p>
+          </div>
         </form>
       </details>
     </Card>
@@ -1479,7 +1677,8 @@ function AnalysisCard({ org, appId }: { org: string; appId: string }) {
       {status.data ? (
         <p className="small muted">
           Výklad má {status.data.analyzed} z {total} recenzí
-          {status.data.missing > 0 ? ` — ${status.data.missing} čeká.` : '.'} Taxonomie {status.data.taxonomyVersion}.
+          {status.data.missing > 0 ? ` — ${status.data.missing} čeká.` : '.'} Taxonomie{' '}
+          {status.data.taxonomyVersion}.
         </p>
       ) : null}
       <div className="row">
@@ -1505,11 +1704,11 @@ function AnalysisCard({ org, appId }: { org: string; appId: string }) {
       <h3 style={{ marginTop: '1.25rem' }}>Vlastní témata</h3>
       {custom.length === 0 ? (
         <p className="muted">
-          Zatím žádné. Vlastní téma se hodí na to, co obecná taxonomie nezná — třeba
-          synchronizaci s konkrétním zařízením nebo školní účty.
+          Zatím žádné. Vlastní téma se hodí na to, co obecná taxonomie nezná — třeba synchronizaci s
+          konkrétním zařízením nebo školní účty.
         </p>
       ) : (
-        <table className="row-cards">
+        <table tabIndex={0} className="row-cards">
           <thead>
             <tr>
               <th>Téma</th>
@@ -1728,7 +1927,7 @@ function ChannelsCard({ org, app }: { org: string; app: App }) {
       {channels.data?.length === 0 ? (
         <p className="muted">Zatím žádný kanál — recenze nemají kam chodit.</p>
       ) : (
-        <table className="row-cards">
+        <table tabIndex={0} className="row-cards">
           <thead>
             <tr>
               <th>Kanál</th>
@@ -1747,7 +1946,13 @@ function ChannelsCard({ org, app }: { org: string; app: App }) {
                 </td>
                 <td className="small">{localeLabel(channel.locale)}</td>
                 <td className="small muted">{deliveriesLabel(channel)}</td>
-                <td>{channel.enabled ? <Badge tone="ok">zapnutý</Badge> : <Badge tone="warn">pozastavený</Badge>}</td>
+                <td>
+                  {channel.enabled ? (
+                    <Badge tone="ok">zapnutý</Badge>
+                  ) : (
+                    <Badge tone="warn">pozastavený</Badge>
+                  )}
+                </td>
                 <td className="nowrap end">
                   <div className="row">
                     <button type="button" className="secondary" onClick={() => setEditing(channel)}>
@@ -1776,7 +1981,11 @@ function ChannelsCard({ org, app }: { org: string; app: App }) {
             {test.isPending ? 'Zkouším…' : 'Poslat zkušební zprávu'}
           </button>
           {checks?.map((check) => (
-            <div key={check.channelId} className={check.ok ? 'notice' : 'error'} style={{ marginTop: '0.5rem' }}>
+            <div
+              key={check.channelId}
+              className={check.ok ? 'notice' : 'error'}
+              style={{ marginTop: '0.5rem' }}
+            >
               <strong>{check.targetRef}</strong>{' '}
               {check.ok ? 'zpráva dorazila.' : `${check.error ?? 'nepovedlo se'} — ${check.hint ?? ''}`}
             </div>
@@ -1784,7 +1993,9 @@ function ChannelsCard({ org, app }: { org: string; app: App }) {
         </div>
       ) : null}
 
-      {editing ? <EditChannelDialog org={org} appId={appId} channel={editing} onClose={() => setEditing(null)} /> : null}
+      {editing ? (
+        <EditChannelDialog org={org} appId={appId} channel={editing} onClose={() => setEditing(null)} />
+      ) : null}
 
       {installs.length === 0 ? (
         <>
@@ -1824,7 +2035,10 @@ function ChannelsCard({ org, app }: { org: string; app: App }) {
             <Field label="Workspace">
               <Select
                 value={credentialId || (installs[0]?.id ?? '')}
-                options={installs.map((install) => ({ value: install.id, label: install.hint ?? install.label }))}
+                options={installs.map((install) => ({
+                  value: install.id,
+                  label: install.hint ?? install.label,
+                }))}
                 onChange={setCredentialId}
                 ariaLabel="Slack workspace"
               />
@@ -1833,13 +2047,23 @@ function ChannelsCard({ org, app }: { org: string; app: App }) {
               label="ID kanálu"
               hint="Ve Slacku: klikni na kanál → View channel details → dole je ID (začíná C). Jméno kanálu se mění, ID ne."
             >
-              <input value={targetRef} onChange={(e) => setTargetRef(e.target.value)} placeholder="C0123456789" required />
+              <input
+                value={targetRef}
+                onChange={(e) => setTargetRef(e.target.value)}
+                placeholder="C0123456789"
+                required
+              />
             </Field>
             <Field
               label="Jazyk zpráv"
               hint="Jazyk kanálu je nezávislý na jazyku appky — anglický kanál pro zahraniční tým vedle českého."
             >
-              <Select value={locale} options={LOCALE_OPTIONS} onChange={setLocale} ariaLabel="Jazyk zpráv kanálu" />
+              <Select
+                value={locale}
+                options={LOCALE_OPTIONS}
+                onChange={setLocale}
+                ariaLabel="Jazyk zpráv kanálu"
+              />
             </Field>
             <div className="stack" style={{ marginTop: '1rem' }}>
               <ErrorBox error={create.error} />

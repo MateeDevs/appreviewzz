@@ -45,10 +45,12 @@ import org.jetbrains.exposed.v1.core.greater
 import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.inSubQuery
+import org.jetbrains.exposed.v1.core.isNotNull
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.core.like
+import org.jetbrains.exposed.v1.core.neq
 import org.jetbrains.exposed.v1.core.notLike
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.Query
@@ -244,6 +246,10 @@ class ExposedReviewRepository(
                 if (filter.sentiments.isNotEmpty()) {
                     condition = condition and (ReviewInsights.sentiment inList filter.sentiments.toList())
                 }
+                filter.submittedFrom?.let { condition = condition and (Reviews.submittedAt greaterEq it) }
+                filter.submittedBefore?.let { condition = condition and (Reviews.submittedAt less it) }
+                filter.territory?.let { condition = condition and (Reviews.territory eq it) }
+                if (filter.textOnly) condition = condition and Reviews.body.isNotNull() and (Reviews.body neq "")
                 filter.version?.let { condition = condition and (Reviews.appVersion eq it) }
                 if (filter.platforms.isNotEmpty()) condition = condition and (Reviews.platform inList filter.platforms.toList())
                 if (filter.topics.isNotEmpty()) {

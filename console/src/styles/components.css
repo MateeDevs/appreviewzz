@@ -1,0 +1,1289 @@
+/* Seznam odkazů (organizace na rozcestníku) — řádky, ne odrážky. */
+.list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+}
+.list li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.65rem 0;
+    border-bottom: 1px solid var(--border);
+}
+.list li:first-child {
+    padding-top: 0;
+}
+.list li:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+.list a {
+    font-weight: 500;
+    text-decoration: none;
+}
+.list a:hover {
+    text-decoration: underline;
+}
+
+/* --- karty, formuláře --- */
+.card {
+    min-width: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.35rem;
+    box-shadow: var(--shadow);
+}
+.card + .card {
+    margin-top: 0;
+}
+.card > h2 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding-bottom: 0.85rem;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+}
+.card-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-bottom: 0.85rem;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+}
+.card-heading h2 {
+    margin: 0;
+}
+.segmented {
+    display: inline-flex;
+    padding: 0.2rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface-2);
+}
+.segmented button {
+    padding: 0.35rem 0.65rem;
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    font-size: 0.82rem;
+    font-weight: 500;
+}
+.segmented button:hover:not(:disabled) {
+    background: var(--surface);
+    color: var(--text);
+}
+.segmented button.active {
+    background: var(--surface);
+    color: var(--accent);
+    box-shadow: var(--shadow);
+}
+@media (max-width: 620px) {
+    .card-heading {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}
+
+label {
+    display: block;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 0.35rem;
+}
+input,
+textarea {
+    width: 100%;
+    padding: 0.55rem 0.7rem;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+    transition:
+        border-color 0.12s ease,
+        box-shadow 0.12s ease;
+}
+input::placeholder,
+textarea::placeholder {
+    color: var(--faint);
+}
+textarea {
+    min-height: 96px;
+    resize: vertical;
+}
+input:hover,
+textarea:hover {
+    border-color: var(--faint);
+}
+input:focus,
+textarea:focus,
+input:focus-visible,
+textarea:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-ring);
+}
+/* Všechny výběry používají stejné portálované menu. Karta ani dialog ho neořízne a
+   ukotvení je stejné ve všech prohlížečích i tématech. */
+.select-root {
+    position: relative;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+}
+.select-root.fit-content {
+    width: auto;
+}
+.select-trigger {
+    width: 100%;
+    justify-content: space-between;
+    padding: 0.55rem 0.7rem;
+    background: var(--surface);
+    color: var(--text);
+    border-color: var(--border-strong);
+    font-weight: inherit;
+}
+.select-trigger:hover:not(:disabled) {
+    background: var(--surface);
+    border-color: var(--faint);
+}
+.select-trigger:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-ring);
+}
+.select-trigger svg {
+    width: 12px;
+    height: 12px;
+    margin-left: 0.65rem;
+    color: var(--faint);
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+.select-trigger[aria-expanded='true'] svg {
+    transform: rotate(180deg);
+}
+.select-trigger > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.select-menu {
+    position: fixed;
+    z-index: 1000;
+    overflow-y: auto;
+    padding: 0.35rem;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    box-shadow: 0 12px 32px rgb(20 28 45 / 18%);
+}
+.select-group:not(:first-child) {
+    margin-top: 0.3rem;
+    padding-top: 0.3rem;
+    border-top: 1px solid var(--border);
+}
+.select-group-label {
+    padding: 0.3rem 0.55rem 0.2rem 2rem;
+    color: var(--faint);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+button.select-option {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 0.35rem;
+    padding: 0.42rem 0.55rem;
+    border: 0;
+    background: transparent;
+    color: var(--text);
+    font-weight: inherit;
+    text-align: left;
+    white-space: normal;
+}
+button.select-option:hover:not(:disabled),
+button.select-option:focus-visible {
+    background: var(--surface-2);
+}
+button.select-option:focus-visible {
+    outline: none;
+}
+button.select-option[aria-selected='true'] {
+    color: var(--accent);
+    font-weight: 600;
+}
+.select-check {
+    width: 1.1rem;
+    flex: 0 0 1.1rem;
+    color: var(--accent);
+    text-align: center;
+}
+.period-select .select-trigger {
+    min-width: 11.75rem;
+}
+.date-range {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+}
+.date-range input {
+    width: auto;
+    padding-block: 0.45rem;
+}
+.field + .field {
+    margin-top: 0.85rem;
+}
+.hint {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-top: 0.3rem;
+}
+
+button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.52rem 0.95rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid transparent;
+    background: var(--accent);
+    color: var(--accent-text);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition:
+        background 0.12s ease,
+        border-color 0.12s ease,
+        color 0.12s ease,
+        transform 0.06s ease;
+}
+button:hover:not(:disabled) {
+    background: var(--accent-hover);
+}
+button:active:not(:disabled) {
+    transform: translateY(1px);
+}
+button:disabled {
+    opacity: 0.55;
+    cursor: progress;
+}
+
+button.secondary {
+    background: var(--surface);
+    color: var(--text);
+    border-color: var(--border-strong);
+}
+button.secondary:hover:not(:disabled) {
+    background: var(--surface-2);
+    border-color: var(--faint);
+}
+
+button.danger {
+    background: transparent;
+    color: var(--error);
+    border-color: var(--border-strong);
+}
+button.danger:hover:not(:disabled) {
+    background: var(--error-bg);
+    border-color: var(--error);
+}
+
+button.link {
+    background: none;
+    border: none;
+    color: var(--accent);
+    padding: 0;
+    font-weight: inherit;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+button.link:hover:not(:disabled) {
+    background: none;
+    color: var(--accent-hover);
+}
+
+/* --- modální dialog --- */
+.modal {
+    border: none;
+    padding: 0;
+    background: transparent;
+    color: var(--text);
+    width: min(560px, calc(100vw - 2rem));
+    max-height: calc(100vh - 3rem);
+    overflow: visible;
+}
+.modal::backdrop {
+    background: rgba(9, 12, 18, 0.45);
+    backdrop-filter: blur(2px);
+}
+.modal-body {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lg);
+    padding: 1.35rem;
+    max-height: calc(100vh - 3rem);
+    overflow-y: auto;
+}
+.modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding-bottom: 0.85rem;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+}
+button.modal-close {
+    flex: none;
+    width: 36px;
+    height: 36px;
+    margin: -0.4rem -0.5rem -0.4rem 0;
+    padding: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--muted);
+}
+button.modal-close:hover:not(:disabled) {
+    background: var(--surface-2);
+    color: var(--text);
+}
+button.modal-close svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+}
+.modal-head h2 {
+    margin: 0;
+}
+
+/* Dialog s tabulkami (správa platformy) — na 560 px se sloupce lepí na sebe. */
+.modal.wide {
+    width: min(760px, calc(100vw - 2rem));
+}
+
+/*
+ * Karta uvnitř dialogu ztrácí vlastní rám: dvě orámovaná pole v sobě čtou jako dvě
+ * plochy, ne jako jedna se sekcemi. Zbývá nadpis s linkou — ten sekce oddělí sám.
+ */
+.modal .card {
+    min-width: 0;
+    background: none;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 0;
+    animation: none;
+}
+.modal .card + .card {
+    margin-top: 1.6rem;
+}
+
+/*
+ * Rozcestí v dialogu: dvě čtvercové dlaždice vedle sebe.
+ *
+ * Čtverec je tu proto, že se vybírá jednou a naslepo — dlaždice musí unést název, větu
+ * o tom, co klient dostane, a podmínku, kterou za to zaplatí. Text je zarovnaný doleva,
+ * ne na střed: čtou se to tři různě dlouhé odstavce, ne nápis na tlačítku.
+ */
+.choices {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+}
+button.choice {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 0.3rem;
+    aspect-ratio: 1;
+    padding: 1.15rem;
+    text-align: left;
+    white-space: normal;
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-weight: inherit;
+}
+button.choice:hover:not(:disabled) {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+}
+button.choice:focus-visible {
+    outline: 2px solid var(--accent-ring);
+    outline-offset: 2px;
+}
+.choice svg {
+    width: 26px;
+    height: 26px;
+    color: var(--accent);
+    margin-bottom: 0.35rem;
+}
+.choice-title {
+    font-size: 1.02rem;
+    font-weight: 600;
+    line-height: 1.3;
+}
+.choice-lead {
+    font-size: 0.88rem;
+    line-height: 1.45;
+    color: var(--muted);
+}
+/* Podmínka drží dole, aby se dlaždice daly srovnat očima na jednom řádku. */
+.choice-detail {
+    margin-top: auto;
+    font-size: 0.8rem;
+    line-height: 1.4;
+    color: var(--faint);
+}
+
+@media (max-width: 560px) {
+    .choices {
+        grid-template-columns: 1fr;
+    }
+    button.choice {
+        aspect-ratio: auto;
+        gap: 0.25rem;
+    }
+    .choice-detail {
+        margin-top: 0.35rem;
+    }
+}
+
+/* Nabídnutý název ze storu — klikací návrh, ne další pole k vyplnění. */
+.chips {
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+    margin-top: 0.45rem;
+}
+.chip {
+    padding: 0.28rem 0.7rem;
+    border-radius: 4px;
+    border: 1px solid var(--border-strong);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 0.83rem;
+    font-weight: 500;
+}
+.chip:hover:not(:disabled) {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+.chip.selected {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+.chip:disabled {
+    opacity: 1;
+    cursor: default;
+}
+
+/* --- zpětná vazba --- */
+.error,
+.notice {
+    border-radius: var(--radius-sm);
+    padding: 0.65rem 0.8rem;
+    font-size: 0.9rem;
+    border: 1px solid var(--border);
+    border-left-width: 3px;
+}
+.error {
+    background: var(--error-bg);
+    border-color: var(--error);
+    color: var(--error);
+}
+.notice {
+    background: var(--surface-2);
+    border-left-color: var(--border-strong);
+}
+
+.badge {
+    display: inline-flex;
+    white-space: nowrap;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.15rem 0.55rem;
+    border-radius: 4px;
+    font-size: 0.76rem;
+    font-weight: 500;
+    line-height: 1.5;
+    border: 1px solid transparent;
+    background: var(--surface-2);
+    color: var(--muted);
+}
+.badge.ok {
+    color: var(--ok);
+    background: var(--ok-soft);
+}
+.badge.warn {
+    color: var(--warn);
+    background: var(--warn-soft);
+}
+.badge.bad {
+    color: var(--error);
+    background: var(--error-bg);
+}
+
+/* Načítání: kolečko místo holé věty — ať je vidět, že se něco děje. */
+.loading {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    color: var(--muted);
+}
+.spinner {
+    width: 15px;
+    height: 15px;
+    flex: none;
+    border-radius: 50%;
+    border: 2px solid var(--border-strong);
+    border-top-color: var(--accent);
+    animation: spin 0.7s linear infinite;
+}
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+th,
+td {
+    text-align: left;
+    padding: 0.65rem 0.6rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+}
+th:first-child,
+td:first-child {
+    padding-left: 0;
+}
+th:last-child,
+td:last-child {
+    padding-right: 0;
+}
+thead th {
+    font-size: 0.75rem;
+    color: var(--muted);
+    font-weight: 550;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+/* Tabulka klíč–hodnota (přehled aplikace): záhlaví je v řádku, ne nahoře. */
+tbody th {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--muted);
+    width: 11rem;
+}
+tbody tr:last-child td,
+tbody tr:last-child th {
+    border-bottom: none;
+}
+tbody tr {
+    transition: background 0.1s ease;
+}
+thead + tbody tr:hover {
+    background: var(--surface-2);
+}
+
+.review {
+    border-bottom: 1px solid var(--border);
+    padding: 1rem 0;
+}
+.review-body {
+    margin-top: 0.35rem;
+    white-space: pre-line;
+}
+/* Odpověď, která už ve storu visí: citace pod recenzí, ne další odstavec stejným písmem. */
+.review-reply {
+    margin-top: 0.6rem;
+    padding: 0.5rem 0.75rem;
+    border-left: 3px solid var(--border-strong);
+    background: var(--surface-2);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    font-size: 0.9rem;
+    color: var(--muted);
+}
+.review-reply strong {
+    color: var(--text);
+    font-weight: 550;
+}
+.review-actions {
+    display: flex;
+    gap: 0.6rem;
+    align-items: center;
+    margin-top: 0.75rem;
+}
+.result-count {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-bottom: 0.85rem;
+}
+.review:first-child {
+    padding-top: 0;
+}
+.review:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+/* Hlavička recenze: štítek, hvězdy, autor a datum na jedné ose, ne na účaří textu. */
+.review-head {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.45rem;
+}
+.badge.platform {
+    font-weight: 600;
+}
+.badge.platform svg {
+    width: 13px;
+    height: 13px;
+    flex: none;
+}
+.badge.platform.ios {
+    color: var(--text);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+}
+.badge.platform.android {
+    color: var(--ok);
+    background: var(--ok-soft);
+}
+
+.stars {
+    color: var(--star);
+    letter-spacing: 0.08em;
+}
+
+.steps {
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.25rem;
+}
+.step {
+    padding: 0.32rem 0.75rem;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 0.83rem;
+    font-weight: 500;
+    color: var(--muted);
+}
+.step.current {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent);
+}
+.step.done {
+    border-color: transparent;
+    background: var(--ok-soft);
+    color: var(--ok);
+}
+
+code {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    padding: 0.08rem 0.32rem;
+    border-radius: 6px;
+    font-size: 0.85em;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* Graf hodnocení. Inline SVG bez knihovny — jedna čára nestojí za 100 kB v bundlu. */
+.chart {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+.chart-axis {
+    stroke: var(--border);
+    stroke-width: 1;
+}
+.chart-line {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 2.5;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+}
+.chart-area {
+    fill: var(--accent);
+    opacity: 0.1;
+    stroke: none;
+}
+.chart-dot {
+    fill: var(--accent);
+}
+.chart-label {
+    fill: var(--muted);
+    font-size: 10px;
+}
+.chart-value {
+    fill: var(--accent);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* Záchranné kódy — jednou zobrazený seznam, ze kterého se opisuje na papír. */
+.codes {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.95rem;
+    line-height: 1.9;
+    letter-spacing: 0.05em;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.85rem 1.1rem;
+    margin: 0 0 1rem;
+}
+
+/* Karta se při doběhnutí dat objeví, místo aby blikla. */
+
+@keyframes rise {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+/*
+ * Stav ve výpisu aplikací: pod odznakem stojí, co ještě chybí — po položkách, každá odkazem
+ * na svou sekci v detailu. Přerušovaný rámeček je tvar prázdného místa, které se má vyplnit;
+ * barvu si položka bere až pod kurzorem, aby výpis nesvítil výstrahami.
+ */
+.setup-status {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    align-items: flex-start;
+}
+.setup-todo {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+.setup-todo-item {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.32rem;
+    padding: 0.1rem 0.55rem;
+    border: 1px dashed var(--border-strong);
+    border-radius: 4px;
+    font-size: 0.78rem;
+    line-height: 1.6;
+    color: var(--muted);
+    text-decoration: none;
+    transition:
+        color 0.15s ease,
+        border-color 0.15s ease,
+        background 0.15s ease;
+}
+.setup-todo-item span {
+    font-weight: 600;
+    opacity: 0.65;
+}
+.setup-todo-item:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    text-decoration: none;
+}
+
+/*
+ * Pilulka je jednou odkazem (sekce v detailu) a podruhé tlačítkem (otevírá dialog).
+ * Element na ní nesmí být poznat, takže tlačítku sebereme vzhled, který dědí po `button`:
+ * plné pozadí, tučnější písmo i propad při stisku. Hover a background se musí přebít přes
+ * `button.…`, jinak vyhraje specifičtější `button:hover:not(:disabled)`.
+ */
+button.setup-todo-item {
+    background: none;
+    font-weight: inherit;
+}
+button.setup-todo-item:hover:not(:disabled) {
+    background: var(--accent-soft);
+}
+button.setup-todo-item:active:not(:disabled) {
+    transform: none;
+}
+
+/*
+ * Doskok z odkazu „chybí klíč". Po scrollu se přes kartu rozlije vlna a rámeček krátce
+ * zesílí — jinak člověk přijde na stránku plnou karet a neví, kam koukat.
+ *
+ * Obojí kreslí pseudoelementy, ne karta sama: `animation` na `.card.ripple` by přebila
+ * příchozí `rise` a po odebrání třídy by se `rise` spustilo znovu — karta by na okamžik
+ * zmizela a naskočila.
+ */
+.card.ripple {
+    position: relative;
+    overflow: hidden;
+}
+.card.ripple::before,
+.card.ripple::after {
+    content: '';
+    position: absolute;
+    pointer-events: none;
+}
+/* Vlna. Vychází z horní hrany, tedy odtud, kam stránka doskrolovala. */
+.card.ripple::after {
+    left: 50%;
+    top: 0;
+    width: 12px;
+    height: 12px;
+    margin: -6px 0 0 -6px;
+    border-radius: 50%;
+    background: var(--accent-soft);
+    animation: ripple 1.5s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+/* Rámeček zevnitř — vnější stín by `overflow: hidden` stejně uřízlo. */
+.card.ripple::before {
+    inset: 0;
+    border-radius: inherit;
+    box-shadow:
+        inset 0 0 0 1px var(--accent),
+        inset 0 0 0 4px var(--accent-ring);
+    animation: focus-frame 1.8s ease-out both;
+}
+@keyframes ripple {
+    from {
+        opacity: 1;
+        transform: scale(1);
+    }
+    to {
+        opacity: 0;
+        transform: scale(180);
+    }
+}
+@keyframes focus-frame {
+    0%,
+    35% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+    }
+}
+
+/*
+ * Dialogy pro napojení storů. Vedou člověka cizí konzolí, takže mají o dva prvky víc než
+ * zbytek console: číslovaný postup, který se čte shora dolů, a hodnotu k přenesení, která
+ * se musí dát zkopírovat jedním kliknutím — ručně opsaný e-mail service accountu je
+ * nejspolehlivější způsob, jak si pozvánku rozbít o překlep.
+ */
+a.button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.52rem 0.95rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-strong);
+    background: var(--surface);
+    color: var(--text);
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+}
+a.button:hover {
+    background: var(--surface-2);
+    border-color: var(--faint);
+    text-decoration: none;
+}
+
+.copy-value {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+.copy-value code {
+    flex: 1 1 18rem;
+    padding: 0.5rem 0.7rem;
+    font-size: 0.86rem;
+    word-break: break-all;
+}
+
+.howto {
+    margin: 0;
+    padding-left: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    font-size: 0.9rem;
+}
+.howto li::marker {
+    color: var(--muted);
+}
+
+/* Přerušovaný rámeček je tvar prázdného místa: sem se soubor pustí. */
+.dropzone {
+    width: 100%;
+    padding: 1.4rem 1rem;
+    border: 1px dashed var(--border-strong);
+    border-radius: var(--radius);
+    background: var(--surface-2);
+    color: var(--muted);
+    font-weight: 500;
+    text-align: center;
+    white-space: normal;
+}
+.dropzone:hover:not(:disabled),
+.dropzone.dragging {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+/* Nepovinný krok. Sbalený, protože bez něj napojení funguje — jen chudší o oficiální čísla. */
+.optional {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.75rem 0.9rem;
+}
+.optional > summary {
+    cursor: pointer;
+    font-weight: 550;
+}
+.optional > *:not(summary) {
+    margin-top: 0.75rem;
+}
+
+.picklist {
+    gap: 0.2rem;
+}
+.pick {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    padding: 0.5rem 0.6rem;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+}
+.pick:hover {
+    background: var(--surface-2);
+}
+.pick input {
+    width: auto;
+    margin: 0.3rem 0 0;
+    flex: none;
+}
+.pick > span {
+    flex: 1;
+}
+
+.error-inline {
+    color: var(--error);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* Nálada v čase (F8). Barvy z odznaků, ať stránka a štítky u recenzí mluví stejně. */
+.mood-positive {
+    fill: var(--ok);
+    opacity: 0.75;
+}
+.mood-neutral {
+    fill: var(--border-strong);
+}
+.mood-negative {
+    fill: var(--error);
+    opacity: 0.75;
+}
+.sparkline {
+    width: 3rem;
+    height: 1rem;
+    display: block;
+}
+.spark-bar {
+    fill: var(--muted);
+    opacity: 0.6;
+}
+
+/* Podíl tématu jako pruh v tabulce — číslo v procentech vedle sebe lidi neporovnávají. */
+.share-bar {
+    display: block;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--surface-2);
+    overflow: hidden;
+    min-width: 4rem;
+}
+.share-bar > span {
+    display: block;
+    height: 100%;
+    background: var(--ok);
+}
+.share-bar > span.bad {
+    background: var(--error);
+}
+
+/* Sekce dlouhého formuláře (nastavení appky): nadpis s linkou, ať se v něm dá orientovat. */
+.form-section {
+    margin: 1.5rem 0 0.85rem;
+    padding-top: 1.1rem;
+    border-top: 1px solid var(--border);
+}
+.form-section + .field {
+    margin-top: 0;
+}
+
+/* Seznam verzí, které na hodnocení dopadu teprve sbírají recenze — jedna řádka na verzi. */
+.collecting-list {
+    list-style: none;
+    margin: 0.85rem 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+.collecting-list li {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.15rem 0.6rem;
+    font-size: 0.88rem;
+    color: var(--muted);
+}
+/* Na úzkém displeji se řádek láme mezi údaji, ne uprostřed „App Store“ nebo data. */
+.collecting-list li > * {
+    white-space: nowrap;
+}
+.collecting-list strong {
+    color: var(--text);
+    font-weight: 600;
+}
+
+/* Velké číslo nad blokem: nálada, počet recenzí, podíl odpovědí. */
+.metrics {
+    display: flex;
+    gap: 2rem;
+    flex-wrap: wrap;
+}
+.metric-value {
+    font-size: 2.25rem;
+    font-weight: 550;
+    letter-spacing: -0.04em;
+    line-height: 1.2;
+}
+.metric-label {
+    font-size: 0.8rem;
+    color: var(--muted);
+}
+.metric-delta {
+    font-size: 0.85rem;
+}
+.metric-delta.up {
+    color: var(--ok);
+}
+.metric-delta.down {
+    color: var(--error);
+}
+
+/* Dva bloky vedle sebe; pod 900 px pod sebou, protože tabulky se do půlky nevejdou. */
+.cards-2 {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.15rem;
+}
+@media (max-width: 900px) {
+    .cards-2 {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Dopad verzí: verze, na jejíž hodnocení je zatím málo recenzí s textem. */
+.version-collecting {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    color: var(--muted);
+}
+.version-collecting strong {
+    color: var(--text);
+    font-weight: 600;
+}
+.data-dots {
+    display: inline-flex;
+    gap: 3px;
+    flex: none;
+}
+.data-dots span {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    border: 1.5px solid var(--border);
+}
+.data-dots span.filled {
+    background: var(--accent);
+    border-color: var(--accent);
+}
+
+/* --- drobnosti --- */
+
+/* Vlajka před jménem země v tabulce Trhy; emoji je o chlup níž než text, proto drobný posun. */
+.country-flag {
+    margin-right: 0.4rem;
+    position: relative;
+    top: 0.04em;
+}
+
+/* Stránkování auditu pod tabulkou — rozestup, aby se tlačítka nelepila na poslední řádek. */
+.audit-pager {
+    margin-top: 0.85rem;
+}
+
+/* Hotový průvodce: tři „co dál" odkazy s vysvětlením pod sebou. */
+.next-steps {
+    list-style: none;
+    margin: 0.5rem 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+}
+.next-steps li {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+}
+
+/* První sekce v kartě navazuje rovnou na nadpis karty — linka nad ní by zdvojila okraj. */
+.form-section.first {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
+}
+/* Počítadlo znaků šablony: vpravo pod textareou, přes limit Google Play varovnou barvou. */
+.template-count {
+    text-align: right;
+    margin-top: 0.3rem;
+}
+.template-count .warn {
+    color: var(--warn);
+}
+
+/* --- telefon --- */
+@media (max-width: 620px) {
+    /* Nadpis a akce vedle sebe: když se nevejdou, akce spadne pod text, místo aby ho drtila. */
+    .spread {
+        flex-wrap: wrap;
+    }
+
+    /*
+   * Tabulky se seznamem (členové, pozvánky, audit) se na telefonu skládají do řádků-karet:
+   * hlavní údaj nahoře, zbytek pod ním. Posouvání tabulky do strany schová sloupec s akcí.
+   * `.lead` je hlavní údaj, `.full` sloupec přes celou šířku, `.end` akce vpravo.
+   */
+    table.row-cards {
+        margin-top: 0.75rem;
+    }
+    .card > table.row-cards:first-child,
+    .card > h2 + table.row-cards {
+        margin-top: 0;
+    }
+    table.row-cards thead {
+        display: none;
+    }
+    table.row-cards,
+    table.row-cards tbody {
+        display: block;
+    }
+    table.row-cards tbody tr {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.3rem 0.75rem;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid var(--border);
+    }
+    table.row-cards tbody tr:first-child {
+        padding-top: 0;
+    }
+    table.row-cards tbody tr:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+    table.row-cards tbody tr:hover {
+        background: none;
+    }
+    table.row-cards tbody td {
+        display: block;
+        padding: 0;
+        border: 0;
+        white-space: normal;
+    }
+    table.row-cards tbody td:empty {
+        display: none;
+    }
+    table.row-cards tbody td.lead {
+        order: -1;
+        flex-basis: 100%;
+        font-weight: 550;
+    }
+    table.row-cards tbody td.lead .small {
+        font-weight: 400;
+    }
+    table.row-cards tbody td.full {
+        flex-basis: 100%;
+    }
+    table.row-cards tbody td.end {
+        margin-left: auto;
+    }
+    table.row-cards tbody td[data-label]::before {
+        content: attr(data-label) ' ';
+        color: var(--muted);
+    }
+    table.row-cards .select-root {
+        width: auto;
+        min-width: 9rem;
+    }
+}
+
+/* Klávesové zkratky nemá smysl ukazovat na dotykovém zařízení bez klávesnice. */
+@media (hover: none) and (pointer: coarse) {
+    .keyboard-only {
+        display: none;
+    }
+}

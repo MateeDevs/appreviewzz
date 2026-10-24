@@ -334,6 +334,15 @@ class ReviewRoutesTest :
             }
         }
 
+        "pracovní souhrn není omezený stránkou dvou set recenzí" {
+            testApplication {
+                consoleModule(mailer, replyQueue = queue)
+                val (owner, appId) = ownerWithApp(mailer)
+                repeat(205) { index -> seedReview(SLUG, appId, "gp-$index") }
+                owner.get("/api/orgs/$SLUG/health").bodyAsText() shouldContain "\"pendingReviews\":205"
+            }
+        }
+
         "audit log zaznamenal onboarding" {
             testApplication {
                 consoleModule(mailer, replyQueue = queue)

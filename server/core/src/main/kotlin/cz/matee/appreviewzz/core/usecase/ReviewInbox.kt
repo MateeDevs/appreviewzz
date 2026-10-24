@@ -5,11 +5,13 @@ import cz.matee.appreviewzz.core.model.App
 import cz.matee.appreviewzz.core.model.AppId
 import cz.matee.appreviewzz.core.model.Channel
 import cz.matee.appreviewzz.core.model.CredentialMeta
+import cz.matee.appreviewzz.core.model.CredentialPurpose
 import cz.matee.appreviewzz.core.model.CredentialType
 import cz.matee.appreviewzz.core.model.FailedJob
 import cz.matee.appreviewzz.core.model.OrgRole
 import cz.matee.appreviewzz.core.model.Organization
 import cz.matee.appreviewzz.core.model.OrganizationId
+import cz.matee.appreviewzz.core.model.Platform
 import cz.matee.appreviewzz.core.model.Reply
 import cz.matee.appreviewzz.core.model.Review
 import cz.matee.appreviewzz.core.model.ReviewId
@@ -31,6 +33,10 @@ import cz.matee.appreviewzz.core.port.ReviewInsightRepository
 import cz.matee.appreviewzz.core.port.ReviewMessageRepository
 import cz.matee.appreviewzz.core.port.ReviewRepository
 import cz.matee.appreviewzz.core.port.auditEntry
+import kotlinx.datetime.DatePeriod
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atStartOfDayIn
+import kotlinx.datetime.plus
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Instant
 
@@ -116,8 +122,8 @@ class ReviewInbox(
         filter: ReviewFilter,
         limit: Int,
     ): List<InboxItem> {
-        apps.findById(orgId, appId) ?: throw ConsoleException(ConsoleFailure.NOT_FOUND, "Taková aplikace tu není")
-        val found = reviews.listByApp(orgId, appId, filter, limit.coerceIn(1, MAX_LIMIT))
+        val app = apps.findById(orgId, appId) ?: throw ConsoleException(ConsoleFailure.NOT_FOUND, "Taková aplikace tu není")
+        val found = reviews.listByApp(orgId, appId, filter.inZone(app.timezone), limit.coerceIn(1, MAX_LIMIT))
         val byReview = insights.findByReviews(orgId, found.map { it.id })
         return found.map { InboxItem(it, byReview[it.id]) }
     }
@@ -128,8 +134,19 @@ class ReviewInbox(
         appId: AppId,
         filter: ReviewFilter,
     ): Long {
-        apps.findById(orgId, appId) ?: throw ConsoleException(ConsoleFailure.NOT_FOUND, "Taková aplikace tu není")
-        return reviews.countByApp(orgId, appId, filter)
+        val app = apps.findById(orgId, appId) ?: throw ConsoleException(ConsoleFailure.NOT_FOUND, "Taková aplikace tu není")
+        return reviews.countByApp(orgId, appId, filter.inZone(app.timezone))
+    }
+
+    private fun ReviewFilter.inZone(timezone: String): ReviewFilter {
+        if (from != null && to != null && from > to) {
+            throw ConsoleException(ConsoleFailure.INVALID_INPUT, "Začátek období musí být před koncem.")
+        }
+        val zone = runCatching { TimeZone.of(timezone) }.getOrDefault(TimeZone.UTC)
+        return copy(
+            submittedFrom = from?.atStartOfDayIn(zone),
+            submittedBefore = to?.plus(DatePeriod(days = 1))?.atStartOfDayIn(zone),
+        )
     }
 
     /**
@@ -234,40 +251,73 @@ class ReviewInbox(
      * Podklad pro „proč nic nechodí". Schválně bez chytré diagnostiky: console ukáže
      * fakta (klíč neověřený, kanál vypnutý, úloha v DLQ) a člověk si spojí, co s tím.
      */
-    fun health(orgId: OrganizationId): OrgHealth {
-        val credentialsOfOrg = credentials.listByOrg(orgId)
-        return OrgHealth(
+    fun health(orgId: OrganizationId): OrgHealth =
+        OrgHealth(
             apps =
                 apps.listByOrg(orgId).map { app ->
                     val recent = reviews.listByApp(orgId, app.id, ReviewFilter(), HEALTH_SAMPLE)
                     // Stejná definice jako filtr „Čeká na odpověď" v inboxu — jinak přehled hlásí
                     // nulu a o kus dál svítí čtyřicet recenzí, které čekají.
-                    val pending = reviews.listByApp(orgId, app.id, ReviewFilter(states = PENDING_STATES), MAX_LIMIT)
+                    val pending =
+                        if (app.competitor) {
+                            0
+                        } else {
+                            reviews
+                                .countByApp(
+                                    orgId,
+                                    app.id,
+                                    ReviewFilter(states = PENDING_STATES),
+                                ).toInt()
+                        }
                     // Naléhavé zvlášť: čtyřicet čekajících je číslo, tři naléhavé jsou úkol na ráno.
-                    val urgent = insights.findByReviews(orgId, pending.map { it.id }).values.count { it.urgency == Urgency.HIGH }
+                    val urgent =
+                        if (app.competitor) {
+                            0
+                        } else {
+                            reviews
+                                .countByApp(
+                                    orgId,
+                                    app.id,
+                                    ReviewFilter(states = PENDING_STATES, urgencies = setOf(Urgency.HIGH)),
+                                ).toInt()
+                        }
                     AppHealth(
                         app = app,
                         channels = channels.listByApp(orgId, app.id),
                         // Slack instalace není klíč ke storu; „neověřený" u ní nic neznamená.
-                        credentials = credentialsOfOrg.filter { it.type in STORE_KEY_TYPES },
+                        credentials =
+                            app
+                                .platforms()
+                                .mapNotNull { platform ->
+                                    credentials.findForApp(
+                                        orgId,
+                                        app.id,
+                                        CredentialPurpose.REVIEWS,
+                                        if (platform ==
+                                            Platform.IOS
+                                        ) {
+                                            CredentialType.ASC_API_KEY
+                                        } else {
+                                            CredentialType.GP_SERVICE_ACCOUNT
+                                        },
+                                    )
+                                }.distinctBy { it.id },
                         lastReviewAt = recent.firstOrNull()?.submittedAt,
-                        pendingReviews = pending.size,
+                        pendingReviews = pending,
                         pendingUrgent = urgent,
                     )
                 },
             failedJobs = failedJobs.listOpenByOrg(orgId, DLQ_LIMIT),
         )
-    }
 
     private companion object {
         const val MAX_LIMIT = 200
 
         /** Vzorek pro health — na „kdy naposledy něco přišlo" nemá smysl číst celou tabulku. */
-        const val HEALTH_SAMPLE = 50
+        const val HEALTH_SAMPLE = 1
         const val DLQ_LIMIT = 50
         val MANUAL_STATES = setOf(ReviewState.IGNORED, ReviewState.NEW)
         val PENDING_STATES = setOf(ReviewState.NEW, ReviewState.UPDATED, ReviewState.NOTIFIED)
-        val STORE_KEY_TYPES = setOf(CredentialType.GP_SERVICE_ACCOUNT, CredentialType.ASC_API_KEY)
 
         /** Okno pro počty témat ve výběru — měsíc je to, co si klient pamatuje. */
         val RECENT_WINDOW = 30.days

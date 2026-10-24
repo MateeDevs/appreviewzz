@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useCreateOrganization, useMe, useOrganizations, useResendVerification } from '../api/hooks'
 import { AuthShell, Card, ErrorBox, Field, Loading } from '../components/ui'
-import { PlatformDialog } from './Platform'
+const PlatformDialog = lazy(() => import('./Platform').then((module) => ({ default: module.PlatformDialog })))
 
 /**
  * Rozcestník: seznam organizací a založení nové.
@@ -23,7 +23,7 @@ export function OrganizationsPage() {
 
   return (
     <AuthShell wide>
-      <Card title="Tvoje organizace">
+      <Card title="Vyberte organizaci">
         {organizations.isPending ? <Loading /> : null}
         <ErrorBox error={organizations.error} />
         {organizations.data?.length === 0 ? (
@@ -33,7 +33,9 @@ export function OrganizationsPage() {
             {organizations.data?.map((organization) => (
               <li key={organization.id}>
                 <Link to={`/${organization.slug}`}>{organization.name}</Link>
-                <span className="badge">{organization.role.toLowerCase()}</span>
+                <span className="badge">
+                  {{ OWNER: 'vlastník', ADMIN: 'správce', MEMBER: 'člen' }[organization.role]}
+                </span>
               </li>
             ))}
           </ul>
@@ -44,7 +46,12 @@ export function OrganizationsPage() {
         {!verified ? (
           <div className="notice">
             Nejdřív potvrď e-mail — poslali jsme ti odkaz na <strong>{me.data?.email}</strong>.{' '}
-            <button type="button" className="link" onClick={() => resend.mutate()} disabled={resend.isPending}>
+            <button
+              type="button"
+              className="link"
+              onClick={() => resend.mutate()}
+              disabled={resend.isPending}
+            >
               Poslat znovu
             </button>
             {resend.isSuccess ? <span className="muted"> · odesláno</span> : null}
@@ -53,7 +60,10 @@ export function OrganizationsPage() {
           <form
             onSubmit={(event) => {
               event.preventDefault()
-              create.mutate({ name }, { onSuccess: (organization) => navigate(`/${organization.slug}/onboarding`) })
+              create.mutate(
+                { name },
+                { onSuccess: (organization) => navigate(`/${organization.slug}/onboarding`) },
+              )
             }}
           >
             <Field label="Název" hint="Adresa do console se odvodí z názvu.">
@@ -77,7 +87,9 @@ export function OrganizationsPage() {
           </button>
         </p>
       ) : null}
-      {platform ? <PlatformDialog onClose={() => setPlatform(false)} /> : null}
-  </AuthShell>
+      <Suspense fallback={<Loading />}>
+        {platform ? <PlatformDialog onClose={() => setPlatform(false)} /> : null}
+      </Suspense>
+    </AuthShell>
   )
 }
