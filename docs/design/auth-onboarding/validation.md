@@ -42,3 +42,10 @@ První ruční sync je omezený na dvě minuty, serverový lease na pět minut. 
 V26 přidává osobní stav průchodu a výsledky prvního syncu. V27 přidává nullable stav validace na vazbu app–klíč; existující vazby převezmou dosavadní stav, nové mají UNKNOWN. Nové ověření, ingest i revalidace zapisují app-specific stav i kompatibilní metadata klíče. Připojení nového klíče nahradí starý klíč stejného typu/účelu pro danou aplikaci atomicky.
 
 Změny schématu jsou aditivní; návrat aplikace na předchozí image nevyžaduje mazání tabulek/sloupců. Při budoucí integraci revertovat konkrétní commity standardním PR a deployem, bez force push. Předchozí živý staging je `611a12b…`. Produkce se neměnila.
+
+## Review před integrací PR #7
+
+- Dokončený průvodce při ztrátě přístupu ke storu nebo pozastavení aplikace posílal při navigaci stále `completed: true`. API správně odmítlo neplatné dokončení, ale tím znemožnilo návrat na připojení. Navigace nyní znovu otevře rozpracované nastavení; platné dokončení zachová.
+- ASC dialog měl předvybranou aplikaci i tehdy, když ji klíč ve výpisu neviděl. Potvrzení pak ukázalo „Hotovo“ bez připojení. Nyní potvrzuje pouze skutečně dostupné vybrané aplikace a při chybějícím přístupu nabízí nové načtení po opravě oprávnění.
+- Čtyři nové browser scénáře: zachování platného dokončení, návrat po ztrátě oprávnění, návrat po pozastavení aplikace a oprava ASC přístupu bez opětovného uploadu. Tři chybové scénáře před opravou selhaly, po opravě všechny čtyři prošly.
+- Po opravách prošly lint, typecheck, build a celá browser sada: **55 passed / 3 opt-in skipped**. `./gradlew build` prošel; backendové reporty mají 750 testů bez chyby a přeskočení (nezměněné úlohy Gradle využily cache). Skutečné externí store účty a týmové zprávy toto review nezkoušelo.

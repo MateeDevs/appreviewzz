@@ -2,6 +2,104 @@ import { test, expect } from '@playwright/test'
 import { onboardingApi } from './onboarding-fixtures'
 import type { Platform } from '../src/api/types'
 
+for (const condition of ['ready', 'revoked', 'disabled'] as const)
+  test(`dokončený průvodce lze znovu upravit: ${condition}`, async ({
+    page,
+  }) => {
+    const state = await onboardingApi(page, { platforms: ['ANDROID'] })
+    state.progress = {
+      ...state.progress,
+      step: 'sync',
+      preferencesConfirmed: true,
+      completed: true,
+    }
+    state.apps[0]!.enabled = condition !== 'disabled'
+    state.apps[0]!.setup.credentialIds = ['existing-key']
+    state.credentials.push({
+      id: 'existing-key',
+      type: 'GP_SERVICE_ACCOUNT',
+      label: 'Test',
+      hint: null,
+      origin: 'UPLOADED',
+      fingerprint: 'synthetic',
+      validationStatus: condition === 'revoked' ? 'INVALID' : 'VALID',
+      validationError: null,
+      validatedAt: null,
+    })
+    // Stejné pravidlo jako skutečné API: neplatné nastavení nelze označit za dokončené.
+    await page.route('**/onboarding', (route) => {
+      if (
+        route.request().method() === 'PUT' &&
+        route.request().postDataJSON().completed &&
+        condition !== 'ready'
+      )
+        return route.fulfill({
+          status: 400,
+          json: {
+            message: 'Nejdřív ověřte alespoň jeden store a potvrďte preference',
+          },
+        })
+      return route.fallback()
+    })
+    await page.goto('/studio/onboarding')
+    await page
+      .getByRole('button', { name: 'Připojení storů', exact: true })
+      .click()
+    await expect(
+      page.getByRole('heading', { name: 'Otevřete cestu k recenzím.' }),
+    ).toBeVisible()
+    expect(state.progress.completed).toBe(condition === 'ready')
+  })
+
+test('ASC klíč bez přístupu k vybrané aplikaci nenabízí falešné dokončení', async ({
+  page,
+}) => {
+  const state = await onboardingApi(page, { platforms: ['IOS'] })
+  let accessible = false
+  await page.route('**/store-apps', (route) =>
+    route.fulfill({
+      json: accessible
+        ? [{ identifier: '123456789', name: 'Atlas', bundleId: 'cz.example.atlas' }]
+        : [{ identifier: '987654321', name: 'Jiná aplikace', bundleId: 'cz.example.other' }],
+    }),
+  )
+  await page.goto('/studio/onboarding')
+  await page.getByRole('button', { name: 'Připojit store', exact: true }).click()
+  await page
+    .getByRole('button', { name: 'Klíč mám, pokračovat', exact: true })
+    .click()
+  await page
+    .getByRole('dialog')
+    .locator('input[type=file]')
+    .setInputFiles({
+      name: 'AuthKey_TEST123456.p8',
+      mimeType: 'text/plain',
+      buffer: Buffer.from(
+        '-----BEGIN PRIVATE KEY-----\nsynthetic-test-only\n-----END PRIVATE KEY-----',
+      ),
+    })
+  await page
+    .getByLabel('Issuer ID', { exact: true })
+    .fill('69a6de70-0000-47e3-e053-5b8c7c11a4d1')
+  await page.getByRole('button', { name: 'Nahrát klíč', exact: true }).click()
+  await expect(page.getByRole('alert')).toContainText('Klíč nevidí aplikaci')
+  await expect(
+    page.getByRole('button', { name: 'Sledovat vybrané', exact: true }),
+  ).toBeDisabled()
+  expect(state.validates).toBe(0)
+  accessible = true
+  await page
+    .getByRole('button', { name: 'Zkusit načíst aplikace znovu', exact: true })
+    .click()
+  await page
+    .getByRole('button', { name: 'Sledovat vybrané', exact: true })
+    .click()
+  await expect(
+    page.getByRole('heading', { name: 'Hotovo', exact: true }),
+  ).toBeVisible()
+  expect(state.validates).toBe(1)
+})
+
 for (const platforms of [
   ['ANDROID'],
   ['IOS'],

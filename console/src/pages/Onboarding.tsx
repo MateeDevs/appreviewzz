@@ -104,6 +104,8 @@ export function OnboardingPage() {
     completed: false,
     started: false,
   }
+  const canComplete =
+    state.preferencesConfirmed && connected.length > 0 && app?.enabled === true
   const go = (
     next: OnboardingStep,
     changes: Partial<OnboardingProgress> = {},
@@ -114,6 +116,8 @@ export function OnboardingPage() {
         ...state,
         appId: app?.id ?? null,
         step: next,
+        // Ztráta přístupu nesmí zablokovat návrat na krok, kde se dá opravit.
+        completed: state.completed && canComplete,
         started: true,
         ...changes,
       },
@@ -356,18 +360,10 @@ export function OnboardingPage() {
                 org={org}
                 app={app}
                 connected={connected}
-                canComplete={
-                  state.preferencesConfirmed &&
-                  connected.length > 0 &&
-                  app.enabled
-                }
+                canComplete={canComplete}
                 pending={save.isPending}
                 onFinish={(to) => {
-                  if (
-                    state.preferencesConfirmed &&
-                    connected.length > 0 &&
-                    app.enabled
-                  )
+                  if (canComplete)
                     save.mutate(
                       {
                         ...state,

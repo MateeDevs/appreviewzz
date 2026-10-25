@@ -721,6 +721,12 @@ function AppStorePick({
   )
   const [outcomes, setOutcomes] = useState<PickOutcome[] | null>(null)
   const [saving, setSaving] = useState(false)
+  const availableApps = (storeApps.data ?? []).filter(
+    (candidate) => !preselect || candidate.identifier === preselect.ascAppId,
+  )
+  const selectedApps = availableApps.filter((candidate) =>
+    selected.has(candidate.identifier),
+  )
 
   const existing = new Map(
     (apps.data ?? [])
@@ -736,12 +742,10 @@ function AppStorePick({
   }, [client, org, storeApps.isPending, storeApps.status])
 
   const confirm = async () => {
-    if (saving) return
+    if (saving || selectedApps.length === 0) return
     setSaving(true)
     const results: PickOutcome[] = []
-    for (const storeApp of (storeApps.data ?? []).filter((candidate) =>
-      selected.has(candidate.identifier),
-    )) {
+    for (const storeApp of selectedApps) {
       try {
         // Appka už v organizaci být může (přidaná odkazem ze storu) — pak se jen připojí klíč.
         // Zakládat ji znovu by narazilo na unikát na asc_app_id a vypadalo jako chyba klienta.
@@ -838,52 +842,58 @@ function AppStorePick({
       !storeApps.data?.some(
         (item) => item.identifier === preselect.ascAppId,
       ) ? (
-        <p className="error" role="alert">
-          Klíč nevidí aplikaci {preselect.name}. Zkontrolujte přístup v App
-          Store Connect a zkuste načíst aplikace znovu.
-        </p>
+        <>
+          <p className="error" role="alert">
+            Klíč nevidí aplikaci {preselect.name}. Zkontrolujte přístup v App
+            Store Connect a zkuste načíst aplikace znovu.
+          </p>
+          <button
+            type="button"
+            className="secondary"
+            disabled={storeApps.isFetching}
+            onClick={() => void storeApps.refetch()}
+          >
+            Zkusit načíst aplikace znovu
+          </button>
+        </>
       ) : null}
       {storeApps.data?.length === 0 ? (
         <p className="muted">{appStoreCopy.pick.empty}</p>
       ) : null}
       <div className="stack picklist">
-        {storeApps.data
-          ?.filter(
-            (item) => !preselect || item.identifier === preselect.ascAppId,
-          )
-          .map((storeApp: StoreApp) => (
-            <label key={storeApp.identifier} className="pick">
-              <input
-                type="checkbox"
-                checked={selected.has(storeApp.identifier)}
-                onChange={(event) =>
-                  setSelected((current) => {
-                    const next = new Set(current)
-                    if (event.target.checked) next.add(storeApp.identifier)
-                    else next.delete(storeApp.identifier)
-                    return next
-                  })
-                }
-              />
-              <span>
-                {storeApp.name}
-                <span className="small muted">
-                  {' '}
-                  {storeApp.bundleId ?? storeApp.identifier}
-                </span>
+        {availableApps.map((storeApp: StoreApp) => (
+          <label key={storeApp.identifier} className="pick">
+            <input
+              type="checkbox"
+              checked={selected.has(storeApp.identifier)}
+              onChange={(event) =>
+                setSelected((current) => {
+                  const next = new Set(current)
+                  if (event.target.checked) next.add(storeApp.identifier)
+                  else next.delete(storeApp.identifier)
+                  return next
+                })
+              }
+            />
+            <span>
+              {storeApp.name}
+              <span className="small muted">
+                {' '}
+                {storeApp.bundleId ?? storeApp.identifier}
               </span>
-              {existing.has(storeApp.identifier) ? (
-                <Badge>{appStoreCopy.pick.existing}</Badge>
-              ) : null}
-            </label>
-          ))}
+            </span>
+            {existing.has(storeApp.identifier) ? (
+              <Badge>{appStoreCopy.pick.existing}</Badge>
+            ) : null}
+          </label>
+        ))}
       </div>
 
       <p className="small muted">{appStoreCopy.pick.moderation}</p>
       <div className="row">
         <button
           type="button"
-          disabled={selected.size === 0 || saving}
+          disabled={selectedApps.length === 0 || saving || storeApps.isFetching}
           onClick={() => void confirm()}
         >
           {saving ? 'Ukládám…' : appStoreCopy.pick.submit}
