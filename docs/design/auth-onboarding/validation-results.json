@@ -11,7 +11,7 @@
   },
   "browser": {
     "transport": "stateful isolated mocks",
-    "fullPassed": 50,
+    "fullPassed": 51,
     "optInSkipped": 3,
     "finalActivationPassed": 17,
     "visualAxeMatrixPassed": 5,
@@ -27,7 +27,8 @@
       "dark"
     ],
     "zoom": "CSS 200%, not browser chrome",
-    "reducedMotion": true
+    "reducedMotion": true,
+    "passwordResetSessionRegression": "red before fix, green after fix"
   },
   "backend": {
     "fullBuild": "passed",

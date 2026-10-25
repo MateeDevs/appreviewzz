@@ -10,11 +10,11 @@ PR: https://github.com/MateeDevs/appreviewzz/pull/7 · [aktuální CI](https://g
 | Kontrola | Výsledek |
 | --- | --- |
 | Čisté `npm ci --no-audit --no-fund` | Prošlo. |
-| Console lint, typecheck včetně testů, build | Prošlo po čistém npm ci. JS gzip 151,00 kB, CSS gzip 10,52 kB. Vite hlásí doporučení rozdělit počáteční 502 kB minifikovaný chunk; proti předchozímu redesignu je gzip JS vyšší přibližně o 4,5 %. |
+| Console lint, typecheck včetně testů, build | Prošlo po čistém npm ci. JS gzip přibližně 151 kB, CSS gzip 10,52 kB. Vite hlásí doporučení rozdělit počáteční 502 kB minifikovaný chunk; proti předchozímu redesignu je gzip JS vyšší přibližně o 4,5 %. |
 | `./gradlew build :server:app:installDist`, JDK 21 | Prošlo; 750 testů, 0 chyb, 0 přeskočených. |
 | Záloha a obnova PostgreSQL | Prošlo i s migracemi 26/27; skutečný klient PostgreSQL 17 v izolovaném Docker kontejneru přes lokální wrappery. |
 | Onboarding backend | 5 integračních regresí nad PostgreSQL: nová session, dokončení bez kanálu, klíč konkrétní aplikace, role/tenant/CSRF/neplatná ID, souběh a expirace lease. |
-| Browser regrese | 50 prošlo / 3 opt-in utility přeskočeny. Skutečný lokální smoke spuštěn samostatně a prošel; po poslední mobilní úpravě prošlo navazujících 17/17 regresí aktivace. |
+| Browser regrese | 51 prošlo / 3 opt-in utility přeskočeny. Skutečný lokální smoke spuštěn samostatně a prošel; po poslední mobilní úpravě prošlo navazujících 17/17 regresí aktivace. |
 | Skutečný lokální Ktor/Postgres | Prošlo: izolovaný účet, registrace, skutečný ověřovací odkaz, prostor, vlastní appka, refresh, nedostupný provisioning, preference, přeskočení integrací, nenakonfigurovaný import, odhlášení, nový login, návrat na deep link i rozpracovaný krok přes `/`. |
 | Responzivita | 1440, 1024, 768, 390, 360 CSS px, obě témata; login/auth a všech pět kroků, navíc čekání/running/empty/failed/ready. Bez horizontálního overflow. |
 | Přístupnost | axe WCAG 2 A/AA včetně kontrastu; klávesnice, heslo, modal Escape a návrat fokusu, fokus nadpisu po kroku, reduced motion. CSS zoom 200 % při 1440 px; nejde o měření browser chrome zoomu. |
@@ -26,6 +26,8 @@ PR: https://github.com/MateeDevs/appreviewzz/pull/7 · [aktuální CI](https://g
 - Integrační API testy používají skutečný PostgreSQL, cookies, CSRF, vault a tenant dotazy, ale falešné konektory a mailer. Obsah testovacích klíčů je generovaný.
 - Lokální smoke nepoužívá mock transportu. Běžel na samostatném API :8092, Vite :5176 s oddělenou cache a samostatném PostgreSQL :55433, bez workeru, SMTP, store účtů a týmových kanálů. Ověřovací odkaz načítal z výslovně povoleného lokálního log maileru, nikoli z produkčního logu.
 - Odeslání zákaznické odpovědi, skutečné Slack/Teams zprávy a autorizace skutečného store účtu nebyly prováděny. Ověření těchto externích přístupů vyžaduje vyhrazené účty a klíče. OAuth odkaz a doručení jsou regresně pokryté izolovaným transportem.
+
+Dodatečná regrese ověřila reset hesla z otevřené přihlášené konzole. Po úspěšném resetu se maže i klientský profil a koncepty; zastaralá cache tak nepřeskočí nové přihlášení. Test před opravou selhal a po opravě prošel v celé sadě.
 
 ## Stav a bezpečnost
 

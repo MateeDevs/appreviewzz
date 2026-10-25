@@ -57,3 +57,8 @@ Další krok: push + vytvořit PR, sledovat CI. Po jeho dokončení přidat odka
 - CI spuštěné PR: https://github.com/MateeDevs/appreviewzz/actions/runs/40199467852. [Aktuální kontroly PR](https://github.com/MateeDevs/appreviewzz/pull/7/checks) vždy ukazují nejnovější head včetně dokumentace.
 - Lokální implementace a ověření dokončené. PR zůstává otevřený pro review; do staging větve se nepřelévá automaticky. Před integrací musí být všechny aktuální kontroly zelené. Staging/prod se neměnily.
 - Případné další ověření reálných storů a týmových zpráv vyžaduje vyhrazené externí účty/kanály; nebylo nahrazeno tvrzením o staging E2E.
+
+## Dodatečná regrese resetu hesla
+- Závěrečný audit auth našel starý profil v cache po resetu hesla z už přihlášené konzole. Server relace zrušil, ale klient mohl přeskočit nové přihlášení. Nový browser test před opravou selhal.
+- `useResetPassword` po úspěchu zahodí profil, tenant cache a koncepty stejně jako odhlášení. Poslední kompletní sada po opravě: **51 passed / 3 opt-in skipped**, lint/typecheck/build zelené.
+- Oprava je doplněná do stejného PR #7. Po posledním pushe je rozhodující aktuální head a jeho checks, nikoli zrušené běhy předchozích headů. Staging zůstává nezměněný.

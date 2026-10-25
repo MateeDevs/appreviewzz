@@ -177,9 +177,16 @@ export function useForgotPassword() {
 }
 
 export function useResetPassword() {
+  const client = useQueryClient()
   return useMutation({
     mutationFn: (input: { token: string; password: string }) =>
       api.post<void>('/api/auth/password/reset', input),
+    onSuccess: () => {
+      // Reset na serveru ruší i aktuální session. Stará cache nesmí přeskočit nový login.
+      clearDrafts()
+      client.setQueryData(['me'], null)
+      client.removeQueries({ predicate: (query) => query.queryKey[0] !== 'me' })
+    },
   })
 }
 

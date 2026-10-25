@@ -192,3 +192,22 @@ test('neplatný reset a ověření mají cestu k novému odkazu, API chyba dovol
     page.getByRole('link', { name: 'Přihlaste se', exact: true }),
   ).toBeVisible()
 })
+
+test('reset hesla zruší i profil v otevřené konzoli a nabídne nové přihlášení', async ({ page }) => {
+  await mockApi(page)
+  let reset = false
+  await page.route('**/api/auth/me', async (route) => {
+    if (reset) return route.fulfill({ status: 401, json: {} })
+    return route.fallback()
+  })
+  await page.route('**/api/auth/password/reset', (route) => {
+    reset = true
+    return route.fulfill({ status: 204 })
+  })
+  await page.goto('/obnova-hesla?token=synthetic-valid-reset')
+  await page.getByLabel('Nové heslo').fill('Dlouhe-nove-testovaci-heslo')
+  await page.getByRole('button', { name: 'Nastavit heslo', exact: true }).click()
+  await page.getByRole('link', { name: 'Přihlásit se', exact: true }).click()
+  await expect(page).toHaveURL('/login')
+  await expect(page.getByRole('heading', { name: 'Vítejte zpátky', exact: true })).toBeVisible()
+})
