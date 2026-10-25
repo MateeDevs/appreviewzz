@@ -217,6 +217,9 @@ internal object Apps : Table("app") {
 }
 
 internal object AppCredentials : Table("app_credential") {
+    val validationStatus = enumerationByName<ValidationStatus>("validation_status", ENUM_LENGTH).nullable()
+    val validationError = text("validation_error").nullable()
+    val validatedAt = instant("validated_at").nullable()
     val appId = appId()
     val credentialId = credentialId()
     val purpose = enumerationByName<CredentialPurpose>("purpose", ENUM_LENGTH)

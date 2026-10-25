@@ -13,13 +13,16 @@ export class ApiError extends Error {
     readonly status: number,
     readonly code: string,
     message: string,
+    readonly retryAfter?: number,
   ) {
     super(message)
   }
 }
 
 function csrfToken(): string | null {
-  const match = document.cookie.match(new RegExp(`(?:^|; )${CSRF_COOKIE}=([^;]*)`))
+  const match = document.cookie.match(
+    new RegExp(`(?:^|; )${CSRF_COOKIE}=([^;]*)`),
+  )
   return match?.[1] ? decodeURIComponent(match[1]) : null
 }
 
@@ -29,7 +32,11 @@ export async function ensureCsrf(): Promise<void> {
   await fetch('/api/auth/csrf', { credentials: 'same-origin' })
 }
 
-async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+async function request<T>(
+  method: string,
+  path: string,
+  body?: unknown,
+): Promise<T> {
   if (method !== 'GET') await ensureCsrf()
 
   const headers: Record<string, string> = {}
@@ -37,16 +44,35 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   const token = csrfToken()
   if (token) headers[CSRF_HEADER] = token
 
-  const response = await fetch(path, {
-    method,
-    credentials: 'same-origin',
-    headers,
-    body: body === undefined ? undefined : JSON.stringify(body),
-  })
+  let response: Response
+  try {
+    response = await fetch(path, {
+      method,
+      credentials: 'same-origin',
+      headers,
+      body: body === undefined ? undefined : JSON.stringify(body),
+    })
+  } catch {
+    throw new ApiError(
+      0,
+      'network_error',
+      'Spojení se serverem se nepodařilo. Zkontrolujte připojení a zkuste to znovu.',
+    )
+  }
 
   if (response.status === 204) return undefined as T
   const text = await response.text()
-  const payload: unknown = text ? JSON.parse(text) : null
+  let payload: unknown = null
+  try {
+    payload = text ? JSON.parse(text) : null
+  } catch {
+    if (response.ok)
+      throw new ApiError(
+        response.status,
+        'invalid_response',
+        'Server vrátil neúplnou odpověď. Zkuste akci znovu.',
+      )
+  }
 
   if (!response.ok) {
     const detail = payload as { error?: string; message?: string } | null
@@ -54,6 +80,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
       response.status,
       detail?.error ?? 'unknown_error',
       detail?.message ?? popisChyby(response.status),
+      Number(response.headers.get('Retry-After')) || undefined,
     )
   }
   return payload as T
@@ -76,9 +103,10 @@ function popisChyby(status: number): string {
 }
 
 export const api = {
-  get: <T,>(path: string) => request<T>('GET', path),
-  post: <T,>(path: string, body?: unknown) => request<T>('POST', path, body ?? {}),
-  put: <T,>(path: string, body: unknown) => request<T>('PUT', path, body),
-  patch: <T,>(path: string, body: unknown) => request<T>('PATCH', path, body),
-  delete: <T,>(path: string) => request<T>('DELETE', path),
+  get: <T>(path: string) => request<T>('GET', path),
+  post: <T>(path: string, body?: unknown) =>
+    request<T>('POST', path, body ?? {}),
+  put: <T>(path: string, body: unknown) => request<T>('PUT', path, body),
+  patch: <T>(path: string, body: unknown) => request<T>('PATCH', path, body),
+  delete: <T>(path: string) => request<T>('DELETE', path),
 }

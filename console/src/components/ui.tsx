@@ -115,7 +115,13 @@ export function AuthShell({ wide, children }: { wide?: boolean; children: ReactN
             <br />
             Od prvního postřehu k další dobré odpovědi.
           </p>
-          <SignalArt />
+          <div className="auth-preview" aria-label="Ukázka práce s recenzí, syntetická data">
+            <div className="spread"><span className="eyebrow">Ukázka produktu</span><span className="preview-dot">●</span></div>
+            <div className="preview-app"><span className="preview-icon">A</span><div><strong>Atlas</strong><span className="small">App Store · ukázková recenze</span></div><span className="preview-stars" aria-label="4 z 5 hvězd">★★★★☆</span></div>
+            <p className="preview-review">„Přehled je skvělý. Jen mi chybí možnost exportovat výsledky.“</p>
+            <div className="preview-topic">↗ Požadavek na funkci <span>Export</span></div>
+            <div className="preview-reply"><span className="small">Návrh odpovědi · ke kontrole</span><p>Děkujeme za podnět. Předáme ho týmu, který pracuje na přehledech.</p></div>
+          </div>
         </div>
         <span className="small">App Store & Google Play · V jednom pracovním prostoru</span>
       </aside>
@@ -123,6 +129,7 @@ export function AuthShell({ wide, children }: { wide?: boolean; children: ReactN
         <div className={wide ? 'auth wide' : 'auth'}>
           <div className="auth-brand">
             <Brand />
+            <p className="small muted">Každá recenze je zpětná vazba.</p>
           </div>
           {children}
         </div>

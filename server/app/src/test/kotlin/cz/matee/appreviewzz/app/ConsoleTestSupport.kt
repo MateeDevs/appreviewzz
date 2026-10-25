@@ -462,6 +462,19 @@ fun ApplicationTestBuilder.consoleModule(
                     auth = auth,
                     orgs = orgs,
                     apps = appService,
+                    onboarding =
+                        cz.matee.appreviewzz.persistence.repository
+                            .ExposedOnboardingRepository(exposed),
+                    onboardingIngest =
+                        cz.matee.appreviewzz.core.usecase.IngestReviewsUseCase(
+                            apps = appRepository,
+                            credentials = credentialRepository,
+                            reviews = ExposedReviewRepository(exposed),
+                            secrets = vault,
+                            audit = audit,
+                            sources = listOf(fakes.googlePlay, fakes.appStore),
+                            clock = clock,
+                        ),
                     appSetup = AppSetupCheck(credentials = credentialRepository, channels = channelRepository),
                     credentials = credentialService,
                     channels = channelService,

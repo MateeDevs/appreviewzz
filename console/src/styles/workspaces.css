@@ -897,3 +897,74 @@ button.review-preview:hover:not(:disabled) {
 .mini-line .chart-line {
     stroke-width: 1.75;
 }
+
+/* Souvislý průchod aktivací; jeden pracovní krok a stálý kontext. */
+.activation-page { max-width: 1180px; margin: 0 auto; }
+.activation-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--border); padding-bottom: 24px; margin-bottom: 36px; }
+.activation-top a { font-size: 12px; }
+.activation-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: clamp(28px, 4vw, 60px); }
+.activation-caption { font-size: 22px; line-height: 1.25; font-weight: 550; letter-spacing: -.04em; margin-bottom: 32px; }
+.activation-steps ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.activation-steps button { padding: 10px 8px; width: 100%; background: transparent; color: var(--muted); display: flex; text-align: left; justify-content: flex-start; gap: 12px; font-size: 13px; min-height: 54px; border: 1px solid transparent; }
+.activation-steps button:hover:not(:disabled) { color: var(--text); background: var(--surface-2); }
+.activation-steps button[aria-current] { color: var(--accent); background: var(--accent-soft); border-color: var(--accent-ring); }
+.activation-number { font-size: 12px; font-variant-numeric: tabular-nums; padding-top: 1px; }
+.activation-steps small { display: block; font-size: 10px; font-weight: 400; color: var(--muted); margin-top: 4px; }
+.activation-assurance { border-top: 1px solid var(--border); margin-top: 32px; padding-top: 24px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.activation-assurance > span { font-size: 22px; color: var(--accent); }
+.activation-heading h1 { font-size: clamp(28px, 3vw, 40px); max-width: 630px; line-height: 1.15; }
+.activation-heading .page-header p { line-height: 1.7; margin: 18px 0 0; }
+.activation-heading:focus { outline: none; }
+.activation-app { display: flex; align-items: center; gap: 12px; margin: 28px 0; padding: 16px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.activation-app > strong { font-size: 14px; overflow-wrap: anywhere; }
+.activation-app > span:last-child { display: flex; gap: 8px; margin-left: auto; flex-wrap: wrap; }
+.app-avatar { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 8px; background: var(--accent-soft); color: var(--accent); font-weight: 600; flex: none; }
+.activation-body { margin-top: 28px; }
+.activation-body > .first-app-form { padding: 28px; border: 1px solid var(--border); background: var(--surface); border-radius: 10px; }
+.activation-body .field + .field { margin-top: 24px; }
+.activation-body .field input { min-height: 46px; }
+.activation-body button { min-height: 44px; }
+.activation-body h2 { font-size: 19px; letter-spacing: -.025em; }
+.store-connection { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 24px; gap: 14px; }
+.store-connection h2, .store-connection p { margin: 0; }
+.store-connection .spread { gap: 12px; flex-wrap: wrap; }
+.store-connection .badge { white-space: normal; }
+.activation-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding-top: 8px; }
+.activation-footer { margin-top: 36px; padding-top: 20px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; gap: 20px; align-items: center; font-size: 11px; color: var(--muted); }
+.activation-footer > span { text-align: right; }
+.activation-optional { border: 1px solid var(--border); background: var(--surface); border-radius: 8px; padding: 20px; }
+.activation-optional > summary { min-height: 44px; }
+.activation-optional summary > span { display: block; font-size: 12px; font-weight: 400; color: var(--muted); padding-top: 6px; }
+.activation-optional > .card { margin-top: 20px; padding: 0; border: none; }
+.activation-optional form { margin-top: 24px; }
+.optional-connection { padding-block: 18px; }
+.optional-connection p, .optional-connection h3 { margin: 0; }
+.integration-status { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 12px; }
+.first-value { background: var(--accent-soft); border: 1px solid var(--accent-ring); padding: 28px; border-radius: 10px; }
+.first-value h2 { margin: 14px 0; font-size: 25px; line-height: 1.2; }
+.first-value p { margin-bottom: 0; font-size: 14px; }
+.sync-result { display: flex; align-items: flex-start; gap: 12px; padding: 16px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.sync-result p { margin: 8px 0 0; }
+@media (max-width: 1180px) { .activation-layout { grid-template-columns: 180px minmax(0, 1fr); gap: 24px; } }
+@media (max-width: 980px) {
+  .activation-layout { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .activation-caption, .activation-assurance { display: none; }
+  .activation-steps ol { flex-direction: row; overflow-x: auto; gap: 8px; padding-bottom: 6px; }
+  .activation-steps li { flex: 1; min-width: 100px; }
+  .activation-steps button { flex-direction: column; gap: 6px; font-size: 11px; min-height: 70px; }
+  .activation-top { margin-bottom: 20px; padding-bottom: 18px; }
+}
+@media (max-width: 620px) {
+  .activation-top .eyebrow { max-width: 160px; font-size: 9px; }
+  .activation-top a { max-width: 110px; text-align: right; }
+  .activation-heading h1 { font-size: 30px; }
+  .activation-heading .page-header p { font-size: 13px; }
+  .activation-body > .first-app-form, .store-connection, .first-value { padding: 20px; }
+  .activation-optional { padding: 16px; }
+  .activation-body .activation-actions > button { flex: 1 1 100%; }
+  .activation-app { gap: 8px; }
+  .activation-app > span:last-child { max-width: 110px; }
+  .activation-footer { align-items: flex-start; }
+  .activation-footer > span { max-width: 180px; }
+}
+.activation-page, .activation-page :is(h1, h2, strong, summary) { color: var(--text); }

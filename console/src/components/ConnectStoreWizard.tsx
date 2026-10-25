@@ -290,7 +290,9 @@ function GooglePlayCheck({
   onClose: () => void
 }) {
   const validate = useValidateCredential(org)
-  const [state, setState] = useState<'checking' | 'ok' | 'waiting'>('checking')
+  const [state, setState] = useState<'checking' | 'ok' | 'waiting' | 'invalid'>(
+    'checking',
+  )
   const [message, setMessage] = useState<string | null>(null)
   const attempts = useRef(0)
   const check = validate.mutateAsync
@@ -299,6 +301,8 @@ function GooglePlayCheck({
     const outcome = await check({ appId: app.id, credentialId })
     setMessage(outcome.message)
     if (outcome.valid) setState('ok')
+    else if (outcome.kind === 'NOT_FOUND' || outcome.kind === 'INVALID_REQUEST')
+      setState('invalid')
     return outcome.valid
   }, [app.id, check, credentialId])
 
@@ -330,16 +334,29 @@ function GooglePlayCheck({
         <p className="muted">{googlePlayCopy.check.lead}</p>
       </div>
 
-      {state === 'checking' ? <Loading what={googlePlayCopy.check.checking} /> : null}
+      {state === 'checking' ? (
+        <Loading what={googlePlayCopy.check.checking} />
+      ) : null}
       {state === 'ok' ? (
         <div className="notice">
           <Badge tone="ok">funguje</Badge> {googlePlayCopy.check.ok}
         </div>
       ) : null}
-      {state === 'waiting' ? <div className="notice">{googlePlayCopy.check.background}</div> : null}
+      {state === 'waiting' ? (
+        <div className="notice">{googlePlayCopy.check.background}</div>
+      ) : null}
+      {state === 'invalid' ? (
+        <div className="error" role="alert">
+          Údaje aplikace nebo klíče nesedí. Zkontrolujte identifikátor a přístup
+          ve storu.
+        </div>
+      ) : null}
+      <ErrorBox error={validate.error} />
       {/* Hlášku z konektoru ukazujeme doslova: „nemá oprávnění" versus „aplikaci nezná" je
           přesně ten rozdíl, podle kterého klient pozná, co v Play Console udělal jinak. */}
-      {state !== 'ok' && message ? <p className="small muted">{message}</p> : null}
+      {state !== 'ok' && message ? (
+        <p className="small muted">{message}</p>
+      ) : null}
 
       <div className="row">
         {/* Na bucket se dá jít i s pozvánkou, která ještě neprošla: obojí čeká na tytéž
@@ -353,7 +370,7 @@ function GooglePlayCheck({
             {state === 'ok' ? 'Hotovo' : 'Zavřít'}
           </button>
         )}
-        {state === 'waiting' ? (
+        {state === 'waiting' || state === 'invalid' ? (
           <button
             type="button"
             className="secondary"
@@ -544,7 +561,13 @@ function AppStoreCreate({ onDone, onClose }: { onDone: () => void; onClose: () =
  * k opsání — Issuer ID. Obsah i tvar se kontrolují **tady**, ne až odpovědí serveru:
  * prohozený soubor je nejčastější chyba a poznat ji jde bez jediného požadavku.
  */
-function AppStoreUpload({ org, onDone }: { org: string; onDone: (credentialId: string) => void }) {
+function AppStoreUpload({
+  org,
+  onDone,
+}: {
+  org: string
+  onDone: (credentialId: string) => void
+}) {
   const add = useAddCredential(org)
   const [fileName, setFileName] = useState('')
   const [content, setContent] = useState('')
@@ -569,17 +592,25 @@ function AppStoreUpload({ org, onDone }: { org: string; onDone: (credentialId: s
         : content.includes('BEGIN PRIVATE KEY')
           ? null
           : appStoreCopy.upload.notAKey
-  const issuerError = issuerId.trim() === '' || isIssuerId(issuerId) ? null : appStoreCopy.upload.issuerInvalid
+  const issuerError =
+    issuerId.trim() === '' || isIssuerId(issuerId)
+      ? null
+      : appStoreCopy.upload.issuerInvalid
   // Issuer ID je tady povinné: dialog vede tvorbou **týmového** klíče a bez něj by se klíč
   // uložil jako individuální, který výpis aplikací týmu nevrátí — a chyba by přišla o krok
   // později a nesrozumitelně. Individuální klíč patří pod „Pokročilé".
-  const ready = content !== '' && contentError == null && keyId.trim().length > 0 && isIssuerId(issuerId)
+  const ready =
+    content !== '' &&
+    contentError == null &&
+    keyId.trim().length > 0 &&
+    isIssuerId(issuerId)
 
   return (
     <form
       className="stack"
       onSubmit={(event) => {
         event.preventDefault()
+        if (!ready || add.isPending) return
         add.mutate(
           {
             type: 'asc',
@@ -624,10 +655,20 @@ function AppStoreUpload({ org, onDone }: { org: string; onDone: (credentialId: s
       />
       {contentError ? <div className="error">{contentError}</div> : null}
 
-      <Field label={appStoreCopy.upload.keyIdLabel} hint={appStoreCopy.upload.keyIdHint}>
-        <input value={keyId} onChange={(event) => setKeyId(event.target.value)} required />
+      <Field
+        label={appStoreCopy.upload.keyIdLabel}
+        hint={appStoreCopy.upload.keyIdHint}
+      >
+        <input
+          value={keyId}
+          onChange={(event) => setKeyId(event.target.value)}
+          required
+        />
       </Field>
-      <Field label={appStoreCopy.upload.issuerLabel} hint={appStoreCopy.upload.issuerHint}>
+      <Field
+        label={appStoreCopy.upload.issuerLabel}
+        hint={appStoreCopy.upload.issuerHint}
+      >
         <input
           value={issuerId}
           onChange={(event) => setIssuerId(event.target.value)}
@@ -644,7 +685,8 @@ function AppStoreUpload({ org, onDone }: { org: string; onDone: (credentialId: s
         </button>
       </div>
       <p className="small muted">
-        Klíč se zašifruje ještě před uložením a z vaultu už ven nevyjde — ve výpisu uvidíš jen otisk.
+        Klíč se zašifruje ještě před uložením a z vaultu už ven nevyjde — ve
+        výpisu uvidíš jen otisk.
       </p>
     </form>
   )
@@ -669,15 +711,22 @@ function AppStorePick({
   onClose: () => void
 }) {
   const storeApps = useStoreApps(org, credentialId)
+  const validate = useValidateCredential(org)
   const apps = useApps(org)
   const client = useQueryClient()
   const create = useCreateApp(org)
   const attach = useAttachCredential(org)
-  const [selected, setSelected] = useState<Set<string>>(new Set(preselect?.ascAppId ? [preselect.ascAppId] : []))
+  const [selected, setSelected] = useState<Set<string>>(
+    new Set(preselect?.ascAppId ? [preselect.ascAppId] : []),
+  )
   const [outcomes, setOutcomes] = useState<PickOutcome[] | null>(null)
   const [saving, setSaving] = useState(false)
 
-  const existing = new Map((apps.data ?? []).filter((app) => app.ascAppId).map((app) => [app.ascAppId as string, app]))
+  const existing = new Map(
+    (apps.data ?? [])
+      .filter((app) => app.ascAppId)
+      .map((app) => [app.ascAppId as string, app]),
+  )
 
   // Výpis aplikací je zároveň ověření klíče — server podle něj přepsal jeho stav. Bez tohohle
   // by karta s klíči za dialogem dál tvrdila „neověřený", i když se právě prokázal opak.
@@ -687,16 +736,33 @@ function AppStorePick({
   }, [client, org, storeApps.isPending, storeApps.status])
 
   const confirm = async () => {
+    if (saving) return
     setSaving(true)
     const results: PickOutcome[] = []
-    for (const storeApp of (storeApps.data ?? []).filter((candidate) => selected.has(candidate.identifier))) {
+    for (const storeApp of (storeApps.data ?? []).filter((candidate) =>
+      selected.has(candidate.identifier),
+    )) {
       try {
         // Appka už v organizaci být může (přidaná odkazem ze storu) — pak se jen připojí klíč.
         // Zakládat ji znovu by narazilo na unikát na asc_app_id a vypadalo jako chyba klienta.
         const app =
           existing.get(storeApp.identifier) ??
-          (await create.mutateAsync({ name: storeApp.name, ascAppId: storeApp.identifier, gpPackageName: null }))
+          (await create.mutateAsync({
+            name: storeApp.name,
+            ascAppId: storeApp.identifier,
+            gpPackageName: null,
+          }))
+        if (app.competitor)
+          throw new Error('Konkurenční aplikaci nelze připojit jako vlastní.')
         await attach.mutateAsync({ appId: app.id, credentialId })
+        const checked = await validate.mutateAsync({
+          appId: app.id,
+          credentialId,
+        })
+        if (!checked.valid)
+          throw new Error(
+            checked.message ?? 'Klíč zatím nemá oprávnění k této aplikaci.',
+          )
         results.push({ identifier: storeApp.identifier, name: storeApp.name })
       } catch (error) {
         results.push({
@@ -711,7 +777,19 @@ function AppStorePick({
   }
 
   if (storeApps.isPending) return <Loading what="Ptáme se Applu na aplikace…" />
-  if (storeApps.error) return <ErrorBox error={storeApps.error} />
+  if (storeApps.error)
+    return (
+      <div className="stack">
+        <ErrorBox error={storeApps.error} />
+        <button
+          type="button"
+          className="secondary"
+          onClick={() => void storeApps.refetch()}
+        >
+          Zkusit načíst aplikace znovu
+        </button>
+      </div>
+    )
 
   if (outcomes) {
     const failed = outcomes.filter((outcome) => outcome.error)
@@ -722,7 +800,11 @@ function AppStorePick({
           {outcomes.map((outcome) => (
             <li key={outcome.identifier}>
               {outcome.name}
-              {outcome.error ? <span className="error-inline"> — {outcome.error}</span> : ' — sledujeme'}
+              {outcome.error ? (
+                <span className="error-inline"> — {outcome.error}</span>
+              ) : (
+                ' — sledujeme'
+              )}
             </li>
           ))}
         </ul>
@@ -731,6 +813,15 @@ function AppStorePick({
           <button type="button" onClick={onClose}>
             Zavřít
           </button>
+          {failed.length > 0 ? (
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => setOutcomes(null)}
+            >
+              Opravit a zkusit znovu
+            </button>
+          ) : null}
         </div>
       </div>
     )
@@ -743,34 +834,58 @@ function AppStorePick({
         <p className="muted">{appStoreCopy.pick.lead}</p>
       </div>
 
-      {storeApps.data?.length === 0 ? <p className="muted">{appStoreCopy.pick.empty}</p> : null}
+      {preselect &&
+      !storeApps.data?.some(
+        (item) => item.identifier === preselect.ascAppId,
+      ) ? (
+        <p className="error" role="alert">
+          Klíč nevidí aplikaci {preselect.name}. Zkontrolujte přístup v App
+          Store Connect a zkuste načíst aplikace znovu.
+        </p>
+      ) : null}
+      {storeApps.data?.length === 0 ? (
+        <p className="muted">{appStoreCopy.pick.empty}</p>
+      ) : null}
       <div className="stack picklist">
-        {storeApps.data?.map((storeApp: StoreApp) => (
-          <label key={storeApp.identifier} className="pick">
-            <input
-              type="checkbox"
-              checked={selected.has(storeApp.identifier)}
-              onChange={(event) =>
-                setSelected((current) => {
-                  const next = new Set(current)
-                  if (event.target.checked) next.add(storeApp.identifier)
-                  else next.delete(storeApp.identifier)
-                  return next
-                })
-              }
-            />
-            <span>
-              {storeApp.name}
-              <span className="small muted"> {storeApp.bundleId ?? storeApp.identifier}</span>
-            </span>
-            {existing.has(storeApp.identifier) ? <Badge>{appStoreCopy.pick.existing}</Badge> : null}
-          </label>
-        ))}
+        {storeApps.data
+          ?.filter(
+            (item) => !preselect || item.identifier === preselect.ascAppId,
+          )
+          .map((storeApp: StoreApp) => (
+            <label key={storeApp.identifier} className="pick">
+              <input
+                type="checkbox"
+                checked={selected.has(storeApp.identifier)}
+                onChange={(event) =>
+                  setSelected((current) => {
+                    const next = new Set(current)
+                    if (event.target.checked) next.add(storeApp.identifier)
+                    else next.delete(storeApp.identifier)
+                    return next
+                  })
+                }
+              />
+              <span>
+                {storeApp.name}
+                <span className="small muted">
+                  {' '}
+                  {storeApp.bundleId ?? storeApp.identifier}
+                </span>
+              </span>
+              {existing.has(storeApp.identifier) ? (
+                <Badge>{appStoreCopy.pick.existing}</Badge>
+              ) : null}
+            </label>
+          ))}
       </div>
 
       <p className="small muted">{appStoreCopy.pick.moderation}</p>
       <div className="row">
-        <button type="button" disabled={selected.size === 0 || saving} onClick={() => void confirm()}>
+        <button
+          type="button"
+          disabled={selected.size === 0 || saving}
+          onClick={() => void confirm()}
+        >
           {saving ? 'Ukládám…' : appStoreCopy.pick.submit}
         </button>
         <button type="button" className="secondary" onClick={onClose}>

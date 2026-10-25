@@ -11,6 +11,8 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
+    // Oddělená API instance může mít jiný optimalizační hash.
+    cacheDir: process.env.VITE_CACHE_DIR || 'node_modules/.vite',
     server: {
       port: 5173,
       proxy: {

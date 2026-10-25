@@ -235,11 +235,12 @@ class CredentialService(
             } catch (error: StoreConnectorException) {
                 // Chyba konektoru je taky výsledek ověření, ne pád requestu: klient má vidět
                 // „klíč nemá oprávnění", ne pětistovku.
-                ValidationOutcome(valid = false, message = "${error.kind}: ${error.message}")
+                ValidationOutcome(valid = false, message = "${error.kind}: ${error.message}", kind = error.kind)
             }
 
-        credentials.recordValidation(
+        credentials.recordAppValidation(
             organization.id,
+            appId,
             credentialId,
             if (outcome.valid) ValidationStatus.VALID else ValidationStatus.INVALID,
             outcome.message.takeUnless { outcome.valid },

@@ -4,6 +4,8 @@ import {
   useAcceptInvitation,
   useForgotPassword,
   useLogin,
+  useLogout,
+  useMe,
   useRegister,
   useResetPassword,
   useVerifyEmail,
@@ -12,6 +14,8 @@ import {
 import { needsSecondFactor } from '../api/types'
 import { AuthShell, Card, ErrorBox, Field } from '../components/ui'
 import { useEffect } from 'react'
+import { PasswordField, VerificationNotice } from '../components/AuthFields'
+import { authLink, safeNext } from '../state/authRedirect'
 
 /** Nejkratší heslo, které projde na serveru. Když se to změní, řekne to server větou. */
 const MIN_PASSWORD = 12
@@ -25,23 +29,34 @@ export function LoginPage() {
   const navigate = useNavigate()
   const [params] = useSearchParams()
   // Kdo přišel z odkazu (typicky z pozvánky), má se po přihlášení vrátit tam, kam mířil.
-  const next = params.get('next')
-  const goOn = () => navigate(next && next.startsWith('/') ? next : '/')
+  const next = safeNext(params.get('next'))
+  const goOn = () => navigate(next)
 
   if (challenge)
-    return <SecondFactorForm challenge={challenge} onDone={goOn} onCancel={() => setChallenge(null)} />
+    return (
+      <SecondFactorForm
+        challenge={challenge}
+        onDone={goOn}
+        onCancel={() => setChallenge(null)}
+      />
+    )
 
   return (
     <AuthShell>
-      <Card title="Přihlášení">
+      <Card title="Vítejte zpátky">
+        <p className="auth-intro">
+          Přihlaste se a navazujte tam, kde jste skončili.
+        </p>
         <form
           onSubmit={(event) => {
             event.preventDefault()
+            if (login.isPending) return
             login.mutate(
               { email, password },
               {
                 onSuccess: (outcome) => {
-                  if (needsSecondFactor(outcome)) setChallenge(outcome.challenge)
+                  if (needsSecondFactor(outcome))
+                    setChallenge(outcome.challenge)
                   else goOn()
                 },
               },
@@ -51,21 +66,20 @@ export function LoginPage() {
           <Field label="E-mail">
             <input
               type="email"
+              name="email"
               autoComplete="username"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
             />
           </Field>
-          <Field label="Heslo">
-            <input
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </Field>
+          <PasswordField
+            autoComplete="current-password"
+            name="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
           <div className="stack" style={{ marginTop: '1rem' }}>
             <ErrorBox error={login.error} />
             <button type="submit" disabled={login.isPending}>
@@ -74,7 +88,8 @@ export function LoginPage() {
           </div>
         </form>
         <p className="small muted" style={{ marginTop: '1rem' }}>
-          <Link to="/registrace">Založit účet</Link> · <Link to="/zapomenute-heslo">Zapomenuté heslo</Link>
+          <Link to={authLink('/registrace', next)}>Založit účet</Link> ·{' '}
+          <Link to="/zapomenute-heslo">Zapomenuté heslo</Link>
         </p>
       </Card>
     </AuthShell>
@@ -100,16 +115,22 @@ function SecondFactorForm({
   return (
     <AuthShell>
       <Card title="Kód z autentizační appky">
+        <p className="auth-intro">Ještě jeden krok pro bezpečí vašeho účtu.</p>
         <form
           onSubmit={(event) => {
             event.preventDefault()
+            if (verify.isPending) return
             verify.mutate({ challenge, code }, { onSuccess: onDone })
           }}
         >
-          <Field label="Šestimístný kód" hint="Nemáš telefon po ruce? Napiš sem některý ze záchranných kódů.">
+          <Field
+            label="Šestimístný kód"
+            hint="Nemáš telefon po ruce? Napiš sem některý ze záchranných kódů."
+          >
             <input
               value={code}
               onChange={(e) => setCode(e.target.value)}
+              name="code"
               autoComplete="one-time-code"
               inputMode="text"
               autoFocus
@@ -139,41 +160,54 @@ export function RegisterPage() {
   const [password, setPassword] = useState('')
   const register = useRegister()
   const navigate = useNavigate()
+  const [params] = useSearchParams()
+  const next = safeNext(params.get('next'))
 
   return (
     <AuthShell>
-      <Card title="Založení účtu">
+      <Card title="Začněte vlastní aplikací">
+        <p className="auth-intro">
+          Jeden účet pro recenze, souvislosti i lepší odpovědi. Nejprve ověříme
+          váš e-mail.
+        </p>
         <form
           onSubmit={(event) => {
             event.preventDefault()
-            register.mutate({ email, password, displayName }, { onSuccess: () => navigate('/') })
+            if (register.isPending) return
+            register.mutate(
+              { email, password, displayName },
+              {
+                onSuccess: () => navigate(next === '/' ? '/organizace' : next),
+              },
+            )
           }}
         >
           <Field label="Jméno">
-            <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} autoComplete="name" />
+            <input
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              autoComplete="name"
+            />
           </Field>
           <Field label="E-mail">
             <input
               type="email"
+              name="email"
               autoComplete="username"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
             />
           </Field>
-          <Field
-            label="Heslo"
+          <PasswordField
             hint={`Aspoň ${MIN_PASSWORD} znaků. Délka je důležitější než speciální znaky.`}
-          >
-            <input
-              type="password"
-              autoComplete="new-password"
-              minLength={MIN_PASSWORD}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </Field>
+            autoComplete="new-password"
+            name="password"
+            minLength={MIN_PASSWORD}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
           <div className="stack" style={{ marginTop: '1rem' }}>
             <ErrorBox error={register.error} />
             <button type="submit" disabled={register.isPending}>
@@ -182,7 +216,7 @@ export function RegisterPage() {
           </div>
         </form>
         <p className="small muted" style={{ marginTop: '1rem' }}>
-          Už účet máš? <Link to="/login">Přihlásit se</Link>
+          Už účet máte? <Link to={authLink('/login', next)}>Přihlásit se</Link>
         </p>
       </Card>
     </AuthShell>
@@ -194,6 +228,7 @@ export function VerifyEmailPage() {
   const [params] = useSearchParams()
   const token = params.get('token') ?? ''
   const verify = useVerifyEmail()
+  const me = useMe()
   const { mutate } = verify
   const appliedToken = useRef('')
   useEffect(() => {
@@ -206,12 +241,41 @@ export function VerifyEmailPage() {
   return (
     <AuthShell>
       <Card title="Potvrzení e-mailu">
-        {!token ? <div className="error">Odkaz nemá token — otevři ho prosím přímo z e-mailu.</div> : null}
+        {!token ? (
+          <div className="error" role="alert">
+            V odkazu chybí ověřovací kód. Otevřete celý odkaz z e-mailu.
+          </div>
+        ) : null}
         {verify.isPending ? <p className="muted">Ověřuji…</p> : null}
-        {verify.isSuccess ? <p>Hotovo, e-mail je potvrzený.</p> : null}
-        <ErrorBox error={verify.error} />
+        {verify.isSuccess || me.data?.emailVerified ? (
+          <p className="notice" role="status">
+            Hotovo, e-mail je potvrzený. Pokračujte do svého pracovního
+            prostoru.
+          </p>
+        ) : null}
+        {!me.data?.emailVerified ? <ErrorBox error={verify.error} /> : null}
+        {verify.isError && token && !me.data?.emailVerified ? (
+          <button
+            type="button"
+            className="secondary"
+            disabled={verify.isPending}
+            onClick={() => verify.mutate(token)}
+          >
+            Zkusit ověření znovu
+          </button>
+        ) : null}
+        {me.data && !me.data.emailVerified && !verify.isSuccess ? (
+          <VerificationNotice />
+        ) : null}
+        {!me.data && (verify.isError || !token) ? (
+          <p className="muted">
+            Odkaz mohl vypršet nebo už být použitý.{' '}
+            <Link to="/login?next=%2Forganizace">Přihlaste se</Link> a požádejte
+            o nový.
+          </p>
+        ) : null}
         <p style={{ marginTop: '1rem' }}>
-          <Link to="/">Pokračovat do console</Link>
+          <Link to="/">Pokračovat do pracovního prostoru</Link>
         </p>
       </Card>
     </AuthShell>
@@ -228,23 +292,33 @@ export function ForgotPasswordPage() {
         {forgot.isSuccess ? (
           <>
             {/* Stejná věta pro známý i neznámý e-mail — jinak by formulář prozradil zákazníky. */}
-            <p>Pokud u nás ten e-mail je, poslali jsme na něj odkaz pro nastavení nového hesla.</p>
+            <p>
+              Pokud u nás ten e-mail je, poslali jsme na něj odkaz pro nastavení
+              nového hesla.
+            </p>
             <p className="small muted">Odkaz platí hodinu.</p>
           </>
         ) : (
           <form
             onSubmit={(event) => {
               event.preventDefault()
-              forgot.mutate(email)
+              if (!forgot.isPending) forgot.mutate(email)
             }}
           >
             <Field label="E-mail">
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+              <input
+                type="email"
+                name="email"
+                autoComplete="username"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
             </Field>
             <div className="stack" style={{ marginTop: '1rem' }}>
               <ErrorBox error={forgot.error} />
               <button type="submit" disabled={forgot.isPending}>
-                Poslat odkaz
+                {forgot.isPending ? 'Odesílám…' : 'Poslat odkaz'}
               </button>
             </div>
           </form>
@@ -268,7 +342,9 @@ export function ResetPasswordPage() {
       <Card title="Nové heslo">
         {reset.isSuccess ? (
           <>
-            <p>Heslo je nastavené a všechny dřívější přihlášení jsme zrušili.</p>
+            <p>
+              Heslo je nastavené a všechny dřívější přihlášení jsme zrušili.
+            </p>
             <p>
               <Link to="/login">Přihlásit se</Link>
             </p>
@@ -277,26 +353,31 @@ export function ResetPasswordPage() {
           <form
             onSubmit={(event) => {
               event.preventDefault()
-              reset.mutate({ token, password })
+              if (!reset.isPending && token) reset.mutate({ token, password })
             }}
           >
-            <Field label="Nové heslo" hint={`Aspoň ${MIN_PASSWORD} znaků.`}>
-              <input
-                type="password"
-                autoComplete="new-password"
-                minLength={MIN_PASSWORD}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </Field>
+            <PasswordField
+              label="Nové heslo"
+              hint={`Aspoň ${MIN_PASSWORD} znaků.`}
+              autoComplete="new-password"
+              name="password"
+              minLength={MIN_PASSWORD}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
             <div className="stack" style={{ marginTop: '1rem' }}>
               {!token ? (
-                <div className="error">Odkaz nemá token — otevři ho prosím přímo z e-mailu.</div>
+                <div className="error">
+                  Odkaz nemá token — otevři ho prosím přímo z e-mailu.
+                </div>
               ) : null}
               <ErrorBox error={reset.error} />
+              {reset.isError || !token ? (
+                <Link to="/zapomenute-heslo">Vyžádat nový odkaz</Link>
+              ) : null}
               <button type="submit" disabled={reset.isPending || !token}>
-                Nastavit heslo
+                {reset.isPending ? 'Ukládám…' : 'Nastavit heslo'}
               </button>
             </div>
           </form>
@@ -314,29 +395,70 @@ export function AcceptInvitationPage({ signedIn }: { signedIn: boolean }) {
   const [params] = useSearchParams()
   const token = params.get('token') ?? ''
   const accept = useAcceptInvitation()
+  const me = useMe()
+  const logout = useLogout()
   const navigate = useNavigate()
 
   return (
     <AuthShell>
       <Card title="Pozvánka do organizace">
-        {!token ? <div className="error">Odkaz nemá token — otevři ho prosím přímo z e-mailu.</div> : null}
+        {!token ? (
+          <div className="error">
+            Odkaz nemá token — otevři ho prosím přímo z e-mailu.
+          </div>
+        ) : null}
         {!signedIn ? (
           <>
-            <p>Nejdřív se přihlas účtem s tou e-mailovou adresou, na kterou pozvánka přišla.</p>
+            <p>
+              Nejdřív se přihlas účtem s tou e-mailovou adresou, na kterou
+              pozvánka přišla.
+            </p>
             <div className="row">
-              <Link to={`/login?next=${encodeURIComponent(`/pozvanka?token=${token}`)}`}>Přihlásit se</Link>
-              <Link to="/registrace">Založit účet</Link>
+              <Link
+                to={`/login?next=${encodeURIComponent(`/pozvanka?token=${token}`)}`}
+              >
+                Přihlásit se
+              </Link>
+              <Link
+                to={authLink(
+                  '/registrace',
+                  `/pozvanka?token=${encodeURIComponent(token)}`,
+                )}
+              >
+                Založit účet
+              </Link>
             </div>
           </>
         ) : (
           <>
-            <p>Pozvánku přijmeš jedním kliknutím.</p>
+            <p>
+              Přijměte pozvánku jako <strong>{me.data?.email}</strong> a vstupte
+              rovnou do týmu. Další organizaci zakládat nemusíte.
+            </p>
             <ErrorBox error={accept.error} />
+            {accept.isError ? (
+              <p className="small muted">
+                Pozvánka může být použitá či expirovaná, nebo je pro jiný účet.
+                Požádejte správce o novou nebo se přihlaste správným e-mailem.
+              </p>
+            ) : null}
+            <button
+              type="button"
+              className="link"
+              disabled={logout.isPending}
+              onClick={() => logout.mutate()}
+            >
+              Použít jiný účet
+            </button>
             <button
               type="button"
               disabled={accept.isPending || !token}
               onClick={() =>
-                accept.mutate(token, { onSuccess: (organization) => navigate(`/${organization.slug}`) })
+                !accept.isPending &&
+                accept.mutate(token, {
+                  onSuccess: (organization) =>
+                    navigate(`/${organization.slug}`),
+                })
               }
             >
               {accept.isPending ? 'Přijímám…' : 'Přijmout pozvánku'}

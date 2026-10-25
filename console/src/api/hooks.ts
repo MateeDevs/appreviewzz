@@ -368,10 +368,10 @@ export function useValidateCredential(org: string) {
   const client = useQueryClient()
   return useMutation({
     mutationFn: (input: { appId: string; credentialId: string }) =>
-      api.post<{ valid: boolean; message: string | null }>(
+      api.post<{ valid: boolean; message: string | null; kind?: 'AUTH' | 'NOT_FOUND' | 'INVALID_REQUEST' | 'RATE_LIMITED' | 'TRANSIENT' | null }>(
         `/api/orgs/${org}/apps/${input.appId}/credentials/${input.credentialId}/validate`,
       ),
-    onSuccess: () => client.invalidateQueries({ queryKey: ['credentials', org] }),
+    onSuccess: () => client.invalidateQueries(),
   })
 }
 
@@ -402,7 +402,7 @@ export function useChannels(org: string, appId: string) {
 export function useCreateChannel(org: string, appId: string) {
   const client = useQueryClient()
   return useMutation({
-    mutationFn: (input: { targetRef: string; credentialId: string; label?: string; locale?: string }) =>
+    mutationFn: (input: { targetRef: string; credentialId: string; label?: string; locale?: string; type?: 'SLACK' | 'TEAMS' }) =>
       api.post<Channel>(`/api/orgs/${org}/apps/${appId}/channels`, input),
     onSuccess: () => client.invalidateQueries({ queryKey: ['channels', org, appId] }),
   })

@@ -399,6 +399,18 @@ interface CredentialRepository {
         at: Instant,
     ): CredentialMeta?
 
+    /** Výsledek přístupu ke konkrétní aplikaci; jiné vazby stejného klíče neovlivní. */
+    fun recordAppValidation(
+        orgId: OrganizationId,
+        appId: AppId,
+        id: CredentialId,
+        status: ValidationStatus,
+        error: String?,
+        at: Instant,
+    ) {
+        recordValidation(orgId, id, status, error, at)
+    }
+
     fun attachToApp(
         orgId: OrganizationId,
         appId: AppId,

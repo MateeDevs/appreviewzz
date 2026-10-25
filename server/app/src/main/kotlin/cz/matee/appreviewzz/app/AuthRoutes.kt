@@ -304,6 +304,7 @@ fun Route.authRoutes(
             }
 
             post("/email/resend") {
+                if (!call.allowedBy(limits.authIdentity, identityKey("resend", call.authenticatedUser.account.user.email))) return@post
                 io { auth.resendVerification(call.authenticatedUser.account.user.id, origin = call.consoleOrigin()) }
                 call.respond(HttpStatusCode.Accepted)
             }

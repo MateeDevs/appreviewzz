@@ -122,6 +122,8 @@ class ConsoleWiring(
      * tlačítka ukáže a dostane větu, proč nic nepřišlo.
      */
     val replyAssistant: ReplyAssistant? = null,
+    val onboarding: cz.matee.appreviewzz.core.port.OnboardingRepository? = null,
+    val onboardingIngest: cz.matee.appreviewzz.core.usecase.IngestReviewsUseCase? = null,
     val clock: Clock = Clock.System,
 ) {
     /**
@@ -170,6 +172,7 @@ fun Application.consoleRoutes(
             requireSession(console.auth) {
                 orgRoutes(console)
                 appRoutes(console)
+                onboardingRoutes(console)
                 credentialRoutes(console)
                 channelRoutes(console)
                 reviewRoutes(console)

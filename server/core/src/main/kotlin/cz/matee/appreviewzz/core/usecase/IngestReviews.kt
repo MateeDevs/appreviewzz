@@ -185,12 +185,12 @@ class IngestReviewsUseCase(
                 val context = StoreContext(identifier, secrets.resolve(app.orgId, credential.id))
                 source.fetchReviews(context)
             } catch (error: StoreConnectorException) {
-                if (error.kind == StoreErrorKind.AUTH) invalidate(credential, error)
+                if (error.kind == StoreErrorKind.AUTH) invalidate(app, credential, error)
                 logger.warn { "Ingest ${app.id}/$platform selhal (${error.kind}): ${error.message}" }
                 return PlatformIngest.Failed(platform, error.kind, error.message.orEmpty())
             }
 
-        revalidate(credential)
+        revalidate(app, credential)
         return store(app, platform, observed, detectRemoved = source.listsWithoutGaps)
     }
 
@@ -384,12 +384,13 @@ class IngestReviewsUseCase(
 
     /** Klíč přestal fungovat: console to musí ukázat dřív, než se klient začne divit. */
     private fun invalidate(
+        app: App,
         credential: CredentialMeta,
         error: StoreConnectorException,
     ) {
         if (credential.validationStatus == ValidationStatus.INVALID) return
         val message = error.message.orEmpty()
-        credentials.recordValidation(credential.orgId, credential.id, ValidationStatus.INVALID, message, clock.now())
+        credentials.recordAppValidation(credential.orgId, app.id, credential.id, ValidationStatus.INVALID, message, clock.now())
         audit.append(
             auditEntry(
                 orgId = credential.orgId,
@@ -405,9 +406,12 @@ class IngestReviewsUseCase(
      * Povedený fetch je důkaz, že klíč funguje. Zapisuje se jen při změně stavu — jinak by
      * každý běh každých 30 minut přepisoval řádek credentialu a plnil audit log.
      */
-    private fun revalidate(credential: CredentialMeta) {
+    private fun revalidate(
+        app: App,
+        credential: CredentialMeta,
+    ) {
         if (credential.validationStatus == ValidationStatus.VALID) return
-        credentials.recordValidation(credential.orgId, credential.id, ValidationStatus.VALID, null, clock.now())
+        credentials.recordAppValidation(credential.orgId, app.id, credential.id, ValidationStatus.VALID, null, clock.now())
         audit.append(
             auditEntry(
                 orgId = credential.orgId,

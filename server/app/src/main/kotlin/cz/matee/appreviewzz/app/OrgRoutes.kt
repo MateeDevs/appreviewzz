@@ -99,6 +99,14 @@ fun Route.orgRoutes(console: ConsoleWiring) {
         val request = call.receive<CreateOrganizationRequest>()
         val organization =
             io { orgs.create(call.authenticatedUser.account, request.name) }
+        io {
+            console.onboarding?.save(
+                organization.id,
+                call.authenticatedUser.account.user.id,
+                cz.matee.appreviewzz.core.port
+                    .OnboardingProgress(),
+            )
+        }
         call.respond(HttpStatusCode.Created, organization.toResponse(OrgRole.OWNER))
     }
 
