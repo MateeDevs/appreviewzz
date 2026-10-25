@@ -1,0 +1,59 @@
+{
+  "sourceCommit": "000c945",
+  "baseline": "611a12bbb424d2e345c409890c6847bfb636ab94",
+  "console": {
+    "cleanInstall": "passed",
+    "lint": "passed",
+    "typecheck": "passed",
+    "build": "passed",
+    "initialJsGzipKB": 151.0,
+    "cssGzipKB": 10.52
+  },
+  "browser": {
+    "transport": "stateful isolated mocks",
+    "fullPassed": 50,
+    "optInSkipped": 3,
+    "finalActivationPassed": 17,
+    "visualAxeMatrixPassed": 5,
+    "viewports": [
+      1440,
+      1024,
+      768,
+      390,
+      360
+    ],
+    "themes": [
+      "light",
+      "dark"
+    ],
+    "zoom": "CSS 200%, not browser chrome",
+    "reducedMotion": true
+  },
+  "backend": {
+    "fullBuild": "passed",
+    "tests": 750,
+    "failures": 0,
+    "skipped": 0,
+    "backupRestore": "PostgreSQL 17 client in Docker, passed",
+    "finalOnboardingIntegrationPassed": 5,
+    "concurrentLease": "Dispatchers.IO over real PostgreSQL"
+  },
+  "local": {
+    "transport": "real Ktor/PostgreSQL, browser",
+    "passed": true,
+    "worker": false,
+    "externalStores": false,
+    "realChannelMessages": false,
+    "customerReplies": false
+  },
+  "staging": {
+    "deployed": false,
+    "observedSha": "611a12bbb424d2e345c409890c6847bfb636ab94",
+    "health": "UP"
+  },
+  "screenshots": {
+    "before": 8,
+    "after": 80,
+    "data": "synthetic only"
+  }
+}
