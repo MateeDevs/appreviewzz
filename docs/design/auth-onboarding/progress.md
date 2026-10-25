@@ -50,3 +50,10 @@ Další krok: dokončit poslední úplnou browser sadu, commit implementace a d�
 - `validation.md`, `validation-results.json` a `comparison.html` oddělují mocks, skutečný lokální backend a nezměněný staging. Původní nesledované zadání se necommituje.
 
 Další krok: push + vytvořit PR, sledovat CI. Po jeho dokončení přidat odkazy a stav. Integrace ani deploy nejsou součástí automatického předání tohoto PR.
+
+## PR připraven
+- PR #7 do `epic/v2`: https://github.com/MateeDevs/appreviewzz/pull/7
+- Implementace `000c945`, snímky a protokoly `dee5d00`. Vybrané obrázky jsou přímo v PR přes pr-shot; všech 88 původních/nových renderů je v této složce.
+- CI spuštěné PR: https://github.com/MateeDevs/appreviewzz/actions/runs/40199467852. [Aktuální kontroly PR](https://github.com/MateeDevs/appreviewzz/pull/7/checks) vždy ukazují nejnovější head včetně dokumentace.
+- Lokální implementace a ověření dokončené. PR zůstává otevřený pro review; do staging větve se nepřelévá automaticky. Před integrací musí být všechny aktuální kontroly zelené. Staging/prod se neměnily.
+- Případné další ověření reálných storů a týmových zpráv vyžaduje vyhrazené externí účty/kanály; nebylo nahrazeno tvrzením o staging E2E.

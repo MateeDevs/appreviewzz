@@ -3,6 +3,8 @@
 Výchozí checkout `611a12bbb424d2e345c409890c6847bfb636ab94`, větev `feat/auth-onboarding`.
 Syntetické snímky a stavové browser fixtures nejsou data zákazníků ani staging E2E.
 
+PR: https://github.com/MateeDevs/appreviewzz/pull/7 · [aktuální CI](https://github.com/MateeDevs/appreviewzz/pull/7/checks).
+
 ## Výsledky
 
 | Kontrola | Výsledek |
