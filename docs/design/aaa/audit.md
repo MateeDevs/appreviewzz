@@ -53,3 +53,16 @@ neukládají do localStorage. Query placeholder se nepřenese mezi organizacemi/
 route obsah se při změně organizace remountuje. Koncepty se čistí při přihlášení/odhlášení.
 Žádná data z produkce nebyla kopírována. Nevytvořen žádný skutečný store reply, Slack/Teams
 zpráva ani automatické poděkování. Neběží lokální worker připojený ke storům.
+
+## Doplnění skutečného přihlášeného stagingu
+
+Uživatel dodal 1Password přístup v průběhu implementace. Přihlášení heslem/TOTP a původní
+Přehled/inbox/Rozbory aplikace Muj Up byly prohlédnuty a zachyceny ještě před deployem.
+Původní inbox měl inline editor v dlouhém seznamu; nový drží seznam a detail vedle sebe.
+Stejná aplikace má 19 čekajících, žádnou naléhavou, v posledních 30 dnech 162 hodnocení
+a čtyři textové recenze: řídká analytika proto zachovává práh témat a poctivý nulový stav.
+Téma → zdrojové recenze bylo na skutečných datech ověřeno v rozsahu 90 dnů.
+
+Ověřený účet má správní oprávnění a MFA; security i platformní dialog byly prohlédnuty
+bez změny nastavení. MEMBER/konkurence/smazané a chybové fronty mají oddělené fixture
+regrese, nevydáváme je za skutečné staging identity nebo přímou publikaci do storu.

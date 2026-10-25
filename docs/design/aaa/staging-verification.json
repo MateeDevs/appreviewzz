@@ -1,13 +1,13 @@
 {
-  "checkedAt": "2026-10-24T21:08:03.978Z",
-  "expectedSha": "6886d7df50e219ee6b638ec1b3b0a40c58957a18",
+  "checkedAt": "2026-10-24T21:22:37.173Z",
+  "expectedSha": "88141f6a6e0457a5a4ef681412a083517935f2bd",
   "checks": [
     {
       "name": "health/live",
       "data": {
         "status": "UP",
         "version": "0.1.0-SNAPSHOT",
-        "gitSha": "6886d7df50e219ee6b638ec1b3b0a40c58957a18"
+        "gitSha": "88141f6a6e0457a5a4ef681412a083517935f2bd"
       }
     },
     {
@@ -25,6 +25,10 @@
     },
     {
       "name": "detail refresh + Back + draft across review/routes + r",
+      "passed": true
+    },
+    {
+      "name": "actual rapid j/j/k after closing editor",
       "passed": true
     },
     {
@@ -134,5 +138,6 @@
   ],
   "pageErrors": [],
   "failedApi": [],
-  "blockedMutations": []
+  "blockedMutations": [],
+  "result": "PASSED"
 }

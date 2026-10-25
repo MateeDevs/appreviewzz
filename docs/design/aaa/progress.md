@@ -90,3 +90,25 @@ Další krok: poslední browser/asset render po grafu ratingů; skill pr-shot pr
 - Aktivní oprava ve větvi fix/aaa-login-return od origin/epic/v2. Následuje celý browser rerun, nový PR s kontrolami a opravný staging deploy.
 
 - Oprava: console lint/typecheck/build zelené; 28 browser testů prošlo, 3 opt-in přeskočené; Gradle build zelený. JS gzip 144,57 kB, CSS 9,13 kB. Připravuje se opravný PR.
+
+- Opravný PR https://github.com/MateeDevs/appreviewzz/pull/4; head `3e302eafcc9218bdb5eee2687a0e7e6566130fcf`. CI https://github.com/MateeDevs/appreviewzz/actions/runs/40133099966. Všechny lokální kontroly před pushem prošly, čeká se na celé PR CI před integrací.
+
+## Opravný deploy
+- PR #4 integrován po celém zeleném CI 40133099966. Opravný merge / očekávaný staging SHA `88141f6a6e0457a5a4ef681412a083517935f2bd`.
+- CI merge: https://github.com/MateeDevs/appreviewzz/actions/runs/40133456103. Deploy: https://github.com/MateeDevs/appreviewzz/actions/runs/40133456196.
+- Finální výkon přeměřen nad produkčním buildem 3e302ea: LCP median 1,832–1,924 s, CLS max median 0,0493. API 30 app 93→10. Gzip JS 144,57 kB. Raw performance.json.
+- Další krok: po novém health SHA čerstvé heslo+MFA s návratem na deep link, 31 read-only staging kontrol včetně rychlého j/j/k, aktualizace snímků a předání.
+
+## Dokončeno a přímo ověřeno
+- Staging URL: https://console.staging.appreviewzz.com. Živé SHA `88141f6a6e0457a5a4ef681412a083517935f2bd`, ready/live UP. Finální CI 40133456103 i deploy 40133456196 zelené. Produkce d941853… nezměněná; prod se nepovyšoval.
+- Čerstvé přihlášení heslem + TOTP a návrat na původní app/urgency URL prošly; font MIME font/woff2 ověřen. Následně všech 31 přihlášených staging kontrol zelených.
+- Hlavní plochy skutečně vyrenderovány na všech 6 požadovaných šířkách a v obou tématech; 36 snímků, bez celostránkového overflow a axe nálezů. Portfolio ověřeno i po scrollu, kdy načte odložené trendy/náladu.
+- Protokoly: staging-verification.json, staging-login-verification.json, staging-responsive-verification.json, staging-lazy-verification.json. Snímky after/staging-*. Veřejný report a skutečné PDF zde; snapshot zůstal obsahově shodný.
+- Finální lokální kontroly: lint/typecheck/build, Gradle build, browser 28 passed / 3 opt-in skipped; samostatně lokální API smoke, performance, vizuální matice a 10× klávesová regrese.
+- Meze a rozlišení mock/lokální/staging v validation.md. Otevřené blokující chyby: žádné. Skutečná store odpověď/Slack/Teams se neodesílaly podle zadání.
+- Aktivní větev fix/aaa-login-return, produktový commit 3e302ea / nasazený merge 88141f6. Finální dokumentační commit doplňuje důkazy po deployi, nemění produkt a nespouští další staging release.
+- Další krok: předání uživateli. Při regresi postup rollback.md (revert opravy + redesignu nebo nouzový neměnný image 59ac017…).
+
+Veřejný skutečný report navíc prošel axe ve 4 kombinacích (1440/390 × light/dark), bez nálezů; staging-report-accessibility.json.
+
+Dočasné heslo/session/share URL a pracovní skripty s přístupem mimo repo byly po ověření odstraněné. Tracked text artefakty byly zkontrolované proti dodanému heslu, session a 1Password share secretu bez nálezu.

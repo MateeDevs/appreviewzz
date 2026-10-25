@@ -22,3 +22,8 @@ Integrační commit redesignu: `6886d7df50e219ee6b638ec1b3b0a40c58957a18` (merge
 Konkrétní návrat na větvi od aktuálního origin/epic/v2: `git revert -m 1 6886d7df50e219ee6b638ec1b3b0a40c58957a18`,
 kontroly, PR do epic/v2 a standardní merge/deploy. Vytvoří nový SHA; health/live se musí shodovat
 s tímto novým SHA, nikoli s původním před redesignem. Nouzový image tag/digest je uveden výše.
+
+Opravný merge po staging smoke: `88141f6a6e0457a5a4ef681412a083517935f2bd` (PR #4).
+Pro úplný návrat před redesign revertovat nejdřív tento merge (`git revert -m 1 88141f6a6e0457a5a4ef681412a083517935f2bd`),
+potom původní redesign (`git revert -m 1 6886d7df50e219ee6b638ec1b3b0a40c58957a18`) na nové větvi od epic/v2.
+Nouzový staging image zůstává neměnný SHA 59ac017… / digest výše.
