@@ -220,6 +220,8 @@ export async function mockApi(
           { id: 'org-1', slug: 'studio', name: 'Studio • ukázková data', role: 'OWNER' },
           { id: 'org-2', slug: 'other', name: 'Druhá organizace', role: 'MEMBER' },
         ]
+      else if (path.endsWith('/onboarding')) data = { appId: null, step: 'app', preferencesConfirmed: false, completed: false, started: false }
+      else if (/\/onboarding\/[^/]+\/sync$/.test(path)) data = []
       else if (path.endsWith('/health'))
         data = {
           apps: dataApps.map((a, i) => ({

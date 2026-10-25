@@ -51,6 +51,7 @@ class StoreConnectorException(
 data class ValidationOutcome(
     val valid: Boolean,
     val message: String? = null,
+    val kind: StoreErrorKind? = null,
 )
 
 /**

@@ -157,7 +157,7 @@ class AppStoreConnector(
             }
             ValidationOutcome(valid = true)
         } catch (error: StoreConnectorException) {
-            ValidationOutcome(valid = false, message = validationMessage(error, context.appIdentifier))
+            ValidationOutcome(valid = false, message = validationMessage(error, context.appIdentifier), kind = error.kind)
         }
 
     /**

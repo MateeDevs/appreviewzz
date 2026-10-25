@@ -81,6 +81,7 @@ data class AttachCredentialRequest(
 data class ValidationResponse(
     val valid: Boolean,
     val message: String? = null,
+    val kind: String? = null,
 )
 
 /**
@@ -233,7 +234,7 @@ fun Route.credentialRoutes(console: ConsoleWiring) {
                     appId = call.appIdParam(),
                     credentialId = call.credentialIdParam(),
                 )
-            call.respond(ValidationResponse(outcome.valid, outcome.message))
+            call.respond(ValidationResponse(outcome.valid, outcome.message, outcome.kind?.name))
         }
     }
 }

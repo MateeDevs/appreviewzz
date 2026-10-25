@@ -1,3 +1,5 @@
+import { useOnboarding } from './api/onboarding'
+import { safeNext } from './state/authRedirect'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { useMe } from './api/hooks'
 import {
@@ -46,13 +48,12 @@ export function App() {
   // Profil může doběhnout až po návratu na chráněný odkaz. I tato větev musí zachovat
   // `next`, jinak pomalý /me (také po MFA) přesměruje člověka na Přehled.
   const next = new URLSearchParams(location.search).get('next')
-  const loginTarget =
-    next?.startsWith('/') && !next.startsWith('//') && !/^\/login(?:[/?#]|$)/.test(next) ? next : '/'
+  const loginTarget = safeNext(next)
 
   return (
     <Routes>
       <Route path="/login" element={signedIn ? <Navigate to={loginTarget} replace /> : <LoginPage />} />
-      <Route path="/registrace" element={signedIn ? <Navigate to="/" replace /> : <RegisterPage />} />
+      <Route path="/registrace" element={signedIn ? <Navigate to={loginTarget} replace /> : <RegisterPage />} />
       <Route path="/overeni" element={<VerifyEmailPage />} />
       <Route path="/zapomenute-heslo" element={<ForgotPasswordPage />} />
       <Route path="/obnova-hesla" element={<ResetPasswordPage />} />
@@ -91,6 +92,12 @@ function HomeRedirect() {
   const me = useMe()
   const organizations = me.data?.organizations ?? []
   if (organizations.length === 1 && organizations[0])
-    return <Navigate to={`/${organizations[0].slug}`} replace />
+    return <ResumeOrganization org={organizations[0].slug} />
   return <Navigate to="/organizace" replace />
+}
+
+function ResumeOrganization({ org }: { org: string }) {
+  const progress = useOnboarding(org)
+  if (progress.isPending) return <Loading />
+  return <Navigate to={progress.data?.started && !progress.data.completed ? `/${org}/onboarding` : `/${org}`} replace />
 }

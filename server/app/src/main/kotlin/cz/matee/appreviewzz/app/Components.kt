@@ -165,6 +165,9 @@ class Components(
     val reviewInsights = ExposedReviewInsightRepository(exposed)
     val analysisAggregates = ExposedAnalysisAggregateRepository(exposed)
     val appTopics = ExposedAppTopicRepository(exposed)
+    val onboarding =
+        cz.matee.appreviewzz.persistence.repository
+            .ExposedOnboardingRepository(exposed)
     val replyTemplates = ExposedReplyTemplateRepository(exposed)
     val analysisDigests = ExposedAnalysisDigestRepository(exposed)
     val analysisAlerts = ExposedAnalysisAlertRepository(exposed)

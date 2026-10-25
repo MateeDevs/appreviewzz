@@ -139,7 +139,16 @@ class ExposedCredentialRepository(
                     it[validationError] = null
                     it[validatedAt] = null
                 }
-            if (updated == 0) null else findMeta(orgId, id)
+            if (updated == 0) {
+                null
+            } else {
+                AppCredentials.update({ AppCredentials.credentialId eq id }) {
+                    it[validationStatus] = ValidationStatus.UNKNOWN
+                    it[validationError] = null
+                    it[validatedAt] = null
+                }
+                findMeta(orgId, id)
+            }
         }
 
     override fun reencrypt(
@@ -172,6 +181,25 @@ class ExposedCredentialRepository(
             if (updated == 0) null else findMeta(orgId, id)
         }
 
+    override fun recordAppValidation(
+        orgId: OrganizationId,
+        appId: AppId,
+        id: CredentialId,
+        status: ValidationStatus,
+        error: String?,
+        at: Instant,
+    ) {
+        transaction(database) {
+            requireSameOrg(orgId, appId, id)
+            AppCredentials.update({ (AppCredentials.appId eq appId) and (AppCredentials.credentialId eq id) }) {
+                it[validationStatus] = status
+                it[validationError] = error
+                it[validatedAt] = at
+            }
+            recordValidation(orgId, id, status, error, at)
+        }
+    }
+
     override fun attachToApp(
         orgId: OrganizationId,
         appId: AppId,
@@ -182,6 +210,24 @@ class ExposedCredentialRepository(
             // Appka i credential musí patřit téže organizaci — bez téhle kontroly by šlo
             // připnout cizí klíč na vlastní appku a přes ingest ho začít používat.
             requireSameOrg(orgId, appId, credentialId)
+            Apps
+                .selectAll()
+                .where { (Apps.orgId eq orgId) and (Apps.id eq appId) }
+                .forUpdate()
+                .single()
+            val targetType = checkNotNull(findMeta(orgId, credentialId)).type
+            val otherKeys =
+                Credentials
+                    .selectAll()
+                    .where { (Credentials.orgId eq orgId) and (Credentials.type eq targetType) }
+                    .map { it[Credentials.id] }
+                    .filter { it != credentialId }
+            if (otherKeys.isNotEmpty()) {
+                AppCredentials.deleteWhere {
+                    (AppCredentials.appId eq appId) and (AppCredentials.purpose eq purpose) and
+                        (AppCredentials.credentialId inList otherKeys)
+                }
+            }
             AppCredentials.insertIgnore {
                 it[AppCredentials.appId] = appId
                 it[AppCredentials.credentialId] = credentialId
@@ -212,11 +258,12 @@ class ExposedCredentialRepository(
         type: CredentialType,
     ): CredentialMeta? =
         transaction(database) {
-            val credentialIds =
+            val bindings =
                 AppCredentials
                     .selectAll()
                     .where { (AppCredentials.appId eq appId) and (AppCredentials.purpose eq purpose) }
-                    .map { it[AppCredentials.credentialId] }
+                    .associateBy { it[AppCredentials.credentialId] }
+            val credentialIds = bindings.keys.toList()
             if (credentialIds.isEmpty()) {
                 null
             } else {
@@ -228,6 +275,14 @@ class ExposedCredentialRepository(
                             (Credentials.id inList credentialIds)
                     }.firstOrNull()
                     ?.toCredentialMeta()
+                    ?.let { meta ->
+                        val binding = bindings.getValue(meta.id)
+                        meta.copy(
+                            validationStatus = binding[AppCredentials.validationStatus] ?: ValidationStatus.UNKNOWN,
+                            validationError = binding[AppCredentials.validationError],
+                            validatedAt = binding[AppCredentials.validatedAt],
+                        )
+                    }
             }
         }
 

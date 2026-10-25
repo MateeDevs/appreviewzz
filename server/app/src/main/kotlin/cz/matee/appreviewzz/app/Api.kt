@@ -71,6 +71,8 @@ fun runApi(
             orgs = components.organizationService,
             apps = components.appService,
             appSetup = components.appSetupCheck,
+            onboarding = components.onboarding,
+            onboardingIngest = components.ingest,
             storeLookup = components.storeLookup,
             credentials = components.credentialService,
             channels = components.channelService,

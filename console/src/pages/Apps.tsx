@@ -14,6 +14,7 @@ import {
   useCreateReplyTemplate,
   useCreateTopic,
   useCredentials,
+  useHealth,
   useDeleteChannel,
   useDeleteCredential,
   useDeleteReplyTemplate,
@@ -40,6 +41,8 @@ import {
   PlatformBadge,
   When,
 } from '../components/ui'
+import { AIInstructionsField } from '../components/ReplyPreferences'
+import { SlackOAuth, TeamsConnection } from '../components/OptionalIntegrations'
 import { Select } from '../components/Select'
 import { ConnectStoreWizard } from '../components/ConnectStoreWizard'
 import { RatingsChart } from '../components/RatingsChart'
@@ -302,17 +305,22 @@ function useSetupFocus(id: string): string | undefined {
  * rozhodnutí: který název použít. Odkazy se ověřují průběžně, aby se překlep poznal dřív,
  * než klient dialog potvrdí.
  */
-function AddAppDialog({
+export function AddAppDialog({
   org,
   onClose,
   onConnect,
+  inline = false,
+  ownOnly = false,
 }: {
   org: string
+  inline?: boolean
+  ownOnly?: boolean
   onClose: () => void
   /** Přidaná appka ještě nemá klíč — nabídneme napojení rovnou, než na ně klient zapomene. */
   onConnect: (app: App, platform: Platform) => void
 }) {
   const create = useCreateApp(org)
+  const apps = useApps(org)
   const resolve = useResolveStoreLinks(org)
   const resolveLinks = resolve.mutate
   const [googlePlayUrl, setGooglePlayUrl] = useState('')
@@ -320,9 +328,13 @@ function AddAppDialog({
   const [name, setName] = useState('')
   const [historyMonths, setHistoryMonths] = useState('1')
   const [competitor, setCompetitor] = useState(false)
-  const [resolved, setResolved] = useState<{ links: string; result: StoreResolution } | null>(null)
+  const [resolved, setResolved] = useState<{
+    links: string
+    result: StoreResolution
+  } | null>(null)
   // Jakmile klient název přepíše, přestaneme mu ho pod rukama přepisovat výsledkem ze storu.
   const nameEdited = useRef(false)
+  const creating = useRef(false)
 
   const links = `${googlePlayUrl.trim()}\u0000${appStoreUrl.trim()}`
   // Výsledek platí jen pro odkazy, ze kterých vznikl — jinak by po úpravě odkazu chvíli
@@ -335,7 +347,10 @@ function AddAppDialog({
     // Odkaz se vkládá po částech (nebo se lepí ze schránky) — počkáme, až psaní ustane.
     const timer = setTimeout(() => {
       resolveLinks(
-        { googlePlayUrl: googlePlay || undefined, appStoreUrl: appStore || undefined },
+        {
+          googlePlayUrl: googlePlay || undefined,
+          appStoreUrl: appStore || undefined,
+        },
         {
           onSuccess: (result) => {
             setResolved({ links, result })
@@ -352,7 +367,11 @@ function AddAppDialog({
     (store): store is ResolvedStore => store != null && store.identifier !== '',
   )
   const suggestions = [
-    ...new Set(identifiers.map((store) => store.name).filter((value): value is string => value != null)),
+    ...new Set(
+      identifiers
+        .map((store) => store.name)
+        .filter((value): value is string => value != null),
+    ),
   ]
   // Vyplněný odkaz, ze kterého nic nekouká, přidání blokuje: jinak by se appka tiše založila
   // jen s tím druhým storem a klient by se to dozvěděl až tím, že recenze nechodí.
@@ -362,10 +381,26 @@ function AddAppDialog({
   const ready = identifiers.length > 0 && name.trim() !== '' && !broken
 
   return (
-    <Modal title="Přidat aplikaci" onClose={onClose}>
+    <AppFormFrame inline={inline} onClose={onClose}>
       <form
         onSubmit={(event) => {
           event.preventDefault()
+          if (!ready || create.isPending || creating.current) return
+          const existing = apps.data?.find(
+            (app) =>
+              !app.competitor &&
+              (current?.googlePlay?.identifier
+                ? app.gpPackageName === current.googlePlay.identifier
+                : app.gpPackageName == null) &&
+              (current?.appStore?.identifier
+                ? app.ascAppId === current.appStore.identifier
+                : app.ascAppId == null),
+          )
+          if (existing && !competitor) {
+            onConnect(existing, existing.gpPackageName ? 'ANDROID' : 'IOS')
+            return
+          }
+          creating.current = true
           create.mutate(
             {
               name: name.trim(),
@@ -375,6 +410,9 @@ function AddAppDialog({
               competitor,
             },
             {
+              onError: () => {
+                creating.current = false
+              },
               onSuccess: (app) => {
                 onClose()
                 // Konkurence klíč nemá a mít nebude — dialog napojení by jen mátl.
@@ -414,10 +452,17 @@ function AddAppDialog({
             placeholder="https://apps.apple.com/cz/app/appka/id1234567890"
           />
         </Field>
-        <StoreHint store={current?.appStore} filled={appStoreUrl.trim() !== ''} pending={resolve.isPending} />
+        <StoreHint
+          store={current?.appStore}
+          filled={appStoreUrl.trim() !== ''}
+          pending={resolve.isPending}
+        />
 
         <div style={{ marginTop: '0.85rem' }}>
-          <Field label="Název" hint="Pod tímhle názvem appku uvidíš v consoli i ve zprávách do kanálu.">
+          <Field
+            label="Název"
+            hint="Pod tímhle názvem appku uvidíš v consoli i ve zprávách do kanálu."
+          >
             <input
               value={name}
               onChange={(e) => {
@@ -447,22 +492,25 @@ function AddAppDialog({
         </div>
 
         {/* Konkurence je jiný druh appky, ne nastavení: bez klíče, bez kanálu, bez odpovídání. */}
-        <label className="pick" style={{ marginTop: '0.85rem' }}>
-          <input
-            type="checkbox"
-            checked={competitor}
-            onChange={(event) => setCompetitor(event.target.checked)}
-          />
-          <span>
-            Sleduju jako konkurenci
-            <div className="small muted">
-              Cizí appka bez klíče: recenze z veřejného App Store feedu, u Google Play jen hodnocení ze storu.
-              Nikam se nenotifikuje a neodpovídá se — slouží rozborům.
-            </div>
-          </span>
-        </label>
+        {!ownOnly ? (
+          <label className="pick" style={{ marginTop: '0.85rem' }}>
+            <input
+              type="checkbox"
+              checked={competitor}
+              onChange={(event) => setCompetitor(event.target.checked)}
+            />
+            <span>
+              Sleduju jako konkurenci
+              <div className="small muted">
+                Cizí appka bez klíče: recenze z veřejného App Store feedu, u
+                Google Play jen hodnocení ze storu. Nikam se nenotifikuje a
+                neodpovídá se — slouží rozborům.
+              </div>
+            </span>
+          </label>
+        ) : null}
 
-        {competitor ? null : (
+        {competitor || inline ? null : (
           <>
             <div style={{ marginTop: '0.85rem' }}>
               <Field
@@ -481,37 +529,73 @@ function AddAppDialog({
               </Field>
               {googlePlayUrl.trim() !== '' ? (
                 <p className="small muted">
-                  U Androidu historii vydá jen reporting Play Console — vlož jeho bucket v nastavení aplikace,
-                  jinak budou recenze až ode dneška. Google Play API dál než týden zpátky nevidí.
+                  U Androidu historii vydá jen reporting Play Console — vlož
+                  jeho bucket v nastavení aplikace, jinak budou recenze až ode
+                  dneška. Google Play API dál než týden zpátky nevidí.
                 </p>
               ) : null}
             </div>
 
             <p className="small muted" style={{ marginTop: '0.85rem' }}>
-              Do kanálu půjdou recenze od chvíle, kdy appku přidáš. Starší se stáhnou do historie, ale nikoho
-              neupozorní — jinak by první stažení vysypalo do Slacku celou historii appky.
+              Do kanálu půjdou recenze od chvíle, kdy appku přidáš. Starší se
+              stáhnou do historie, ale nikoho neupozorní — jinak by první
+              stažení vysypalo do Slacku celou historii appky.
             </p>
           </>
         )}
-        {competitor && appStoreUrl.trim() === '' && googlePlayUrl.trim() !== '' ? (
+        {competitor &&
+        appStoreUrl.trim() === '' &&
+        googlePlayUrl.trim() !== '' ? (
           <p className="small muted" style={{ marginTop: '0.85rem' }}>
-            Google Play veřejné recenze neukazuje — u konkurence jen s Androidem budou k dispozici jen
-            hodnocení, ne texty. Přidej i odkaz na App Store, pokud appka na iOS je.
+            Google Play veřejné recenze neukazuje — u konkurence jen s Androidem
+            budou k dispozici jen hodnocení, ne texty. Přidej i odkaz na App
+            Store, pokud appka na iOS je.
           </p>
         ) : null}
 
+        {inline ? (
+          <p className="small muted">
+            V dalším kroku ověříme přístup ke každému storu. Recenze se
+            nenačítají jen vložením odkazu.
+          </p>
+        ) : null}
         <div className="stack" style={{ marginTop: '1rem' }}>
           <ErrorBox error={create.error ?? resolve.error} />
           <div className="row">
             <button type="submit" disabled={!ready || create.isPending}>
-              {create.isPending ? 'Přidávám…' : competitor ? 'Přidat konkurenci' : 'Přidat aplikaci'}
+              {create.isPending
+                ? 'Přidávám…'
+                : competitor
+                  ? 'Přidat konkurenci'
+                  : 'Přidat aplikaci'}
             </button>
-            <button type="button" className="secondary" onClick={onClose}>
-              Zrušit
-            </button>
+            {!inline ? (
+              <button type="button" className="secondary" onClick={onClose}>
+                Zrušit
+              </button>
+            ) : null}
           </div>
         </div>
       </form>
+    </AppFormFrame>
+  )
+}
+
+
+function AppFormFrame({
+  inline,
+  onClose,
+  children,
+}: {
+  inline: boolean
+  onClose: () => void
+  children: ReactNode
+}) {
+  return inline ? (
+    <div className="first-app-form">{children}</div>
+  ) : (
+    <Modal title="Přidat aplikaci" onClose={onClose}>
+      {children}
     </Modal>
   )
 }
@@ -1064,7 +1148,8 @@ function ReplySettingsCard({ org, app }: { org: string; app: App }) {
         body={(values) => ({
           autoThanksEnabled: values.autoThanksEnabled === 'ano',
           autoThanksTemplate: values.autoThanksTemplate,
-          aiInstructions: values.aiInstructions === '' ? null : values.aiInstructions,
+          aiInstructions:
+            values.aiInstructions === '' ? null : values.aiInstructions,
         })}
       >
         {(values, set) => (
@@ -1095,15 +1180,10 @@ function ReplySettingsCard({ org, app }: { org: string; app: App }) {
                 />
               </Field>
             ) : null}
-            <Field
-              label="Instrukce pro AI návrhy"
-              hint="Tón odpovědí, čemu se vyhnout, jak podepisovat. Nechej prázdné, když návrhy nechceš ovlivňovat."
-            >
-              <textarea
-                value={values.aiInstructions}
-                onChange={(e) => set('aiInstructions', e.target.value)}
-              />
-            </Field>
+            <AIInstructionsField
+              value={values.aiInstructions}
+              onChange={(value) => set('aiInstructions', value)}
+            />
           </>
         )}
       </SettingsSection>
@@ -1436,7 +1516,7 @@ function RemoveCredentialDialog({
   )
 }
 
-function CredentialsCard({
+export function CredentialsCard({
   org,
   app,
   onConnect,
@@ -1448,6 +1528,7 @@ function CredentialsCard({
   const appId = app.id
   const focus = useSetupFocus('klice')
   const credentials = useCredentials(org)
+  const health = useHealth(org)
   const add = useAddCredential(org)
   const attach = useAttachCredential(org)
   const validate = useValidateCredential(org)
@@ -1461,7 +1542,9 @@ function CredentialsCard({
   const [result, setResult] = useState<string | null>(null)
 
   const storeKeys = (credentials.data ?? []).filter(
-    (credential) => credential.type === 'GP_SERVICE_ACCOUNT' || credential.type === 'ASC_API_KEY',
+    (credential) =>
+      credential.type === 'GP_SERVICE_ACCOUNT' ||
+      credential.type === 'ASC_API_KEY',
   )
 
   return (
@@ -1478,7 +1561,9 @@ function CredentialsCard({
         </button>
       </div>
       {storeKeys.length === 0 ? (
-        <p className="muted">Zatím žádný klíč — bez něj nemáme čím recenze stáhnout.</p>
+        <p className="muted">
+          Zatím žádný klíč — bez něj nemáme čím recenze stáhnout.
+        </p>
       ) : (
         <table tabIndex={0} className="row-cards">
           <thead>
@@ -1490,70 +1575,91 @@ function CredentialsCard({
             </tr>
           </thead>
           <tbody>
-            {storeKeys.map((credential) => (
-              <tr key={credential.id}>
-                <td className="lead">
-                  {credential.label}{' '}
-                  {credential.origin === 'PROVISIONED' ? <Badge>spravovaný námi</Badge> : null}
-                  <div className="small muted">{credential.hint}</div>
-                </td>
-                <td className="small muted full">{credential.fingerprint}</td>
-                <td>
-                  {credential.validationStatus === 'VALID' ? (
-                    <>
-                      <Badge tone="ok">funguje</Badge>
-                      <div className="small muted">
-                        <When iso={credential.validatedAt} />
-                      </div>
-                    </>
-                  ) : credential.validationStatus === 'INVALID' ? (
-                    <Badge tone="bad">{credential.validationError ?? 'neplatný'}</Badge>
-                  ) : (
-                    <Badge tone="warn">neověřený</Badge>
-                  )}
-                </td>
-                <td className="nowrap end">
-                  <div className="row">
-                    {/* Organizace může mít pro tentýž store víc klíčů — spravovaný účet vedle
+            {storeKeys.map((stored) => {
+              const scoped = health.data?.apps
+                .find((item) => item.appId === appId)
+                ?.credentials.find((item) => item.id === stored.id)
+              const credential = scoped ? { ...stored, ...scoped } : stored
+              return (
+                <tr key={credential.id}>
+                  <td className="lead">
+                    {credential.label}{' '}
+                    {credential.origin === 'PROVISIONED' ? (
+                      <Badge>spravovaný námi</Badge>
+                    ) : null}
+                    <div className="small muted">{credential.hint}</div>
+                  </td>
+                  <td className="small muted full">{credential.fingerprint}</td>
+                  <td>
+                    {credential.validationStatus === 'VALID' ? (
+                      <>
+                        <Badge tone="ok">funguje</Badge>
+                        <div className="small muted">
+                          <When iso={credential.validatedAt} />
+                        </div>
+                      </>
+                    ) : credential.validationStatus === 'INVALID' ? (
+                      <Badge tone="bad">
+                        {credential.validationError ?? 'neplatný'}
+                      </Badge>
+                    ) : (
+                      <Badge tone="warn">neověřený</Badge>
+                    )}
+                  </td>
+                  <td className="nowrap end">
+                    <div className="row">
+                      {/* Organizace může mít pro tentýž store víc klíčů — spravovaný účet vedle
                         vlastního enterprise klíče. Přiřazovat jde jen ten, který appka
                         nepoužívá; u toho druhého by tlačítko nedělalo nic. */}
-                    {app.setup.credentialIds.includes(credential.id) ? (
-                      <span className="small muted">používá tahle appka</span>
-                    ) : (
+                      {app.setup.credentialIds.includes(credential.id) ? (
+                        <span className="small muted">používá tahle appka</span>
+                      ) : (
+                        <button
+                          type="button"
+                          className="secondary"
+                          disabled={attach.isPending}
+                          onClick={() =>
+                            attach.mutate({
+                              appId,
+                              credentialId: credential.id,
+                            })
+                          }
+                        >
+                          Přiřadit k appce
+                        </button>
+                      )}
                       <button
                         type="button"
                         className="secondary"
-                        disabled={attach.isPending}
-                        onClick={() => attach.mutate({ appId, credentialId: credential.id })}
+                        disabled={validate.isPending}
+                        onClick={() =>
+                          validate.mutate(
+                            { appId, credentialId: credential.id },
+                            {
+                              onSuccess: (outcome) =>
+                                setResult(
+                                  outcome.valid
+                                    ? 'Klíč funguje.'
+                                    : (outcome.message ?? 'Klíč neprošel.'),
+                                ),
+                            },
+                          )
+                        }
                       >
-                        Přiřadit k appce
+                        Ověřit proti storu
                       </button>
-                    )}
-                    <button
-                      type="button"
-                      className="secondary"
-                      disabled={validate.isPending}
-                      onClick={() =>
-                        validate.mutate(
-                          { appId, credentialId: credential.id },
-                          {
-                            onSuccess: (outcome) =>
-                              setResult(
-                                outcome.valid ? 'Klíč funguje.' : (outcome.message ?? 'Klíč neprošel.'),
-                              ),
-                          },
-                        )
-                      }
-                    >
-                      Ověřit proti storu
-                    </button>
-                    <button type="button" className="danger" onClick={() => setRemoving(credential)}>
-                      Odebrat
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+                      <button
+                        type="button"
+                        className="danger"
+                        onClick={() => setRemoving(credential)}
+                      >
+                        Odebrat
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       )}
@@ -1569,7 +1675,9 @@ function CredentialsCard({
           credential={removing}
           pending={remove.isPending}
           onClose={() => setRemoving(null)}
-          onConfirm={() => remove.mutate(removing.id, { onSuccess: () => setRemoving(null) })}
+          onConfirm={() =>
+            remove.mutate(removing.id, { onSuccess: () => setRemoving(null) })
+          }
         />
       ) : null}
 
@@ -1611,7 +1719,11 @@ function CredentialsCard({
             />
           </Field>
           <Field label="Štítek" hint="Jak klíč poznáš ve výpisu.">
-            <input value={label} onChange={(e) => setLabel(e.target.value)} required />
+            <input
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              required
+            />
           </Field>
           <Field
             label="Soubor s klíčem"
@@ -1623,7 +1735,9 @@ function CredentialsCard({
           >
             <input
               type="file"
-              accept={type === 'gp' ? '.json,application/json' : '.p8,text/plain'}
+              accept={
+                type === 'gp' ? '.json,application/json' : '.p8,text/plain'
+              }
               onChange={async (event) => {
                 const file = event.target.files?.[0]
                 if (file) setContent(await file.text())
@@ -1632,11 +1746,21 @@ function CredentialsCard({
           </Field>
           {type === 'asc' ? (
             <>
-              <Field label="Key ID" hint="Deset znaků, opíšeš je z tabulky klíčů v App Store Connect.">
-                <input value={keyId} onChange={(e) => setKeyId(e.target.value)} required />
+              <Field
+                label="Key ID"
+                hint="Deset znaků, opíšeš je z tabulky klíčů v App Store Connect."
+              >
+                <input
+                  value={keyId}
+                  onChange={(e) => setKeyId(e.target.value)}
+                  required
+                />
               </Field>
               <Field label="Issuer ID">
-                <input value={issuerId} onChange={(e) => setIssuerId(e.target.value)} />
+                <input
+                  value={issuerId}
+                  onChange={(e) => setIssuerId(e.target.value)}
+                />
               </Field>
             </>
           ) : null}
@@ -1646,7 +1770,8 @@ function CredentialsCard({
               Nahrát klíč
             </button>
             <p className="small muted">
-              Klíč se zašifruje ještě před uložením a z vaultu už ven nevyjde — ve výpisu uvidíš jen otisk.
+              Klíč se zašifruje ještě před uložením a z vaultu už ven nevyjde —
+              ve výpisu uvidíš jen otisk.
             </p>
           </div>
         </form>
@@ -1902,7 +2027,7 @@ function EditChannelDialog({
   )
 }
 
-function ChannelsCard({ org, app }: { org: string; app: App }) {
+export function ChannelsCard({ org, app }: { org: string; app: App }) {
   const appId = app.id
   const focus = useSetupFocus('kanaly')
   const channels = useChannels(org, appId)
@@ -1919,11 +2044,17 @@ function ChannelsCard({ org, app }: { org: string; app: App }) {
   const [checks, setChecks] = useState<ChannelCheck[] | null>(null)
   const [editing, setEditing] = useState<Channel | null>(null)
 
-  const installs = (credentials.data ?? []).filter((credential) => credential.type === 'SLACK_INSTALL')
+  const installs = (credentials.data ?? []).filter(
+    (credential) => credential.type === 'SLACK_INSTALL',
+  )
 
   return (
     <Card id="kanaly" className={focus} title="Kanály">
       <ErrorBox error={channels.error} />
+      <p className="small muted">
+        Připojení kanálu samo nepotvrzuje doručování. Ověříte ho zkušební
+        zprávou; ta se odešle až na váš pokyn.
+      </p>
       {channels.data?.length === 0 ? (
         <p className="muted">Zatím žádný kanál — recenze nemají kam chodit.</p>
       ) : (
@@ -1942,23 +2073,45 @@ function ChannelsCard({ org, app }: { org: string; app: App }) {
               <tr key={channel.id}>
                 <td className="lead">
                   {channel.targetLabel ?? channel.targetRef}
-                  {channel.targetLabel ? <div className="small muted">{channel.targetRef}</div> : null}
+                  {channel.targetLabel ? (
+                    <div className="small muted">{channel.targetRef}</div>
+                  ) : null}
                 </td>
                 <td className="small">{localeLabel(channel.locale)}</td>
                 <td className="small muted">{deliveriesLabel(channel)}</td>
                 <td>
                   {channel.enabled ? (
-                    <Badge tone="ok">zapnutý</Badge>
+                    <Badge
+                      tone={
+                        checks?.find((check) => check.channelId === channel.id)
+                          ?.ok
+                          ? 'ok'
+                          : 'warn'
+                      }
+                    >
+                      {checks?.find((check) => check.channelId === channel.id)
+                        ?.ok
+                        ? 'zpráva doručena'
+                        : 'doručení neověřeno'}
+                    </Badge>
                   ) : (
                     <Badge tone="warn">pozastavený</Badge>
                   )}
                 </td>
                 <td className="nowrap end">
                   <div className="row">
-                    <button type="button" className="secondary" onClick={() => setEditing(channel)}>
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => setEditing(channel)}
+                    >
                       Upravit
                     </button>
-                    <button type="button" className="danger" onClick={() => remove.mutate(channel.id)}>
+                    <button
+                      type="button"
+                      className="danger"
+                      onClick={() => remove.mutate(channel.id)}
+                    >
                       Odpojit
                     </button>
                   </div>
@@ -1987,38 +2140,55 @@ function ChannelsCard({ org, app }: { org: string; app: App }) {
               style={{ marginTop: '0.5rem' }}
             >
               <strong>{check.targetRef}</strong>{' '}
-              {check.ok ? 'zpráva dorazila.' : `${check.error ?? 'nepovedlo se'} — ${check.hint ?? ''}`}
+              {check.ok
+                ? 'zpráva dorazila.'
+                : `${check.error ?? 'nepovedlo se'} — ${check.hint ?? ''}`}
             </div>
           ))}
         </div>
       ) : null}
 
       {editing ? (
-        <EditChannelDialog org={org} appId={appId} channel={editing} onClose={() => setEditing(null)} />
+        <EditChannelDialog
+          org={org}
+          appId={appId}
+          channel={editing}
+          onClose={() => setEditing(null)}
+        />
       ) : null}
 
       {installs.length === 0 ? (
         <>
-          <h3 style={{ marginTop: '1.25rem' }}>Připojit Slack</h3>
-          <form
-            onSubmit={(event) => {
-              event.preventDefault()
-              connect.mutate({ token }, { onSuccess: () => setToken('') })
-            }}
-          >
-            <Field
-              label="Bot token workspace"
-              hint="Slack App → OAuth & Permissions → Bot User OAuth Token. Začíná xoxb-."
+          <SlackOAuth org={org} />
+          <details className="optional">
+            <summary>Pokročilé: vlastní Slack bot token</summary>
+            <form
+              onSubmit={(event) => {
+                event.preventDefault()
+                connect.mutate({ token }, { onSuccess: () => setToken('') })
+              }}
             >
-              <input value={token} onChange={(e) => setToken(e.target.value)} placeholder="xoxb-…" required />
-            </Field>
-            <div className="stack" style={{ marginTop: '1rem' }}>
-              <ErrorBox error={connect.error} />
-              <button type="submit" disabled={connect.isPending}>
-                Připojit workspace
-              </button>
-            </div>
-          </form>
+              <Field
+                label="Bot token workspace"
+                hint="Slack App → OAuth & Permissions → Bot User OAuth Token. Začíná xoxb-."
+              >
+                <input
+                  value={token}
+                  onChange={(e) => setToken(e.target.value)}
+                  type="password"
+                  autoComplete="off"
+                  placeholder="xoxb-…"
+                  required
+                />
+              </Field>
+              <div className="stack" style={{ marginTop: '1rem' }}>
+                <ErrorBox error={connect.error} />
+                <button type="submit" disabled={connect.isPending}>
+                  Připojit workspace
+                </button>
+              </div>
+            </form>
+          </details>
         </>
       ) : (
         <>
@@ -2027,7 +2197,11 @@ function ChannelsCard({ org, app }: { org: string; app: App }) {
             onSubmit={(event) => {
               event.preventDefault()
               create.mutate(
-                { targetRef, credentialId: credentialId || (installs[0]?.id ?? ''), locale },
+                {
+                  targetRef,
+                  credentialId: credentialId || (installs[0]?.id ?? ''),
+                  locale,
+                },
                 { onSuccess: () => setTargetRef('') },
               )
             }}
@@ -2071,12 +2245,17 @@ function ChannelsCard({ org, app }: { org: string; app: App }) {
                 Připojit kanál
               </button>
               <p className="small muted">
-                U privátního kanálu nezapomeň bota pozvat: <code>/invite @appreviewzz</code>
+                U privátního kanálu nezapomeň bota pozvat:{' '}
+                <code>/invite @appreviewzz</code>
               </p>
             </div>
           </form>
         </>
       )}
+      <details className="optional">
+        <summary>Microsoft Teams</summary>
+        <TeamsConnection org={org} app={app} />
+      </details>
     </Card>
   )
 }

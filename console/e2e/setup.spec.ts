@@ -20,8 +20,8 @@ test('Google Play: provisionovaný klíč, čekání na oprávnění, dostupný 
   await page.route('**/api/orgs/studio/apps/app-1/credentials/test-key/validate', (route) =>
     route.fulfill({ json: { valid: false, message: 'Čekáme na udělení oprávnění ve storu.' } }),
   )
-  await page.goto('/studio/onboarding')
-  await page.getByRole('button', { name: 'Připojit store', exact: true }).click()
+  await page.goto('/studio/onboarding?step=connect')
+  await page.getByRole('button', { name: 'Upravit připojení', exact: true }).first().click()
   await page.getByRole('button', { name: /Jen recenze/ }).click()
   await expect(page.getByText('test@example.test', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Pozvánku jsem odeslal', exact: true }).click()

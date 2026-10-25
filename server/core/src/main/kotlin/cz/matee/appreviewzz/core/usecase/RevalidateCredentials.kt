@@ -1,6 +1,7 @@
 package cz.matee.appreviewzz.core.usecase
 
 import cz.matee.appreviewzz.core.model.App
+import cz.matee.appreviewzz.core.model.AppId
 import cz.matee.appreviewzz.core.model.CredentialId
 import cz.matee.appreviewzz.core.model.CredentialPurpose
 import cz.matee.appreviewzz.core.model.CredentialType
@@ -55,9 +56,8 @@ class RevalidateCredentialsUseCase(
 ) {
     suspend fun revalidate(): RevalidationReport {
         val now = clock.now()
-        // Jeden klíč visí často na víc appkách; stav je ale na klíči, takže druhý pokus
-        // v témže běhu by jen přepsal výsledek prvního.
-        val done = mutableSetOf<CredentialId>()
+        // Jeden klíč může mít odlišná oprávnění k různým aplikacím.
+        val done = mutableSetOf<Pair<AppId, CredentialId>>()
         var checked = 0
         var nowValid = 0
         var failing = 0
@@ -68,14 +68,15 @@ class RevalidateCredentialsUseCase(
                     credentials.findForApp(app.orgId, app.id, CredentialPurpose.REVIEWS, credentialType(platform))
                         ?: return@forEach
                 if (meta.validationStatus == ValidationStatus.VALID) return@forEach
-                if (!done.add(meta.id)) return@forEach
+                if (!done.add(app.id to meta.id)) return@forEach
                 val since = meta.validatedAt ?: meta.createdAt
                 if (now - since > window) return@forEach
 
                 checked++
                 val outcome = validate(app, platform, meta.id)
-                credentials.recordValidation(
+                credentials.recordAppValidation(
                     app.orgId,
+                    app.id,
                     meta.id,
                     if (outcome.valid) ValidationStatus.VALID else ValidationStatus.INVALID,
                     outcome.message.takeUnless { outcome.valid },
