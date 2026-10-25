@@ -1,0 +1,44 @@
+npm warn deprecated @opentelemetry/sdk-trace-base@2.12.0: Use @opentelemetry/sdk-trace package
+
+added 375 packages in 7s
+
+> appreviewzz-landing@1.0.0 check
+> astro check && tsc --noEmit -p tsconfig.tests.json
+
+12:56:35 [types] Generated 85ms
+12:56:35 [check] Getting diagnostics for Astro files in /Users/tadeas/MateeDevs/projects/appreviewzz/landing...
+Result (11 files):
+- 0 errors
+- 0 warnings
+- 0 hints
+
+
+> appreviewzz-landing@1.0.0 lint
+> prettier --check src scripts tests astro.config.mjs playwright.config.ts tsconfig*.json package.json .prettierrc.json
+
+Checking formatting...
+All matched files use Prettier code style!
+
+> appreviewzz-landing@1.0.0 build
+> astro build
+
+12:56:39 [types] Generated 23ms
+12:56:39 [build] output: "static"
+12:56:39 [build] mode: "static"
+12:56:39 [build] directory: /Users/tadeas/MateeDevs/projects/appreviewzz/landing/dist/
+12:56:39 [build] Collecting build info...
+12:56:39 [build] ✓ Completed in 53ms.
+12:56:39 [build] Building static entrypoints...
+12:56:39 [vite] ✓ built in 492ms
+12:56:39 [vite] ✓ built in 17ms
+12:56:39 [build] Rearranging server assets...
+
+ generating static routes
+12:56:39   ├─ /robots.txt (+5ms)
+12:56:39   ├─ /sitemap.xml (+1ms)
+12:56:39   ├─ /index.html (+5ms)
+12:56:39 ✓ Completed in 20ms.
+
+12:56:39 [build] ✓ Completed in 554ms.
+12:56:39 [build] 1 page(s) built in 610ms
+12:56:39 [build] Complete!

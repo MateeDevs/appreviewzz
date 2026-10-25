@@ -102,7 +102,7 @@ export function AuthShell({ wide, children }: { wide?: boolean; children: ReactN
       <aside className="auth-story">
         <Brand />
         <div className="auth-story-copy">
-          <div className="eyebrow">Každá recenze je signál.</div>
+          <div className="eyebrow">Každá recenze je zpětná vazba.</div>
           <h1>
             Naslouchejte.
             <br />

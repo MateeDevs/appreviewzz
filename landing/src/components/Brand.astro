@@ -1,0 +1,23 @@
+---
+interface Props {
+    compact?: boolean;
+}
+const { compact = false } = Astro.props;
+---
+
+<span class:list={['brand', { compact }]}>
+    <svg
+        viewBox="0 0 40 40"
+        width="36"
+        height="36"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="3"
+        stroke-linecap="round"
+        aria-hidden="true"
+    >
+        <path d="M8 16v8m9-14v20m9-16v12" />
+        <circle cx="32" cy="9" r="2.5" fill="currentColor" stroke="none" />
+    </svg>
+    {!compact && <span>appreviewzz</span>}
+</span>

@@ -47,7 +47,7 @@ export function DashboardPage() {
           <div className="empty-state">
             <SignalArt />
             <div>
-              <h2>První signál začíná vaší aplikací.</h2>
+              <h2>Začněte připojením své aplikace.</h2>
               <p>Připojte App Store nebo Google Play. Recenze a jejich souvislosti se potkají tady.</p>
               <Link className="button" to={`/${org}/onboarding`}>
                 Připojit první aplikaci →
@@ -163,7 +163,7 @@ function PrioritySignals({ org, app }: { org: string; app: AppHealth }) {
       <div className="section-heading">
         <div>
           <div className="eyebrow">Ze zpětné vazby</div>
-          <h2>Signály · {app.name}</h2>
+          <h2>Upozornění · {app.name}</h2>
         </div>
         <Link to={`/${org}/rozbory?app=${app.appId}`}>Otevřít rozbory ↗</Link>
       </div>

@@ -1,0 +1,32 @@
+{
+  "checked": "2026-10-25T11:51:33.066Z",
+  "method": "Chromium browser GET, no form submissions",
+  "results": [
+    {
+      "url": "https://console.appreviewzz.com/login",
+      "finalUrl": "https://console.appreviewzz.com/login",
+      "status": 200,
+      "title": "appreviewzz",
+      "form": "E-mail\nHeslo\nPřihlásit se"
+    },
+    {
+      "url": "https://console.appreviewzz.com/registrace",
+      "finalUrl": "https://console.appreviewzz.com/registrace",
+      "status": 200,
+      "title": "appreviewzz",
+      "form": "Jméno\nE-mail\nHeslo\nAspoň 12 znaků. Délka je důležitější než speciální znaky.\nZaložit účet"
+    },
+    {
+      "url": "https://developer.apple.com/app-store/ratings-and-reviews/",
+      "finalUrl": "https://developer.apple.com/app-store/ratings-and-reviews/",
+      "status": 200,
+      "title": "Ratings, reviews, and responses - App Store - Apple Developer"
+    },
+    {
+      "url": "https://matee.cz/",
+      "finalUrl": "https://matee.cz/",
+      "status": 200,
+      "title": "Matee"
+    }
+  ]
+}

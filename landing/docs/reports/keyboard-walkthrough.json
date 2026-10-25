@@ -1,0 +1,159 @@
+{
+  "viewport": "1440 × 1000",
+  "steps": [
+    {
+      "tag": "A",
+      "text": "Skip to content",
+      "id": "",
+      "outline": "rgb(181, 112, 35) solid 3px",
+      "width": "3px"
+    },
+    {
+      "tag": "A",
+      "text": "appreviewzz",
+      "id": "",
+      "outline": "rgb(181, 112, 35) solid 3px",
+      "width": "3px"
+    },
+    {
+      "tag": "A",
+      "text": "How it works",
+      "id": "",
+      "outline": "rgb(181, 112, 35) solid 3px",
+      "width": "3px"
+    },
+    {
+      "tag": "A",
+      "text": "Understand your reviews",
+      "id": "",
+      "outline": "rgb(181, 112, 35) solid 3px",
+      "width": "3px"
+    },
+    {
+      "tag": "A",
+      "text": "FAQ",
+      "id": "",
+      "outline": "rgb(181, 112, 35) solid 3px",
+      "width": "3px"
+    },
+    {
+      "tag": "A",
+      "text": "Log in ↗",
+      "id": "",
+      "outline": "rgb(181, 112, 35) solid 3px",
+      "width": "3px"
+    },
+    {
+      "tag": "A",
+      "text": "Get started",
+      "id": "",
+      "outline": "rgb(181, 112, 35) solid 3px",
+      "width": "3px"
+    },
+    {
+      "tag": "A",
+      "text": "Get started",
+      "id": "",
+      "outline": "rgb(181, 112, 35) solid 3px",
+      "width": "3px"
+    },
+    {
+      "tag": "A",
+      "text": "Try the reply demo ↘",
+      "id": "",
+      "outline": "rgb(181, 112, 35) solid 3px",
+      "width": "3px"
+    },
+    {
+      "tag": "BUTTON",
+      "text": "Slack",
+      "id": "",
+      "outline": "rgb(181, 112, 35) solid 3px",
+      "width": "3px"
+    },
+    {
+      "tag": "BUTTON",
+      "text": "Teams",
+      "id": "",
+      "outline": "rgb(181, 112, 35) solid 3px",
+      "width": "3px"
+    },
+    {
+      "tag": "TEXTAREA",
+      "text": "Thanks for letting us know about offline maps in 3.8. We’re looking into this with ou",
+      "id": "reply-draft",
+      "outline": "rgb(181, 112, 35) solid 3px",
+      "width": "3px"
+    },
+    {
+      "tag": "BUTTON",
+      "text": "Approve reply",
+      "id": "approve-demo",
+      "outline": "rgb(181, 112, 35) solid 3px",
+      "width": "3px"
+    },
+    {
+      "tag": "A",
+      "text": "From the overview to the original review ↘",
+      "id": "",
+      "outline": "rgb(181, 112, 35) solid 3px",
+      "width": "3px"
+    },
+    {
+      "tag": "BUTTON",
+      "text": "Offline access↗ Growing312",
+      "id": "",
+      "outline": "rgb(181, 112, 35) solid 3px",
+      "width": "3px"
+    },
+    {
+      "tag": "BUTTON",
+      "text": "Route planning→ Stable78",
+      "id": "",
+      "outline": "rgb(181, 112, 35) solid 3px",
+      "width": "3px"
+    },
+    {
+      "tag": "BUTTON",
+      "text": "Sign-in issues↘ Falling62",
+      "id": "",
+      "outline": "rgb(181, 112, 35) solid 3px",
+      "width": "3px"
+    },
+    {
+      "tag": "A",
+      "text": "Let’s talk about your portfolio",
+      "id": "",
+      "outline": "rgb(181, 112, 35) solid 3px",
+      "width": "3px"
+    },
+    {
+      "tag": "A",
+      "text": "Source: Apple · Ratings, reviews, and responses ↗",
+      "id": "",
+      "outline": "rgb(181, 112, 35) solid 3px",
+      "width": "3px"
+    },
+    {
+      "tag": "A",
+      "text": "We’re here to help ↗",
+      "id": "",
+      "outline": "rgb(181, 112, 35) solid 3px",
+      "width": "3px"
+    },
+    {
+      "tag": "A",
+      "text": "Talk to the team ↗",
+      "id": "",
+      "outline": "rgb(181, 112, 35) solid 3px",
+      "width": "3px"
+    },
+    {
+      "tag": "SUMMARY",
+      "text": "Does AI send replies on its own?",
+      "id": "",
+      "outline": "rgb(181, 112, 35) solid 3px",
+      "width": "3px"
+    }
+  ]
+}

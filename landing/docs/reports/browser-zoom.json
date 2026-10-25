@@ -1,0 +1,7 @@
+{
+  "method": "Chromium tabs.setZoom(2), temporary isolated extension",
+  "zoom": 2,
+  "width": 720,
+  "dpr": 2,
+  "scroll": 720
+}

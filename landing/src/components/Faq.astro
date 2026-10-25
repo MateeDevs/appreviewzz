@@ -1,0 +1,62 @@
+---
+import Icon from './Icon.astro';
+const questions = [
+    [
+        'Does AI send replies on its own?',
+        'Your team can edit and approve AI-drafted replies before they are sent. Optional automatic thank-you replies are off by default and only apply to eligible positive reviews after you enable them. AI suggestions can be wrong: review the wording and any promises before approving.',
+    ],
+    [
+        'What do I need to connect my app?',
+        'Add your app and connect the appropriate store credentials: App Store Connect API access for iOS, or a Google Play service account with review permissions for Android. Publishing replies requires the relevant store permissions. Your personal store password is not needed.',
+    ],
+    [
+        'Can we use Slack and Microsoft Teams?',
+        'Yes. Connect your workspace or team, then choose where each app’s new reviews and daily rating summaries should arrive. You can also work from the web inbox. These are product integrations, not endorsements by Slack or Microsoft.',
+    ],
+    [
+        'Can I manage several apps or client teams?',
+        'Yes. Keep multiple apps in one portfolio, or use separate organizations with team roles. Shareable monthly client reports can be printed to PDF; report availability depends on your plan. Contact us to discuss your portfolio and access.',
+    ],
+    [
+        'Are store ratings and review sentiment the same?',
+        'No. Store ratings come from store rating data and include ratings without written feedback. Review analysis identifies topics and sentiment in text reviews. The two answer different questions, so appreviewzz keeps them separate.',
+    ],
+    [
+        'How are store credentials and AI handled?',
+        'Store credentials are encrypted in the product’s credential vault. Accounts support optional two-factor authentication with an authenticator app. AI processes review content to suggest replies and classify feedback; store credentials are not part of reply prompts. Contact us to discuss your data requirements.',
+    ],
+    [
+        'Can I follow competing apps?',
+        'You can monitor public App Store reviews. For Google Play competitors, only available public rating data is supported, not a review feed. You cannot reply to a competitor’s reviews.',
+    ],
+];
+---
+
+<section class="faq-section section container" id="faq" aria-labelledby="faq-title">
+    <div class="faq-intro">
+        <p class="eyebrow">A FEW PRACTICAL DETAILS</p>
+        <h2 id="faq-title">
+            Good questions.
+            <br />
+            Straight answers.
+        </h2>
+        <p>
+            Have something more specific in mind?
+            <br />
+            <a href="mailto:info@matee.cz">
+                Talk to the team <span aria-hidden="true">↗</span>
+            </a>
+        </p>
+    </div>
+    <div class="faq-list">
+        {questions.map(([question, answer]) => (
+            <details>
+                <summary>
+                    {question}
+                    <Icon name="plus" />
+                </summary>
+                <p>{answer}</p>
+            </details>
+        ))}
+    </div>
+</section>

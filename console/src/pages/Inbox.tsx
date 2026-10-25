@@ -569,7 +569,7 @@ export function InboxPage() {
             />
           ) : (
             <div className="detail-placeholder">
-              <div className="eyebrow">Vyberte signál</div>
+              <div className="eyebrow">Vyberte recenzi</div>
               <h2>Každá odpověď začíná porozuměním.</h2>
               <p>Otevřete recenzi ze seznamu. Najdete tu její kontext, historii i koncept odpovědi.</p>
               <span className="small muted keyboard-only">j / k pro procházení · r pro psaní</span>

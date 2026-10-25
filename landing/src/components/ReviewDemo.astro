@@ -1,0 +1,198 @@
+---
+import Brand from './Brand.astro';
+import Icon from './Icon.astro';
+import { demo } from '../data/demo';
+---
+
+<div class="review-stage" id="demo">
+    <svg class="orbits" viewBox="0 0 680 680" fill="none" aria-hidden="true">
+        <g stroke="currentColor">
+            {[160, 210, 260, 310].map((r) => (
+                <circle cx="340" cy="340" r={r} />
+            ))}
+        </g>
+    </svg>
+    <div class="demo-caption">
+        <span class="status-dot"></span> Interactive demo <span class="caption-divider">/</span>{' '}
+        Sample data
+    </div>
+    <div class="review-window">
+        <div class="window-top">
+            <span class="window-dots" aria-hidden="true">
+                <i></i>
+                <i></i>
+                <i></i>
+            </span>
+            <span>YOUR TEAM’S WORKSPACE</span>
+            <span aria-hidden="true">↗</span>
+        </div>
+        <div class="channel-bar">
+            <span class="channel-name">
+                <span aria-hidden="true">#</span> app-reviews
+            </span>
+            <div class="channel-switch js-only" role="group" aria-label="Demo integration">
+                <button
+                    type="button"
+                    data-channel="Slack"
+                    aria-pressed="true"
+                    aria-label="Show Slack demo"
+                >
+                    <Icon name="slack" size={16} />
+                    <span>Slack</span>
+                </button>
+                <button
+                    type="button"
+                    data-channel="Teams"
+                    aria-pressed="false"
+                    aria-label="Show Microsoft Teams demo"
+                >
+                    <Icon name="teams" size={16} />
+                    <span>Teams</span>
+                </button>
+            </div>
+        </div>
+        <div class="message">
+            <div class="bot-header">
+                <span class="bot-avatar">
+                    <Brand compact />
+                </span>
+                <strong>appreviewzz</strong>
+                <span class="app-label">APP</span>
+                <span class="message-time">09:41</span>
+            </div>
+            <div class="review-meta">
+                <span class="app-icon" aria-hidden="true">
+                    a<span>↗</span>
+                </span>
+                <strong>{demo.app}</strong>
+                <span>iOS · {demo.version}</span>
+                <span class="stars" aria-label="2 out of 5 stars">
+                    ★★<span aria-hidden="true">☆☆☆</span>
+                </span>
+            </div>
+            <h2 class="review-title">{demo.review.title}</h2>
+            <p class="review-text">{demo.review.text}</p>
+            <div class="review-tags">
+                <span>Offline access</span>
+                <span class="tag-urgent">Needs attention</span>
+                <span class="review-date">{demo.review.date} 2026</span>
+            </div>
+            <div class="reply-box">
+                <label for="reply-draft">
+                    <Icon name="spark" size={15} /> AI-drafted reply <span>· Yours to edit</span>
+                </label>
+                <textarea
+                    id="reply-draft"
+                    rows="4"
+                    maxlength="1000"
+                    aria-describedby="draft-hint"
+                >{demo.draft}</textarea>
+                <div class="reply-actions">
+                    <span id="draft-hint">
+                        <Icon name="check" size={14} /> You approve. Then it’s sent.
+                    </span>
+                    <button class="button button-small js-only" type="button" id="approve-demo">
+                        Approve reply <Icon name="arrow" size={15} />
+                    </button>
+                </div>
+            </div>
+            <div
+                class="demo-result"
+                id="demo-result"
+                role="status"
+                aria-live="polite"
+                aria-atomic="true"
+            ></div>
+            <div class="result-actions js-only" id="result-actions" hidden>
+                <button type="button" id="publish-demo">
+                    Simulate publication
+                </button>
+                <button type="button" id="fail-demo">
+                    Simulate store error
+                </button>
+                <button type="button" id="reset-demo">
+                    Start again
+                </button>
+            </div>
+        </div>
+        <div class="window-bottom">
+            <span>
+                <Icon name="apple" size={14} /> App Store
+            </span>
+            <span>Human-approved replies</span>
+            <span id="channel-context">Delivered to Slack</span>
+        </div>
+    </div>
+    <p class="demo-footnote">Try editing the reply. Nothing in this demo is sent.</p>
+    <noscript>
+        <p class="demo-footnote">
+            This is a sample review and editable draft. In the product, your team approves a reply
+            before it is queued for the store.
+        </p>
+    </noscript>
+</div>
+<script>
+    import { demo } from '../data/demo';
+    const draft = document.querySelector<HTMLTextAreaElement>('#reply-draft')!;
+    const approve = document.querySelector<HTMLButtonElement>('#approve-demo')!;
+    const result = document.querySelector<HTMLElement>('#demo-result')!;
+    const actions = document.querySelector<HTMLElement>('#result-actions')!;
+    const publish = document.querySelector<HTMLButtonElement>('#publish-demo')!;
+    const fail = document.querySelector<HTMLButtonElement>('#fail-demo')!;
+    let approvedText = '';
+    const reset = () => {
+        draft.value = demo.draft;
+        draft.readOnly = false;
+        approve.disabled = false;
+        result.textContent = '';
+        result.className = 'demo-result';
+        actions.hidden = true;
+        publish.disabled = false;
+        fail.disabled = false;
+    };
+    document.querySelectorAll<HTMLButtonElement>('[data-channel]').forEach((button) => {
+        button.addEventListener('click', () => {
+            document
+                .querySelectorAll('[data-channel]')
+                .forEach((item) => item.setAttribute('aria-pressed', String(item === button)));
+            document.querySelector('#channel-context')!.textContent =
+                `Delivered to ${button.dataset.channel}`;
+        });
+    });
+    draft.addEventListener('input', () => {
+        approve.disabled = !draft.value.trim();
+    });
+    approve.addEventListener('click', () => {
+        if (!draft.value.trim()) return;
+        approvedText = draft.value.trim();
+        draft.readOnly = true;
+        approve.disabled = true;
+        result.className = 'demo-result queued';
+        result.textContent = 'Simulation: reply approved and queued. It has not been published.';
+        actions.hidden = false;
+    });
+    publish.addEventListener('click', () => {
+        result.className = 'demo-result success';
+        result.textContent = `Simulation: published to the App Store. Your approved reply: “${approvedText}” Nothing was actually sent.`;
+        publish.disabled = true;
+        fail.disabled = true;
+    });
+    fail.addEventListener('click', () => {
+        result.className = 'demo-result error';
+        result.textContent =
+            'Simulation: the store rejected the reply. Edit your draft and approve it again. Nothing was sent.';
+        draft.readOnly = false;
+        approve.disabled = false;
+        publish.disabled = true;
+        fail.disabled = true;
+        draft.focus();
+    });
+    approve.addEventListener('click', () => {
+        publish.disabled = false;
+        fail.disabled = false;
+    });
+    document.querySelector('#reset-demo')!.addEventListener('click', () => {
+        reset();
+        draft.focus();
+    });
+</script>

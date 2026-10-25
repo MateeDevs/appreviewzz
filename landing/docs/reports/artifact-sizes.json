@@ -1,0 +1,23 @@
+{
+  "html": 31097,
+  "font": 69760,
+  "shareImage": 76921,
+  "bundles": [
+    {
+      "path": "AnalysisDemo.astro_astro_type_script_index_0_lang.DVOQpn1R.js",
+      "bytes": 1012
+    },
+    {
+      "path": "ReviewDemo.astro_astro_type_script_index_0_lang.DqliS0T4.js",
+      "bytes": 1604
+    },
+    {
+      "path": "demo.CrWtF90V.js",
+      "bytes": 1686
+    },
+    {
+      "path": "index.D3JDQPWK.css",
+      "bytes": 34995
+    }
+  ]
+}

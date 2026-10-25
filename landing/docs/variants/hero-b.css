@@ -1,0 +1,12 @@
+/* Alternative B: same copy and demo, centered editorial stack. Comparison only. */
+@media(min-width:1001px){
+.hero{display:flex;flex-direction:column;text-align:center;gap:35px;padding-top:54px;padding-bottom:50px}
+.hero-copy .eyebrow{justify-content:center}
+.hero h1{font-size:79px;line-height:1.04;margin-top:22px}
+.hero h1 br:first-of-type{display:none}
+.hero h1 br:first-of-type:after{content:' '}
+.hero-description{max-width:565px;margin:22px auto 0}
+.hero-actions{justify-content:center;margin-top:25px}
+.hero-reassurance{margin-top:15px}
+.review-stage{width:580px;text-align:left}
+}

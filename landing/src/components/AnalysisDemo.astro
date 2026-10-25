@@ -1,0 +1,135 @@
+---
+import { demo } from '../data/demo';
+---
+
+<div class="analysis-demo">
+    <div class="analysis-top">
+        <span>
+            <span class="app-icon" aria-hidden="true">
+                a<span>↗</span>
+            </span>
+            <strong>Atlas</strong>
+            <span class="analysis-subtitle">Review analysis</span>
+        </span>
+        <span>{demo.period}</span>
+    </div>
+    <div class="analysis-body">
+        <div class="chart-heading">
+            <div>
+                <span class="small-label">AFTER RELEASE 3.8</span>
+                <h3>What changed?</h3>
+            </div>
+            <span class="sample-tag">Sample data</span>
+        </div>
+        <div class="topic-head" aria-hidden="true">
+            <span>Topic</span>
+            <span>Previous week</span>
+            <span>This week</span>
+        </div>
+        <div class="topic-list" aria-label="Sample review topics">
+            {demo.topics.map((topic, index) => (
+                <button
+                    type="button"
+                    class:list={['topic-row', { selected: index === 0 }]}
+                    data-topic={topic.id}
+                    aria-pressed={index === 0}
+                    aria-controls="source-reviews"
+                    aria-label={`${topic.label}, ${topic.direction.toLowerCase()}: ${topic.previous} reviews previous week, ${topic.count} this week. Show source reviews.`}
+                    disabled
+                >
+                    <span>
+                        <strong>{topic.label}</strong>
+                        <span class:list={['topic-trend', topic.direction.toLowerCase()]}>
+                            {topic.direction === 'Growing'
+                                ? '↗'
+                                : topic.direction === 'Falling'
+                                  ? '↘'
+                                  : '→'}{' '}
+                            {topic.direction}
+                        </span>
+                    </span>
+                    <span class="topic-value">
+                        <span
+                            class="bar previous"
+                            style={`--bar:${(topic.previous / 12) * 100}%`}
+                        ></span>
+                        <span>{topic.previous}</span>
+                    </span>
+                    <span class="topic-value">
+                        <span class="bar" style={`--bar:${(topic.count / 12) * 100}%`}></span>
+                        <span>{topic.count}</span>
+                    </span>
+                </button>
+            ))}
+        </div>
+        <p class="chart-note">
+            Number of text reviews mentioning each topic. One review can mention several topics.
+        </p>
+        <div class="source-reviews" id="source-reviews" tabindex="-1">
+            <div class="source-heading" aria-live="polite" aria-atomic="true">
+                <h4 id="source-title">Behind “Offline access”</h4>
+                <span id="source-count">3 of 12 sample reviews</span>
+            </div>
+            <div id="source-list">
+                {demo.topics[0].reviews.map((review) => (
+                    <blockquote>
+                        <div>
+                            <span
+                                class="source-stars"
+                                aria-label={`${review.stars} out of 5 stars`}
+                            >
+                                {'★'.repeat(review.stars)}
+                                <span aria-hidden="true">{'☆'.repeat(5 - review.stars)}</span>
+                            </span>
+                            <span>
+                                {review.platform} · {review.date}
+                            </span>
+                        </div>
+                        <p>{review.text}</p>
+                    </blockquote>
+                ))}
+            </div>
+        </div>
+        <p class="analysis-fallback">
+            Select a topic to read the feedback behind it.
+            <noscript>
+                {' '}
+                Topic switching needs JavaScript; the offline-access sample reviews are shown above.
+            </noscript>
+        </p>
+    </div>
+</div>
+<script>
+    import { demo } from '../data/demo';
+    document.querySelectorAll<HTMLButtonElement>('[data-topic]').forEach((button) => {
+        button.disabled = false;
+        button.addEventListener('click', () => {
+            const topic = demo.topics.find((item) => item.id === button.dataset.topic)!;
+            document.querySelectorAll('[data-topic]').forEach((item) => {
+                item.classList.toggle('selected', item === button);
+                item.setAttribute('aria-pressed', String(item === button));
+            });
+            document.querySelector('#source-title')!.textContent = `Behind “${topic.label}”`;
+            document.querySelector('#source-count')!.textContent =
+                `${topic.reviews.length} of ${topic.count} sample reviews`;
+            const list = document.querySelector('#source-list')!;
+            list.replaceChildren(
+                ...topic.reviews.map((review) => {
+                    const quote = document.createElement('blockquote');
+                    const meta = document.createElement('div');
+                    const stars = document.createElement('span');
+                    stars.className = 'source-stars';
+                    stars.setAttribute('aria-label', `${review.stars} out of 5 stars`);
+                    stars.textContent = '★'.repeat(review.stars) + '☆'.repeat(5 - review.stars);
+                    const platform = document.createElement('span');
+                    platform.textContent = `${review.platform} · ${review.date}`;
+                    meta.append(stars, platform);
+                    const text = document.createElement('p');
+                    text.textContent = review.text;
+                    quote.append(meta, text);
+                    return quote;
+                }),
+            );
+        });
+    });
+</script>

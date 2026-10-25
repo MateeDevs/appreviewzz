@@ -1,5 +1,14 @@
 # Směr a produktové reference
 
+## Aktuální zpětná vazba uživatele · 25. 10. 2026
+
+Uživatel nový redesign chválí a vizuální směr se mu líbí. Pro další úpravy zachovat tento
+směr. Recenze v produktu nenazývat „signály“: používat „recenze“ nebo „zpětná vazba“,
+analytické výkyvy označovat jako „upozornění“. Úvodní text je „Každá recenze je zpětná vazba.“
+Historický název varianty Signál a grafický motiv zůstávají designovým kontextem.
+
+## Původní reference a výběr směru
+
 24. 10. 2026. Reference jsou z veřejných oficiálních stránek a jejich obrázků. Nejde o přihlášený audit placených produktů.
 
 | Zdroj a zhlédnutý obrázek | Ověřené pozorování | Vlastní závěr pro appreviewzz |

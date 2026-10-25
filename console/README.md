@@ -35,6 +35,13 @@ oddělené organizací/aplikací/recenzí; při přihlášení/odhlášení se m
 stránky s konceptem chrání browser potvrzení. Žádný token není v `localStorage`.
 Session zůstává httpOnly cookie, CSRF hodnota z `arz_csrf` jde v `X-CSRF-Token`.
 
+## Schválený směr a produktový jazyk
+
+Zpětná vazba uživatele z 25. 10. 2026: nový redesign se líbí a je schválený jako další
+vizuální směr. Recenzím v uživatelských textech neříkáme „signály“; používáme „recenze“
+nebo „zpětná vazba“, pro analytické výkyvy „upozornění“. Úvodní věta je
+„Každá recenze je zpětná vazba.“ Název vizuálního směru a SVG motiv jsou interní designový kontext.
+
 ## Browser regrese
 
 ```bash

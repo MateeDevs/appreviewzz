@@ -1,0 +1,73 @@
+---
+interface Props {
+    name: 'arrow' | 'check' | 'slack' | 'teams' | 'apple' | 'play' | 'spark' | 'plus' | 'menu';
+    size?: number;
+}
+const { name, size = 20 } = Astro.props;
+---
+
+<svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    aria-hidden="true"
+    class={`icon icon-${name}`}
+>
+    {name === 'arrow' && (
+        <path
+            d="M4 12h15m-6-6 6 6-6 6"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+        />
+    )}
+    {name === 'check' && (
+        <path
+            d="m5 12 4 4L19 6"
+            stroke="currentColor"
+            stroke-width="1.7"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+        />
+    )}
+    {name === 'spark' && (
+        <path
+            d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5L12 3Z"
+            stroke="currentColor"
+            stroke-width="1.5"
+        />
+    )}
+    {name === 'plus' && <path d="M5 12h14M12 5v14" stroke="currentColor" stroke-width="1.5" />}
+    {name === 'menu' && <path d="M4 8h16M4 16h16" stroke="currentColor" stroke-width="1.5" />}
+    {name === 'play' && (
+        <>
+            <path d="m5 3 12 9L5 21V3Z" fill="currentColor" />
+            <path d="m17 12 3-2a2 2 0 0 1 0 4l-3-2Z" fill="currentColor" opacity=".6" />
+        </>
+    )}
+    {name === 'apple' && (
+        <path
+            d="M16.6 12.7c0-2 1.6-3 1.7-3.1-1-1.5-2.7-1.7-3.2-1.7-1.4-.2-2.6.8-3.3.8s-1.8-.8-2.9-.8C7.4 8 6 8.8 5.2 10c-1.6 2.6-.4 6.6 1.1 8.8.7 1.1 1.5 2.2 2.6 2.1 1-.1 1.5-.7 2.9-.7s1.8.7 3 .7 1.9-1 2.6-2.1c.8-1.2 1.1-2.3 1.1-2.4-.1 0-1.9-.8-1.9-3.7ZM14.5 6.3c.6-.8 1.1-1.9 1-3-.9 0-2 .6-2.6 1.4-.6.7-1.1 1.8-1 2.8 1 .1 2-.5 2.6-1.2Z"
+            fill="currentColor"
+        />
+    )}
+    {name === 'teams' && (
+        <>
+            <rect x="9" y="8" width="12" height="12" rx="3" fill="#6264a7" />
+            <circle cx="15" cy="4" r="3" fill="#6264a7" />
+            <circle cx="21" cy="7" r="2" fill="#7b83eb" />
+            <rect x="2" y="7" width="12" height="12" rx="2" fill="#464775" />
+            <path d="M5 10h6M8 10v6" stroke="white" stroke-width="1.7" />
+        </>
+    )}
+    {name === 'slack' && (
+        <>
+            <path d="M9 3v6M3 9h6" stroke="#36c5f0" stroke-width="4" stroke-linecap="round" />
+            <path d="M15 3v6M15 9h6" stroke="#2eb67d" stroke-width="4" stroke-linecap="round" />
+            <path d="M21 15h-6M15 15v6" stroke="#ecb22e" stroke-width="4" stroke-linecap="round" />
+            <path d="M9 15H3M9 15v6" stroke="#e01e5a" stroke-width="4" stroke-linecap="round" />
+        </>
+    )}
+</svg>
