@@ -6,6 +6,8 @@
 
 services:
   api:
+    # Leave room for native memory, thread stacks, and file cache.
+    mem_limit: 1536m
     image: ghcr.io/mateedevs/appreviewzz:${APP_VERSION:-latest}
     # Bez tohohle by hostitel u pohyblivého tagu 'latest' sáhl po lokální kopii
     # a nasazení by tiše zůstalo viset na první stažené verzi.
@@ -16,6 +18,11 @@ services:
       - "8080"
     environment:
       APPREVIEWZZ_ROLE: api
+      # The soft target permits bursts up to Xmx. Collect at least every five minutes.
+      JAVA_OPTS: >-
+        -Dlogback.configurationFile=logback-json.xml
+        -Xms32m -Xmx768m -XX:SoftMaxHeapSize=256m
+        -XX:ZCollectionInterval=300
       APPREVIEWZZ_ENV: ${APPREVIEWZZ_ENV:-dev}
       TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-1}
       # Hostitel databáze je proměnná se jménem služby jako výchozí hodnotou. V běžném
@@ -63,10 +70,17 @@ services:
     restart: unless-stopped
 
   worker:
+    # Leave room for native memory, thread stacks, and file cache.
+    mem_limit: 2048m
     image: ghcr.io/mateedevs/appreviewzz:${APP_VERSION:-latest}
     pull_policy: always
     environment:
       APPREVIEWZZ_ROLE: worker
+      # The soft target permits bursts up to Xmx. Collect at least every five minutes.
+      JAVA_OPTS: >-
+        -Dlogback.configurationFile=logback-json.xml
+        -Xms32m -Xmx1024m -XX:SoftMaxHeapSize=512m
+        -XX:ZCollectionInterval=300
       APPREVIEWZZ_ENV: ${APPREVIEWZZ_ENV:-dev}
       DATABASE_URL: jdbc:postgresql://${POSTGRES_HOST:-postgres}:5432/${POSTGRES_DB:-appreviewzz}
       DATABASE_USER: ${POSTGRES_USER:-appreviewzz}
