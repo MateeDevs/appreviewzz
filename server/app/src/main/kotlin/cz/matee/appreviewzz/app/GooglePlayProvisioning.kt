@@ -20,6 +20,8 @@ import cz.matee.appreviewzz.core.usecase.OrgActor
 import cz.matee.appreviewzz.core.usecase.PlatformConfig
 import cz.matee.appreviewzz.core.usecase.requireRole
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 private val logger = KotlinLogging.logger {}
 
@@ -41,63 +43,69 @@ class GooglePlayProvisioning(
     private val credentials: CredentialRepository,
     private val audit: AuditLogRepository,
 ) {
+    private val provisionLocks = List(64) { Mutex() }
+
     suspend fun provision(
         organization: Organization,
         actor: OrgActor,
     ): CredentialMeta {
         requireRole(actor, OrgRole.ADMIN)
 
-        existing(organization)?.let { meta ->
-            logger.info { "Organizace ${organization.slug} už spravovaný service account má (${meta.hint})" }
-            return meta
-        }
-
-        val settings = settings()
-        val account =
-            try {
-                provisioner.provision(
-                    provisioner = settings.provisioner,
-                    projectId = settings.projectId,
-                    orgId = organization.id.toString(),
-                    orgSlug = organization.slug,
-                    displayName = organization.name,
-                )
-            } catch (error: StoreConnectorException) {
-                // Selhání je na naší straně (kvóta účtů v projektu, odebraná role), ne v datech
-                // klienta — proto věta, která říká, že s tím nic nenadělá, a detail v logu.
-                logger.error(error) { "Provisioning service accountu pro ${organization.slug} selhal" }
-                throw ConsoleException(
-                    ConsoleFailure.NOT_CONFIGURED,
-                    "Google Play účet se nepodařilo vyrobit: ${error.message}. " +
-                        "Ozvi se nám, nebo klíč nahraj ručně přes Pokročilé.",
-                )
+        // Nasazení má jednu API instanci (ADR 0016). Zámek chrání celý IAM → vault interval;
+        // retry po restartu čte uložený credential, osiřelý IAM účet adoptuje provisioner.
+        return provisionLocks[(organization.id.hashCode() and Int.MAX_VALUE) % provisionLocks.size].withLock {
+            existing(organization)?.let { meta ->
+                logger.info { "Organizace ${organization.slug} už spravovaný service account má (${meta.hint})" }
+                return@withLock meta
             }
 
-        val meta =
-            vault.store(
-                orgId = organization.id,
-                type = CredentialType.GP_SERVICE_ACCOUNT,
-                label = MANAGED_LABEL,
-                payload = account.key,
-                // Celý e-mail: console ho ukazuje k pozvání do Play Console, dešifrovat kvůli
-                // němu payload by znamenalo tahat klíč z vaultu kvůli zobrazení seznamu.
-                hint = account.email,
-                origin = CredentialOrigin.PROVISIONED,
-            )
+            val settings = settings()
+            val account =
+                try {
+                    provisioner.provision(
+                        provisioner = settings.provisioner,
+                        projectId = settings.projectId,
+                        orgId = organization.id.toString(),
+                        orgSlug = organization.slug,
+                        displayName = organization.name,
+                    )
+                } catch (error: StoreConnectorException) {
+                    // Selhání je na naší straně (kvóta účtů v projektu, odebraná role), ne v datech
+                    // klienta — proto věta, která říká, že s tím nic nenadělá, a detail v logu.
+                    logger.error(error) { "Provisioning service accountu pro ${organization.slug} selhal" }
+                    throw ConsoleException(
+                        ConsoleFailure.NOT_CONFIGURED,
+                        "Spravovaný Google Play účet se nepodařilo připravit. Zkuste to znovu nebo nahrajte vlastní klíč. " +
+                            "Pokud potíže přetrvají, obraťte se na podporu.",
+                    )
+                }
 
-        audit.append(
-            auditEntry(
-                orgId = organization.id,
-                action = "credential.provisioned",
-                actorType = ActorType.USER,
-                actorUserId = actor.userId,
-                actorLabel = actor.displayName,
-                targetType = "credential",
-                targetId = meta.id.toString(),
-                metadata = mapOf("type" to CredentialType.GP_SERVICE_ACCOUNT.name, "account" to account.email),
-            ),
-        )
-        return meta
+            val meta =
+                vault.store(
+                    orgId = organization.id,
+                    type = CredentialType.GP_SERVICE_ACCOUNT,
+                    label = MANAGED_LABEL,
+                    payload = account.key,
+                    // Celý e-mail: console ho ukazuje k pozvání do Play Console, dešifrovat kvůli
+                    // němu payload by znamenalo tahat klíč z vaultu kvůli zobrazení seznamu.
+                    hint = account.email,
+                    origin = CredentialOrigin.PROVISIONED,
+                )
+
+            audit.append(
+                auditEntry(
+                    orgId = organization.id,
+                    action = "credential.provisioned",
+                    actorType = ActorType.USER,
+                    actorUserId = actor.userId,
+                    actorLabel = actor.displayName,
+                    targetType = "credential",
+                    targetId = meta.id.toString(),
+                    metadata = mapOf("type" to CredentialType.GP_SERVICE_ACCOUNT.name, "account" to account.email),
+                ),
+            )
+            meta
+        }
     }
 
     /**

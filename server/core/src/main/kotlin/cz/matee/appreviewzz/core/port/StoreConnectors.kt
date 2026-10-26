@@ -128,7 +128,7 @@ data class ReportingBucketCheck(
  * Ověření reportingového bucketu ještě u dialogu, ne až prvním nočním během.
  *
  * Bucket klient opisuje z cizí konzole a k datům se kromě správného jména musí dostat i **náš**
- * service account — na to Play Console právy nedosáhne, roli na bucketu přidává člověk zvlášť.
+ * service account s globálním oprávněním k hromadným reportům v Play Console.
  * To jsou dvě věci na dvou místech, takže je to nejčastější místo, kde onboarding tiše skončí
  * u scrapu, aniž by o tom kdokoli věděl.
  */

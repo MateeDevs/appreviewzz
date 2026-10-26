@@ -32,6 +32,7 @@ data class AddCredentialRequest(
     /** Jen pro App Store Connect — klient je opisuje z konzole Applu. */
     val keyId: String? = null,
     val issuerId: String? = null,
+    val deduplicate: Boolean = false,
 )
 
 @Serializable
@@ -112,6 +113,7 @@ fun Route.credentialRoutes(console: ConsoleWiring) {
                         label = request.label,
                         payload = payload,
                         hint = kind.describe(payload),
+                        deduplicate = request.deduplicate,
                     )
                 }
             call.respond(HttpStatusCode.Created, meta.toResponse())

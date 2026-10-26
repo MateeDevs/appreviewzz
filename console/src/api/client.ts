@@ -20,9 +20,7 @@ export class ApiError extends Error {
 }
 
 function csrfToken(): string | null {
-  const match = document.cookie.match(
-    new RegExp(`(?:^|; )${CSRF_COOKIE}=([^;]*)`),
-  )
+  const match = document.cookie.match(new RegExp(`(?:^|; )${CSRF_COOKIE}=([^;]*)`))
   return match?.[1] ? decodeURIComponent(match[1]) : null
 }
 
@@ -36,6 +34,7 @@ async function request<T>(
   method: string,
   path: string,
   body?: unknown,
+  signal?: AbortSignal,
 ): Promise<T> {
   if (method !== 'GET') await ensureCsrf()
 
@@ -49,10 +48,17 @@ async function request<T>(
     response = await fetch(path, {
       method,
       credentials: 'same-origin',
+      signal,
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),
     })
   } catch {
+    if (signal?.aborted)
+      throw new ApiError(
+        0,
+        'timeout',
+        'Server neodpověděl včas. Uložené prostředky zůstávají zachované; zkuste akci znovu.',
+      )
     throw new ApiError(
       0,
       'network_error',
@@ -102,10 +108,21 @@ function popisChyby(status: number): string {
   }
 }
 
+async function timedRequest<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 25_000)
+  try {
+    return await request<T>(method, path, body, controller.signal)
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 export const api = {
+  getWithTimeout: <T>(path: string) => timedRequest<T>('GET', path),
+  postWithTimeout: <T>(path: string, body?: unknown) => timedRequest<T>('POST', path, body ?? {}),
   get: <T>(path: string) => request<T>('GET', path),
-  post: <T>(path: string, body?: unknown) =>
-    request<T>('POST', path, body ?? {}),
+  post: <T>(path: string, body?: unknown) => request<T>('POST', path, body ?? {}),
   put: <T>(path: string, body: unknown) => request<T>('PUT', path, body),
   patch: <T>(path: string, body: unknown) => request<T>('PATCH', path, body),
   delete: <T>(path: string) => request<T>('DELETE', path),

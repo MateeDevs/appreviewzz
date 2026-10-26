@@ -456,7 +456,7 @@ function StoreConnection({
       <p className="small muted">
         {platform === 'ANDROID'
           ? 'Service account vytvoříme my. V Play Console mu povolíte čtení a odpovídání na recenze.'
-          : 'Týmový API klíč z App Store Connect. Pro recenze potřebuje přístup k této aplikaci a roli Customer Support nebo Admin.'}
+          : 'Týmový API klíč z App Store Connect. Pro recenze potřebuje přístup k této aplikaci a roli Customer Support.'}
       </p>
       {waiting && scopedKey?.validationError ? (
         <p className="notice">
