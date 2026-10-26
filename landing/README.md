@@ -76,7 +76,11 @@ Doporučené cache: hashované `_astro/*` dlouhodobě immutable; HTML/robots/sit
 
 ### Staging
 
-Landing staging běží na **https://staging.appreviewzz.com/** jako samostatný Cloudflare Pages projekt `appreviewzz-staging`. Sleduje větev `epic/v2`, sestavuje adresář `landing/` příkazem `npm run build` a publikuje pouze `dist/`. Používá Node 24 a `INDEXABLE=false`. Merge PR do epicu spouští nový build automaticky; nasazený commit lze ověřit v detailu deploymentu Cloudflare Pages. GitHub Actions workflow `Deploy` nasazuje konzoli a backend přes Coolify, nikoli landing page.
+Landing staging běží na **https://staging.appreviewzz.com/** jako samostatný Cloudflare Pages projekt `appreviewzz-staging`. Sleduje větev `epic/v2`, sestavuje adresář `landing/` příkazem `npm run build` a publikuje pouze `dist/`. Používá Node 24 a `INDEXABLE=false`.
+
+Každý push nebo merge do `epic/v2` spouští workflow **`Landing staging`** (`.github/workflows/landing-staging.yml`). To zavolá Pages Deploy Hook pro `epic/v2` a počká, až veřejné **`/version.json`** vrátí SHA daného commitu. Pouhé přijetí požadavku na deploy tak nestačí k zelenému výsledku. Workflow lze znovu spustit ručně z větve `epic/v2`. Nasazené SHA vzniká při buildu z `CF_PAGES_COMMIT_SHA`; lokální build používá případné `GIT_SHA`, jinak `unknown`.
+
+Repozitářový secret **`CLOUDFLARE_LANDING_STAGING_HOOK_URL`** obsahuje URL deploy hooku projektu `appreviewzz-staging` s větví `epic/v2`. Při nahrazení hooku aktualizujte secret. URL je tajná a nepatří do repozitáře. Automatické Git buildy v Pages jsou vypnuté, aby tentýž commit nespouštěl dva buildy; spouštění vlastní GitHub Actions. GitHub Actions workflow `Deploy` nasazuje konzoli a backend přes Coolify, nikoli landing page.
 
 ## Podklady a předání
 
