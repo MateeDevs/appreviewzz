@@ -28,7 +28,14 @@ for (const width of [1440, 1280, 768, 390, 360]) {
       );
     expect(badAnchors).toEqual([]);
     expect(await page.locator('a[href="#"]').count()).toBe(0);
-    for (const section of ['#how-it-works', '#understand', '#faq', '.final-cta', '.site-footer']) {
+    for (const section of [
+      '#how-it-works',
+      '#integrations',
+      '#understand',
+      '#faq',
+      '.final-cta',
+      '.site-footer',
+    ]) {
       await page.locator(section).scrollIntoViewIfNeeded();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
         true,
@@ -51,13 +58,12 @@ test('reply demo: editable draft, queued, publication, store error, retry and re
   page,
 }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Show Microsoft Teams demo' }).click();
-  await expect(page.getByRole('button', { name: 'Show Microsoft Teams demo' })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
-  await expect(page.locator('#channel-context')).toHaveText('Delivered to Teams');
-  await page.getByRole('button', { name: 'Show Slack demo' }).click();
+  await page.getByRole('button', { name: 'Simulate Microsoft Teams reply workflow' }).click();
+  await expect(
+    page.getByRole('button', { name: 'Simulate Microsoft Teams reply workflow' }),
+  ).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#channel-context')).toHaveText('Simulated: Microsoft Teams');
+  await page.getByRole('button', { name: 'Simulate Slack reply workflow' }).click();
   await page
     .locator('#reply-draft')
     .fill('Thanks for reporting the offline map issue. Our team is investigating.');

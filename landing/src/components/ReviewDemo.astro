@@ -2,6 +2,7 @@
 import Brand from './Brand.astro';
 import Icon from './Icon.astro';
 import { demo } from '../data/demo';
+import { replyIntegrations, replyAvailability } from '../data/integrations';
 ---
 
 <div class="review-stage" id="demo">
@@ -13,7 +14,7 @@ import { demo } from '../data/demo';
         </g>
     </svg>
     <div class="demo-caption">
-        <span class="status-dot"></span> Interactive demo <span class="caption-divider">/</span>{' '}
+        <span class="status-dot"></span> Workflow simulation <span class="caption-divider">/</span>{' '}
         Sample data
     </div>
     <div class="review-window">
@@ -31,24 +32,19 @@ import { demo } from '../data/demo';
                 <span aria-hidden="true">#</span> app-reviews
             </span>
             <div class="channel-switch js-only" role="group" aria-label="Demo integration">
-                <button
-                    type="button"
-                    data-channel="Slack"
-                    aria-pressed="true"
-                    aria-label="Show Slack demo"
-                >
-                    <Icon name="slack" size={16} />
-                    <span>Slack</span>
-                </button>
-                <button
-                    type="button"
-                    data-channel="Teams"
-                    aria-pressed="false"
-                    aria-label="Show Microsoft Teams demo"
-                >
-                    <Icon name="teams" size={16} />
-                    <span>Teams</span>
-                </button>
+                {replyIntegrations.map((integration, index) => (
+                    <button
+                        type="button"
+                        data-channel={integration.name}
+                        aria-pressed={index === 0}
+                        aria-label={`Simulate ${integration.name} reply workflow`}
+                    >
+                        <Icon name={integration.icon} size={16} />
+                        <span>
+                            {integration.name === 'Microsoft Teams' ? 'Teams' : integration.name}
+                        </span>
+                    </button>
+                ))}
             </div>
         </div>
         <div class="message">
@@ -89,7 +85,7 @@ import { demo } from '../data/demo';
                 >{demo.draft}</textarea>
                 <div class="reply-actions">
                     <span id="draft-hint">
-                        <Icon name="check" size={14} /> You approve. Then it’s sent.
+                        <Icon name="check" size={14} /> You approve. Then it’s queued.
                     </span>
                     <button class="button button-small js-only" type="button" id="approve-demo">
                         Approve reply <Icon name="arrow" size={15} />
@@ -120,10 +116,13 @@ import { demo } from '../data/demo';
                 <Icon name="apple" size={14} /> App Store
             </span>
             <span>Human-approved replies</span>
-            <span id="channel-context">Delivered to Slack</span>
+            <span id="channel-context">Simulated: {replyIntegrations[0].name}</span>
         </div>
     </div>
-    <p class="demo-footnote">Try editing the reply. Nothing in this demo is sent.</p>
+    <p class="demo-footnote">
+        Try editing the reply. Sample data; nothing is sent. Shared workflow illustration, not a
+        screenshot of either chat app. <a href="#integrations">{replyAvailability} ↗</a>
+    </p>
     <noscript>
         <p class="demo-footnote">
             This is a sample review and editable draft. In the product, your team approves a reply
@@ -156,7 +155,7 @@ import { demo } from '../data/demo';
                 .querySelectorAll('[data-channel]')
                 .forEach((item) => item.setAttribute('aria-pressed', String(item === button)));
             document.querySelector('#channel-context')!.textContent =
-                `Delivered to ${button.dataset.channel}`;
+                `Simulated: ${button.dataset.channel}`;
         });
     });
     draft.addEventListener('input', () => {

@@ -12,14 +12,18 @@
     "build": "astro build",
     "build:production": "INDEXABLE=true astro build",
     "preview": "astro preview --host 127.0.0.1 --port 4327",
-    "test:browser": "playwright test",
+    "test:browser": "npm run test:assets && astro build --root tests/fixtures && playwright test",
     "capture": "node scripts/capture.mjs",
     "measure": "node scripts/lighthouse.mjs",
     "test:links": "node scripts/verify-links.mjs",
     "share-image": "node scripts/share-image.mjs",
     "test:zoom": "node scripts/zoom.mjs",
     "lint": "prettier --check src scripts tests astro.config.mjs playwright.config.ts tsconfig*.json package.json .prettierrc.json",
-    "format": "prettier --write src scripts tests astro.config.mjs playwright.config.ts tsconfig*.json package.json .prettierrc.json"
+    "format": "prettier --write src scripts tests astro.config.mjs playwright.config.ts tsconfig*.json package.json .prettierrc.json",
+    "test:assets": "node scripts/check-integration-assets.mjs && node --test scripts/check-integration-assets.test.mjs",
+    "prebuild": "npm run test:assets",
+    "prebuild:production": "npm run test:assets",
+    "capture:integrations": "node scripts/capture-integrations.mjs"
   },
   "dependencies": {
     "astro": "7.4.2"

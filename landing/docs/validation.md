@@ -1,5 +1,64 @@
 # Ověření implementace
 
+
+## Rozšíření integrací · finální ověření 25. 10. 2026
+
+Aktuální výsledek této session: **hotovo**, větev `feat/auth-onboarding`. Testován skutečný statický výstup `landing/dist/` na lokálním produkčním preview `http://127.0.0.1:4327/`, s odděleným testovacím statickým webem na 4328. Node 25.2.1, existující node_modules; reinstalace nebyla potřeba. Backend, konzole a infrastruktura beze změn.
+
+| Kontrola | Skutečný výsledek |
+| --- | --- |
+| `npm run check` | 0 errors, 0 warnings, 0 hints; Astro + TypeScript včetně browser testů |
+| `npm run lint` | Prettier kontrola prošla |
+| `npm run build` | statický noindex build prošel včetně prebuild kontroly screenshotů |
+| `npm run test:assets` | produkční konfigurace: 3 integrace, 0 médií; regresní test assetového guardu prošel |
+| `npm run test:browser` | **21/21 testů**; `docs/reports/browser.json` |
+| Axe | 0 violations v celé stránce při 1440/1280/768/390/360 px, ve všech šesti mediálních stavech sekce při každé šířce a v otevřeném dialogu |
+| `npm run test:zoom` | skutečný Chromium `tabs.setZoom(2)`: viewport 720 CSS px, DPR 2, scrollWidth 720; přepnutí všech služeb + axe sekce prošlo |
+| `npm run test:links` | login, registrace, Apple a Matee: 4× HTTP 200; formuláře konzole skutečně viditelné, bez odeslání |
+| `npm run capture:integrations` | finální rendery pěti šířek, bez overflow, bez pageerror/console error a lokálních 4xx |
+| Kontrola produkčního artefaktu | bez fixture route, testovacích textů a testovacích médií; `public/integrations/*/` pouze `.gitkeep` |
+
+### Dostupnost a pravdivost sdělení
+
+Slack, Microsoft Teams i Discord jsou **Coming soon**: veřejné zprovoznění není doložené a uživatel jej teprve připraví. Implementace Slack/Teams dokládá schopnost upravit AI koncept a schválit odeslání odpovědi z chatu, nikoli připravenost provozu. Discord neslibuje přímé odpovědi. `src/data/integrations.ts` určuje nezávisle `status`, `directReply` a volitelná `media`; dostupnost z něj čerpá hero, pruh, sekce, demo, workflow, FAQ a metadata. Sdílecí obrázek byl znovu vytvořen s aktuální dostupností.
+
+Hero explicitně popisuje odeslání odpovědi zpět do storu. Workflow i nová sekce oddělují schválení/frontu od skutečné publikace a výsledku zprávy. Původní demo zůstalo funkční včetně editace, schválení, simulované publikace, store chyby, opakování, resetu a prázdného vstupu. Nové označení „Workflow simulation / Sample data“ a text pod demem vysvětlují společnou ilustraci; přepnutí kontextu není vydáváno za dvě autentická chatová UI.
+
+### Ověřená matice screenshotů
+
+Stejná produkční komponenta `Integrations.astro` se v izolovaném fixture buildu renderuje s typovanými props; produkční konfigurace se při testech nemění.
+
+| Služba | Médium | Ověřené chování |
+| --- | --- | --- |
+| Available | skutečně načtený testovací PNG + JPEG | Available, popisky, galerie, zvětšení a zachovaný poměr stran |
+| Available | bez média | Available + **Preview coming soon** |
+| Coming soon | načtený testovací PNG | Coming soon + **Planned integration preview**, bez možnosti připojení |
+| Coming soon | bez média | hotový prázdný náhled s logem a plánovanou schopností |
+| Available | poškozená odpověď HTTP 200 nebo nenalezený soubor | **Preview unavailable**, obrázek a zvětšení skryté, dostupnost zachována, výška rámu se nezmění |
+| Coming soon | chybějící obrázek HTTP 404 | stejný bezpečný fallback, Coming soon zachováno |
+
+Asset guard ověřuje PNG/WebP/JPEG, existenci i dekódování obrázku, skutečné rozměry, alt a popisek. Chybný nebo poškozený soubor, jiný rozměr, nebezpečná cesta a chybějící texty jsou testované negativní větve. Guard běží před `build` i `build:production`. Záměrné 404 a poškozené obrázky patří pouze fixture testům a nezapočítávají se jako neočekávané chyby produkční stránky.
+
+Testovací bitmapy jsou od začátku jen v ignorovaném `tests/fixtures/dist/`, vytvořené Playwrightem z jednoduché syntetické grafiky s nápisem „TEST ONLY · Synthetic review fixture / Not a Slack or Teams screenshot“. Nejsou ve veřejných datech ani produkčním dist. Nejsou použity snímky landing jako údajné produktové ukázky.
+
+### Vizuální iterace a ovládání
+
+Prohlédnuty skutečné snímky sekce a hero při **1440, 1280, 768, 390 a 360 px**. Výsledky jsou v `docs/screenshots/integrations/`, metriky v `docs/reports/integrations-visual.json`. Vedle výchozího Slacku jsou zachyceny Teams, Discord, celá stránka a varianta bez JS. Testovací média, modal a fallback jsou jasně oddělené v `test-fixture/`.
+
+První render (`initial-*`) vedl ke zvětšení textu dostupnosti v hero i mobilních kartách. Kontakt je oddělený od tablistu; mobilní přepínače se při větším počtu služeb zalamují po třech. Při prvním axe průchodu byly nalezeny role na nativním details a odkaz uvnitř tablistu; opraveno převodem details na div-based tabpanel až při JS a přesunutím kontaktu mimo tablist. Finální průchody jsou bez nálezů. Skrytí skip linku upraveno na clip-path: zůstává dosažitelný klávesnicí a neobjevuje se jako artefakt v dlouhých výřezech.
+
+Klávesnice: navigace, šipky/Home/End v přepínači, roving tabindex, oznámený aktivní stav, viditelný fokus, galerie, otevření dialogu Enterem, cyklus Tab/Shift+Tab, Escape a zavření tlačítkem s návratem fokusu. Původní mobilní menu a FAQ dál fungují. Bez JS jsou dostupné všechny služby přes nativní details/summary, skutečná média pod sebou a odkazy na jejich originály; funkční mobilní menu i FAQ. Obrázky mají rezervovaný poměr stran, lazy loading a object-fit contain; detail v dialogu zachovává původní pixely a lze jej posouvat klávesnicí. Reduced motion respektováno.
+
+Skutečný 200% zoom není CSS zoom ani jen zmenšený viewport. Důkaz `docs/screenshots/integrations/browser-200-percent.png` pořizuje CDP přímo z viewportu; běžný Playwright screenshot při tab zoomu dával prázdný výřez. Celostránkový CDP snímek je také v `docs/screenshots/browser-200-percent.png`.
+
+### Hranice této session
+
+Žádné produkční screenshoty ani ověření živého připojení služeb nejsou k dispozici. Neproběhlo odesílání do kanálů/storů, registrace, Kotlin testy, veřejné nasazení ani screen-reader audit. Lighthouse z původní session níže nebyl nyní opakován a není novým měřením rozšířené stránky. Nové závislosti nepřidány. Žádný commit; cizí nesledované `docs/design/auth-onboarding-prompt.md` a zadání zachovány. Všechny změny této implementace jsou v `landing/`.
+
+## Historický záznam původní landing page
+
+Následující původní kontroly (včetně 12 testů, Lighthouse a tehdejší větve) zůstávají jako historie před rozšířením. Aktuální výsledky jsou výše.
+
 Ověřeno 25. 10. 2026 na macOS, Node 25.2.1, npm 11.6.2. Testován přímo statický výstup `dist/` přes Astro production preview na `http://127.0.0.1:4327/`. Nejde o veřejné nasazení ani o test Kotlin serveru.
 
 ## Instalace, typy a build

@@ -1,0 +1,70 @@
+---
+import Integrations from '../../../../src/components/Integrations.astro';
+import { integrations, type Integration } from '../../../../src/data/integrations';
+import '../../../../src/styles/global.css';
+const media = {
+    src: '/integrations/slack/test-only.png',
+    alt: 'TEST FIXTURE: synthetic review image, not a product screenshot',
+    caption: 'TEST ONLY: review delivery fixture',
+    width: 960,
+    height: 600,
+};
+const items: Integration[] = [
+    {
+        ...integrations[0],
+        id: 'available-image',
+        name: 'Available image',
+        status: 'available',
+        media: [
+            media,
+            {
+                ...media,
+                src: '/integrations/slack/test-only-reply.jpg',
+                caption: 'TEST ONLY: reply result fixture',
+            },
+        ],
+    },
+    { ...integrations[0], id: 'available-empty', name: 'Available empty', status: 'available' },
+    {
+        ...integrations[1],
+        id: 'planned-image',
+        name: 'Planned image',
+        status: 'coming-soon',
+        media: [media],
+    },
+    { ...integrations[2], id: 'planned-empty', name: 'Planned empty', status: 'coming-soon' },
+    {
+        ...integrations[0],
+        id: 'broken-image',
+        name: 'Broken image',
+        status: 'available',
+        media: [{ ...media, src: '/integrations/slack/intentionally-missing.png' }],
+    },
+    {
+        ...integrations[1],
+        id: 'planned-broken',
+        name: 'Planned broken',
+        status: 'coming-soon',
+        media: [{ ...media, src: '/integrations/teams/intentionally-missing.webp' }],
+    },
+];
+---
+
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width" />
+        <meta name="robots" content="noindex, nofollow" />
+        <title>TEST ONLY · Integration state matrix</title>
+    </head>
+    <body>
+        <main>
+            <h1 class="container">TEST ONLY · Synthetic integration fixtures</h1>
+            <Integrations items={items} />
+        </main>
+        <script>
+            document.documentElement.classList.add('js');
+        </script>
+    </body>
+</html>

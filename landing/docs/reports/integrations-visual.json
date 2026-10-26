@@ -1,0 +1,32 @@
+{
+  "checked": "2026-10-25T21:19:21.709Z",
+  "method": "Chromium, local static production preview; reduced motion for captures",
+  "results": [
+    {
+      "width": 1440,
+      "scrollWidth": 1440,
+      "height": 1110.5
+    },
+    {
+      "width": 1280,
+      "scrollWidth": 1280,
+      "height": 1110.5
+    },
+    {
+      "width": 768,
+      "scrollWidth": 768,
+      "height": 1158.234375
+    },
+    {
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 1413.703125
+    },
+    {
+      "width": 360,
+      "scrollWidth": 360,
+      "height": 1413.703125
+    }
+  ],
+  "errors": []
+}
