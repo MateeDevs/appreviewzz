@@ -184,7 +184,13 @@ function AppSetupWizard({
     )
   return (
     <SetupWizardFrame
-      title={initialPlatform ? `Připojit ${storeName(initialPlatform)}` : 'Přidat aplikaci'}
+      title={
+        initialPlatform
+          ? page === 'ANDROID' || page === 'IOS'
+            ? `Připojit ${storeName(page)}`
+            : 'Připojení aplikace'
+          : 'Přidat aplikaci'
+      }
       phases={phases}
       current={page}
       dirty={Object.values(dirty).some(Boolean)}

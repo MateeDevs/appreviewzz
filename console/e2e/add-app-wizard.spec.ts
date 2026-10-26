@@ -13,6 +13,8 @@ async function captureState(page: Page, name: string) {
     for (const width of [1440, 390]) {
       await page.setViewportSize({ width, height: 900 })
       await page.evaluate((t) => document.documentElement.setAttribute('data-theme', t), value)
+      if (name === 'reporting-denied')
+        await dialog(page).locator('[role=status][tabindex="-1"]').scrollIntoViewIfNeeded()
       await page.screenshot({
         path: `../docs/design/add-app-wizard/after/${name}-${width}-${value}.png`,
       })
@@ -129,12 +131,13 @@ for (const status of ['OK', 'NO_EXPORT', 'DENIED', 'MISSING', 'UNAVAILABLE'] as 
   test(`Google reporting: ${status}, skutečný PATCH s názvem a pravdivý stav`, async ({ page }) => {
     const { state, extra } = await wizardApi(page, { platforms: ['ANDROID'] })
     extra.report = status
+    if (status === 'DENIED') await page.setViewportSize({ width: 390, height: 900 })
     await page.goto('/studio/onboarding')
     await page.getByRole('button', { name: 'Připojit store', exact: true }).click()
     await dialog(page)
       .getByRole('button', { name: /Recenze i hodnocení/ })
       .click()
-    await expect(dialog(page).getByText(/globální/)).not.toHaveCount(0)
+    await expect(dialog(page).locator('.setup-howto').first()).toContainText('Toto čtecí právo musí platit pro celý účet')
     await action(page, 'Ověřit přístup').click()
     await expect(page.getByText('Přístup k aplikaci je ověřený', { exact: true })).toBeVisible()
     await action(page, 'Pokračovat k exportům').click()
@@ -156,6 +159,12 @@ for (const status of ['OK', 'NO_EXPORT', 'DENIED', 'MISSING', 'UNAVAILABLE'] as 
             : 'Cloud Storage je dočasně nedostupné',
       )
       expect(extra.patches).toHaveLength(0)
+      if (status === 'DENIED') {
+        await expect(dialog(page).getByRole('status')).toBeFocused()
+        const result = await dialog(page).getByRole('status').boundingBox()
+        const footer = await dialog(page).locator('.setup-wizard-footer').boundingBox()
+        expect(result!.y + result!.height).toBeLessThanOrEqual(footer!.y + 1)
+      }
       if (status === 'DENIED') await captureState(page, 'reporting-denied')
       if (status === 'MISSING') await expect(action(page, 'Uložit i tak')).toHaveCount(0)
       else {

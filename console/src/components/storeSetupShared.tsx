@@ -76,7 +76,15 @@ export function CopyValue({ value }: { value: string }) {
     </div>
   )
 }
-export function StoreProgress({ steps, current }: { steps: string[]; current: number }) {
+export function StoreProgress({
+  steps,
+  current,
+  completed,
+}: {
+  steps: string[]
+  current: number
+  completed?: number[]
+}) {
   const ref = useRef<HTMLOListElement>(null)
   useEffect(() => {
     const heading = [
@@ -88,7 +96,7 @@ export function StoreProgress({ steps, current }: { steps: string[]; current: nu
     <ol ref={ref} className="setup-store-progress" aria-label="Kroky připojení storu">
       {steps.map((step, i) => (
         <li key={step} aria-current={i === current ? 'step' : undefined}>
-          <span>{i < current ? '✓' : i + 1}</span>
+          <span>{i < current && (!completed || completed.includes(i)) ? '✓' : i + 1}</span>
           {step}
         </li>
       ))}

@@ -37,3 +37,9 @@ Další krok: poslední celá browser sada, závěrečný audit návratů, PR a 
 - Pracovní větev `feat/add-app-wizard`; původní nesledované auth/landing prompty zachovány mimo změnu.
 
 Další krok: commit, PR do epic/v2, sledovat CI a provést uživatelem autorizovanou integraci a staging deploy.
+
+## PR #11 a závěrečné vizuální review
+- Implementace `b52fa60`, návrh a důkazy `0ac0432`; PR https://github.com/MateeDevs/appreviewzz/pull/11.
+- Staging před nasazením odpovídá výchozímu SHA `d5a12c8…`, health UP.
+- Poslední review mobilního reporting výsledku doplnilo fokus na skutečný výsledek, aby nová chyba nezůstala pod přehybem. Store stepper neoznačí ověření jako dokončené, pokud při pokračování k exportům zůstává přístup nepotvrzený.
+- CI běží; integrace bude provedena až po všech zelených kontrolách aktuálního headu.

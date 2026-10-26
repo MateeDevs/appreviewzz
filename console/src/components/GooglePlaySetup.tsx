@@ -101,6 +101,14 @@ export function GooglePlaySetup({
       <StoreProgress
         steps={steps}
         current={['scope', 'invite', 'check', 'reporting'].indexOf(step)}
+        completed={[
+          0,
+          1,
+          ...(!app.setup.platformsWithoutKey.includes('ANDROID') &&
+          !app.setup.platformsWaitingForKey.includes('ANDROID')
+            ? [2]
+            : []),
+        ]}
       />
       {step === 'scope' ? (
         <>
@@ -423,6 +431,13 @@ function GooglePlayReporting({
     [saved, setSaved] = useState(false),
     [failure, setFailure] = useState<unknown>(null),
     [busy, setBusy] = useState(false)
+  const resultRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (active && outcome) {
+      resultRef.current?.focus()
+      resultRef.current?.scrollIntoView({ block: 'nearest' })
+    }
+  }, [active, outcome])
   const lock = useRef(false),
     mounted = useRef(true)
   useEffect(() => {
@@ -490,7 +505,7 @@ function GooglePlayReporting({
         </p>
       ) : null}
       {outcome ? (
-        <div className="notice" role="status">
+        <div className="notice" role="status" ref={resultRef} tabIndex={-1}>
           <strong>{reportMessages[outcome.status].title}</strong>
           <p>{reportMessages[outcome.status].body}</p>
           {saved ? (
