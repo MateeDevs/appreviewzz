@@ -1,0 +1,57 @@
+name: Landing staging
+
+on:
+  push:
+    branches: [epic/v2]
+  workflow_dispatch:
+
+concurrency:
+  group: landing-staging
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy landing & verify SHA
+    if: github.ref == 'refs/heads/epic/v2'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Spustit Cloudflare Pages build větve epic/v2
+        env:
+          HOOK_URL: ${{ secrets.CLOUDFLARE_LANDING_STAGING_HOOK_URL }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$HOOK_URL" ]]; then
+            echo "::error::Chybí secret CLOUDFLARE_LANDING_STAGING_HOOK_URL."
+            exit 1
+          fi
+          curl --fail --silent --show-error --max-time 45 \
+            --request POST --output "$RUNNER_TEMP/pages-trigger.json" "$HOOK_URL"
+          jq -e '.success == true' "$RUNNER_TEMP/pages-trigger.json" > /dev/null
+
+      - name: Ověřit nasazený commit na veřejné doméně
+        env:
+          STAGING_URL: https://staging.appreviewzz.com
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 60); do
+            deployed_sha=$(curl --fail --silent --show-error --max-time 10 \
+              --header 'Cache-Control: no-cache' \
+              "$STAGING_URL/version.json?sha=$GITHUB_SHA&attempt=$attempt" \
+              | jq -r '.gitSha // empty') || deployed_sha=""
+            if [[ "$deployed_sha" == "$GITHUB_SHA" ]]; then
+              {
+                echo "### Landing staging nasazen"
+                echo
+                echo "- URL: $STAGING_URL"
+                echo "- commit: $GITHUB_SHA"
+              } >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::Landing staging v limitu nezačal vracet commit $GITHUB_SHA."
+          exit 1
