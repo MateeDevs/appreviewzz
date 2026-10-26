@@ -1,12 +1,15 @@
 ---
+import { translator, type Locale } from '../i18n';
 import Icon from './Icon.astro';
 import { integrations, statusLabel, type Integration } from '../data/integrations';
 import { site } from '../data/site';
 import '../styles/integrations.css';
 interface Props {
     items?: Integration[];
+    locale?: Locale;
 }
-const { items = integrations } = Astro.props;
+const { items = integrations, locale = 'en' } = Astro.props;
+const t = translator(locale);
 ---
 
 <section
@@ -15,15 +18,14 @@ const { items = integrations } = Astro.props;
     aria-labelledby="integrations-title"
 >
     <div class="section-intro">
-        <p class="eyebrow">INTEGRATIONS · A TWO-WAY CONVERSATION</p>
+        <p class="eyebrow">{t('INTEGRATIONS · A TWO-WAY CONVERSATION')}</p>
         <h2 id="integrations-title">
-            Your channel.
-            <br />
-            The whole conversation.
+            {t('Your channel.')} <br /> {t('The whole conversation.')}
         </h2>
         <p>
-            Reviews come in. Considered replies go back out. Explore each integration and its
-            current availability.
+            {t(
+                'Reviews come in. Considered replies go back out. Explore each integration and its current availability.',
+            )}
         </p>
     </div>
     <div class="integration-explorer" data-integrations>
@@ -31,7 +33,7 @@ const { items = integrations } = Astro.props;
             <div
                 class="integration-tabs"
                 role="tablist"
-                aria-label="Explore integrations"
+                aria-label={t('Explore integrations')}
                 aria-orientation="vertical"
             >
                 {items.map((item, index) => (
@@ -50,7 +52,7 @@ const { items = integrations } = Astro.props;
                         <span>
                             <strong>{item.name}</strong>
                             <span class:list={['availability', item.status]}>
-                                {statusLabel(item.status)}
+                                {t(statusLabel(item.status))}
                             </span>
                         </span>
                         <span class="integration-tab-arrow" aria-hidden="true">
@@ -60,10 +62,10 @@ const { items = integrations } = Astro.props;
                 ))}
             </div>
             <p class="integration-more">
-                More integrations coming soon.
-                <br />
+                {t('More integrations coming soon.')} <br />
                 <a href={site.contact}>
-                    Tell us where your team works <span aria-hidden="true">↗</span>
+                    {' '}
+                    {t('Tell us where your team works')} <span aria-hidden="true">↗</span>
                 </a>
             </p>
         </div>
@@ -81,7 +83,7 @@ const { items = integrations } = Astro.props;
                         <Icon name={item.icon} size={24} />
                         <h3>{item.name}</h3>
                         <span class:list={['availability', item.status]}>
-                            {statusLabel(item.status)}
+                            {t(statusLabel(item.status))}
                         </span>
                         <Icon name="plus" size={16} />
                     </summary>
@@ -90,29 +92,29 @@ const { items = integrations } = Astro.props;
                             <div>
                                 <p class="eyebrow">
                                     {item.status === 'coming-soon'
-                                        ? 'IN PREPARATION'
-                                        : 'READY FOR YOUR TEAM'}
+                                        ? t('IN PREPARATION')
+                                        : t('READY FOR YOUR TEAM')}
                                 </p>
                                 <h3>
                                     {item.directReply
-                                        ? 'From review to reply.'
-                                        : 'Bring feedback closer.'}
+                                        ? t('From review to reply.')
+                                        : t('Bring feedback closer.')}
                                 </h3>
                             </div>
                             <span class="integration-capability">
                                 <Icon name={item.directReply ? 'check' : 'arrow'} size={15} />
                                 {item.directReply
-                                    ? `Direct replies${item.status === 'coming-soon' ? ' · planned' : ''}`
-                                    : `Review delivery${item.status === 'coming-soon' ? ' · planned' : ''}`}
+                                    ? `${t('Direct replies')}${item.status === 'coming-soon' ? t(' · planned') : ''}`
+                                    : `${t('Review delivery')}${item.status === 'coming-soon' ? t(' · planned') : ''}`}
                             </span>
                         </div>
-                        <p class="integration-description">{item.description}</p>
+                        <p class="integration-description">{t(item.description)}</p>
                         {item.media?.length ? (
                             <div class="integration-gallery">
                                 <div
                                     class="integration-gallery-controls"
                                     role="group"
-                                    aria-label={`${item.name} screenshots`}
+                                    aria-label={t('{name} screenshots', { name: item.name })}
                                     hidden
                                 >
                                     {item.media.map((media, mediaIndex) => (
@@ -121,7 +123,7 @@ const { items = integrations } = Astro.props;
                                             aria-pressed={mediaIndex === 0}
                                             data-gallery-select={mediaIndex}
                                         >
-                                            {mediaIndex + 1}. {media.caption}
+                                            {mediaIndex + 1}. {t(media.caption)}
                                         </button>
                                     ))}
                                 </div>
@@ -136,21 +138,23 @@ const { items = integrations } = Astro.props;
                                             data-media
                                             data-caption={
                                                 item.status === 'coming-soon'
-                                                    ? `Planned integration preview · ${media.caption}`
-                                                    : media.caption
+                                                    ? `${t('Planned integration preview · ')}${t(media.caption)}`
+                                                    : t(media.caption)
                                             }
                                         >
                                             <div class="integration-image-fallback">
                                                 <Icon name={item.icon} size={32} />
-                                                <strong>Preview unavailable</strong>
+                                                <strong>{t('Preview unavailable')}</strong>
                                                 <span>
-                                                    This screenshot could not be loaded. Integration
-                                                    availability is unchanged.
+                                                    {' '}
+                                                    {t(
+                                                        'This screenshot could not be loaded. Integration availability is unchanged.',
+                                                    )}{' '}
                                                 </span>
                                             </div>
                                             <img
                                                 src={media.src}
-                                                alt={media.alt}
+                                                alt={t(media.alt)}
                                                 width={media.width}
                                                 height={media.height}
                                                 loading="lazy"
@@ -161,18 +165,23 @@ const { items = integrations } = Astro.props;
                                                 class="integration-enlarge"
                                                 data-enlarge
                                                 hidden
-                                                aria-label={`Enlarge ${item.name} screenshot: ${media.caption}`}
+                                                aria-label={t(
+                                                    'Enlarge {name} screenshot: {caption}',
+                                                    { name: item.name, caption: t(media.caption) },
+                                                )}
                                             >
-                                                View full size <span aria-hidden="true">↗</span>
+                                                {' '}
+                                                {t('View full size')}{' '}
+                                                <span aria-hidden="true">↗</span>
                                             </button>
                                         </div>
                                         <figcaption>
                                             {item.status === 'coming-soon' && (
-                                                <span>Planned integration preview · </span>
+                                                <span>{t('Planned integration preview · ')}</span>
                                             )}
-                                            {media.caption}
+                                            {t(media.caption)}
                                             <a class="integration-original" href={media.src}>
-                                                Open original screenshot{' '}
+                                                {t('Open original screenshot')}{' '}
                                                 <span aria-hidden="true">↗</span>
                                             </a>
                                         </figcaption>
@@ -193,25 +202,31 @@ const { items = integrations } = Astro.props;
                                 </div>
                                 <strong>
                                     {item.status === 'available'
-                                        ? 'Preview coming soon'
-                                        : `${item.name} is coming soon`}
+                                        ? t('Preview coming soon')
+                                        : t('{name} is coming soon', { name: item.name })}
                                 </strong>
                                 <p>
                                     {item.status === 'available'
-                                        ? 'The integration is available. A real screenshot of the workflow will follow.'
-                                        : 'We’re getting this integration ready. A real preview will follow.'}
+                                        ? t(
+                                              'The integration is available. A real screenshot of the workflow will follow.',
+                                          )
+                                        : t(
+                                              'We’re getting this integration ready. A real preview will follow.',
+                                          )}
                                 </p>
                                 <span class="integration-empty-note">
                                     {item.directReply
-                                        ? 'Review in. Human-approved reply out.'
-                                        : 'Planned review delivery. No direct replies yet.'}
+                                        ? t('Review in. Human-approved reply out.')
+                                        : t('Planned review delivery. No direct replies yet.')}
                                 </span>
                             </div>
                         )}
                         <p class="integration-panel-note">
                             {item.status === 'coming-soon'
-                                ? 'Not yet available to connect. No release date announced.'
-                                : 'Connect through appreviewzz. Store and workspace permissions are required.'}
+                                ? t('Not yet available to connect. No release date announced.')
+                                : t(
+                                      'Connect through appreviewzz. Store and workspace permissions are required.',
+                                  )}
                         </p>
                     </div>
                 </details>
@@ -219,32 +234,38 @@ const { items = integrations } = Astro.props;
         </div>
     </div>
     <div class="integration-follow-through">
-        <span class="eyebrow">THE REPLY PATH</span>
+        <span class="eyebrow">{t('THE REPLY PATH')}</span>
         <p>
-            New review <span>→</span> AI draft <span>→</span> Edit & approve in chat <span>→</span>{' '}
-            Queued for the store <span>→</span> Published reply
+            {t('New review')} <span>→</span> {t('AI draft')} <span>→</span>{' '}
+            {t('Edit & approve in chat')} <span>→</span> {t('Queued for the store')} <span>→</span>{' '}
+            {t('Published reply')}
         </p>
         <small>
-            For integrations with direct replies, once available. Queued doesn’t mean published: the
-            message updates after a successful send; store errors need attention.
+            {' '}
+            {t(
+                'For integrations with direct replies, once available. Queued doesn’t mean published: the message updates after a successful send; store errors need attention.',
+            )}{' '}
         </small>
     </div>
     <p class="integration-disclaimer">
-        Integration names identify the tools we’re building for, not customer endorsements or
-        official partnerships.
+        {t(
+            'Integration names identify the tools we’re building for, not customer endorsements or official partnerships.',
+        )}
     </p>
     <dialog class="integration-dialog" aria-labelledby="integration-dialog-title">
         <div class="integration-dialog-header">
-            <h3 id="integration-dialog-title">Integration screenshot</h3>
+            <h3 id="integration-dialog-title">{t('Integration screenshot')}</h3>
             <button type="button" data-close-preview autofocus>
-                Close <span aria-hidden="true">×</span>
+                {t('Close')} <span aria-hidden="true">×</span>
             </button>
         </div>
-        <p class="integration-dialog-hint">Full-size image · Scroll to explore the details.</p>
+        <p class="integration-dialog-hint">
+            {t('Full-size image · Scroll to explore the details.')}
+        </p>
         <div
             class="integration-dialog-image"
             role="region"
-            aria-label="Full-size screenshot"
+            aria-label={t('Full-size screenshot')}
             tabindex="0"
         ></div>
         <p class="integration-dialog-caption"></p>

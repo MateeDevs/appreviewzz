@@ -1,5 +1,12 @@
 ---
-import { demo } from '../data/demo';
+import { translator, type Locale } from '../i18n';
+interface Props {
+    locale?: Locale;
+}
+const { locale = 'en' } = Astro.props;
+const t = translator(locale);
+import { getDemo } from '../data/demo';
+const demo = getDemo(locale);
 ---
 
 <div class="analysis-demo">
@@ -9,24 +16,24 @@ import { demo } from '../data/demo';
                 a<span>↗</span>
             </span>
             <strong>Atlas</strong>
-            <span class="analysis-subtitle">Review analysis</span>
+            <span class="analysis-subtitle">{t('Review analysis')}</span>
         </span>
         <span>{demo.period}</span>
     </div>
     <div class="analysis-body">
         <div class="chart-heading">
             <div>
-                <span class="small-label">AFTER RELEASE 3.8</span>
-                <h3>What changed?</h3>
+                <span class="small-label">{t('AFTER RELEASE 3.8')}</span>
+                <h3>{t('What changed?')}</h3>
             </div>
-            <span class="sample-tag">Sample data</span>
+            <span class="sample-tag">{t('Sample data')}</span>
         </div>
         <div class="topic-head" aria-hidden="true">
-            <span>Topic</span>
-            <span>Previous week</span>
-            <span>This week</span>
+            <span>{t('Topic')}</span>
+            <span>{t('Previous week')}</span>
+            <span>{t('This week')}</span>
         </div>
-        <div class="topic-list" aria-label="Sample review topics">
+        <div class="topic-list" aria-label={t('Sample review topics')}>
             {demo.topics.map((topic, index) => (
                 <button
                     type="button"
@@ -34,7 +41,15 @@ import { demo } from '../data/demo';
                     data-topic={topic.id}
                     aria-pressed={index === 0}
                     aria-controls="source-reviews"
-                    aria-label={`${topic.label}, ${topic.direction.toLowerCase()}: ${topic.previous} reviews previous week, ${topic.count} this week. Show source reviews.`}
+                    aria-label={t(
+                        '{topic}, {direction}: {previous} reviews previous week, {count} this week. Show source reviews.',
+                        {
+                            topic: topic.label,
+                            direction: t(topic.direction).toLowerCase(),
+                            previous: topic.previous,
+                            count: topic.count,
+                        },
+                    )}
                     disabled
                 >
                     <span>
@@ -45,7 +60,7 @@ import { demo } from '../data/demo';
                                 : topic.direction === 'Falling'
                                   ? '↘'
                                   : '→'}{' '}
-                            {topic.direction}
+                            {t(topic.direction)}
                         </span>
                     </span>
                     <span class="topic-value">
@@ -63,12 +78,19 @@ import { demo } from '../data/demo';
             ))}
         </div>
         <p class="chart-note">
-            Number of text reviews mentioning each topic. One review can mention several topics.
+            {t(
+                'Number of text reviews mentioning each topic. One review can mention several topics.',
+            )}
         </p>
         <div class="source-reviews" id="source-reviews" tabindex="-1">
             <div class="source-heading" aria-live="polite" aria-atomic="true">
-                <h4 id="source-title">Behind “Offline access”</h4>
-                <span id="source-count">3 of 12 sample reviews</span>
+                <h4 id="source-title">{t('Behind “{topic}”', { topic: demo.topics[0].label })}</h4>
+                <span id="source-count">
+                    {t('{shown} of {count} sample reviews', {
+                        shown: demo.topics[0].reviews.length,
+                        count: demo.topics[0].count,
+                    })}
+                </span>
             </div>
             <div id="source-list">
                 {demo.topics[0].reviews.map((review) => (
@@ -76,7 +98,7 @@ import { demo } from '../data/demo';
                         <div>
                             <span
                                 class="source-stars"
-                                aria-label={`${review.stars} out of 5 stars`}
+                                aria-label={t('{stars} out of 5 stars', { stars: review.stars })}
                             >
                                 {'★'.repeat(review.stars)}
                                 <span aria-hidden="true">{'☆'.repeat(5 - review.stars)}</span>
@@ -91,16 +113,21 @@ import { demo } from '../data/demo';
             </div>
         </div>
         <p class="analysis-fallback">
-            Select a topic to read the feedback behind it.
+            {t('Select a topic to read the feedback behind it.')}{' '}
             <noscript>
                 {' '}
-                Topic switching needs JavaScript; the offline-access sample reviews are shown above.
+                {t(
+                    'Topic switching needs JavaScript; the offline-access sample reviews are shown above.',
+                )}
             </noscript>
         </p>
     </div>
 </div>
 <script>
-    import { demo } from '../data/demo';
+    import { getDemo } from '../data/demo';
+    import { pageLocale, translator } from '../i18n';
+    const t = translator(pageLocale());
+    const demo = getDemo(pageLocale());
     document.querySelectorAll<HTMLButtonElement>('[data-topic]').forEach((button) => {
         button.disabled = false;
         button.addEventListener('click', () => {
@@ -109,9 +136,13 @@ import { demo } from '../data/demo';
                 item.classList.toggle('selected', item === button);
                 item.setAttribute('aria-pressed', String(item === button));
             });
-            document.querySelector('#source-title')!.textContent = `Behind “${topic.label}”`;
-            document.querySelector('#source-count')!.textContent =
-                `${topic.reviews.length} of ${topic.count} sample reviews`;
+            document.querySelector('#source-title')!.textContent = t('Behind “{topic}”', {
+                topic: topic.label,
+            });
+            document.querySelector('#source-count')!.textContent = t(
+                '{shown} of {count} sample reviews',
+                { shown: topic.reviews.length, count: topic.count },
+            );
             const list = document.querySelector('#source-list')!;
             list.replaceChildren(
                 ...topic.reviews.map((review) => {
@@ -119,7 +150,10 @@ import { demo } from '../data/demo';
                     const meta = document.createElement('div');
                     const stars = document.createElement('span');
                     stars.className = 'source-stars';
-                    stars.setAttribute('aria-label', `${review.stars} out of 5 stars`);
+                    stars.setAttribute(
+                        'aria-label',
+                        t('{stars} out of 5 stars', { stars: review.stars }),
+                    );
                     stars.textContent = '★'.repeat(review.stars) + '☆'.repeat(5 - review.stars);
                     const platform = document.createElement('span');
                     platform.textContent = `${review.platform} · ${review.date}`;

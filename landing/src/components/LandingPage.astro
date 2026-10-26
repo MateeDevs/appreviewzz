@@ -1,0 +1,605 @@
+---
+import { getIntegrationCopy } from '../i18n/integrations';
+import { translator, localePath, type Locale } from '../i18n';
+import LanguageSwitcher from '../components/LanguageSwitcher.astro';
+interface Props {
+    locale: Locale;
+}
+const { locale } = Astro.props;
+const t = translator(locale);
+import Brand from '../components/Brand.astro';
+import Icon from '../components/Icon.astro';
+import ReviewDemo from '../components/ReviewDemo.astro';
+import AnalysisDemo from '../components/AnalysisDemo.astro';
+import Faq from '../components/Faq.astro';
+import Integrations from '../components/Integrations.astro';
+import { integrations, statusLabel } from '../data/integrations';
+import { getSite, indexable } from '../data/site';
+const site = getSite(locale);
+const { replyNames, replyAvailability, replyReadiness, integrationAvailability } =
+    getIntegrationCopy(locale);
+const pageUrl = new URL(localePath(locale), site.origin).href;
+import '../styles/global.css';
+const structuredData = {
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: site.name,
+    applicationCategory: 'BusinessApplication',
+    operatingSystem: 'Web',
+    url: pageUrl,
+    description: site.description,
+    creator: { '@type': 'Organization', name: 'Matee', url: site.maker },
+};
+---
+
+<!doctype html>
+<html lang={locale}>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>{site.title}</title>
+        <meta name="description" content={site.description} />
+        <meta name="robots" content={indexable ? 'index, follow' : 'noindex, nofollow'} />
+        <link rel="canonical" href={pageUrl} />
+        <link rel="alternate" hreflang="en" href={`${site.origin}/`} />
+        <link rel="alternate" hreflang="cs" href={`${site.origin}/cs/`} />
+        <link rel="alternate" hreflang="x-default" href={`${site.origin}/`} />
+        <script is:inline>
+            // Runs before rendering. Explicit choice wins; browser language is used otherwise.
+            // A direct /cs/ link always opens Czech, including without JavaScript.
+            if (location.pathname === '/') {
+                let preference;
+                try {
+                    preference = localStorage.getItem('appreviewzz.language');
+                } catch {}
+                const requested = new URLSearchParams(location.search).get('lang');
+                if (requested === 'en' || requested === 'cs') preference = requested;
+                const language =
+                    preference === 'en' || preference === 'cs'
+                        ? preference
+                        : (navigator.languages?.[0] || navigator.language || 'en')
+                              .toLowerCase()
+                              .split('-')[0];
+                if (language === 'cs') location.replace('/cs/' + location.search + location.hash);
+            }
+        </script>
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        <meta name="theme-color" content="#f5f4f0" />
+        <link
+            rel="preload"
+            as="font"
+            href="/fonts/geist-variable.woff2"
+            type="font/woff2"
+            crossorigin
+        />
+        <meta property="og:type" content="website" />
+        <meta property="og:locale" content={locale === 'cs' ? 'cs_CZ' : 'en_US'} />
+        <meta property="og:site_name" content={site.name} />
+        <meta property="og:title" content={site.title} />
+        <meta property="og:description" content={site.description} />
+        <meta property="og:url" content={pageUrl} />
+        <meta property="og:image" content={`${site.origin}/og.png`} />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta property="og:image:alt" content={`${site.title} ${replyAvailability}.`} />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={site.title} />
+        <meta name="twitter:description" content={site.description} />
+        <meta name="twitter:image" content={`${site.origin}/og.png`} />
+        <meta name="twitter:image:alt" content={site.title} />
+        <script type="application/ld+json" set:html={JSON.stringify(structuredData)} />
+    </head>
+    <body>
+        <a class="skip-link" href="#main">
+            {' '}
+            {t('Skip to content')}{' '}
+        </a>
+        <header class="site-header container">
+            <a href={localePath(locale)} aria-label={t('appreviewzz home')}>
+                <Brand />
+            </a>
+            <nav class="desktop-nav" aria-label={t('Main navigation')}>
+                <a href="#how-it-works">{t('How it works')}</a>
+                <a href="#integrations">{t('Integrations')}</a>
+                <a href="#understand">{t('Understand your reviews')}</a>
+                <a href="#faq">{t('FAQ')}</a>
+            </nav>
+            <div class="header-actions">
+                <LanguageSwitcher locale={locale} />
+                <a class="login-link" href={site.login}>
+                    {' '}
+                    {t('Log in')} <span aria-hidden="true">↗</span>
+                </a>
+                <a class="button header-cta" href={site.register}>
+                    {' '}
+                    {t('Get started')} <Icon name="arrow" size={16} />
+                </a>
+            </div>
+            <details class="mobile-menu">
+                <summary aria-label={t('Open navigation')}>
+                    <Icon name="menu" />
+                    <span>{t('Menu')}</span>
+                </summary>
+                <nav aria-label={t('Mobile navigation')}>
+                    <a href="#how-it-works">{t('How it works')}</a>
+                    <a href="#integrations">{t('Integrations')}</a>
+                    <a href="#understand">{t('Understand your reviews')}</a>
+                    <a href="#faq">{t('FAQ')}</a>
+                    <a href={site.login}>{t('Log in ↗')}</a>
+                    <a href={site.register}>{t('Get started ↗')}</a>
+                </nav>
+            </details>
+        </header>
+        <main id="main">
+            <section class="hero container" aria-labelledby="hero-title">
+                <div class="hero-copy">
+                    <p class="eyebrow">
+                        <span class="mini-line" aria-hidden="true"></span>{' '}
+                        {t('A CLOSER CONNECTION TO YOUR USERS')}
+                    </p>
+                    <h1 id="hero-title">
+                        {t('App reviews.')} <br /> {t('Answered.')} <br />
+                        <span>{t('Understood.')}</span>
+                    </h1>
+                    <p class="hero-description">
+                        {t(
+                            'App Store and Google Play reviews, brought into your team’s chat. Edit an AI draft, approve it and send your reply back to the store, right from {names}.',
+                            { names: replyNames },
+                        )}
+                    </p>
+                    <div class="hero-actions">
+                        <a class="button" href={site.register}>
+                            {' '}
+                            {t('Get started')} <Icon name="arrow" />
+                        </a>
+                        <a class="text-link" href="#demo">
+                            {' '}
+                            {t('Try the reply demo')} <span aria-hidden="true">↘</span>
+                        </a>
+                    </div>
+                    <p class="hero-reassurance">
+                        <a href="#integrations">{replyAvailability} ↘</a>
+                    </p>
+                </div>
+                <ReviewDemo locale={locale} />
+            </section>
+            <div class="integration-strip container">
+                <p>
+                    {t('Your stores. Your team.')} <br />
+                    <strong>{t('One connected workflow.')}</strong>
+                </p>
+                <div class="integration-brands">
+                    <span>
+                        <Icon name="apple" size={25} />
+                        App Store
+                    </span>
+                    <span>
+                        <Icon name="play" size={25} />
+                        Google Play
+                    </span>
+                    <span class="integration-connector" aria-hidden="true">
+                        →
+                    </span>
+                    {integrations.map((integration) => (
+                        <a href="#integrations">
+                            <Icon name={integration.icon} size={25} />
+                            <span>
+                                {integration.name}
+                                <small class:list={['availability', integration.status]}>
+                                    {t(statusLabel(integration.status))}
+                                </small>
+                            </span>
+                        </a>
+                    ))}
+                </div>
+            </div>
+            <section
+                class="workflow section container"
+                id="how-it-works"
+                aria-labelledby="workflow-title"
+            >
+                <div class="section-intro">
+                    <p class="eyebrow">{t('FROM FEEDBACK TO FOLLOW-THROUGH')}</p>
+                    <h2 id="workflow-title">
+                        {t('A review is the start')} <br /> {t('of a conversation.')}
+                    </h2>
+                    <p>
+                        {t(
+                            'Keep the people who hear from your users close to the people building your app.',
+                        )}{' '}
+                        {replyReadiness}
+                    </p>
+                </div>
+                <div class="workflow-grid">
+                    <article class="workflow-step">
+                        <div class="step-top">
+                            <span>01</span>
+                            <svg viewBox="0 0 120 70" aria-hidden="true">
+                                <path d="M5 35h35m40 0h35M40 35l20-18 20 18-20 18-20-18Z" />
+                                <circle cx="60" cy="35" r="6" />
+                            </svg>
+                        </div>
+                        <h3>{t('Meet reviews where you work.')}</h3>
+                        <p>
+                            {t(
+                                'Once your integration is available and connected, new App Store and Google Play reviews arrive in the channel your team already follows.',
+                            )}
+                        </p>
+                        <span class="step-detail">
+                            {t('App Store + Google Play → your channel')}
+                        </span>
+                    </article>
+                    <article class="workflow-step">
+                        <div class="step-top">
+                            <span>02</span>
+                            <svg viewBox="0 0 120 70" aria-hidden="true">
+                                <path d="M30 15h55v40H30zM42 28h31M42 37h22m10 12 7 7 15-17" />
+                            </svg>
+                        </div>
+                        <h3>
+                            {t('A thoughtful reply.')} <br /> {t('Still in your voice.')}
+                        </h3>
+                        <p>
+                            {t(
+                                'Edit an AI draft and approve it directly in {names}. It is queued for the store; after publication, the message shows your reply. Store errors need attention. Templates and translation also live in the web inbox.',
+                                { names: replyNames },
+                            )}
+                        </p>
+                        <span class="step-detail">
+                            {' '}
+                            {t('AI-drafted. Human-approved. Sent back to the store.')}{' '}
+                        </span>
+                    </article>
+                    <article class="workflow-step">
+                        <div class="step-top">
+                            <span>03</span>
+                            <svg viewBox="0 0 120 70" aria-hidden="true">
+                                <path d="M20 53V38m20 15V28m20 25V15m20 38V23m20 30V9M15 61h91" />
+                            </svg>
+                        </div>
+                        <h3>
+                            {t('See the pattern.')} <br /> {t('Find the next fix.')}
+                        </h3>
+                        <p>
+                            {t(
+                                'Connect recurring topics to real reviews. See what changed after a release and bring the evidence into your next product decision.',
+                            )}
+                        </p>
+                        <a class="step-detail" href="#understand">
+                            {' '}
+                            {t('From the overview to the original review ↘')}{' '}
+                        </a>
+                    </article>
+                </div>
+            </section>
+            <Integrations locale={locale} />
+            <section class="insights-section" id="understand" aria-labelledby="insights-title">
+                <div class="container insights-layout">
+                    <div class="insights-copy">
+                        <p class="eyebrow">{t('LESS GUESSWORK. MORE CONTEXT.')}</p>
+                        <h2 id="insights-title">
+                            {t('One review is a story.')} <br />
+                            <span>
+                                {' '}
+                                {t('Together, they show')} <br /> {t('you where to look.')}{' '}
+                            </span>
+                        </h2>
+                        <p>
+                            {t(
+                                'A new release goes out. Offline complaints start coming in. See the topic, compare the change, then read the reviews behind it.',
+                            )}
+                        </p>
+                        <ul class="insight-points">
+                            <li>
+                                <Icon name="check" />{' '}
+                                {t('Themes, sentiment and urgency in context')}
+                            </li>
+                            <li>
+                                <Icon name="check" />{' '}
+                                {t('Release impact with a path to the evidence')}
+                            </li>
+                            <li>
+                                <Icon name="check" />{' '}
+                                {t('Alerts for unusual negative-review spikes')}
+                            </li>
+                        </ul>
+                        <div class="insight-aside">
+                            <span aria-hidden="true">↳</span>
+                            <p>
+                                {t('Explore the sample.')} <br />
+                                <strong>{t('Select a topic to see its source reviews.')}</strong>
+                            </p>
+                        </div>
+                    </div>
+                    <AnalysisDemo locale={locale} />
+                </div>
+            </section>
+            <section class="portfolio-section section container" aria-labelledby="portfolio-title">
+                <div class="portfolio-copy">
+                    <p class="eyebrow">{t('ONE APP OR A WHOLE PORTFOLIO')}</p>
+                    <h2 id="portfolio-title">
+                        {t('Keep the big picture.')} <br /> {t('Keep the details.')}
+                    </h2>
+                    <p>
+                        {t(
+                            'Give your team a place to work across apps. Keep client organizations separate. Make the next client conversation about what you learned.',
+                        )}
+                    </p>
+                    <div class="portfolio-features">
+                        <div>
+                            <h3>{t('Daily ratings, in perspective.')}</h3>
+                            <p>
+                                {t(
+                                    'Follow store ratings and day-to-day changes separately from sentiment in written reviews.',
+                                )}
+                            </p>
+                        </div>
+                        <div>
+                            <h3>{t('Client updates worth sharing.')}</h3>
+                            <p>
+                                {t(
+                                    'Share a monthly review report and print it to PDF. Availability depends on your plan.',
+                                )}
+                            </p>
+                        </div>
+                    </div>
+                    <a class="text-link" href={site.contact}>
+                        {' '}
+                        {t('Let’s talk about your portfolio')} <Icon name="arrow" />
+                    </a>
+                </div>
+                <div class="portfolio-visual">
+                    <div class="portfolio-label">
+                        <span>{t('YOUR PORTFOLIO')}</span>
+                        <span>{t('Sample data')}</span>
+                    </div>
+                    <div
+                        class="portfolio-table"
+                        role="table"
+                        aria-label={t('Sample application portfolio')}
+                    >
+                        <div class="portfolio-table-head" role="row">
+                            <span role="columnheader">{t('Application')}</span>
+                            <span role="columnheader">{t('Needs a reply')}</span>
+                            <span role="columnheader">{t('Store rating')}</span>
+                        </div>
+                        {[
+                            {
+                                name: 'Atlas',
+                                short: 'a',
+                                type: 'Travel & maps',
+                                count: 12,
+                                rating: '4.6',
+                                color: 'green',
+                            },
+                            {
+                                name: 'Orbit',
+                                short: 'o',
+                                type: 'Focus & habits',
+                                count: 4,
+                                rating: '4.8',
+                                color: 'violet',
+                            },
+                            {
+                                name: 'Kompas',
+                                short: 'k',
+                                type: 'Local discovery',
+                                count: 7,
+                                rating: '4.4',
+                                color: 'orange',
+                            },
+                        ].map((app) => (
+                            <div class="portfolio-row" role="row">
+                                <span role="cell">
+                                    <span
+                                        class:list={['portfolio-app', app.color]}
+                                        aria-hidden="true"
+                                    >
+                                        {app.short}
+                                    </span>
+                                    <span>
+                                        <strong>{app.name}</strong>
+                                        <small>{t(app.type)}</small>
+                                    </span>
+                                </span>
+                                <span role="cell">
+                                    {app.count}
+                                    <small>{t('reviews')}</small>
+                                </span>
+                                <span role="cell">
+                                    {app.rating}
+                                    <span class="rating-star" aria-hidden="true">
+                                        ★
+                                    </span>
+                                    <small>App Store</small>
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                    <div class="report-slip">
+                        <span class="report-icon" aria-hidden="true">
+                            ↗
+                        </span>
+                        <div>
+                            <strong>{t('Atlas · September review report')}</strong>
+                            <span>{t('A shared view for your next client conversation.')}</span>
+                        </div>
+                        <span class="report-type">PDF</span>
+                    </div>
+                    <p class="portfolio-note">
+                        {t(
+                            'Illustrative portfolio · Store ratings and reply counts are separate measures.',
+                        )}
+                    </p>
+                </div>
+            </section>
+            <section class="reply-reason container" aria-labelledby="reason-title">
+                <div class="quote-mark" aria-hidden="true">
+                    “
+                </div>
+                <div>
+                    <p class="eyebrow">{t('THERE’S A PERSON BEHIND THE STARS')}</p>
+                    <h2 id="reason-title">
+                        {t('A good reply keeps')} <br />
+                        {t('the conversation open.')}
+                    </h2>
+                    <p>
+                        {t(
+                            'Apple notifies reviewers when you respond, and they can update their review. A reply is a chance to acknowledge a problem, offer help, or follow up on a fix.',
+                        )}
+                    </p>
+                    <a
+                        class="source-link"
+                        href="https://developer.apple.com/app-store/ratings-and-reviews/"
+                    >
+                        {t('Source: Apple · Ratings, reviews, and responses')}{' '}
+                        <span aria-hidden="true">↗</span>
+                    </a>
+                </div>
+                <div class="reason-note">
+                    <span class="small-label">{t('OUR APPROACH')}</span>
+                    <p>
+                        {t('Help your team respond well.')} <br />
+                        <strong>
+                            {' '}
+                            {t('Let the feedback inform')} <br /> {t('what comes next.')}{' '}
+                        </strong>
+                    </p>
+                    <span>
+                        {' '}
+                        {t('No promised rating uplift.')} <br />{' '}
+                        {t('Just a better feedback loop.')}{' '}
+                    </span>
+                </div>
+            </section>
+            <section class="setup-section section container" aria-labelledby="setup-title">
+                <div class="setup-heading">
+                    <p class="eyebrow">{t('A CLEAR PATH TO YOUR FIRST REPLY')}</p>
+                    <h2 id="setup-title">{t('Connect. Choose. Start listening.')}</h2>
+                </div>
+                <ol class="setup-steps">
+                    <li>
+                        <span class="setup-number">1</span>
+                        <div>
+                            <h3>{t('Connect your app.')}</h3>
+                            <p>
+                                {t(
+                                    'Add your App Store or Google Play app and connect the store permissions you need.',
+                                )}
+                            </p>
+                        </div>
+                    </li>
+                    <li>
+                        <span class="setup-number">2</span>
+                        <div>
+                            <h3>{t('Choose your channel.')}</h3>
+                            <p>
+                                {t(
+                                    'Choose an available integration and a channel for your reviews.',
+                                )}{' '}
+                                <a href="#integrations">
+                                    {t('Check availability before connecting ↗')}
+                                </a>
+                            </p>
+                        </div>
+                    </li>
+                    <li>
+                        <span class="setup-number">3</span>
+                        <div>
+                            <h3>{t('Make feedback a habit.')}</h3>
+                            <p>
+                                {t(
+                                    'Review the next draft with your team. Keep an eye on the patterns as feedback arrives.',
+                                )}
+                            </p>
+                        </div>
+                    </li>
+                </ol>
+                <p class="setup-help">
+                    {t('Want a hand with your setup?')}{' '}
+                    <a href={site.contact}>
+                        {' '}
+                        {t('We’re here to help')} <span aria-hidden="true">↗</span>
+                    </a>
+                </p>
+            </section>
+            <Faq locale={locale} />
+            <section class="final-cta container" aria-labelledby="cta-title">
+                <div>
+                    <p class="eyebrow">{t('EVERY REVIEW IS FEEDBACK.')}</p>
+                    <h2 id="cta-title">
+                        {t('Give it a place')} <br /> {t('in your team.')}
+                    </h2>
+                    <p>{t('Start a closer conversation with your app’s users.')}</p>
+                </div>
+                <div class="final-actions">
+                    <a class="button button-light" href={site.register}>
+                        {' '}
+                        {t('Get started with appreviewzz')} <Icon name="arrow" />
+                    </a>
+                    <a href={site.contact}>
+                        {' '}
+                        {t('Managing apps for clients? Let’s talk')}{' '}
+                        <span aria-hidden="true">↗</span>
+                    </a>
+                    <span>{integrationAvailability}</span>
+                </div>
+                <svg class="cta-art" viewBox="0 0 500 500" aria-hidden="true">
+                    <g fill="none" stroke="currentColor">
+                        {[100, 150, 200, 250].map((r) => (
+                            <circle cx="250" cy="250" r={r} />
+                        ))}
+                    </g>
+                    <path
+                        d="M0 250h150l25-35 30 75 35-140 35 200 30-100h195"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                    />
+                </svg>
+            </section>
+        </main>
+        <footer class="site-footer container">
+            <div class="footer-main">
+                <a href={localePath(locale)} aria-label={t('appreviewzz home')}>
+                    <Brand />
+                </a>
+                <p>
+                    {t('Stay close to your users.')} <br /> {t('Build with their feedback.')}
+                </p>
+                <nav aria-label={t('Footer')}>
+                    <a href={site.login}>{t('Log in ↗')}</a>
+                    <a href={site.contact}>{site.email}</a>
+                    <a href={site.maker}>{t('Made by Matee ↗')}</a>
+                </nav>
+            </div>
+            <div class="footer-bottom">
+                <span>
+                    ©{' '}
+                    {t('{year} appreviewzz · Made with care by Matee.', {
+                        year: new Date().getFullYear(),
+                    })}
+                </span>
+                <span>{t('Store and workspace names belong to their respective owners.')}</span>
+            </div>
+        </footer>
+        <script>
+            document.documentElement.classList.add('js');
+            const menu = document.querySelector<HTMLDetailsElement>('.mobile-menu')!;
+            menu.querySelectorAll('a').forEach((link) =>
+                link.addEventListener('click', () => {
+                    menu.open = false;
+                }),
+            );
+            menu.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') {
+                    menu.open = false;
+                    menu.querySelector<HTMLElement>('summary')!.focus();
+                }
+            });
+            document.addEventListener('click', (event) => {
+                if (menu.open && !menu.contains(event.target as Node)) menu.open = false;
+            });
+        </script>
+    </body>
+</html>

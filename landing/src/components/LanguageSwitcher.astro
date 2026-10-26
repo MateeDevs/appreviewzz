@@ -1,0 +1,41 @@
+---
+import { localePath, translator, type Locale } from '../i18n';
+interface Props {
+    locale: Locale;
+}
+const { locale } = Astro.props;
+const t = translator(locale);
+---
+
+<nav class="language-switcher" aria-label={t('Language')}>
+    {(['en', 'cs'] as const).map((language) => (
+        <a
+            href={localePath(language)}
+            lang={language}
+            hreflang={language}
+            aria-label={language === 'en' ? 'English' : 'Čeština'}
+            aria-current={locale === language ? 'page' : undefined}
+            data-language={language}
+        >
+            {language === 'en' ? 'EN' : 'CS'}
+        </a>
+    ))}
+</nav>
+<script>
+    document.querySelectorAll<HTMLAnchorElement>('[data-language]').forEach((link) => {
+        // Keep the section when switching; navigation still works if storage is blocked.
+        link.addEventListener('click', () => {
+            const target = new URL(
+                link.pathname + location.search + location.hash,
+                location.origin,
+            );
+            target.searchParams.delete('lang');
+            try {
+                localStorage.setItem('appreviewzz.language', link.dataset.language!);
+            } catch {
+                target.searchParams.set('lang', link.dataset.language!);
+            }
+            link.href = target.href;
+        });
+    });
+</script>

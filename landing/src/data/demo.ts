@@ -1,3 +1,4 @@
+import { translator, type Locale } from '../i18n';
 /** Entirely synthetic, consistent sample data. No customer or production data. */
 export const demo = {
   app: 'Atlas',
@@ -84,3 +85,28 @@ export const demo = {
     },
   ],
 };
+
+export function getDemo(locale: Locale) {
+  const t = translator(locale);
+  return {
+    ...demo,
+    period: t(demo.period),
+    review: {
+      ...demo.review,
+      title: t(demo.review.title),
+      text: t(demo.review.text),
+      date: t(demo.review.date),
+    },
+    draft: t(demo.draft),
+    topics: demo.topics.map((topic) => ({
+      ...topic,
+      label: t(topic.label),
+      // Keep the direction token stable for styles and trend arrows.
+      reviews: topic.reviews.map((review) => ({
+        ...review,
+        text: t(review.text),
+        date: t(review.date),
+      })),
+    })),
+  };
+}

@@ -1,3 +1,5 @@
+import { getIntegrationCopy } from '../i18n/integrations';
+import { translator, type Locale } from '../i18n';
 import { replyNames, replyAvailability } from './integrations';
 
 // Preview/staging builds stay on staging; build:production sets the production origin.
@@ -16,3 +18,16 @@ export const site = {
   description: `Edit, approve and send app review replies back to the store from ${replyNames}. ${replyAvailability}. Understand the feedback behind your next release.`,
 };
 export const indexable = import.meta.env.INDEXABLE === 'true';
+
+export function getSite(locale: Locale) {
+  const t = translator(locale);
+  const { replyNames, replyAvailability } = getIntegrationCopy(locale);
+  return {
+    ...site,
+    title: t(site.title),
+    description: t(
+      'Edit, approve and send app review replies back to the store from {names}. {availability}. Understand the feedback behind your next release.',
+      { names: replyNames, availability: replyAvailability },
+    ),
+  };
+}

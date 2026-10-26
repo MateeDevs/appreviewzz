@@ -1,8 +1,17 @@
 ---
+import { getIntegrationCopy } from '../i18n/integrations';
+import { translator, type Locale } from '../i18n';
+interface Props {
+    locale?: Locale;
+}
+const { locale = 'en' } = Astro.props;
+const t = translator(locale);
 import Brand from './Brand.astro';
 import Icon from './Icon.astro';
-import { demo } from '../data/demo';
-import { replyIntegrations, replyAvailability } from '../data/integrations';
+import { getDemo } from '../data/demo';
+const demo = getDemo(locale);
+import { replyIntegrations } from '../data/integrations';
+const { replyAvailability } = getIntegrationCopy(locale);
 ---
 
 <div class="review-stage" id="demo">
@@ -14,8 +23,8 @@ import { replyIntegrations, replyAvailability } from '../data/integrations';
         </g>
     </svg>
     <div class="demo-caption">
-        <span class="status-dot"></span> Workflow simulation <span class="caption-divider">/</span>{' '}
-        Sample data
+        <span class="status-dot"></span> {t('Workflow simulation')}{' '}
+        <span class="caption-divider">/</span> {t('Sample data')}
     </div>
     <div class="review-window">
         <div class="window-top">
@@ -24,20 +33,22 @@ import { replyIntegrations, replyAvailability } from '../data/integrations';
                 <i></i>
                 <i></i>
             </span>
-            <span>YOUR TEAM’S WORKSPACE</span>
+            <span>{t('YOUR TEAM’S WORKSPACE')}</span>
             <span aria-hidden="true">↗</span>
         </div>
         <div class="channel-bar">
             <span class="channel-name">
                 <span aria-hidden="true">#</span> app-reviews
             </span>
-            <div class="channel-switch js-only" role="group" aria-label="Demo integration">
+            <div class="channel-switch js-only" role="group" aria-label={t('Demo integration')}>
                 {replyIntegrations.map((integration, index) => (
                     <button
                         type="button"
                         data-channel={integration.name}
                         aria-pressed={index === 0}
-                        aria-label={`Simulate ${integration.name} reply workflow`}
+                        aria-label={t('Simulate {channel} reply workflow', {
+                            channel: integration.name,
+                        })}
                     >
                         <Icon name={integration.icon} size={16} />
                         <span>
@@ -53,7 +64,7 @@ import { replyIntegrations, replyAvailability } from '../data/integrations';
                     <Brand compact />
                 </span>
                 <strong>appreviewzz</strong>
-                <span class="app-label">APP</span>
+                <span class="app-label">{t('APP')}</span>
                 <span class="message-time">09:41</span>
             </div>
             <div class="review-meta">
@@ -62,20 +73,21 @@ import { replyIntegrations, replyAvailability } from '../data/integrations';
                 </span>
                 <strong>{demo.app}</strong>
                 <span>iOS · {demo.version}</span>
-                <span class="stars" aria-label="2 out of 5 stars">
+                <span class="stars" aria-label={t('2 out of 5 stars')}>
                     ★★<span aria-hidden="true">☆☆☆</span>
                 </span>
             </div>
             <h2 class="review-title">{demo.review.title}</h2>
             <p class="review-text">{demo.review.text}</p>
             <div class="review-tags">
-                <span>Offline access</span>
-                <span class="tag-urgent">Needs attention</span>
+                <span>{t('Offline access')}</span>
+                <span class="tag-urgent">{t('Needs attention')}</span>
                 <span class="review-date">{demo.review.date} 2026</span>
             </div>
             <div class="reply-box">
                 <label for="reply-draft">
-                    <Icon name="spark" size={15} /> AI-drafted reply <span>· Yours to edit</span>
+                    <Icon name="spark" size={15} /> {t('AI-drafted reply')}{' '}
+                    <span>{t('· Yours to edit')}</span>
                 </label>
                 <textarea
                     id="reply-draft"
@@ -85,10 +97,10 @@ import { replyIntegrations, replyAvailability } from '../data/integrations';
                 >{demo.draft}</textarea>
                 <div class="reply-actions">
                     <span id="draft-hint">
-                        <Icon name="check" size={14} /> You approve. Then it’s queued.
+                        <Icon name="check" size={14} /> {t('You approve. Then it’s queued.')}{' '}
                     </span>
                     <button class="button button-small js-only" type="button" id="approve-demo">
-                        Approve reply <Icon name="arrow" size={15} />
+                        {t('Approve reply')} <Icon name="arrow" size={15} />
                     </button>
                 </div>
             </div>
@@ -101,13 +113,13 @@ import { replyIntegrations, replyAvailability } from '../data/integrations';
             ></div>
             <div class="result-actions js-only" id="result-actions" hidden>
                 <button type="button" id="publish-demo">
-                    Simulate publication
+                    {t('Simulate publication')}
                 </button>
                 <button type="button" id="fail-demo">
-                    Simulate store error
+                    {t('Simulate store error')}
                 </button>
                 <button type="button" id="reset-demo">
-                    Start again
+                    {t('Start again')}
                 </button>
             </div>
         </div>
@@ -115,23 +127,31 @@ import { replyIntegrations, replyAvailability } from '../data/integrations';
             <span>
                 <Icon name="apple" size={14} /> App Store
             </span>
-            <span>Human-approved replies</span>
-            <span id="channel-context">Simulated: {replyIntegrations[0].name}</span>
+            <span>{t('Human-approved replies')}</span>
+            <span id="channel-context">
+                {t('Simulated: {channel}', { channel: replyIntegrations[0].name })}
+            </span>
         </div>
     </div>
     <p class="demo-footnote">
-        Try editing the reply. Sample data; nothing is sent. Shared workflow illustration, not a
-        screenshot of either chat app. <a href="#integrations">{replyAvailability} ↗</a>
+        {t(
+            'Try editing the reply. Sample data; nothing is sent. Shared workflow illustration, not a screenshot of either chat app.',
+        )}{' '}
+        <a href="#integrations">{replyAvailability} ↗</a>
     </p>
     <noscript>
         <p class="demo-footnote">
-            This is a sample review and editable draft. In the product, your team approves a reply
-            before it is queued for the store.
+            {t(
+                'This is a sample review and editable draft. In the product, your team approves a reply before it is queued for the store.',
+            )}
         </p>
     </noscript>
 </div>
 <script>
-    import { demo } from '../data/demo';
+    import { getDemo } from '../data/demo';
+    import { pageLocale, translator } from '../i18n';
+    const t = translator(pageLocale());
+    const demo = getDemo(pageLocale());
     const draft = document.querySelector<HTMLTextAreaElement>('#reply-draft')!;
     const approve = document.querySelector<HTMLButtonElement>('#approve-demo')!;
     const result = document.querySelector<HTMLElement>('#demo-result')!;
@@ -154,8 +174,9 @@ import { replyIntegrations, replyAvailability } from '../data/integrations';
             document
                 .querySelectorAll('[data-channel]')
                 .forEach((item) => item.setAttribute('aria-pressed', String(item === button)));
-            document.querySelector('#channel-context')!.textContent =
-                `Simulated: ${button.dataset.channel}`;
+            document.querySelector('#channel-context')!.textContent = t('Simulated: {channel}', {
+                channel: button.dataset.channel!,
+            });
         });
     });
     draft.addEventListener('input', () => {
@@ -167,19 +188,23 @@ import { replyIntegrations, replyAvailability } from '../data/integrations';
         draft.readOnly = true;
         approve.disabled = true;
         result.className = 'demo-result queued';
-        result.textContent = 'Simulation: reply approved and queued. It has not been published.';
+        result.textContent = t('Simulation: reply approved and queued. It has not been published.');
         actions.hidden = false;
     });
     publish.addEventListener('click', () => {
         result.className = 'demo-result success';
-        result.textContent = `Simulation: published to the App Store. Your approved reply: “${approvedText}” Nothing was actually sent.`;
+        result.textContent = t(
+            'Simulation: published to the App Store. Your approved reply: “{reply}” Nothing was actually sent.',
+            { reply: approvedText },
+        );
         publish.disabled = true;
         fail.disabled = true;
     });
     fail.addEventListener('click', () => {
         result.className = 'demo-result error';
-        result.textContent =
-            'Simulation: the store rejected the reply. Edit your draft and approve it again. Nothing was sent.';
+        result.textContent = t(
+            'Simulation: the store rejected the reply. Edit your draft and approve it again. Nothing was sent.',
+        );
         draft.readOnly = false;
         approve.disabled = false;
         publish.disabled = true;

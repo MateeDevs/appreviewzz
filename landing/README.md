@@ -1,6 +1,8 @@
 # appreviewzz · landing page
 
-Samostatný anglický marketingový web v Astro + TypeScript. Příběh **App reviews. Answered. Understood.** spojuje recenze z App Store/Google Play, odpovědi schvalované týmem ve Slacku/Teams a rozbory zpětné vazby. Chatové integrace jsou nyní označené „Coming soon“; kód dokládá schopnosti, ne připravenost veřejného provozu. Celý obsah vzniká při statickém buildu. Nepotřebuje Kotlin, DB, účet, API ani store klíče.
+Samostatný anglický a český marketingový web v Astro + TypeScript. Příběh **App reviews. Answered. Understood.** spojuje recenze z App Store/Google Play, odpovědi schvalované týmem ve Slacku/Teams a rozbory zpětné vazby. Chatové integrace jsou nyní označené „Coming soon“; kód dokládá schopnosti, ne připravenost veřejného provozu. Celý obsah vzniká při statickém buildu. Nepotřebuje Kotlin, DB, účet, API ani store klíče.
+
+Angličtina je na `/`, čeština na `/cs/`. Při vstupu na `/` se bez uložené volby použije první preferovaný jazyk prohlížeče (čeština včetně `cs-CZ` → `/cs/`, ostatní → angličtina). Přepínač EN/CS ukládá ruční volbu do `localStorage` (`appreviewzz.language`); ta má přednost před systémem. Přímý odkaz `/cs/` vždy otevře češtinu. Bez JavaScriptu jsou oba jazyky dostupné přes běžné odkazy přepínače, automatický výběr a uložení volby vyžadují JavaScript.
 
 ## Spuštění
 
@@ -25,7 +27,9 @@ V běžném terminálu se server ukončí Ctrl+C. Pro explicitní běh na pozad�
 
 ## Co a kde upravit
 
-- `src/pages/index.astro` — kompletní obsah, metadata, navigace a footer.
+- `src/pages/index.astro` a `src/pages/cs/index.astro` — statické anglické a české routy.
+- `src/components/LandingPage.astro` — společný obsah, metadata, navigace a footer.
+- `src/i18n/cs.json` — české překlady, anglické zdrojové texty slouží jako fallback.
 - `src/components/` — značka, ikony, reply demo, rozbor témat a FAQ.
 - `src/styles/global.css` — tokeny, typografie a responzivní styly.
 - `src/data/site.ts` — **jediné místo pro veřejné cílové URL**: kanonická doména, registrace, login, kontakt a autor. Registrace a login používají buildovou proměnnou `CONSOLE_ORIGIN`, výchozí je `https://console.staging.appreviewzz.com`. `npm run build:production` ji nastavuje na `https://console.appreviewzz.com`. Žádná tajemství.
