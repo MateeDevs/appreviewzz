@@ -1,0 +1,53 @@
+{
+  "health": {
+    "checkedAt": "2026-10-26T12:49:49.604614+00:00",
+    "baseUrl": "https://console.staging.appreviewzz.com",
+    "live": {
+      "status": "UP",
+      "version": "0.1.0-SNAPSHOT",
+      "gitSha": "1290a765ed70e1402824f1418ffe5a6d371e8f7b"
+    },
+    "ready": {
+      "status": "UP",
+      "checks": {
+        "database": "UP"
+      }
+    }
+  },
+  "browser": {
+    "url": "https://console.staging.appreviewzz.com/login",
+    "status": 200,
+    "checkedAt": "2026-10-26T12:49:56.993Z",
+    "assets": [
+      {
+        "url": "https://console.staging.appreviewzz.com/theme.js",
+        "status": 200
+      },
+      {
+        "url": "https://console.staging.appreviewzz.com/assets/index-BczqNhDC.css",
+        "status": 200
+      },
+      {
+        "url": "https://console.staging.appreviewzz.com/assets/index-BZNzeWGX.js",
+        "status": 200
+      }
+    ],
+    "errors": [],
+    "authenticated": false
+  },
+  "pr": "https://github.com/MateeDevs/appreviewzz/pull/11",
+  "ci": "https://github.com/MateeDevs/appreviewzz/actions/runs/40323496345",
+  "deploy": "https://github.com/MateeDevs/appreviewzz/actions/runs/40325012514",
+  "authenticatedStagingSmoke": false,
+  "externalStoreAccountsVerified": false,
+  "postMergeCi": {
+    "url": "https://github.com/MateeDevs/appreviewzz/actions/runs/40325012495",
+    "conclusion": "success",
+    "jobs": [
+      "Build & test",
+      "Console (lint, typecheck, build)",
+      "Docker image & scan",
+      "Terraform validate"
+    ]
+  }
+}
