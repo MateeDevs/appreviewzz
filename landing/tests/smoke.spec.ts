@@ -133,10 +133,10 @@ test('CTA destinations, metadata, assets and safe preview indexing', async ({ pa
   const ctas = page.getByRole('link', { name: /Get started/ });
   expect(await ctas.count()).toBeGreaterThan(2);
   for (const cta of await ctas.all())
-    await expect(cta).toHaveAttribute('href', 'https://console.appreviewzz.com/registrace');
+    await expect(cta).toHaveAttribute('href', 'https://console.staging.appreviewzz.com/registrace');
   await expect(page.getByRole('link', { name: 'Log in ↗' }).first()).toHaveAttribute(
     'href',
-    'https://console.appreviewzz.com/login',
+    'https://console.staging.appreviewzz.com/login',
   );
   await expect(page.locator('html')).toHaveAttribute('lang', 'en');
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(

@@ -1,11 +1,14 @@
 import { replyNames, replyAvailability } from './integrations';
 
+// Preview/staging builds stay on staging; build:production sets the production origin.
+const consoleOrigin = import.meta.env.CONSOLE_ORIGIN || 'https://console.staging.appreviewzz.com';
+
 /** Public destinations only. Never put credentials in this file. */
 export const site = {
   name: 'appreviewzz',
   origin: 'https://appreviewzz.com',
-  register: 'https://console.appreviewzz.com/registrace',
-  login: 'https://console.appreviewzz.com/login',
+  register: new URL('/registrace', consoleOrigin).href,
+  login: new URL('/login', consoleOrigin).href,
   contact: 'mailto:info@matee.cz?subject=Let%E2%80%99s%20talk%20about%20appreviewzz',
   email: 'info@matee.cz',
   maker: 'https://matee.cz/',

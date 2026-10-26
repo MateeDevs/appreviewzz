@@ -12,15 +12,16 @@ try {
         const response = await page.goto(url, {
             waitUntil: 'domcontentloaded',
         });
-        if (url.includes('console.appreviewzz.com')) await page.locator('form').waitFor();
+        const isConsole = ['console.appreviewzz.com', 'console.staging.appreviewzz.com'].includes(
+            new URL(url).hostname,
+        );
+        if (isConsole) await page.locator('form').waitFor();
         results.push({
             url,
             finalUrl: page.url(),
             status: response.status(),
             title: await page.title(),
-            form: url.includes('console.appreviewzz.com')
-                ? await page.locator('form').innerText()
-                : undefined,
+            form: isConsole ? await page.locator('form').innerText() : undefined,
         });
     }
     await writeFile(

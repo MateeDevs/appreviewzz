@@ -28,7 +28,7 @@ V běžném terminálu se server ukončí Ctrl+C. Pro explicitní běh na pozad�
 - `src/pages/index.astro` — kompletní obsah, metadata, navigace a footer.
 - `src/components/` — značka, ikony, reply demo, rozbor témat a FAQ.
 - `src/styles/global.css` — tokeny, typografie a responzivní styly.
-- `src/data/site.ts` — **jediné místo pro veřejné cílové URL**: kanonická doména, registrace, login, kontakt a autor. Žádná tajemství.
+- `src/data/site.ts` — **jediné místo pro veřejné cílové URL**: kanonická doména, registrace, login, kontakt a autor. Registrace a login používají buildovou proměnnou `CONSOLE_ORIGIN`, výchozí je `https://console.staging.appreviewzz.com`. `npm run build:production` ji nastavuje na `https://console.appreviewzz.com`. Žádná tajemství.
 - `src/data/integrations.ts` — služby, veřejná dostupnost, podpora přímých odpovědí a volitelné screenshoty.
 - `src/data/demo.ts` — konzistentní syntetické recenze fiktivní aplikace Atlas, období 12.–18. října 2026. Žádná produkční data.
 - `public/fonts/` — Geist variable a licence OFL, samostatná kopie z konzole.
@@ -76,7 +76,7 @@ Doporučené cache: hashované `_astro/*` dlouhodobě immutable; HTML/robots/sit
 
 ### Staging
 
-Landing staging běží na **https://staging.appreviewzz.com/** jako samostatný Cloudflare Pages projekt `appreviewzz-staging`. Sleduje větev `epic/v2`, sestavuje adresář `landing/` příkazem `npm run build` a publikuje pouze `dist/`. Používá Node 24 a `INDEXABLE=false`.
+Landing staging běží na **https://staging.appreviewzz.com/** jako samostatný Cloudflare Pages projekt `appreviewzz-staging`. Sleduje větev `epic/v2`, sestavuje adresář `landing/` příkazem `npm run build` a publikuje pouze `dist/`. Používá Node 24 a `INDEXABLE=false`. Bez další konfigurace vede registrace i přihlášení na **https://console.staging.appreviewzz.com**.
 
 Každý push nebo merge do `epic/v2` spouští workflow **`Landing staging`** (`.github/workflows/landing-staging.yml`). To zavolá Pages Deploy Hook pro `epic/v2` a počká, až veřejné **`/version.json`** vrátí SHA daného commitu. Pouhé přijetí požadavku na deploy tak nestačí k zelenému výsledku. Workflow lze znovu spustit ručně z větve `epic/v2`. Nasazené SHA vzniká při buildu z `CF_PAGES_COMMIT_SHA`; lokální build používá případné `GIT_SHA`, jinak `unknown`.
 

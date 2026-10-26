@@ -10,7 +10,7 @@
     "dev": "astro dev --host 127.0.0.1 --port 4327",
     "check": "astro check && tsc --noEmit -p tsconfig.tests.json",
     "build": "astro build",
-    "build:production": "INDEXABLE=true astro build",
+    "build:production": "CONSOLE_ORIGIN=https://console.appreviewzz.com INDEXABLE=true astro build",
     "preview": "astro preview --host 127.0.0.1 --port 4327",
     "test:browser": "npm run test:assets && astro build --root tests/fixtures && playwright test",
     "capture": "node scripts/capture.mjs",
