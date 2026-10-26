@@ -1,3 +1,5 @@
+import { replyNames, replyAvailability } from './integrations';
+
 /** Public destinations only. Never put credentials in this file. */
 export const site = {
   name: 'appreviewzz',
@@ -8,7 +10,6 @@ export const site = {
   email: 'info@matee.cz',
   maker: 'https://matee.cz/',
   title: 'appreviewzz — App reviews. Answered. Understood.',
-  description:
-    'Bring App Store and Google Play reviews into Slack or Microsoft Teams. Approve AI-drafted replies and understand the feedback behind your next release.',
+  description: `Edit, approve and send app review replies back to the store from ${replyNames}. ${replyAvailability}. Understand the feedback behind your next release.`,
 };
 export const indexable = import.meta.env.INDEXABLE === 'true';

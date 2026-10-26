@@ -9,9 +9,16 @@ export default defineConfig({
     browserName: 'chromium',
     trace: 'retain-on-failure',
   },
-  webServer: {
-    command: 'npm run preview -- --ignore-lock',
-    url: 'http://127.0.0.1:4327',
-    reuseExistingServer: true,
-  },
+  webServer: [
+    {
+      command: 'npm run preview -- --ignore-lock',
+      url: 'http://127.0.0.1:4327',
+      reuseExistingServer: true,
+    },
+    {
+      command: 'astro preview --root tests/fixtures --host 127.0.0.1 --port 4328 --ignore-lock',
+      url: 'http://127.0.0.1:4328',
+      reuseExistingServer: true,
+    },
+  ],
 });

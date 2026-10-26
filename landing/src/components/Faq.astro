@@ -1,5 +1,7 @@
 ---
 import Icon from './Icon.astro';
+import { replyNames, replyAvailability, integrations, statusLabel } from '../data/integrations';
+import { site } from '../data/site';
 const questions = [
     [
         'Does AI send replies on its own?',
@@ -10,8 +12,15 @@ const questions = [
         'Add your app and connect the appropriate store credentials: App Store Connect API access for iOS, or a Google Play service account with review permissions for Android. Publishing replies requires the relevant store permissions. Your personal store password is not needed.',
     ],
     [
-        'Can we use Slack and Microsoft Teams?',
-        'Yes. Connect your workspace or team, then choose where each app’s new reviews and daily rating summaries should arrive. You can also work from the web inbox. These are product integrations, not endorsements by Slack or Microsoft.',
+        'Can we reply directly from chat?',
+        `The reply workflow in ${replyNames} lets your team edit an AI draft and approve sending it back to the store without leaving chat. Approval queues the reply; it is only published after the store accepts it. The message then shows the sent reply. Public availability: ${replyAvailability}. The interactive demo is a simulation, not a live connection.`,
+    ],
+    [
+        'Which integrations are available or coming next?',
+        `${integrations.map((item) => `${item.name}: ${statusLabel(item.status)}`).join('. ')}. Coming soon integrations cannot be connected yet; no release dates are announced. ${integrations
+            .filter((item) => !item.directReply)
+            .map((item) => `${item.name} does not currently support direct replies.`)
+            .join(' ')} A missing screenshot does not change an integration’s availability.`,
     ],
     [
         'Can I manage several apps or client teams?',
@@ -43,7 +52,7 @@ const questions = [
         <p>
             Have something more specific in mind?
             <br />
-            <a href="mailto:info@matee.cz">
+            <a href={site.contact}>
                 Talk to the team <span aria-hidden="true">↗</span>
             </a>
         </p>

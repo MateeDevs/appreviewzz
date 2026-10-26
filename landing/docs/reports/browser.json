@@ -87,13 +87,323 @@
     "updateSourceMethod": "patch",
     "version": "1.64.1",
     "workers": 1,
-    "webServer": {
-      "command": "npm run preview -- --ignore-lock",
-      "url": "http://127.0.0.1:4327",
-      "reuseExistingServer": true
-    }
+    "webServer": null
   },
   "suites": [
+    {
+      "title": "integrations.spec.ts",
+      "file": "integrations.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "integration navigation and keyboard tabs preserve truthful availability",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1380,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-26T06:19:22.573Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b1ad4c9b5349975121f2-269943623761daf2f2ef",
+          "file": "integrations.spec.ts",
+          "line": 17,
+          "column": 1
+        },
+        {
+          "title": "availability and media are independent; gallery and dialog work",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 905,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-26T06:19:24.470Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b1ad4c9b5349975121f2-cd30ecf5488f301e224c",
+          "file": "integrations.spec.ts",
+          "line": 59,
+          "column": 1
+        },
+        {
+          "title": "missing or undecodable image falls back without changing availability or frame size",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 317,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-26T06:19:25.382Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b1ad4c9b5349975121f2-3ae81d12ba0965917f10",
+          "file": "integrations.spec.ts",
+          "line": 101,
+          "column": 1
+        },
+        {
+          "title": "media and fallback fit at 1440px and remain accessible",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2339,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-26T06:19:25.712Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b1ad4c9b5349975121f2-5c483d46f96cdeadb84d",
+          "file": "integrations.spec.ts",
+          "line": 128,
+          "column": 3
+        },
+        {
+          "title": "media and fallback fit at 1280px and remain accessible",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2364,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-26T06:19:28.056Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b1ad4c9b5349975121f2-139c9d708582d4f377bc",
+          "file": "integrations.spec.ts",
+          "line": 128,
+          "column": 3
+        },
+        {
+          "title": "media and fallback fit at 768px and remain accessible",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2338,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-26T06:19:30.426Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b1ad4c9b5349975121f2-bd5222238ee777fb1deb",
+          "file": "integrations.spec.ts",
+          "line": 128,
+          "column": 3
+        },
+        {
+          "title": "media and fallback fit at 390px and remain accessible",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2347,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-26T06:19:32.771Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b1ad4c9b5349975121f2-436eeeba1e728f3a894b",
+          "file": "integrations.spec.ts",
+          "line": 128,
+          "column": 3
+        },
+        {
+          "title": "media and fallback fit at 360px and remain accessible",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2325,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-26T06:19:35.123Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b1ad4c9b5349975121f2-2ca51751ae49b151a634",
+          "file": "integrations.spec.ts",
+          "line": 128,
+          "column": 3
+        },
+        {
+          "title": "no JavaScript: native service disclosures and real media stay usable",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 406,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-26T06:19:37.454Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b1ad4c9b5349975121f2-7b807c4a9eac5cf7828c",
+          "file": "integrations.spec.ts",
+          "line": 156,
+          "column": 1
+        }
+      ]
+    },
     {
       "title": "smoke.spec.ts",
       "file": "smoke.spec.ts",
@@ -116,12 +426,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1228,
+                  "duration": 1120,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-25T12:48:02.883Z",
+                  "startTime": "2026-10-26T06:19:37.873Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -150,12 +460,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 996,
+                  "duration": 1057,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-25T12:48:04.378Z",
+                  "startTime": "2026-10-26T06:19:38.998Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -184,12 +494,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 928,
+                  "duration": 1053,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-25T12:48:05.381Z",
+                  "startTime": "2026-10-26T06:19:40.059Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -218,12 +528,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 926,
+                  "duration": 1044,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-25T12:48:06.316Z",
+                  "startTime": "2026-10-26T06:19:41.119Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -252,12 +562,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 918,
+                  "duration": 1051,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-25T12:48:07.247Z",
+                  "startTime": "2026-10-26T06:19:42.170Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -286,12 +596,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 440,
+                  "duration": 511,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-25T12:48:08.171Z",
+                  "startTime": "2026-10-26T06:19:43.226Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -301,7 +611,7 @@
           ],
           "id": "4219922fea2e2bd3c691-a15a786a4ac018ab54cd",
           "file": "smoke.spec.ts",
-          "line": 50,
+          "line": 57,
           "column": 1
         },
         {
@@ -320,12 +630,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 241,
+                  "duration": 264,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-25T12:48:08.617Z",
+                  "startTime": "2026-10-26T06:19:43.743Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -335,7 +645,7 @@
           ],
           "id": "4219922fea2e2bd3c691-0d550b0f8ecff069999b",
           "file": "smoke.spec.ts",
-          "line": 82,
+          "line": 88,
           "column": 1
         },
         {
@@ -354,12 +664,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 219,
+                  "duration": 239,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-25T12:48:08.863Z",
+                  "startTime": "2026-10-26T06:19:44.013Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -369,7 +679,7 @@
           ],
           "id": "4219922fea2e2bd3c691-499f95764e9bc310bda7",
           "file": "smoke.spec.ts",
-          "line": 94,
+          "line": 100,
           "column": 1
         },
         {
@@ -388,12 +698,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 165,
+                  "duration": 185,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-25T12:48:09.087Z",
+                  "startTime": "2026-10-26T06:19:44.257Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -403,7 +713,7 @@
           ],
           "id": "4219922fea2e2bd3c691-bb7e8246e7f5ba6805d6",
           "file": "smoke.spec.ts",
-          "line": 125,
+          "line": 131,
           "column": 1
         },
         {
@@ -422,12 +732,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 219,
+                  "duration": 252,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-25T12:48:09.258Z",
+                  "startTime": "2026-10-26T06:19:44.448Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -437,7 +747,7 @@
           ],
           "id": "4219922fea2e2bd3c691-4f426c1377bd0414098c",
           "file": "smoke.spec.ts",
-          "line": 152,
+          "line": 158,
           "column": 1
         },
         {
@@ -456,12 +766,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 222,
+                  "duration": 254,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-25T12:48:09.482Z",
+                  "startTime": "2026-10-26T06:19:44.705Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -471,7 +781,7 @@
           ],
           "id": "4219922fea2e2bd3c691-e3ebc0cb47a05a481724",
           "file": "smoke.spec.ts",
-          "line": 171,
+          "line": 177,
           "column": 1
         },
         {
@@ -490,12 +800,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1396,
+                  "duration": 1627,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-25T12:48:09.709Z",
+                  "startTime": "2026-10-26T06:19:44.964Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -505,7 +815,7 @@
           ],
           "id": "4219922fea2e2bd3c691-e9f52930e060a9acdab0",
           "file": "smoke.spec.ts",
-          "line": 197,
+          "line": 203,
           "column": 1
         }
       ]
@@ -513,9 +823,9 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-10-25T12:48:02.445Z",
-    "duration": 8724.363,
-    "expected": 12,
+    "startTime": "2026-10-26T06:19:21.218Z",
+    "duration": 25511.025,
+    "expected": 21,
     "skipped": 0,
     "unexpected": 0,
     "flaky": 0

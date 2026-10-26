@@ -1,10 +1,10 @@
 # Veřejná tvrzení a jejich podklady
 
-Datum ověření všech záznamů: **25. 10. 2026**. Kód je autoritou pro schopnosti produktu; historický web není podkladem pro nabídku nebo výsledky. Ukázky na landing jsou syntetické, bez zákaznických dat. Zdroje repozitáře jsou relativně ke kořeni projektu.
+Datum ověření všech záznamů: **25. 10. 2026**. Kód je autoritou pro implementované schopnosti, nikoli pro připravenost veřejného provozu; historický web není podkladem pro nabídku nebo výsledky. Ukázky na landing jsou syntetické, bez zákaznických dat. Zdroje repozitáře jsou relativně ke kořeni projektu.
 
 | Tvrzení / výsledná anglická formulace | Podklad | Omezení a interpretace |
 | --- | --- | --- |
-| „Bring App Store and Google Play reviews into Slack or Microsoft Teams.“ | `README.md` (Slack, Teams), `server/connectors/{appstore,googleplay}/`, `server/channels/{slack,teams}/`; `console/src/pages/Apps.tsx` | Vlastní aplikace, připojené credentials a kanál. Doručování je asynchronní, neslibujeme okamžité real-time doručení. Loga označují integrace. |
+| „Edit an AI draft, approve it and send your reply back to the store, right from Slack and Microsoft Teams.“ + veřejné stavy v hero | `README.md` (Slack, Teams), `server/connectors/{appstore,googleplay}/`, `server/channels/{slack,teams}/`; `console/src/pages/Apps.tsx` | Vlastní aplikace, připojené credentials a kanál. Doručování je asynchronní. **Slack i Teams jsou na landing Coming soon**, dokud není potvrzeno veřejné zprovoznění; schopnost v kódu není provozní dostupnost. Loga označují integrace. |
 | „AI-drafted. Human-approved.“ / editace a schválení | `console/src/pages/Inbox.tsx`, `console/src/api/hooks.ts` (`useReply`, `useSuggestReply`), `server/core/src/main/kotlin/cz/matee/appreviewzz/core/usecase/ReplyAssistant.kt`, `PublishReply.kt` | Hlavní workflow vyžaduje schválení. AI není záruka správnosti; FAQ radí zkontrolovat formulace a sliby. |
 | Zařazení do fronty není publikace | `console/src/pages/Inbox.tsx` (komentář a stav odpovědi), `server/jobs/src/main/kotlin/cz/matee/appreviewzz/jobs/ReplyJobs.kt`, `server/core/src/main/kotlin/cz/matee/appreviewzz/core/usecase/PublishReply.kt` | Store může odpověď odmítnout. Demo má explicitně „Simulation“, queue/published/error a nic neodesílá. |
 | „Use templates and translate drafts in the web inbox.“ | `console/src/pages/Inbox.tsx` (`useReplyTemplates`, `useTranslateReply`), `server/ai/src/main/kotlin/cz/matee/appreviewzz/ai/ReplyPrompt.kt` | Překlad konceptu do jazyka recenzenta; bez tvrzení o všech světových jazycích nebo bezchybnosti překladu. |
@@ -30,3 +30,14 @@ Datum ověření všech záznamů: **25. 10. 2026**. Kód je autoritou pro schop
 - **+30 % retence, 45 % důvěry:** nepoužito; starý web není dostatečný podklad.
 - Žádná smyšlená zákaznická jména, testimonials, počty uživatelů, ocenění, „trusted by“, certifikace, ceny, trial, free tier, „no credit card required“, n8n ani Discord.
 - Čísla v produktových ukázkách jsou explicitně syntetická, nikoli marketingové výsledky: Atlas v3.8, 12.–18. 10. 2026, témata 12/8/2 recenzí proti 3/7/6 v minulém týdnu; seznam nabízí 3/2/2 ilustrační zdroje. Portfolio má samostatné čekající recenze 12/4/7 a ilustrativní App Store rating 4.6/4.8/4.4. Měsíční report September odkazuje k předchozímu dokončenému měsíci.
+
+
+## Rozšíření integrací · 25. 10. 2026
+
+- Autorita pro **veřejnou dostupnost**: `landing/src/data/integrations.ts`. Výchozí Slack, Microsoft Teams a Discord = `coming-soon`. V této session není doloženo veřejné zprovoznění; žádný instalační odkaz ani aktivní připojovací tlačítko se pro ně nenabízí. Hero, metadata, navigační pruh, demo, sekce, workflow a FAQ dostupnost sdílejí z konfigurace.
+- Autorita pro **přímé odpovědi**: `SlackBlocks.kt` (`plain_text_input`, AI initial value, submit), `SlackInteraction.kt` (pojmenovaný vstup, identita odesílatele); `TeamsCards.kt` (`Input.Text`, AI value, `Action.Submit`, `replied`), `TeamsActivity.kt` (`TeamsReplySubmission`). Obě implementace umožňují úpravu a schválení z chatu. Publikace jde přes frontu; potvrzení v kartě/zprávě následuje až po publikaci. `docs/slack-app.md`, `docs/teams-bot.md` popisují potřebnou konfiguraci a oprávnění. Landing neslibuje ověřenou živou publikaci v této session.
+- Discord: pouze plánované doručování (`directReply: false`). Žádné tvrzení o hotové podpoře odpovědí, datu vydání nebo veřejné dostupnosti. Další značky nepřidány.
+- Screenshoty: při výchozím stavu **žádné skutečné produktové snímky nejsou k dispozici**. Prázdný stav ukazuje abstraktní propojení ikon a explicitní „Coming soon“; nevydává se za rozhraní služby. Existence média nemění stav. Připravovaná služba s médiem má popisek „Planned integration preview“.
+- Stávající demo je „Workflow simulation / Sample data“, doplněné vysvětlením, že jde o společný workflow, nikoli screenshot Slacku/Teams. Přepínač simuluje kontext, ne autentické dvě produktové UI. Nic neodesílá.
+- Testovací bitmapy v `tests/fixtures/dist/` jsou označené **TEST ONLY / Synthetic review fixture / Not a Slack or Teams screenshot**. Nejsou ve `public/integrations/`, v produkční konfiguraci ani v produkčním `dist/`. Dokumentační snímky testovací větve jsou oddělené od výchozího stavu.
+- Původní web nebyl v této session znovu použit jako podklad. Neověřovali jsme z něj dostupnost ani roadmapu; rozhodnutí vychází ze zadání a lokálního kódu. Historické odkazy a měření výše jsou z původní implementace.

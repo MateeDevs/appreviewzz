@@ -1,0 +1,6 @@
+Final static build: noindex, nofollow; no fixture route, fixture text or test media.
+Configured services: Slack, Microsoft Teams, Discord = Coming soon.
+Public screenshot count: 0.
+check: 0 errors, 0 warnings, 0 hints.
+lint: passed.
+build (with asset guard): passed.

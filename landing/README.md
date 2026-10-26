@@ -1,6 +1,6 @@
 # appreviewzz · landing page
 
-Samostatný anglický marketingový web v Astro + TypeScript. Příběh **App reviews. Answered. Understood.** spojuje recenze z App Store/Google Play, odpovědi schvalované týmem ve Slacku/Teams a rozbory zpětné vazby. Celý obsah vzniká při statickém buildu. Nepotřebuje Kotlin, DB, účet, API ani store klíče.
+Samostatný anglický marketingový web v Astro + TypeScript. Příběh **App reviews. Answered. Understood.** spojuje recenze z App Store/Google Play, odpovědi schvalované týmem ve Slacku/Teams a rozbory zpětné vazby. Chatové integrace jsou nyní označené „Coming soon“; kód dokládá schopnosti, ne připravenost veřejného provozu. Celý obsah vzniká při statickém buildu. Nepotřebuje Kotlin, DB, účet, API ani store klíče.
 
 ## Spuštění
 
@@ -29,6 +29,7 @@ V běžném terminálu se server ukončí Ctrl+C. Pro explicitní běh na pozad�
 - `src/components/` — značka, ikony, reply demo, rozbor témat a FAQ.
 - `src/styles/global.css` — tokeny, typografie a responzivní styly.
 - `src/data/site.ts` — **jediné místo pro veřejné cílové URL**: kanonická doména, registrace, login, kontakt a autor. Žádná tajemství.
+- `src/data/integrations.ts` — služby, veřejná dostupnost, podpora přímých odpovědí a volitelné screenshoty.
 - `src/data/demo.ts` — konzistentní syntetické recenze fiktivní aplikace Atlas, období 12.–18. října 2026. Žádná produkční data.
 - `public/fonts/` — Geist variable a licence OFL, samostatná kopie z konzole.
 - `public/og.png` — hotový sdílecí obrázek 1200 × 630; `public/favicon.svg` — značka.
@@ -73,7 +74,9 @@ Publikujte **pouze obsah `landing/dist/`** na statický HTTPS hosting pro `https
 
 Doporučené cache: hashované `_astro/*` dlouhodobě immutable; HTML/robots/sitemap krátce s revalidací. Font a `og.png` mají pevnou URL, proto je necacheujte navždy bez invalidace. Zapněte kompresi HTML/CSS/JS a HTTPS. Web nepřidává trackery, cookies ani externí fontové požadavky.
 
-Žádné DNS, veřejné nasazení, merge nebo externí komunikace nebyly součástí této implementace.
+### Staging
+
+Landing staging běží na **https://staging.appreviewzz.com/** jako samostatný Cloudflare Pages projekt `appreviewzz-staging`. Sleduje větev `epic/v2`, sestavuje adresář `landing/` příkazem `npm run build` a publikuje pouze `dist/`. Používá Node 24 a `INDEXABLE=false`. Merge PR do epicu spouští nový build automaticky; nasazený commit lze ověřit v detailu deploymentu Cloudflare Pages. GitHub Actions workflow `Deploy` nasazuje konzoli a backend přes Coolify, nikoli landing page.
 
 ## Podklady a předání
 
@@ -85,3 +88,50 @@ Doporučené cache: hashované `_astro/*` dlouhodobě immutable; HTML/robots/sit
 - `docs/progress.md` — konečný stav session.
 
 Registrace a login vedou na skutečnou konzoli (ověřeno GET 200 a vykreslení formulářů). Konzole je nyní česky; přihlášené end-to-end onboarding flow a odeslání emailů nebyly testovány. Právní dokumenty nebyly vymýšleny: v ověřených podkladech není relevantní veřejná URL pro aktuální produkt, proto web nenabízí falešný odkaz. Potřebné právní dokumenty je nutné zajistit v rámci veřejného provozu produktu.
+
+## Integrace: dostupnost a skutečné screenshoty
+
+Jediná konfigurace je **`src/data/integrations.ts`**. Výchozí Slack, Microsoft Teams a Discord mají `status: 'coming-soon'`, protože připravenost veřejného provozu není doložena. Kód Slack/Teams podporuje přímé odpovědi (`directReply: true`); Discord má pouze plánované doručování (`false`). Dostupnost služby je nezávislá na počtu obrázků. Změna jedné položky se propíše do sekce, hero, pruhu, dema, FAQ i metadat.
+
+1. Vložte anonymizovaný snímek do `public/integrations/slack/`, `public/integrations/teams/` nebo `public/integrations/discord/`. Například `public/integrations/slack/review.webp` má veřejnou cestu `/integrations/slack/review.webp`. Názvy jsou volné, doporučené malé ASCII znaky a pomlčky; podporované přípony `.webp`, `.png`, `.jpg`, `.jpeg`. Složky jsou připravené pomocí `.gitkeep`.
+2. V existující položce upravte `media`. Zadejte skutečnou šířku/výšku v pixelech; jejich poměr rezervuje prostor před načtením. Obrázky se nedeformují ani neořezávají. `alt` popisuje obsah pro čtečku, `caption` viditelně vysvětluje konkrétní situaci. Jeden snímek stačí:
+
+```ts
+{
+  id: 'slack',
+  name: 'Slack',
+  icon: 'slack',
+  status: 'coming-soon',
+  description:
+    'Bring new reviews into your channel. Edit the AI draft, approve your reply and send it back to the store, right from Slack.',
+  directReply: true,
+  media: [
+    {
+      src: '/integrations/slack/review.webp',
+      width: 1440, // skutečné rozměry konkrétního souboru
+      height: 1000,
+      alt: 'An app review in Slack with an editable AI reply and a send button',
+      caption: 'A new review and an AI draft, ready for your team to edit and approve.',
+    },
+  ],
+}
+```
+
+3. Druhý snímek přidejte jako další objekt do `media`, například `/integrations/slack/reply.png` s vlastním `alt`, `caption` a rozměry. Galerie nabídne přepínání a zvětšení na původní velikost; Escape vrací fokus na tlačítko. Bez JS jsou snímky pod sebou a služby lze rozbalit. Další službu přidáte jako objekt do stejného pole s unikátním stabilním `id`, názvem, ikonou, stavem, popisem a schopností odpovídat. Případnou novou ikonu přidejte do `src/data/icons.ts` a `src/components/Icon.astro`; další seznam služeb není potřeba.
+4. **Až po zprovoznění veřejné integrace** změňte u příslušné služby jediný řádek na `status: 'available'`. Snímek ji sám nezapíná. Dostupná služba bez médií ukáže „Available“ + „Preview coming soon“. Připravovaná služba i se snímkem zůstane „Coming soon“. Text popisu upravujte při změně schopností; `directReply` není přepínač provozu a nezapíná backend.
+5. Ověřte a sestavte web:
+
+```sh
+npm run test:assets  # existence, dekódování, cesty, rozměry, alt a popisky
+npm run check
+npm run lint
+npm run build        # automaticky spouští také kontrolu assetů
+npm run test:browser
+npm run preview
+```
+
+Změna souboru či konfigurace se na veřejném statickém webu projeví **až po novém buildu a nasazení**. Sdílecí obrázek je také statický: po změně dostupnosti spusťte s běžícím preview `npm run share-image`, potom znovu build. Soubor `docs/screenshots/` není veřejná galerie. Screenshoty před vložením anonymizujte: odstraňte tokeny, osobní údaje a názvy soukromých kanálů.
+
+`test:browser` sestaví i oddělený lokální testovací web `tests/fixtures/dist/` na portu **4328**. Obsahuje záměrné 404 a označená syntetická média pro ověření fallbacku, nikoli produktové screenshoty. Nikdy jej nenasazujte. Produkční `dist/` tyto routy ani testovací média neobsahuje. Regresní test assetové kontroly vytváří PNG/WebP/JPEG pouze v dočasném adresáři a po ověření jej maže.
+
+`npm run capture:integrations` s běžícím preview pořídí nové screenshoty a záznam rozměrů do `docs/screenshots/integrations/` a `docs/reports/integrations-visual.json`. Výsledky rozšíření a omezení jsou v `docs/validation.md`, průběh v `docs/integrations-progress.md`.

@@ -4,6 +4,15 @@ import Icon from '../components/Icon.astro';
 import ReviewDemo from '../components/ReviewDemo.astro';
 import AnalysisDemo from '../components/AnalysisDemo.astro';
 import Faq from '../components/Faq.astro';
+import Integrations from '../components/Integrations.astro';
+import {
+    integrations,
+    statusLabel,
+    replyNames,
+    replyAvailability,
+    replyReadiness,
+    integrationAvailability,
+} from '../data/integrations';
 import { site, indexable } from '../data/site';
 import '../styles/global.css';
 const structuredData = {
@@ -47,7 +56,7 @@ const structuredData = {
         <meta property="og:image:height" content="630" />
         <meta
             property="og:image:alt"
-            content="appreviewzz. App reviews. Answered. Understood. App Store and Google Play, with Slack and Microsoft Teams."
+            content={`appreviewzz. App reviews. Answered. Understood. ${replyAvailability}.`}
         />
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content={site.title} />
@@ -66,6 +75,7 @@ const structuredData = {
             </a>
             <nav class="desktop-nav" aria-label="Main navigation">
                 <a href="#how-it-works">How it works</a>
+                <a href="#integrations">Integrations</a>
                 <a href="#understand">Understand your reviews</a>
                 <a href="#faq">FAQ</a>
             </nav>
@@ -84,6 +94,7 @@ const structuredData = {
                 </summary>
                 <nav aria-label="Mobile navigation">
                     <a href="#how-it-works">How it works</a>
+                    <a href="#integrations">Integrations</a>
                     <a href="#understand">Understand your reviews</a>
                     <a href="#faq">FAQ</a>
                     <a href={site.login}>Log in ↗</a>
@@ -105,8 +116,9 @@ const structuredData = {
                         <span>Understood.</span>
                     </h1>
                     <p class="hero-description">
-                        Bring App Store and Google Play reviews into Slack or Microsoft Teams. Help
-                        your team reply with care — and know what to improve next.
+                        App Store and Google Play reviews, brought into your team’s chat. Edit an AI
+                        draft, approve it and send your reply back to the store, right from{' '}
+                        {replyNames}.
                     </p>
                     <div class="hero-actions">
                         <a class="button" href={site.register}>
@@ -117,7 +129,7 @@ const structuredData = {
                         </a>
                     </div>
                     <p class="hero-reassurance">
-                        AI-drafted. Human-approved. Connected to your stores.
+                        <a href="#integrations">{replyAvailability} ↘</a>
                     </p>
                 </div>
                 <ReviewDemo />
@@ -140,14 +152,17 @@ const structuredData = {
                     <span class="integration-connector" aria-hidden="true">
                         →
                     </span>
-                    <span>
-                        <Icon name="slack" size={25} />
-                        Slack
-                    </span>
-                    <span>
-                        <Icon name="teams" size={27} />
-                        Microsoft Teams
-                    </span>
+                    {integrations.map((integration) => (
+                        <a href="#integrations">
+                            <Icon name={integration.icon} size={25} />
+                            <span>
+                                {integration.name}
+                                <small class:list={['availability', integration.status]}>
+                                    {statusLabel(integration.status)}
+                                </small>
+                            </span>
+                        </a>
+                    ))}
                 </div>
             </div>
             <section
@@ -164,7 +179,7 @@ const structuredData = {
                     </h2>
                     <p>
                         Keep the people who hear from your users close to the people building your
-                        app.
+                        app. {replyReadiness}
                     </p>
                 </div>
                 <div class="workflow-grid">
@@ -178,8 +193,8 @@ const structuredData = {
                         </div>
                         <h3>Meet reviews where you work.</h3>
                         <p>
-                            No more relying on someone to check both stores. New reviews arrive in
-                            the Slack or Teams channel your team already follows.
+                            Once your integration is available and connected, new App Store and
+                            Google Play reviews arrive in the channel your team already follows.
                         </p>
                         <span class="step-detail">App Store + Google Play → your channel</span>
                     </article>
@@ -196,10 +211,14 @@ const structuredData = {
                             Still in your voice.
                         </h3>
                         <p>
-                            Start with an AI draft, make it yours, then approve it for the store.
-                            Use templates and translate drafts in the web inbox.
+                            Edit an AI draft and approve it directly in {replyNames}. It is queued
+                            for the store; after publication, the message shows your reply. Store
+                            errors need attention. Templates and translation also live in the web
+                            inbox.
                         </p>
-                        <span class="step-detail">Draft → edit → approve → store</span>
+                        <span class="step-detail">
+                            AI-drafted. Human-approved. Sent back to the store.
+                        </span>
                     </article>
                     <article class="workflow-step">
                         <div class="step-top">
@@ -223,6 +242,7 @@ const structuredData = {
                     </article>
                 </div>
             </section>
+            <Integrations />
             <section class="insights-section" id="understand" aria-labelledby="insights-title">
                 <div class="container insights-layout">
                     <div class="insights-copy">
@@ -445,8 +465,8 @@ const structuredData = {
                         <div>
                             <h3>Choose your channel.</h3>
                             <p>
-                                Connect Slack or Microsoft Teams, choose a channel and send a test
-                                message.
+                                Choose an available integration and a channel for your reviews.{' '}
+                                <a href="#integrations">Check availability before connecting ↗</a>
                             </p>
                         </div>
                     </li>
@@ -486,7 +506,7 @@ const structuredData = {
                     <a href={site.contact}>
                         Managing apps for clients? Let’s talk <span aria-hidden="true">↗</span>
                     </a>
-                    <span>App Store & Google Play · Slack & Microsoft Teams</span>
+                    <span>{integrationAvailability}</span>
                 </div>
                 <svg class="cta-art" viewBox="0 0 500 500" aria-hidden="true">
                     <g fill="none" stroke="currentColor">

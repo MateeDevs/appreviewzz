@@ -1,6 +1,7 @@
 ---
+import type { IconName } from '../data/icons';
 interface Props {
-    name: 'arrow' | 'check' | 'slack' | 'teams' | 'apple' | 'play' | 'spark' | 'plus' | 'menu';
+    name: IconName;
     size?: number;
 }
 const { name, size = 20 } = Astro.props;
@@ -41,6 +42,12 @@ const { name, size = 20 } = Astro.props;
     )}
     {name === 'plus' && <path d="M5 12h14M12 5v14" stroke="currentColor" stroke-width="1.5" />}
     {name === 'menu' && <path d="M4 8h16M4 16h16" stroke="currentColor" stroke-width="1.5" />}
+    {name === 'discord' && (
+        <path
+            d="M19.7 5.3a18 18 0 0 0-4.4-1.4l-.6 1.2a17 17 0 0 0-5.4 0l-.6-1.2a18 18 0 0 0-4.4 1.4C1.5 9.4.7 13.4 1.1 17.3a18 18 0 0 0 5.4 2.8l1.1-1.8-1.7-.8.4-.3a13 13 0 0 0 11.4 0l.4.3-1.7.8 1.1 1.8a18 18 0 0 0 5.4-2.8c.5-4.5-.8-8.5-3.2-12ZM8.3 14.9c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2Zm7.4 0c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2Z"
+            fill="#5865f2"
+        />
+    )}
     {name === 'play' && (
         <>
             <path d="m5 3 12 9L5 21V3Z" fill="currentColor" />

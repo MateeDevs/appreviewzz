@@ -3,6 +3,7 @@
 import { chromium } from '@playwright/test';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
+import AxeBuilder from '@axe-core/playwright';
 import { tmpdir } from 'node:os';
 const extension = await mkdtemp(join(tmpdir(), 'appreviewzz-zoom-extension-'));
 await writeFile(
@@ -50,6 +51,28 @@ try {
     );
     if (metrics.width !== 720 || metrics.scroll > metrics.width)
         throw new Error('200% zoom reflow failed');
+    for (const name of ['Slack', 'Microsoft Teams', 'Discord']) {
+        await page.getByRole('tab', { name: new RegExp(name) }).click();
+        await page.getByRole('tabpanel').scrollIntoViewIfNeeded();
+        const overflow = await page.evaluate(
+            () => document.documentElement.scrollWidth > innerWidth,
+        );
+        if (overflow) throw new Error(`Integration overflow at 200%: ${name}`);
+    }
+    const accessibility = await new AxeBuilder({ page }).include('#integrations').analyze();
+    if (accessibility.violations.length)
+        throw new Error('Integration accessibility at 200% failed');
+    await page.getByRole('tab', { name: /Slack/ }).click();
+    await page.locator('#integrations').scrollIntoViewIfNeeded();
+    const viewportCdp = await context.newCDPSession(page);
+    const viewportShot = await viewportCdp.send('Page.captureScreenshot', {
+        format: 'png',
+        captureBeyondViewport: false,
+    });
+    await writeFile(
+        'docs/screenshots/integrations/browser-200-percent.png',
+        Buffer.from(viewportShot.data, 'base64'),
+    );
     // CDP's physical contentSize avoids Playwright's full-page clip at non-100% tab zoom.
     const cdp = await context.newCDPSession(page);
     const layout = await cdp.send('Page.getLayoutMetrics');

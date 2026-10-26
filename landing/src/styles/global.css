@@ -144,14 +144,15 @@ textarea:focus-visible,
 .skip-link {
     position: fixed;
     left: 16px;
-    top: -80px;
+    top: 16px;
+    clip-path: inset(50%);
     z-index: 100;
     padding: 16px;
     background: var(--ink);
     color: white;
 }
 .skip-link:focus {
-    top: 16px;
+    clip-path: none;
 }
 .js-only {
     display: none !important;
