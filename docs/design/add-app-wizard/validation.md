@@ -52,4 +52,13 @@ Backend integrační testy používají skutečný PostgreSQL, session, CSRF, va
 - `after/`: 30 základních renderů a 16 stavových renderů.
 - [Porovnání před/po](comparison.html), [sdílené snímky](screenshots.md), mapa toku `flow.md`, audit `audit.md` a zdroje `research.md`.
 
-Nasazení a konečné CI budou doplněny po ověření běžícího SHA.
+## Finální ověření a nasazení
+
+- [PR #11](https://github.com/MateeDevs/appreviewzz/pull/11) sloučen po [zeleném CI aktuálního headu](https://github.com/MateeDevs/appreviewzz/actions/runs/40323496345): **75 browser testů prošlo, 4 opt-in utility přeskočeny**, backend build/test, Docker image/scan a Terraform zelené.
+- Implementace `b52fa60`, důkazy `0ac0432`, poslední oprava fokusu a pravdivého stepperu `281d88c`.
+- [Staging deploy](https://github.com/MateeDevs/appreviewzz/actions/runs/40325012514) úspěšný pro AMD64 i ARM64; sloučená revize **`1290a765ed70e1402824f1418ffe5a6d371e8f7b`**.
+- Skutečné `/health/live` 26. 10. 2026 ve 12:49:49 UTC vrací přesně toto SHA; `/health/ready` vrací aplikaci i databázi `UP`. Krátká 503 během restartu skončila při následné kontrole.
+- Browser ověření nasazené stránky: desktop a mobil, přihlašovací formulář, všechny JS/CSS assety HTTP 200, žádné JS chyby ani horizontální overflow. Použita nová nepřihlášená session; nejedná se o přihlášený staging test průvodce ani o živý store E2E.
+- Strojový záznam: [deployment.json](deployment.json). Produkce není cílem workflow `epic/v2`; nasazena je [staging konzole](https://console.staging.appreviewzz.com).
+- Dočasné lokální API/Vite/Postgres instance této práce zastaveny; dočasné traces a log ověřovacích e-mailů odstraněny. Původní vývojové procesy zachovány.
+- [Automatické CI po merge](https://github.com/MateeDevs/appreviewzz/actions/runs/40325012495) také celé zelené, včetně opakované browser sady.

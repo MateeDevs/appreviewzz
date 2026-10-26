@@ -43,3 +43,13 @@ Další krok: commit, PR do epic/v2, sledovat CI a provést uživatelem autorizo
 - Staging před nasazením odpovídá výchozímu SHA `d5a12c8…`, health UP.
 - Poslední review mobilního reporting výsledku doplnilo fokus na skutečný výsledek, aby nová chyba nezůstala pod přehybem. Store stepper neoznačí ověření jako dokončené, pokud při pokračování k exportům zůstává přístup nepotvrzený.
 - CI běží; integrace bude provedena až po všech zelených kontrolách aktuálního headu.
+
+## Nasazeno a ověřeno
+- PR #11 sloučen: `1290a765ed70e1402824f1418ffe5a6d371e8f7b`.
+- Před integrací všechny čtyři CI joby zelené; console **75 passed / 4 opt-in skipped**, backend **752 testů bez chyb**.
+- Deploy https://github.com/MateeDevs/appreviewzz/actions/runs/40325012514 úspěšný pro ARM64 i AMD64.
+- Skutečný staging `/health/live` ukazuje přesné sloučené SHA; `/health/ready` včetně databáze UP. Browser smoke nasazeného loginu na desktopu/mobilu prošel bez JS chyb a s assety HTTP 200.
+- `deployment.json` uchovává skutečný výsledek HTTP/browser ověření. Žádný přihlášený staging/store E2E se nepředstírá; externí účty nebyly k dispozici.
+- Závěrečný audit nasazení bude uložen samostatným dokumentačním commitem na pracovní větvi; aplikační kód je shodný s nasazenou revizí.
+
+Hotovo: automatické CI po merge také celé zelené (https://github.com/MateeDevs/appreviewzz/actions/runs/40325012495). Implementace, review, lokální/CI ověření, PR i autorizované staging nasazení dokončeny. Zbývající externí limity jsou výslovně uvedeny ve validation.md.
