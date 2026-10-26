@@ -90,7 +90,7 @@ internal fun HttpStatusCode.toConnectorException(bucket: String): StoreConnector
         value == HttpStatusCode.Unauthorized.value || value == HttpStatusCode.Forbidden.value ->
             StoreConnectorException(
                 StoreErrorKind.AUTH,
-                "Service account nemá přístup k bucketu $bucket — přidej mu roli Storage Object Viewer",
+                "Service account nemá přístup k bucketu $bucket — zkontrolujte globální oprávnění k hromadným reportům v Play Console",
             )
 
         value == HttpStatusCode.NotFound.value ->

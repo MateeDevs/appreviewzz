@@ -1,15 +1,15 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom'
 import {
   useAddCredential,
   useAnalysisStatus,
   useApps,
+  useMe,
   useAttachCredential,
   useBackfillAnalysis,
   useChannels,
   useCheckReportingBucket,
   useConnectSlack,
-  useCreateApp,
   useCreateChannel,
   useCreateReplyTemplate,
   useCreateTopic,
@@ -21,7 +21,6 @@ import {
   useDeleteTopic,
   useRatings,
   useReplyTemplates,
-  useResolveStoreLinks,
   useRunRatings,
   useTestChannels,
   useTopics,
@@ -44,7 +43,7 @@ import {
 import { AIInstructionsField } from '../components/ReplyPreferences'
 import { SlackOAuth, TeamsConnection } from '../components/OptionalIntegrations'
 import { Select } from '../components/Select'
-import { ConnectStoreWizard } from '../components/ConnectStoreWizard'
+import { AddAppDialog, ConnectStoreWizard } from '../components/ConnectStoreWizard'
 import { RatingsChart } from '../components/RatingsChart'
 import type {
   App,
@@ -55,14 +54,19 @@ import type {
   RatingsSeries,
   ReplyTemplate,
   ReportingBucketCheck,
-  ResolvedStore,
-  StoreResolution,
 } from '../api/types'
 
 export function AppsPage() {
   const { org = '' } = useParams()
   const apps = useApps(org)
+  const canManage = useMe().data?.organizations.find(item => item.slug === org)?.role !== 'MEMBER'
   const [adding, setAdding] = useState(false)
+  const [setupParams, setSetupParams] = useSearchParams()
+  const resumed = apps.data?.find(app => app.id === setupParams.get('setup'))
+  const closeAdding = () => {
+    setAdding(false)
+    const next = new URLSearchParams(setupParams); next.delete('setup'); setSetupParams(next, { replace: true })
+  }
   // Napojení storu se otevírá i z výpisu: pilulka „chybí klíč ke Google Play" je nejkratší
   // cesta k dialogu, který ten klíč obstará.
   const [connect, setConnect] = useState<{ app: App; platform: Platform } | null>(null)
@@ -73,9 +77,9 @@ export function AppsPage() {
         eyebrow="Portfolio a propojení"
         title="Aplikace"
         action={
-          <button type="button" onClick={() => setAdding(true)}>
+          canManage ? <button type="button" onClick={() => setAdding(true)}>
             + Přidat aplikaci
-          </button>
+          </button> : undefined
         }
       >
         Vlastní aplikace a konkurence. Každá se svým kontextem.
@@ -88,9 +92,9 @@ export function AppsPage() {
           <p className="muted">
             Stačí odkaz na Google Play nebo App Store. Provedeme vás připojením i ověřením přístupu.
           </p>
-          <button type="button" onClick={() => setAdding(true)}>
+          {canManage ? <button type="button" onClick={() => setAdding(true)}>
             Přidat aplikaci →
-          </button>
+          </button> : null}
         </Card>
       ) : null}
       {[false, true].map((competitor) => {
@@ -141,10 +145,11 @@ export function AppsPage() {
         ) : null
       })}
 
-      {adding ? (
+      {adding || resumed ? (
         <AddAppDialog
           org={org}
-          onClose={() => setAdding(false)}
+          initialApp={resumed}
+          onClose={closeAdding}
           onConnect={(app, platform) => setConnect({ app, platform })}
         />
       ) : null}
@@ -297,334 +302,7 @@ function useSetupFocus(id: string): string | undefined {
   return focused ? 'ripple' : undefined
 }
 
-/**
- * Přidání aplikace odkazem ze storu.
- *
- * Klient nemá odkud znát package name ani číselné App ID — zná adresu, na které appku ve
- * storu vidí. Z ní se obojí vytáhne a rovnou se doptáme storu na název, takže zbývá jediné
- * rozhodnutí: který název použít. Odkazy se ověřují průběžně, aby se překlep poznal dřív,
- * než klient dialog potvrdí.
- */
-export function AddAppDialog({
-  org,
-  onClose,
-  onConnect,
-  inline = false,
-  ownOnly = false,
-}: {
-  org: string
-  inline?: boolean
-  ownOnly?: boolean
-  onClose: () => void
-  /** Přidaná appka ještě nemá klíč — nabídneme napojení rovnou, než na ně klient zapomene. */
-  onConnect: (app: App, platform: Platform) => void
-}) {
-  const create = useCreateApp(org)
-  const apps = useApps(org)
-  const resolve = useResolveStoreLinks(org)
-  const resolveLinks = resolve.mutate
-  const [googlePlayUrl, setGooglePlayUrl] = useState('')
-  const [appStoreUrl, setAppStoreUrl] = useState('')
-  const [name, setName] = useState('')
-  const [historyMonths, setHistoryMonths] = useState('1')
-  const [competitor, setCompetitor] = useState(false)
-  const [resolved, setResolved] = useState<{
-    links: string
-    result: StoreResolution
-  } | null>(null)
-  // Jakmile klient název přepíše, přestaneme mu ho pod rukama přepisovat výsledkem ze storu.
-  const nameEdited = useRef(false)
-  const creating = useRef(false)
-
-  const links = `${googlePlayUrl.trim()}\u0000${appStoreUrl.trim()}`
-  // Výsledek platí jen pro odkazy, ze kterých vznikl — jinak by po úpravě odkazu chvíli
-  // svítil identifikátor od předchozího.
-  const current = resolved?.links === links ? resolved.result : null
-
-  useEffect(() => {
-    const [googlePlay, appStore] = links.split('\u0000')
-    if (googlePlay === '' && appStore === '') return
-    // Odkaz se vkládá po částech (nebo se lepí ze schránky) — počkáme, až psaní ustane.
-    const timer = setTimeout(() => {
-      resolveLinks(
-        {
-          googlePlayUrl: googlePlay || undefined,
-          appStoreUrl: appStore || undefined,
-        },
-        {
-          onSuccess: (result) => {
-            setResolved({ links, result })
-            const suggestion = result.googlePlay?.name ?? result.appStore?.name
-            if (suggestion && !nameEdited.current) setName(suggestion)
-          },
-        },
-      )
-    }, 500)
-    return () => clearTimeout(timer)
-  }, [links, resolveLinks])
-
-  const identifiers = [current?.googlePlay, current?.appStore].filter(
-    (store): store is ResolvedStore => store != null && store.identifier !== '',
-  )
-  const suggestions = [
-    ...new Set(
-      identifiers
-        .map((store) => store.name)
-        .filter((value): value is string => value != null),
-    ),
-  ]
-  // Vyplněný odkaz, ze kterého nic nekouká, přidání blokuje: jinak by se appka tiše založila
-  // jen s tím druhým storem a klient by se to dozvěděl až tím, že recenze nechodí.
-  const broken =
-    (googlePlayUrl.trim() !== '' && current?.googlePlay?.identifier === '') ||
-    (appStoreUrl.trim() !== '' && current?.appStore?.identifier === '')
-  const ready = identifiers.length > 0 && name.trim() !== '' && !broken
-
-  return (
-    <AppFormFrame inline={inline} onClose={onClose}>
-      <form
-        onSubmit={(event) => {
-          event.preventDefault()
-          if (!ready || create.isPending || creating.current) return
-          const existing = apps.data?.find(
-            (app) =>
-              !app.competitor &&
-              (current?.googlePlay?.identifier
-                ? app.gpPackageName === current.googlePlay.identifier
-                : app.gpPackageName == null) &&
-              (current?.appStore?.identifier
-                ? app.ascAppId === current.appStore.identifier
-                : app.ascAppId == null),
-          )
-          if (existing && !competitor) {
-            onConnect(existing, existing.gpPackageName ? 'ANDROID' : 'IOS')
-            return
-          }
-          creating.current = true
-          create.mutate(
-            {
-              name: name.trim(),
-              gpPackageName: current?.googlePlay?.identifier || null,
-              ascAppId: current?.appStore?.identifier || null,
-              historyMonths: Number(historyMonths),
-              competitor,
-            },
-            {
-              onError: () => {
-                creating.current = false
-              },
-              onSuccess: (app) => {
-                onClose()
-                // Konkurence klíč nemá a mít nebude — dialog napojení by jen mátl.
-                if (app.competitor) return
-                // Appka bez klíče nedělá nic. Navazujeme proto rovnou na store, který
-                // klient vyplnil — Google Play má přednost, protože ho zvládneme skoro celý.
-                onConnect(app, app.gpPackageName ? 'ANDROID' : 'IOS')
-              },
-            },
-          )
-        }}
-      >
-        <Field
-          label="Odkaz na Google Play"
-          hint="Adresa stránky appky v Play Storu. Nech prázdné, když appka na Androidu není."
-        >
-          <input
-            value={googlePlayUrl}
-            onChange={(e) => setGooglePlayUrl(e.target.value)}
-            placeholder="https://play.google.com/store/apps/details?id=cz.matee.appka"
-            autoFocus
-          />
-        </Field>
-        <StoreHint
-          store={current?.googlePlay}
-          filled={googlePlayUrl.trim() !== ''}
-          pending={resolve.isPending}
-        />
-
-        <Field
-          label="Odkaz na App Store"
-          hint="Adresa stránky appky v App Storu. Nech prázdné, když appka na iOS není."
-        >
-          <input
-            value={appStoreUrl}
-            onChange={(e) => setAppStoreUrl(e.target.value)}
-            placeholder="https://apps.apple.com/cz/app/appka/id1234567890"
-          />
-        </Field>
-        <StoreHint
-          store={current?.appStore}
-          filled={appStoreUrl.trim() !== ''}
-          pending={resolve.isPending}
-        />
-
-        <div style={{ marginTop: '0.85rem' }}>
-          <Field
-            label="Název"
-            hint="Pod tímhle názvem appku uvidíš v consoli i ve zprávách do kanálu."
-          >
-            <input
-              value={name}
-              onChange={(e) => {
-                nameEdited.current = true
-                setName(e.target.value)
-              }}
-              required
-            />
-          </Field>
-          {suggestions.length > 0 ? (
-            <div className="chips">
-              {suggestions.map((suggestion) => (
-                <button
-                  key={suggestion}
-                  type="button"
-                  className={suggestion === name ? 'chip selected' : 'chip'}
-                  onClick={() => {
-                    nameEdited.current = true
-                    setName(suggestion)
-                  }}
-                >
-                  {suggestion}
-                </button>
-              ))}
-            </div>
-          ) : null}
-        </div>
-
-        {/* Konkurence je jiný druh appky, ne nastavení: bez klíče, bez kanálu, bez odpovídání. */}
-        {!ownOnly ? (
-          <label className="pick" style={{ marginTop: '0.85rem' }}>
-            <input
-              type="checkbox"
-              checked={competitor}
-              onChange={(event) => setCompetitor(event.target.checked)}
-            />
-            <span>
-              Sleduju jako konkurenci
-              <div className="small muted">
-                Cizí appka bez klíče: recenze z veřejného App Store feedu, u
-                Google Play jen hodnocení ze storu. Nikam se nenotifikuje a
-                neodpovídá se — slouží rozborům.
-              </div>
-            </span>
-          </label>
-        ) : null}
-
-        {competitor || inline ? null : (
-          <>
-            <div style={{ marginTop: '0.85rem' }}>
-              <Field
-                label="Historie k rozboru"
-                hint="Kolik měsíců zpátky dotáhnout recenze, aby bylo co rozebírat hned první den."
-              >
-                <Select
-                  value={historyMonths}
-                  options={HISTORY_MONTHS.map((months) => ({
-                    value: String(months),
-                    label: historyMonthsLabel(months),
-                  }))}
-                  onChange={setHistoryMonths}
-                  ariaLabel="Historie k rozboru"
-                />
-              </Field>
-              {googlePlayUrl.trim() !== '' ? (
-                <p className="small muted">
-                  U Androidu historii vydá jen reporting Play Console — vlož
-                  jeho bucket v nastavení aplikace, jinak budou recenze až ode
-                  dneška. Google Play API dál než týden zpátky nevidí.
-                </p>
-              ) : null}
-            </div>
-
-            <p className="small muted" style={{ marginTop: '0.85rem' }}>
-              Do kanálu půjdou recenze od chvíle, kdy appku přidáš. Starší se
-              stáhnou do historie, ale nikoho neupozorní — jinak by první
-              stažení vysypalo do Slacku celou historii appky.
-            </p>
-          </>
-        )}
-        {competitor &&
-        appStoreUrl.trim() === '' &&
-        googlePlayUrl.trim() !== '' ? (
-          <p className="small muted" style={{ marginTop: '0.85rem' }}>
-            Google Play veřejné recenze neukazuje — u konkurence jen s Androidem
-            budou k dispozici jen hodnocení, ne texty. Přidej i odkaz na App
-            Store, pokud appka na iOS je.
-          </p>
-        ) : null}
-
-        {inline ? (
-          <p className="small muted">
-            V dalším kroku ověříme přístup ke každému storu. Recenze se
-            nenačítají jen vložením odkazu.
-          </p>
-        ) : null}
-        <div className="stack" style={{ marginTop: '1rem' }}>
-          <ErrorBox error={create.error ?? resolve.error} />
-          <div className="row">
-            <button type="submit" disabled={!ready || create.isPending}>
-              {create.isPending
-                ? 'Přidávám…'
-                : competitor
-                  ? 'Přidat konkurenci'
-                  : 'Přidat aplikaci'}
-            </button>
-            {!inline ? (
-              <button type="button" className="secondary" onClick={onClose}>
-                Zrušit
-              </button>
-            ) : null}
-          </div>
-        </div>
-      </form>
-    </AppFormFrame>
-  )
-}
-
-
-function AppFormFrame({
-  inline,
-  onClose,
-  children,
-}: {
-  inline: boolean
-  onClose: () => void
-  children: ReactNode
-}) {
-  return inline ? (
-    <div className="first-app-form">{children}</div>
-  ) : (
-    <Modal title="Přidat aplikaci" onClose={onClose}>
-      {children}
-    </Modal>
-  )
-}
-
-/** Co se z odkazu přečetlo — identifikátor pod polem je jediné potvrzení, že sedí ten správný. */
-function StoreHint({
-  store,
-  filled,
-  pending,
-}: {
-  store: ResolvedStore | null | undefined
-  filled: boolean
-  pending: boolean
-}) {
-  if (!filled) return null
-  if (!store) return pending ? <div className="hint">Hledám appku ve storu…</div> : null
-  if (store.identifier === '')
-    return (
-      <div className="hint" style={{ color: 'var(--error)' }}>
-        {store.error}
-      </div>
-    )
-  return (
-    <div className="hint">
-      <code>{store.identifier}</code>
-      {store.name ? ` · ${store.name}` : ` · ${store.error ?? ''}`}
-    </div>
-  )
-}
+export { AddAppDialog } from '../components/ConnectStoreWizard'
 
 /** Záložky detailu. Klíč je i v URL (`?tab=`), aby šel odkaz na konkrétní záložku poslat dál. */
 const APP_TABS = [
@@ -1792,6 +1470,7 @@ function AnalysisCard({ org, appId }: { org: string; appId: string }) {
   const topics = useTopics(org, appId)
   const removeTopic = useDeleteTopic(org, appId)
   const [adding, setAdding] = useState(false)
+
 
   const custom = (topics.data ?? []).filter((topic) => topic.custom)
   const total = status.data ? status.data.analyzed + status.data.missing : 0

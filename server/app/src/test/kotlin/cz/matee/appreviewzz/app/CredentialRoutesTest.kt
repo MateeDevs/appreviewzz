@@ -31,6 +31,11 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import java.nio.file.Files
@@ -72,6 +77,7 @@ private fun fakeIam(
     val key = Base64.getEncoder().encodeToString(serviceAccountJson.toByteArray())
     val engine =
         MockEngine { request ->
+            if (request.url.encodedPath.endsWith("/serviceAccounts")) delay(100)
             if (request.url.host != "oauth2.googleapis.com") calls += "${request.method.value} ${request.url.encodedPath}"
             val body =
                 when {
@@ -418,6 +424,53 @@ class CredentialRoutesTest :
 
                 val listed = owner.get("/api/orgs/$SLUG/credentials").bodyAsText()
                 listed.split("\"id\"") shouldHaveSize 2
+            }
+        }
+
+        "souběžný provisioning a opakování po ztracené odpovědi nevytvoří další účet ani klíč" {
+            testApplication {
+                val calls = java.util.Collections.synchronizedList(mutableListOf<String>())
+                consoleModule(mailer, fakes = fakes, platformEnv = provisionerEnv(), gcpProvisioner = fakeIam(calls = calls))
+                val (owner, _) = ownerWithApp(mailer)
+                val ids =
+                    coroutineScope {
+                        (1..6)
+                            .map {
+                                async(Dispatchers.IO) {
+                                    val response = owner.postJson("/api/orgs/$SLUG/credentials/provision-gp", "{}")
+                                    response.status shouldBe HttpStatusCode.OK
+                                    response.bodyAsText().jsonValue("id")
+                                }
+                            }.awaitAll()
+                    }
+                ids.distinct() shouldHaveSize 1
+                calls.count { it.startsWith("POST ") && it.endsWith("/serviceAccounts") } shouldBe 1
+                calls.count { it.startsWith("POST ") && it.endsWith("/keys") } shouldBe 1
+                owner.postJson("/api/orgs/$SLUG/credentials/provision-gp", "{}").bodyAsText().jsonValue("id") shouldBe ids.first()
+            }
+        }
+
+        "opakovaný souběžný upload ve wizardu vrací uložený klíč bez další kopie" {
+            testApplication {
+                consoleModule(mailer, fakes = fakes)
+                val (owner, _) = ownerWithApp(mailer)
+                val ids =
+                    coroutineScope {
+                        (1..4)
+                            .map {
+                                async(Dispatchers.IO) {
+                                    val response =
+                                        owner.postJson(
+                                            "/api/orgs/$SLUG/credentials",
+                                            """{"type":"gp","label":"Wizard","content":${json(serviceAccountJson)},"deduplicate":true}""",
+                                        )
+                                    response.status shouldBe HttpStatusCode.Created
+                                    response.bodyAsText().jsonValue("id")
+                                }
+                            }.awaitAll()
+                    }
+                ids.distinct() shouldHaveSize 1
+                owner.get("/api/orgs/$SLUG/credentials").bodyAsText().split("\"id\"") shouldHaveSize 2
             }
         }
 

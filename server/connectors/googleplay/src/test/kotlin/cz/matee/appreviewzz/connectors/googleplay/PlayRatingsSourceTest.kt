@@ -128,7 +128,7 @@ class PlayRatingsSourceTest :
                     }
 
                 error.kind shouldBe StoreErrorKind.AUTH
-                error.message!! shouldContain "Storage Object Viewer"
+                error.message!! shouldContain "Play Console"
             }
 
             test("gs:// prefix i koncové lomítko v bucketu se snesou") {
@@ -191,7 +191,7 @@ class PlayRatingsSourceTest :
                 val outcome = probe(engine)
 
                 outcome.status shouldBe ReportingBucketStatus.NO_EXPORT
-                outcome.message shouldContain "jednou denně"
+                outcome.message shouldContain "několika dnů"
             }
 
             test("chybějící role řekne, kterému účtu ji přidat") {
@@ -204,7 +204,7 @@ class PlayRatingsSourceTest :
 
                 outcome.status shouldBe ReportingBucketStatus.DENIED
                 outcome.worthSaving shouldBe false
-                outcome.message shouldContain "Storage Object Viewer"
+                outcome.message shouldContain "Play Console"
                 outcome.message shouldContain TestServiceAccount.CLIENT_EMAIL
             }
 

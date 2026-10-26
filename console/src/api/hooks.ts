@@ -314,13 +314,16 @@ export function useCredentials(org: string) {
 export function useAddCredential(org: string) {
   const client = useQueryClient()
   return useMutation({
+    // Po opuštění formuláře nesmí mutation cache dál držet obsah privátního souboru.
+    gcTime: 0,
     mutationFn: (input: {
       type: string
       label: string
       content: string
       keyId?: string
       issuerId?: string
-    }) => api.post<Credential>(`/api/orgs/${org}/credentials`, input),
+      deduplicate?: boolean
+    }) => api.postWithTimeout<Credential>(`/api/orgs/${org}/credentials`, input),
     onSuccess: () => client.invalidateQueries({ queryKey: ['credentials', org] }),
   })
 }
@@ -365,7 +368,7 @@ export function useProvisionGooglePlay(org: string) {
 export function useStoreApps(org: string, credentialId: string) {
   return useQuery({
     queryKey: ['store-apps', org, credentialId],
-    queryFn: () => api.get<StoreApp[]>(`/api/orgs/${org}/credentials/${credentialId}/store-apps`),
+    queryFn: () => api.getWithTimeout<StoreApp[]>(`/api/orgs/${org}/credentials/${credentialId}/store-apps`),
     enabled: credentialId !== '',
     retry: false,
   })
@@ -375,7 +378,7 @@ export function useValidateCredential(org: string) {
   const client = useQueryClient()
   return useMutation({
     mutationFn: (input: { appId: string; credentialId: string }) =>
-      api.post<{ valid: boolean; message: string | null; kind?: 'AUTH' | 'NOT_FOUND' | 'INVALID_REQUEST' | 'RATE_LIMITED' | 'TRANSIENT' | null }>(
+      api.postWithTimeout<{ valid: boolean; message: string | null; kind?: 'AUTH' | 'NOT_FOUND' | 'INVALID_REQUEST' | 'RATE_LIMITED' | 'TRANSIENT' | null }>(
         `/api/orgs/${org}/apps/${input.appId}/credentials/${input.credentialId}/validate`,
       ),
     onSuccess: () => client.invalidateQueries(),

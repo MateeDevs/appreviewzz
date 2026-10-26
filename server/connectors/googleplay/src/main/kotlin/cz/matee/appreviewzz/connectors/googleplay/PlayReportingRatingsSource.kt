@@ -124,7 +124,7 @@ class PlayReportingRatingsSource(
                 ReportingBucketCheck(
                     ReportingBucketStatus.NO_EXPORT,
                     "Do bucketu se dostaneme, ale žádný export hodnocení v něm zatím není. " +
-                        "Play Console ho doplňuje jednou denně a u aplikace bez hodnocení nevznikne vůbec.",
+                        "Export se může objevit s odstupem několika dnů; u aplikace bez hodnocení nemusí vzniknout.",
                 )
             }
         } catch (error: StoreConnectorException) {
@@ -136,11 +136,10 @@ class PlayReportingRatingsSource(
                 }
             val detail =
                 when (status) {
-                    // K bucketu se práva z Play Console nepropíšou: roli tam přidává člověk
-                    // zvlášť a chvíli trvá, než ji Cloud Storage vidí.
+                    // Play Console spravuje přístup i k privátním reportingovým bucketům.
                     ReportingBucketStatus.DENIED ->
-                        "Účet ${account.clientEmail} k bucketu $name zatím nemá přístup — přidej mu roli " +
-                            "Storage Object Viewer. Po přidání se právo propisuje pár minut."
+                        "Účet ${account.clientEmail} k bucketu $name zatím nemá přístup. V Play Console povolte " +
+                            "View app information and download bulk reports (read-only) na úrovni celého účtu."
 
                     ReportingBucketStatus.MISSING ->
                         "Bucket $name neexistuje — zkontroluj, že je adresa zkopírovaná celá."

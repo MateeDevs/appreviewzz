@@ -66,7 +66,7 @@ test('ASC klíč bez přístupu k vybrané aplikaci nenabízí falešné dokonč
   await page.goto('/studio/onboarding')
   await page.getByRole('button', { name: 'Připojit store', exact: true }).click()
   await page
-    .getByRole('button', { name: 'Klíč mám, pokračovat', exact: true })
+    .getByRole('button', { name: 'Klíč už mám', exact: true })
     .click()
   await page
     .getByRole('dialog')
@@ -75,7 +75,7 @@ test('ASC klíč bez přístupu k vybrané aplikaci nenabízí falešné dokonč
       name: 'AuthKey_TEST123456.p8',
       mimeType: 'text/plain',
       buffer: Buffer.from(
-        '-----BEGIN PRIVATE KEY-----\nsynthetic-test-only\n-----END PRIVATE KEY-----',
+        '-----BEGIN PRIVATE KEY-----\nc3ludGhldGljVGVzdE9ubHk=\n-----END PRIVATE KEY-----',
       ),
     })
   await page
@@ -95,7 +95,7 @@ test('ASC klíč bez přístupu k vybrané aplikaci nenabízí falešné dokonč
     .getByRole('button', { name: 'Sledovat vybrané', exact: true })
     .click()
   await expect(
-    page.getByRole('heading', { name: 'Hotovo', exact: true }),
+    page.getByRole('heading', { name: 'Přístup k aplikacím je ověřený', exact: true }),
   ).toBeVisible()
   expect(state.validates).toBe(1)
 })
@@ -143,12 +143,14 @@ for (const platforms of [
       if (platform === 'ANDROID') {
         await page.getByRole('button', { name: /Jen recenze/ }).click()
         await page
-          .getByRole('button', { name: 'Pozvánku jsem odeslal', exact: true })
+          .getByRole('button', { name: 'Ověřit přístup', exact: true })
           .click()
-        await page.getByRole('button', { name: 'Hotovo', exact: true }).click()
+        await expect(page.getByText('Přístup k aplikaci je ověřený', { exact: true })).toBeVisible()
+        await page.getByRole('button', { name: 'Zobrazit souhrn', exact: true }).click()
+        await page.getByRole('button', { name: 'Zpět do aktivace', exact: true }).click()
       } else {
         await page
-          .getByRole('button', { name: 'Klíč mám, pokračovat', exact: true })
+          .getByRole('button', { name: 'Klíč už mám', exact: true })
           .click()
         await page
           .getByRole('dialog')
@@ -157,7 +159,7 @@ for (const platforms of [
             name: 'AuthKey_TEST123456.p8',
             mimeType: 'text/plain',
             buffer: Buffer.from(
-              '-----BEGIN PRIVATE KEY-----\nsynthetic-test-only\n-----END PRIVATE KEY-----',
+              '-----BEGIN PRIVATE KEY-----\nc3ludGhldGljVGVzdE9ubHk=\n-----END PRIVATE KEY-----',
             ),
           })
         await page
@@ -172,6 +174,7 @@ for (const platforms of [
         await page
           .getByRole('button', { name: 'Sledovat vybrané', exact: true })
           .click()
+        await expect(page.getByRole('heading', {name:'Přístup k aplikacím je ověřený'})).toBeVisible()
         await page
           .getByRole('button', { name: 'Zavřít', exact: true })
           .last()
@@ -251,12 +254,12 @@ test('čekající oprávnění nejsou úspěch; refresh, opakování a chyba syn
     .click()
   await page.getByRole('button', { name: /Jen recenze/ }).click()
   await page
-    .getByRole('button', { name: 'Pozvánku jsem odeslal', exact: true })
+    .getByRole('button', { name: 'Ověřit přístup', exact: true })
     .click()
   await expect(
     page
       .getByRole('dialog')
-      .getByText('Čekáme na propagaci oprávnění.', { exact: true }),
+      .getByText('Přístup zatím není potvrzený', { exact: true }),
   ).toBeVisible()
   await page.getByRole('button', { name: 'Zavřít', exact: true }).last().click()
   await page.reload()

@@ -77,6 +77,7 @@ class CredentialService(
      * Uložení nahraného klíče. `hint` počítá volající, protože k rozparsování klíče je
      * potřeba konektor daného storu — doména o formátu `.p8` ani service accountu neví.
      */
+    @Synchronized
     fun add(
         organization: Organization,
         actor: OrgActor,
@@ -85,9 +86,19 @@ class CredentialService(
         payload: SecretPayload,
         hint: String?,
         origin: CredentialOrigin = CredentialOrigin.UPLOADED,
+        deduplicate: Boolean = false,
     ): CredentialMeta {
         requireRole(actor, OrgRole.ADMIN)
         val trimmed = label.trim().ifEmpty { throw ConsoleException(ConsoleFailure.INVALID_INPUT, "Klíč potřebuje štítek") }
+
+        if (deduplicate) {
+            // Otisk je zkrácený pro UI. Před reuse porovnáme i skutečný payload, uvnitř vault API.
+            credentials
+                .listByOrg(organization.id, type)
+                .firstOrNull {
+                    it.fingerprint == payload.fingerprint() && vault.load(organization.id, it.id) == payload
+                }?.let { return it }
+        }
 
         val meta = vault.store(organization.id, type, trimmed, payload, hint, origin)
         audit(
