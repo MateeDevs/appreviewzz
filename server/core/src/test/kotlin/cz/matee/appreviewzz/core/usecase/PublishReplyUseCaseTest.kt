@@ -1,5 +1,6 @@
 package cz.matee.appreviewzz.core.usecase
 
+import cz.matee.appreviewzz.core.model.ChannelType
 import cz.matee.appreviewzz.core.model.CredentialPurpose
 import cz.matee.appreviewzz.core.model.CredentialType
 import cz.matee.appreviewzz.core.model.MessageLocale
@@ -25,6 +26,9 @@ private class ReplyFixture(
     storeFailure: StoreConnectorException? = null,
     channelFailure: ChannelException? = null,
     attachCredential: Boolean = true,
+    simulateReplies: () -> Boolean = { false },
+    platform: Platform = Platform.ANDROID,
+    channelType: ChannelType = ChannelType.SLACK,
 ) {
     val apps = FakeAppRepository()
     val reviews = FakeReviewRepository()
@@ -33,10 +37,10 @@ private class ReplyFixture(
     val messages = FakeReviewMessageRepository()
     val credentials = FakeCredentialRepository()
     val audit = RecordingAuditLog()
-    val store = FakeReplyTarget(failWith = storeFailure)
-    val slack = FakeNotificationChannel(failWith = channelFailure)
+    val store = FakeReplyTarget(platform = platform, failWith = storeFailure)
+    val slack = FakeNotificationChannel(type = channelType, failWith = channelFailure)
     val app = apps.put(Ingest.app(ORG))
-    val channel = channelRepository.put(Delivery.channel(ORG, app.id))
+    val channel = channelRepository.put(Delivery.channel(ORG, app.id, type = channelType))
 
     init {
         if (attachCredential) {
@@ -61,11 +65,12 @@ private class ReplyFixture(
             replyTargets = listOf(store),
             notificationChannels = listOf(slack),
             clock = fixedClock(Delivery.now),
+            simulateReplies = simulateReplies,
         )
 
     /** Simuluje stav po doručení: zpráva v kanálu existuje a dá se přepsat. */
     fun deliveredReview(state: ReviewState = ReviewState.NOTIFIED) =
-        reviews.put(Delivery.review(ORG, app.id, state = state)).also { review ->
+        reviews.put(Delivery.review(ORG, app.id, state = state, platform = store.platform)).also { review ->
             val message = messages.claim(ORG, review.id, channel.id, review.contentHash)
             messages.markSent(ORG, message.id, channel.targetRef, "1755600000.000100", Delivery.now)
         }
@@ -73,6 +78,76 @@ private class ReplyFixture(
 
 class PublishReplyUseCaseTest :
     FunSpec({
+        Platform.entries.forEach { platform ->
+            ReplySource.entries.forEach { source ->
+                test("simulace $platform z $source uloží odpověď bez volání storu a bez klíče k publikaci") {
+                    val fixture =
+                        ReplyFixture(
+                            attachCredential = false,
+                            simulateReplies = { true },
+                            platform = platform,
+                            channelType = if (source == ReplySource.TEAMS) ChannelType.TEAMS else ChannelType.SLACK,
+                        )
+                    val review = fixture.deliveredReview()
+                    val channelId = if (source == ReplySource.SLACK || source == ReplySource.TEAMS) fixture.channel.id else null
+                    val outcome = fixture.useCase.publish(ReplyCommand(ORG, review.id, "Testovací odpověď", source, channelId))
+                    outcome.shouldBeInstanceOf<ReplyOutcome.Simulated>().reply.simulated shouldBe true
+                    fixture.store.published.shouldHaveSize(0)
+                    fixture.replies.all
+                        .single()
+                        .simulated shouldBe true
+                    fixture.replies.all
+                        .single()
+                        .publishedAt shouldBe null
+                    fixture.reviews.stateUpdates.shouldHaveSize(0)
+                    fixture.audit.entries
+                        .single()
+                        .action shouldBe "reply.simulated"
+                    if (channelId != null) {
+                        fixture.slack.replied
+                            .single()
+                            .simulated shouldBe true
+                    }
+                }
+            }
+        }
+
+        test("vypnutí režimu ani dvojklik neodešle dříve simulovanou odpověď") {
+            var simulation = true
+            val fixture = ReplyFixture(simulateReplies = { simulation })
+            val review = fixture.deliveredReview()
+            val command = ReplyCommand(ORG, review.id, "Zůstane pouze u nás", ReplySource.SLACK, fixture.channel.id)
+            fixture.useCase.publish(command).shouldBeInstanceOf<ReplyOutcome.Simulated>()
+            simulation = false
+            fixture.useCase.publish(command).shouldBeInstanceOf<ReplyOutcome.Simulated>()
+            fixture.replies.all.shouldHaveSize(1)
+            fixture.audit.entries.shouldHaveSize(1)
+            fixture.store.published.shouldHaveSize(0)
+            fixture.useCase.publish(command.copy(body = "Nová skutečná odpověď")).shouldBeInstanceOf<ReplyOutcome.Published>()
+            fixture.store.published.shouldHaveSize(1)
+        }
+
+        test("simulace zachycená ve frontě platí i po vypnutí režimu") {
+            val fixture = ReplyFixture()
+            val review = fixture.deliveredReview()
+            fixture.useCase
+                .publish(ReplyCommand(ORG, review.id, "Test z fronty", ReplySource.CONSOLE, simulated = true))
+                .shouldBeInstanceOf<ReplyOutcome.Simulated>()
+            fixture.store.published.shouldHaveSize(0)
+        }
+
+        test("pád úpravy chatu nezmění simulaci na publikaci") {
+            val fixture = ReplyFixture(simulateReplies = { true }, channelFailure = ChannelException(ChannelErrorKind.TRANSIENT, "výpadek"))
+            val review = fixture.deliveredReview()
+            fixture.useCase
+                .publish(ReplyCommand(ORG, review.id, "Test", ReplySource.SLACK, fixture.channel.id))
+                .shouldBeInstanceOf<ReplyOutcome.Simulated>()
+            fixture.replies.all
+                .single()
+                .simulated shouldBe true
+            fixture.store.published.shouldHaveSize(0)
+        }
+
         test("odpověď se publikuje do storu, zapíše a zpráva ve Slacku se přepíše") {
             val fixture = ReplyFixture()
             val review = fixture.deliveredReview()

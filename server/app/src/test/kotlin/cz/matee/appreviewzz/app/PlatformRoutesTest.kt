@@ -122,6 +122,33 @@ class PlatformRoutesTest :
             }
         }
 
+        "testovací odpovědi jsou ve stagingovém katalogu zapnuté a správce je může změnit" {
+            testApplication {
+                consoleModule(mailer, clock = clock, replySimulationAvailable = true)
+                val admin = superadmin()
+                val before = admin.get("/api/platform/settings").bodyAsText()
+                before shouldContain "replies.simulation_enabled"
+                sourceOf(before, "replies.simulation_enabled") shouldBe "DEFAULT"
+                admin.putJson("/api/platform/settings", """{"values":{"replies.simulation_enabled":"false"}}""").status shouldBe
+                    HttpStatusCode.OK
+                val after = admin.get("/api/platform/settings").bodyAsText()
+                after shouldContain "\"key\":\"replies.simulation_enabled\""
+                sourceOf(after, "replies.simulation_enabled") shouldBe "DB"
+                admin.get("/api/platform/audit").bodyAsText() shouldContain "replies.simulation_enabled"
+            }
+        }
+
+        "mimo staging nelze testovací režim ani přímým API zapnout" {
+            testApplication {
+                consoleModule(mailer, clock = clock)
+                val admin = superadmin()
+                admin.get("/api/platform/settings").bodyAsText() shouldNotContain "replies.simulation_enabled"
+                val denied = admin.putJson("/api/platform/settings", """{"values":{"replies.simulation_enabled":"true"}}""")
+                denied.status shouldBe HttpStatusCode.BadRequest
+                denied.bodyAsText() shouldContain "pouze na stagingu"
+            }
+        }
+
         "uložená hodnota přebíjí prostředí a smazání ji vrací zpátky" {
             testApplication {
                 // Prostředí nastavené jako v produkci — uložená hodnota ho musí přebít,

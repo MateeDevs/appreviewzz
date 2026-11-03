@@ -1012,6 +1012,9 @@ function ReplyForm({
   return (
     <div className="reply-editor">
       <ErrorBox error={detail.error} />
+      {detail.data?.replySimulationEnabled ? (
+        <p className="notice" role="status">Testovací režim: odpověď se uloží pouze v Appreviewzz a neodešle se do storu.</p>
+      ) : null}
       {detail.data && detail.data.replies.length > 0 ? (
         <div className="notice" style={{ marginBottom: '0.75rem' }}>
           {detail.data.replies.map((item) => (
@@ -1025,7 +1028,9 @@ function ReplyForm({
                 </>
               ) : null}
               : {item.body}{' '}
-              {item.status === 'PUBLISHED' ? (
+              {item.simulated ? (
+                <Badge tone="warn">{item.status === 'PENDING' ? 'test ve frontě' : 'test – do storu neodesláno'}</Badge>
+              ) : item.status === 'PUBLISHED' ? (
                 <Badge tone="ok">publikováno</Badge>
               ) : item.status === 'FAILED' ? (
                 <Badge tone="bad">selhalo{item.error ? ` · ${item.error}` : ''}</Badge>
@@ -1049,7 +1054,7 @@ function ReplyForm({
             event.preventDefault()
             if (pendingReply || reply.isPending || !hasText || overLimit) return
             reply.mutate(
-              { reviewId, body },
+              { reviewId, body, simulateOnly: detail.data?.replySimulationEnabled },
               {
                 onSuccess: (result) => {
                   setQueued(result.message)
@@ -1149,7 +1154,7 @@ function ReplyForm({
                 Boolean(queued && detail.isFetching)
               }
             >
-              {pendingReply ? 'Čeká na publikaci' : reply.isPending ? 'Zařazuji…' : 'Zařadit k odeslání'}
+              {pendingReply ? detail.data?.replySimulationEnabled ? 'Čeká na testovací uložení' : 'Čeká na publikaci' : reply.isPending ? 'Zařazuji…' : detail.data?.replySimulationEnabled ? 'Uložit testovací odpověď' : 'Zařadit k odeslání'}
             </button>
             <button
               type="button"

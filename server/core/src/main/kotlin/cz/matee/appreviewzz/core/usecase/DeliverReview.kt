@@ -135,6 +135,7 @@ class DeliverReviewUseCase(
      */
     private val enqueueAutoReply: ((AutoReply) -> Boolean)? = null,
     private val clock: Clock = Clock.System,
+    private val simulateReplies: () -> Boolean = { false },
 ) {
     private val channelByType: Map<ChannelType, NotificationChannel> = notificationChannels.associateBy { it.type }
 
@@ -273,12 +274,13 @@ class DeliverReviewUseCase(
                 isUpdate = review.state == ReviewState.UPDATED,
                 insight = insight?.let { analysis?.summarize(it, channel.locale) },
                 autoReply = autoReply?.body,
+                simulatedReplies = simulateReplies(),
             )
 
         return try {
             val target = ChannelTarget(channel.targetRef, secrets.resolve(app.orgId, credentialId))
             val posted = implementation.postReview(target, notification)
-            messages.markSent(app.orgId, message.id, posted.conversationId, posted.messageId, clock.now())
+            messages.markSent(app.orgId, message.id, posted.conversationId, posted.messageId, clock.now(), notification.simulatedReplies)
             ChannelDelivery.Sent(channel.id, posted)
         } catch (error: ChannelException) {
             val detail = error.message.orEmpty()

@@ -52,6 +52,7 @@ data class ReviewNotification(
      * odpověď už je ve frontě a nabízet k ní vstupní pole by mátlo.
      */
     val autoReply: String? = null,
+    val simulatedReplies: Boolean = false,
 ) {
     val catalog: MessageCatalog = MessageCatalog.of(locale)
 

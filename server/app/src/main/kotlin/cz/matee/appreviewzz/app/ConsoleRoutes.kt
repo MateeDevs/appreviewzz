@@ -88,6 +88,7 @@ class ConsoleWiring(
      * console pak recenze ukazuje, ale odpovídat z ní nejde (a řekne to větou).
      */
     val enqueueReply: ((ConsoleReply) -> Boolean)? = null,
+    val simulateReplies: () -> Boolean = { false },
     /**
      * Správa platformy (F7). `null` = strom `/api/platform` se vůbec nezaregistruje —
      * self-host, který si nikoho nepovýšil, o té sekci nemusí vědět.

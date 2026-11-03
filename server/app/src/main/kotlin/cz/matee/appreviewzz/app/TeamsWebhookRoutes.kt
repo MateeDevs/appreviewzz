@@ -47,6 +47,7 @@ class TeamsReplyIntake(
                     channelId = message.channelId.toString(),
                     body = text,
                     source = ReplySource.TEAMS.name,
+                    simulated = message.simulatedReplies,
                     authorExternalId = submission.userId,
                     authorDisplayName = submission.userName,
                 ),

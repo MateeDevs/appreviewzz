@@ -122,7 +122,9 @@ private fun activity(
     """.trimIndent()
 
 /** Zná jednu doručenou kartu — přesně tu, kterou Teams v testu posílá zpátky. */
-private class SingleTeamsMessageRepository : ReviewMessageRepository {
+private class SingleTeamsMessageRepository(
+    private val simulated: Boolean = false,
+) : ReviewMessageRepository {
     override fun findByProviderMessage(
         channelType: ChannelType,
         conversationId: String,
@@ -141,6 +143,7 @@ private class SingleTeamsMessageRepository : ReviewMessageRepository {
                 sentAt = NOW,
                 contentHash = "hash",
                 createdAt = NOW,
+                simulatedReplies = simulated,
             )
         } else {
             null
@@ -159,6 +162,7 @@ private class SingleTeamsMessageRepository : ReviewMessageRepository {
         conversationId: String?,
         messageId: String?,
         sentAt: Instant,
+        simulatedReplies: Boolean,
     ): Boolean = error("nepoužívá se")
 
     override fun markFailed(
@@ -181,25 +185,27 @@ private class SingleTeamsMessageRepository : ReviewMessageRepository {
 
 class TeamsWebhookRoutesTest :
     StringSpec({
-        fun testApp(queued: MutableList<ReplyJobData>) =
-            fun io.ktor.server.application.Application.() {
-                installSerialization()
-                installErrorHandling()
-                installObservability(PrometheusMeterRegistry(PrometheusConfig.DEFAULT))
-                teamsWebhookRoutes(
-                    authenticator =
-                        BotFrameworkAuthenticator(
-                            httpClient = botConnectorClient(),
-                            bot = TeamsBotIdentity(BOT_APP_ID, SecretPayload("heslo")),
-                            clock = fixedClock,
-                        ),
-                    intake =
-                        TeamsReplyIntake(SingleTeamsMessageRepository()) { data ->
-                            queued += data
-                            true
-                        },
-                )
-            }
+        fun testApp(
+            queued: MutableList<ReplyJobData>,
+            simulated: Boolean = false,
+        ) = fun io.ktor.server.application.Application.() {
+            installSerialization()
+            installErrorHandling()
+            installObservability(PrometheusMeterRegistry(PrometheusConfig.DEFAULT))
+            teamsWebhookRoutes(
+                authenticator =
+                    BotFrameworkAuthenticator(
+                        httpClient = botConnectorClient(),
+                        bot = TeamsBotIdentity(BOT_APP_ID, SecretPayload("heslo")),
+                        clock = fixedClock,
+                    ),
+                intake =
+                    TeamsReplyIntake(SingleTeamsMessageRepository(simulated)) { data ->
+                        queued += data
+                        true
+                    },
+            )
+        }
 
         suspend fun io.ktor.client.HttpClient.send(
             body: String,
@@ -227,6 +233,15 @@ class TeamsWebhookRoutesTest :
                 job.authorExternalId shouldBe "29:user"
                 job.authorDisplayName shouldBe "Tadeáš Sosín"
                 job.source shouldBe "TEAMS"
+            }
+        }
+
+        "testovací karta zachová simulaci v úloze i při pozdějším kliknutí" {
+            val queued = mutableListOf<ReplyJobData>()
+            testApplication {
+                application(testApp(queued, simulated = true))
+                client.send(activity()).status shouldBe HttpStatusCode.OK
+                queued.single().simulated shouldBe true
             }
         }
 

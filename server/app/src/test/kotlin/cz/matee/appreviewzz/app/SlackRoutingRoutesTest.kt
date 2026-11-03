@@ -78,6 +78,7 @@ private class RoutingMessageRepository : ReviewMessageRepository {
         conversationId: String?,
         messageId: String?,
         sentAt: Instant,
+        simulatedReplies: Boolean,
     ): Boolean = error("unused")
 
     override fun markFailed(

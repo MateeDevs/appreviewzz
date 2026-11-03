@@ -63,7 +63,9 @@ private fun sign(
 }
 
 /** Zná jednu doručenou zprávu — přesně tu, kterou Slack v testu posílá zpátky. */
-private class SingleMessageRepository : ReviewMessageRepository {
+private class SingleMessageRepository(
+    private val simulated: Boolean = false,
+) : ReviewMessageRepository {
     override fun findByProviderMessage(
         channelType: ChannelType,
         conversationId: String,
@@ -82,6 +84,7 @@ private class SingleMessageRepository : ReviewMessageRepository {
                 sentAt = NOW,
                 contentHash = "hash",
                 createdAt = NOW,
+                simulatedReplies = simulated,
             )
         } else {
             null
@@ -100,6 +103,7 @@ private class SingleMessageRepository : ReviewMessageRepository {
         conversationId: String?,
         messageId: String?,
         sentAt: Instant,
+        simulatedReplies: Boolean,
     ): Boolean = error("nepoužívá se")
 
     override fun markFailed(
@@ -122,27 +126,29 @@ private class SingleMessageRepository : ReviewMessageRepository {
 
 class SlackWebhookRoutesTest :
     StringSpec({
-        fun testApp(queued: MutableList<ReplyJobData>) =
-            fun io.ktor.server.application.Application.() {
-                installSerialization()
-                installErrorHandling()
-                installObservability(PrometheusMeterRegistry(PrometheusConfig.DEFAULT))
-                slackWebhookRoutes(
-                    verifier =
-                        SlackSignatureVerifier(
-                            signingSecret = SecretPayload(SIGNING_SECRET),
-                            clock =
-                                object : Clock {
-                                    override fun now(): Instant = NOW
-                                },
-                        ),
-                    intake =
-                        SlackReplyIntake(SingleMessageRepository()) { data ->
-                            queued += data
-                            true
-                        },
-                )
-            }
+        fun testApp(
+            queued: MutableList<ReplyJobData>,
+            simulated: Boolean = false,
+        ) = fun io.ktor.server.application.Application.() {
+            installSerialization()
+            installErrorHandling()
+            installObservability(PrometheusMeterRegistry(PrometheusConfig.DEFAULT))
+            slackWebhookRoutes(
+                verifier =
+                    SlackSignatureVerifier(
+                        signingSecret = SecretPayload(SIGNING_SECRET),
+                        clock =
+                            object : Clock {
+                                override fun now(): Instant = NOW
+                            },
+                    ),
+                intake =
+                    SlackReplyIntake(SingleMessageRepository(simulated)) { data ->
+                        queued += data
+                        true
+                    },
+            )
+        }
 
         "podepsané kliknutí na Odeslat zařadí publikaci a hned potvrdí" {
             val queued = mutableListOf<ReplyJobData>()
@@ -167,6 +173,22 @@ class SlackWebhookRoutesTest :
                 job.body shouldBe "Díky za zpětnou vazbu, opravujeme to."
                 job.authorExternalId shouldBe "U0123"
                 job.source shouldBe "SLACK"
+            }
+        }
+
+        "testovací zpráva zachová simulaci i při pozdějším kliknutí" {
+            val queued = mutableListOf<ReplyJobData>()
+            testApplication {
+                application(testApp(queued, simulated = true))
+                val raw = body(payload())
+                client
+                    .post(SLACK_INTERACTIVITY_PATH) {
+                        header(SlackSignatureVerifier.TIMESTAMP_HEADER, NOW.epochSeconds.toString())
+                        header(SlackSignatureVerifier.SIGNATURE_HEADER, sign(raw, NOW.epochSeconds))
+                        header(HttpHeaders.ContentType, ContentType.Application.FormUrlEncoded.toString())
+                        setBody(raw)
+                    }.status shouldBe HttpStatusCode.OK
+                queued.single().simulated shouldBe true
             }
         }
 

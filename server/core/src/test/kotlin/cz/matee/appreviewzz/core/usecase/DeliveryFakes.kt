@@ -307,9 +307,16 @@ internal class FakeReviewMessageRepository : ReviewMessageRepository {
         conversationId: String?,
         messageId: String?,
         sentAt: Instant,
+        simulatedReplies: Boolean,
     ): Boolean =
         update(id) {
-            it.copy(status = MessageStatus.SENT, providerConversationId = conversationId, providerMessageId = messageId, sentAt = sentAt)
+            it.copy(
+                status = MessageStatus.SENT,
+                providerConversationId = conversationId,
+                providerMessageId = messageId,
+                sentAt = sentAt,
+                simulatedReplies = simulatedReplies,
+            )
         }
 
     override fun markFailed(
@@ -438,6 +445,11 @@ private fun unused(): Nothing = error("Metoda se v testu doručení nepoužívá
 
 /** Odpovědi v paměti se stejnou unikátností jako databáze: (recenze, otisk textu). */
 internal class FakeReplyRepository : ReplyRepository {
+    override fun markSimulated(
+        orgId: OrganizationId,
+        id: ReplyId,
+    ): Boolean = update(id) { it.copy(status = ReplyStatus.PUBLISHED, simulated = true, publishedAt = null, error = null) }
+
     private val replies = mutableMapOf<Pair<ReviewId, String>, Reply>()
 
     val all get() = replies.values.toList()
@@ -457,6 +469,7 @@ internal class FakeReplyRepository : ReplyRepository {
                 authorExternalId = reply.authorExternalId,
                 authorDisplayName = reply.authorDisplayName,
                 source = reply.source,
+                simulated = reply.simulated,
                 status = ReplyStatus.PENDING,
                 error = null,
                 publishedAt = null,

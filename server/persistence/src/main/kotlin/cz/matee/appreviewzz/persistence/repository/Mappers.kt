@@ -200,6 +200,7 @@ internal fun ResultRow.toReview(): Review =
 
 internal fun ResultRow.toReviewMessage(): ReviewMessage =
     ReviewMessage(
+        simulatedReplies = this[ReviewMessages.simulatedReplies] ?: false,
         id = this[ReviewMessages.id],
         orgId = this[ReviewMessages.orgId],
         reviewId = this[ReviewMessages.reviewId],
@@ -215,6 +216,7 @@ internal fun ResultRow.toReviewMessage(): ReviewMessage =
 
 internal fun ResultRow.toReply(): Reply =
     Reply(
+        simulated = this[Replies.simulated] ?: false,
         id = this[Replies.id],
         orgId = this[Replies.orgId],
         reviewId = this[Replies.reviewId],

@@ -108,6 +108,7 @@ fun runApi(
             dailyRatings = components.dailyRatings,
             audit = components.audit,
             platform = components.platformAdmin,
+            simulateReplies = components.platformConfig::simulateReplies,
             ingest = components.platformConfig,
             googlePlayProvisioning = components.googlePlayProvisioning,
             enqueueAnalysis = { orgId, appId ->
@@ -130,6 +131,7 @@ fun runApi(
                         authorExternalId = null,
                         authorDisplayName = reply.authorDisplayName,
                         authorUserId = reply.authorUserId,
+                        simulated = reply.simulated,
                     ),
                 )
             },

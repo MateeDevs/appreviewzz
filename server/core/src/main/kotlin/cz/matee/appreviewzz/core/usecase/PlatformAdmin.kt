@@ -78,6 +78,9 @@ class PlatformAdminService(
         // stav než žádná: formulář by se vrátil s chybou a část hodnot by už platila.
         val validated =
             changes.mapValues { (key, raw) ->
+                if (key == PlatformSettings.REPLY_SIMULATION && !config.replySimulationAvailable) {
+                    throw PlatformSettingException("Testovací odpovědi jsou dostupné pouze na stagingu")
+                }
                 val definition = PlatformSettings.require(key)
                 if (definition.secret) {
                     throw PlatformSettingException("Nastavení '$key' je tajemství — ukládá se přes vlastní endpoint")

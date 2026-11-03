@@ -74,6 +74,7 @@ class SlackReplyIntake(
                     channelId = message.channelId.toString(),
                     body = text,
                     source = ReplySource.SLACK.name,
+                    simulated = message.simulatedReplies,
                     authorExternalId = submission.userId,
                     authorDisplayName = submission.userName,
                 ),

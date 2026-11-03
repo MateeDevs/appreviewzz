@@ -23,5 +23,6 @@ Krátké záznamy o rozhodnutích, která se těžko vracejí. Formát: kontext 
 | [0017](0017-staging-a-produkce-oddelena-prostredi.md) | Staging a produkce jako oddělená prostředí, každé s vlastním KEK | Přijato |
 | [0018](0018-platformni-sprava-a-superadmin.md) | Platformní správa: role SUPERADMIN a konfigurace v databázi | Přijato |
 | [0019](0019-rozbory-recenzi.md) | Rozbory recenzí: čísla počítá databáze, výklad recenze model | Přijato |
+| [0020](0020-staging-simulace-odpovedi.md) | Stagingové odpovědi lze testovat bez publikace do storů | Přijato |
 
 Nové ADR: zkopíruj strukturu z 0001, další číslo v pořadí, přidej řádek do tabulky.

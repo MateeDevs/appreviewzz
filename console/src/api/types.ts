@@ -444,6 +444,7 @@ export interface Review {
 }
 
 export interface Reply {
+  simulated?: boolean
   id: string
   body: string
   source: ReplySource
@@ -465,6 +466,7 @@ export interface ReviewRevision {
 }
 
 export interface ReviewDetail {
+  replySimulationEnabled?: boolean
   review: Review
   messages: { channelId: string; status: MessageStatus; error: string | null; sentAt: string | null }[]
   replies: Reply[]

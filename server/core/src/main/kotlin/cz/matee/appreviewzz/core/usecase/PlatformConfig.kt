@@ -103,6 +103,7 @@ class PlatformConfig(
     private val env: (String) -> String? = System::getenv,
     private val clock: Clock = Clock.System,
     private val ttl: Duration = DEFAULT_TTL,
+    val replySimulationAvailable: Boolean = false,
 ) : IngestPolicy,
     AnalysisPolicy {
     private val snapshot = AtomicReference<Snapshot?>(null)
@@ -111,7 +112,12 @@ class PlatformConfig(
         val definition = PlatformSettings.require(key)
         // Tajemství neleží v `platform_setting`, ale ve vlastní tabulce — bez tohohle by
         // uložený klíč navěky hlásil, že je „z prostředí".
-        val stored = if (definition.secret) secrets?.findMeta(key)?.fingerprint else stored()[key]
+        val stored =
+            when {
+                definition.secret -> secrets?.findMeta(key)?.fingerprint
+                key == PlatformSettings.REPLY_SIMULATION -> settings.all()[key]
+                else -> stored()[key]
+            }
         val fromEnv = definition.envName?.let { env(it) }?.takeIf { it.isNotBlank() }
         val source =
             when {
@@ -126,7 +132,13 @@ class PlatformConfig(
     }
 
     /** Všechno, co se dá ukázat ve formuláři. Tajemství mají vlastní cestu ([secretMeta]). */
-    fun resolveAll(): List<ResolvedSetting> = PlatformSettings.ALL.map { resolve(it.key) }
+    fun resolveAll(): List<ResolvedSetting> =
+        PlatformSettings.ALL
+            .filter { it.key != PlatformSettings.REPLY_SIMULATION || replySimulationAvailable }
+            .map { resolve(it.key) }
+
+    /** Bez cache: zapnutí ochrany musí platit v API i workeru bez čekání na TTL. */
+    fun simulateReplies(): Boolean = replySimulationAvailable && resolve(PlatformSettings.REPLY_SIMULATION).value != "false"
 
     fun int(key: String): Int {
         val resolved = resolve(key)

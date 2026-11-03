@@ -304,6 +304,7 @@ fun ApplicationTestBuilder.consoleModule(
      * záviset na tom, co má vývojář v shellu.
      */
     platformEnv: (String) -> String? = { null },
+    replySimulationAvailable: Boolean = false,
     fakes: ConsoleFakes =
         ConsoleFakes(FakeReviewSource(Platform.ANDROID), FakeReviewSource(Platform.IOS), FakeNotificationChannel()),
     /** `null` = instalace bez provisioneru Google Play; dialog pak nabídne ruční nahrání. */
@@ -350,6 +351,7 @@ fun ApplicationTestBuilder.consoleModule(
             secrets = platformSecrets,
             vault = consoleAppSecrets(),
             env = platformEnv,
+            replySimulationAvailable = replySimulationAvailable,
             clock = clock,
             // Bez TTL: test, který uloží hodnotu a hned se na ni zeptá, nemá čekat půl minuty.
             ttl = Duration.ZERO,
@@ -459,6 +461,7 @@ fun ApplicationTestBuilder.consoleModule(
             hardening = ApiHardening(rateLimits = limits),
             console =
                 ConsoleWiring(
+                    simulateReplies = platformConfig::simulateReplies,
                     auth = auth,
                     orgs = orgs,
                     apps = appService,

@@ -380,6 +380,7 @@ class Components(
             notificationChannels = notificationChannels,
             // Bez plánovače se automatické poděkování chová, jako by nebylo zapnuté.
             enqueueAutoReply = { reply -> autoReplyQueue.get()?.invoke(reply) ?: false },
+            simulateReplies = platformConfig::simulateReplies,
         )
     }
 
@@ -417,6 +418,7 @@ class Components(
             audit = audit,
             replyTargets = replyTargets,
             notificationChannels = notificationChannels,
+            simulateReplies = platformConfig::simulateReplies,
         )
     }
 
@@ -749,6 +751,7 @@ class Components(
             // Bez `VAULT_KEK_URI` zbývá prostředí: uložit tajemství nejde, přečíst z ENV ano.
             vault = appSecrets,
             env = System::getenv,
+            replySimulationAvailable = config.environment.equals("staging", ignoreCase = true),
         )
     }
 

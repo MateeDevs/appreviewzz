@@ -140,6 +140,7 @@ data class ReplyResponse(
     val authorDisplayName: String?,
     val publishedAt: String?,
     val createdAt: String,
+    val simulated: Boolean = false,
 )
 
 @Serializable
@@ -158,11 +159,13 @@ data class ReviewDetailResponse(
     val messages: List<ReviewMessageResponse>,
     val replies: List<ReplyResponse>,
     val revisions: List<ReviewRevisionResponse>,
+    val replySimulationEnabled: Boolean = false,
 )
 
 @Serializable
 data class ReplyRequest(
     val body: String,
+    val simulateOnly: Boolean = false,
 )
 
 @Serializable
@@ -350,6 +353,7 @@ fun Route.reviewRoutes(console: ConsoleWiring) {
             val detail = io { inbox.detail(context.organization.id, call.reviewIdParam()) }
             call.respond(
                 ReviewDetailResponse(
+                    replySimulationEnabled = io { console.simulateReplies() },
                     review =
                         detail.review.toResponse(
                             insight = detail.insight,
@@ -410,6 +414,13 @@ fun Route.reviewRoutes(console: ConsoleWiring) {
             val request = call.receive<ReplyRequest>()
             val body = request.body.trim()
             if (body.isEmpty()) throw ConsoleException(ConsoleFailure.INVALID_INPUT, "Odpověď nesmí být prázdná")
+            val simulation = io { console.simulateReplies() }
+            if (request.simulateOnly && !simulation) {
+                throw ConsoleException(
+                    ConsoleFailure.INVALID_INPUT,
+                    "Testovací režim už není zapnutý. Obnovte stránku a zkontrolujte režim odpovědi.",
+                )
+            }
 
             val enqueue =
                 console.enqueueReply
@@ -434,6 +445,7 @@ fun Route.reviewRoutes(console: ConsoleWiring) {
                             body = body,
                             authorUserId = user.id.toString(),
                             authorDisplayName = user.displayName ?: user.email,
+                            simulated = simulation,
                         ),
                     )
                 }
@@ -442,7 +454,12 @@ fun Route.reviewRoutes(console: ConsoleWiring) {
                 QueuedResponse(
                     queued = queued,
                     // Duplicita není chyba: dvojklik na „Odeslat" má skončit stejně jako jeden.
-                    message = if (queued) "Odpověď je ve frontě k publikaci" else "Tatáž odpověď už ve frontě je",
+                    message =
+                        when {
+                            !queued -> "Tatáž odpověď už ve frontě je"
+                            simulation -> "Testovací odpověď je ve frontě k uložení bez publikace do storu"
+                            else -> "Odpověď je ve frontě k publikaci"
+                        },
                 ),
             )
         }
@@ -497,6 +514,7 @@ class ConsoleReply(
     val body: String,
     val authorUserId: String,
     val authorDisplayName: String,
+    val simulated: Boolean = false,
 )
 
 private const val DEFAULT_LIMIT = 50
@@ -626,6 +644,7 @@ private fun ReviewInsight.toResponse(names: Map<String, String>) =
 
 private fun Reply.toResponse() =
     ReplyResponse(
+        simulated = simulated,
         id = id.toString(),
         body = body,
         source = source,

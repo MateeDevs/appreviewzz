@@ -17,6 +17,19 @@ import kotlin.time.Instant
 
 class TeamsCardsTest :
     FunSpec({
+        test("simulovaná odpověď je označená a karta ztratí formulář") {
+            val original = notification().copy(simulatedReplies = true)
+            TeamsCards.review(original).render() shouldContain "Testovací režim"
+            val result =
+                TeamsCards
+                    .replied(
+                        ReplyRendering(original, "Test", "Tadeáš", Instant.parse("2026-11-03T12:00:00Z"), simulated = true),
+                    ).render()
+            result shouldContain "do storu neodesláno"
+            result shouldNotContain "Input.Text"
+            result shouldNotContain "Action.Submit"
+        }
+
         test("štítky z rozboru jsou v kartě, naléhavost s vykřičníkem") {
             val card =
                 TeamsCards.review(

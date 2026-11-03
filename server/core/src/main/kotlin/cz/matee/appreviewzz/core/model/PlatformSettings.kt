@@ -94,6 +94,7 @@ class PlatformSettingException(
 ) : RuntimeException(message)
 
 object PlatformSettings {
+    const val REPLY_SIMULATION = "replies.simulation_enabled"
     const val SECTION_INGEST = "Stahování recenzí"
     const val SECTION_AI = "AI návrhy odpovědí a rozbory"
     const val SECTION_ANALYSIS = "Rozbory recenzí"
@@ -151,6 +152,18 @@ object PlatformSettings {
 
     val ALL: List<PlatformSettingDefinition> =
         listOf(
+            PlatformSettingDefinition(
+                key = REPLY_SIMULATION,
+                type = PlatformSettingType.BOOL,
+                section = "Testování odpovědí",
+                label = "Odpovědi ukládat pouze u nás",
+                help =
+                    "Pouze staging. Slack, Teams, konzole i automatická poděkování uloží testovací odpověď " +
+                        "bez odeslání do Google Play nebo App Store. Změna platí ihned pro nové odpovědi; " +
+                        "již testované odpovědi zůstanou testovací i po vypnutí. " +
+                        "Při volbě ne se nové odpovědi skutečně publikují do storů.",
+                default = "true",
+            ),
             PlatformSettingDefinition(
                 key = INGEST_DEFAULT_INTERVAL,
                 type = PlatformSettingType.INT,

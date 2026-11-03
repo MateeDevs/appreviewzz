@@ -279,6 +279,7 @@ const AUDIT_ACTIONS: Record<string, string> = {
   'channel.deliveries_changed': 'změna obsahu kanálu',
   'review.state_changed': 'změna stavu recenze',
   'reply.published': 'publikování odpovědi',
+  'reply.simulated': 'testovací uložení odpovědi bez publikace',
   'reply_template.created': 'přidání šablony odpovědi',
   'reply_template.updated': 'úprava šablony odpovědi',
   'reply_template.deleted': 'smazání šablony odpovědi',

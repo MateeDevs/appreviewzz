@@ -101,8 +101,10 @@ Každá stagingová zpráva, přehled, alert, ověřovací zpráva i chyba ve vl
 **oddělovačem a „⚠️ ALPHA · Zpráva z testovacího prostředí staging.“** Označení zůstává
 po úpravě zprávy na odpovězenou a je i v mobilním notifikačním textu. Produkce patičku
 ALPHA nemá. Lokální vývoj je označený ALPHA s dodatkem lokálního vývoje.
-ALPHA určuje prostředí systému; odpovědi se stále publikují přes store účet a klíče,
-které jsou v tomto prostředí nakonfigurované.
+ALPHA určuje prostředí systému. Staging má ve správě platformy výchozí testovací režim
+**Odpovědi ukládat pouze u nás**; při něm odpověď do storu neodejde. Po jeho vypnutí se
+nové skutečné odpovědi publikují přes nakonfigurovaný store účet. Podrobný průchod pro
+Slack i Teams: [Testování odpovědí bez publikace](testing/reply-simulation.md).
 
 OAuth používá dvě návratové URL povolené ve **stejné** appce. Každé prostředí výslovně
 posílá vlastní `redirect_uri`; podepsaný `state` je svázaný s prostředím. Stagingový
@@ -165,9 +167,9 @@ přístup smazat nedovolí. Poté lze začít znovu tlačítkem **Připojit pře
   produkční ji nemá; kliknutí skončí vždy ve frontě správného prostředí.
 - Dočasný výpadek cílového API: callback zůstane jako `slack-relay` ve frontě a worker ho
   po obnově spojení předá. Vyčerpané retry je vidět v `jobs failed` na straně příjmu.
-- Odpověď z formuláře: po kliknutí se odpověď publikuje do storu, formulář nahradí
-  potvrzení s textem a autorem. Jde o skutečnou veřejnou odpověď — pro tento test použij
-  určenou testovací recenzi a připojený klíč pro odpovědi.
+- Odpověď z formuláře: ve stagingovém testovacím režimu se uloží pouze u nás a formulář
+  nahradí výslovně označená testovací odpověď s textem a autorem. Vypnutí režimu dovoluje
+  nové skutečné publikace; tento test proveď samostatně na určené recenzi.
 
 První ověřovací zpráva potvrzuje přístup do kanálu; neověřuje oprávnění ke storu ani
 publikaci odpovědi. Tu je třeba vyzkoušet na skutečné recenzi. Nové recenze vyžadují

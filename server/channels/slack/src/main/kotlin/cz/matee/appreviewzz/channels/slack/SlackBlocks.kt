@@ -55,9 +55,13 @@ internal object SlackBlocks {
         val catalog = notification.catalog
         val text = notification.autoReply.orEmpty()
         return listOf(
-            section("*${escape(catalog[MessageKey.AUTO_REPLIED])}*"),
+            section(
+                "*${escape(catalog[if (notification.simulatedReplies) MessageKey.REPLY_SIMULATION_NOTICE else MessageKey.AUTO_REPLIED])}*",
+            ),
             plainSection(text.take(SECTION_TEXT_LIMIT).ifBlank { "—" }),
-            context(escape(catalog[MessageKey.AUTO_REPLIED_HINT])),
+            context(
+                escape(catalog[if (notification.simulatedReplies) MessageKey.REPLY_SIMULATION_NOTICE else MessageKey.AUTO_REPLIED_HINT]),
+            ),
         )
     }
 
@@ -72,7 +76,11 @@ internal object SlackBlocks {
         val author = rendering.authorDisplayName?.takeIf { it.isNotBlank() }
         val stamp =
             listOfNotNull(
-                ":white_check_mark: ${escape(catalog[MessageKey.REVIEW_PROCESSED])}",
+                if (rendering.simulated) {
+                    ":test_tube: ${escape(catalog[MessageKey.REVIEW_PROCESSED])}"
+                } else {
+                    ":white_check_mark: ${escape(catalog[MessageKey.REVIEW_PROCESSED])}"
+                },
                 author?.let { escape(it) },
                 slackDate(rendering.repliedAt.epochSeconds, notification.formattedDate()),
             ).joinToString(" · ")
@@ -80,7 +88,7 @@ internal object SlackBlocks {
         return JsonArray(
             content(notification) +
                 listOf(
-                    section("*${escape(catalog[MessageKey.YOU_REPLIED])}:*"),
+                    section("*${escape(catalog[if (rendering.simulated) MessageKey.REPLY_SIMULATION else MessageKey.YOU_REPLIED])}:*"),
                     plainSection(rendering.replyText.take(SECTION_TEXT_LIMIT).ifBlank { "—" }),
                     context(stamp),
                 ),
@@ -405,7 +413,16 @@ internal object SlackBlocks {
             }
             putJsonObject("label") {
                 put("type", "plain_text")
-                put("text", inputLabel(notification))
+                put(
+                    "text",
+                    if (notification.simulatedReplies) {
+                        notification.catalog[MessageKey.REPLY_SIMULATION_NOTICE]
+                    } else {
+                        inputLabel(
+                            notification,
+                        )
+                    },
+                )
                 put("emoji", true)
             }
         }

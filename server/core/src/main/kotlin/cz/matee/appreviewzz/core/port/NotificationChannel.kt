@@ -42,6 +42,7 @@ data class ReplyRendering(
     /** Kdo odpověď odeslal — ve Slacku jméno z workspace, v consoli jméno uživatele. */
     val authorDisplayName: String?,
     val repliedAt: Instant,
+    val simulated: Boolean = false,
 )
 
 /** Druh selhání kanálu; řídí retry stejně jako [StoreErrorKind] u storů. */

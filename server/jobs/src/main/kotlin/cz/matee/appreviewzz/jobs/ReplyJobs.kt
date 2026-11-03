@@ -47,6 +47,7 @@ data class ReplyJobData(
     val authorDisplayName: String?,
     /** Přihlášený uživatel console. U odpovědí z chatu zůstává prázdné. */
     val authorUserId: String? = null,
+    val simulated: Boolean = false,
 )
 
 /**
@@ -62,9 +63,14 @@ class ReplyJobs(
     private val retries: Int = DEFAULT_RETRIES,
     private val firstRetryDelay: Duration = DEFAULT_FIRST_RETRY_DELAY,
 ) {
-    val publishTask: OneTimeTask<ReplyJobData> =
+    val publishTask: OneTimeTask<ReplyJobData> = replyTask(PUBLISH_TASK)
+
+    /** Staré úlohy dokončí nový worker; nový formát nesmí převzít worker bez ochrany simulace. */
+    val legacyPublishTask: OneTimeTask<ReplyJobData> = replyTask(LEGACY_PUBLISH_TASK)
+
+    private fun replyTask(name: String): OneTimeTask<ReplyJobData> =
         Tasks
-            .oneTime(PUBLISH_TASK, ReplyJobData::class.java)
+            .oneTime(name, ReplyJobData::class.java)
             .onFailure(
                 FailureHandler
                     .maxRetries<ReplyJobData>(retries)
@@ -79,19 +85,24 @@ class ReplyJobs(
     fun enqueue(
         client: SchedulerClient,
         data: ReplyJobData,
-    ): Boolean =
-        client.scheduleIfNotExists(
-            publishTask.instance("${data.reviewId}:${sha256Hex(data.body).take(INSTANCE_HASH_LENGTH)}", data),
+    ): Boolean {
+        val frozen = data.copy(simulated = data.simulated || publish.simulationEnabled())
+        val id = "${data.reviewId}:${sha256Hex(data.body).take(INSTANCE_HASH_LENGTH)}"
+        // Při upgradu může stejná odpověď už čekat pod původním jménem úlohy.
+        if (client.getScheduledExecution(legacyPublishTask.instance(id, frozen)).isPresent) return false
+        return client.scheduleIfNotExists(
+            publishTask.instance(id, frozen),
             Instant.now(),
         )
+    }
 
     private fun runPublish(instance: TaskInstance<ReplyJobData>) {
         val data = instance.data
         val outcome = runBlocking { publish.publish(data.toCommand()) }
 
         when (outcome) {
-            is ReplyOutcome.Published, is ReplyOutcome.AlreadyPublished ->
-                failedJobs.resolve(PUBLISH_TASK, instance.id, clock.now())
+            is ReplyOutcome.Published, is ReplyOutcome.AlreadyPublished, is ReplyOutcome.Simulated ->
+                failedJobs.resolve(instance.taskName, instance.id, clock.now())
 
             is ReplyOutcome.Rejected -> {
                 // Chybějící klíč ani smazaná recenze se opakováním nespraví; člověk to musí
@@ -128,7 +139,7 @@ class ReplyJobs(
         val data = instance.data
         logger.warn { "Publikace odpovědi na recenzi ${data.reviewId} skončila v DLQ: $message" }
         failedJobs.record(
-            taskName = PUBLISH_TASK,
+            taskName = instance.taskName,
             taskInstance = instance.id,
             orgId = OrganizationId.parse(data.orgId),
             // Text odpovědi do DLQ nepatří — stačí, u které recenze se to stalo.
@@ -140,7 +151,8 @@ class ReplyJobs(
     }
 
     companion object {
-        const val PUBLISH_TASK = "publish-reply"
+        const val PUBLISH_TASK = "process-reply"
+        const val LEGACY_PUBLISH_TASK = "publish-reply"
 
         val DEFAULT_FIRST_RETRY_DELAY: Duration = Duration.ofSeconds(30)
         const val DEFAULT_RETRIES = 5
@@ -159,4 +171,5 @@ private fun ReplyJobData.toCommand(): ReplyCommand =
         authorExternalId = authorExternalId,
         authorDisplayName = authorDisplayName,
         authorUserId = authorUserId?.let { UserId(Uuid.parse(it)) },
+        simulated = simulated,
     )

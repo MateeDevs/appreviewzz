@@ -258,6 +258,29 @@ class ReviewRoutesTest :
             }
         }
 
+        "konzole zachytí testovací režim do úlohy a po jeho vypnutí neodešle starý testovací formulář" {
+            testApplication {
+                consoleModule(mailer, replyQueue = queue, replySimulationAvailable = true)
+                val (owner, appId) = ownerWithApp(mailer)
+                val reviewId = seedReview(SLUG, appId, "gp-simulation")
+                owner.postJson("/api/orgs/$SLUG/reviews/$reviewId/reply", """{"body":"Pouze test","simulateOnly":true}""").status shouldBe
+                    HttpStatusCode.Accepted
+                queue.queued.single().simulated shouldBe true
+            }
+        }
+
+        "testovací formulář po změně režimu nelze nevědomky odeslat do storu" {
+            testApplication {
+                consoleModule(mailer, replyQueue = queue)
+                val (owner, appId) = ownerWithApp(mailer)
+                val reviewId = seedReview(SLUG, appId, "gp-stale-simulation")
+                val denied = owner.postJson("/api/orgs/$SLUG/reviews/$reviewId/reply", """{"body":"Pouze test","simulateOnly":true}""")
+                denied.status shouldBe HttpStatusCode.BadRequest
+                denied.bodyAsText() shouldContain "Testovací režim už není zapnutý"
+                queue.queued shouldHaveSize 0
+            }
+        }
+
         "dvojklik na odeslat druhou odpověď nezaloží" {
             testApplication {
                 consoleModule(mailer, replyQueue = queue)

@@ -605,6 +605,7 @@ class ExposedReviewMessageRepository(
         conversationId: String?,
         messageId: String?,
         sentAt: Instant,
+        simulatedReplies: Boolean,
     ): Boolean =
         transaction(database) {
             ReviewMessages.update({ (ReviewMessages.orgId eq orgId) and (ReviewMessages.id eq id) }) {
@@ -613,6 +614,7 @@ class ExposedReviewMessageRepository(
                 it[providerMessageId] = messageId
                 it[error] = null
                 it[ReviewMessages.sentAt] = sentAt
+                it[ReviewMessages.simulatedReplies] = simulatedReplies
             } > 0
         }
 
@@ -688,6 +690,20 @@ class ExposedReplyRepository(
     private val database: ExposedDatabase,
     private val clock: Clock = Clock.System,
 ) : ReplyRepository {
+    override fun markSimulated(
+        orgId: OrganizationId,
+        id: ReplyId,
+    ): Boolean =
+        transaction(database) {
+            Replies.update({ (Replies.orgId eq orgId) and (Replies.id eq id) }) {
+                it[simulated] = true
+                it[status] = ReplyStatus.PUBLISHED
+                it[error] = null
+                it[publishedAt] = null
+                it[updatedAt] = clock.now()
+            } > 0
+        }
+
     override fun create(
         orgId: OrganizationId,
         reply: NewReply,
@@ -712,7 +728,10 @@ class ExposedReplyRepository(
         publishedAt: Instant,
     ): Boolean =
         transaction(database) {
-            Replies.update({ (Replies.orgId eq orgId) and (Replies.id eq id) }) {
+            Replies.update({
+                (Replies.orgId eq orgId) and (Replies.id eq id) and
+                    (Replies.simulated.isNull() or (Replies.simulated eq false))
+            }) {
                 it[status] = ReplyStatus.PUBLISHED
                 it[error] = null
                 it[Replies.publishedAt] = publishedAt
@@ -786,12 +805,14 @@ class ExposedReplyRepository(
                 authorDisplayName = reply.authorDisplayName,
                 source = reply.source,
                 status = ReplyStatus.PENDING,
+                simulated = reply.simulated,
                 error = null,
                 publishedAt = null,
                 createdAt = clock.now(),
             )
         Replies.insert {
             it[id] = created.id
+            it[simulated] = created.simulated
             it[Replies.orgId] = created.orgId
             it[reviewId] = created.reviewId
             it[body] = created.body

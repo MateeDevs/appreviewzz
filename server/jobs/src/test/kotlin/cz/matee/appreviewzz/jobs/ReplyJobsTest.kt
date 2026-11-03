@@ -16,6 +16,7 @@ import cz.matee.appreviewzz.core.model.ReplyStatus
 import cz.matee.appreviewzz.core.model.Review
 import cz.matee.appreviewzz.core.model.ReviewState
 import cz.matee.appreviewzz.core.model.SecretPayload
+import cz.matee.appreviewzz.core.model.sha256Hex
 import cz.matee.appreviewzz.core.port.ChannelTarget
 import cz.matee.appreviewzz.core.port.ConnectivityNotice
 import cz.matee.appreviewzz.core.port.NewApp
@@ -85,6 +86,7 @@ class ReplyJobsTest :
         val audit = ExposedAuditLogRepository(exposed)
 
         var storeFailure: StoreConnectorException? = null
+        var simulation = false
         val publishedToStore = CopyOnWriteArrayList<String>()
         val repliedInSlack = CopyOnWriteArrayList<ReplyRendering>()
         val failuresInSlack = CopyOnWriteArrayList<String>()
@@ -213,6 +215,7 @@ class ReplyJobsTest :
                         audit = audit,
                         replyTargets = listOf(replyTarget),
                         notificationChannels = listOf(slack),
+                        simulateReplies = { simulation },
                     ),
                 failedJobs = failedJobs,
                 retries = 1,
@@ -281,6 +284,7 @@ class ReplyJobsTest :
         beforeTest {
             TestDatabase.reset()
             storeFailure = null
+            simulation = false
             publishedToStore.clear()
             repliedInSlack.clear()
             failuresInSlack.clear()
@@ -345,6 +349,77 @@ class ReplyJobsTest :
                     repliedInSlack.single().authorDisplayName shouldBe "tadeas"
                 }
                 audit.list(app.orgId).map { it.action } shouldContainElement "reply.published"
+            } finally {
+                scheduler.stop()
+            }
+        }
+
+        test("test zůstane simulací po vypnutí režimu a startu workeru nad uloženou frontou") {
+            val app = setUpApp()
+            val observed = source.fetchReviews(StoreContext(app.gpPackageName!!, SecretPayload("test"))).single()
+            val review = reviews.upsert(app.orgId, app.id, observed, Clock.System.now(), ReviewState.NOTIFIED).review
+            val channel = channels.listByApp(app.orgId, app.id).single()
+            val message = reviewMessages.claim(app.orgId, review.id, channel.id, review.contentHash)
+            reviewMessages.markSent(app.orgId, message.id, "C0123", "1755600000.000100", Clock.System.now())
+            val client = buildSchedulerClient(database.asDataSource(), replyJobs)
+            simulation = true
+            replyFromSlack(client, review, "Test z uložené fronty") shouldBe true
+            replyFromSlack(client, review, "Test z uložené fronty") shouldBe false
+            simulation = false
+            val scheduler =
+                buildScheduler(
+                    dataSource = database.asDataSource(),
+                    jobs = ingestJobs,
+                    replyJobs = replyJobs,
+                    config = SchedulerConfig(threads = 2, pollingInterval = Duration.ofMillis(100)),
+                )
+            scheduler.start()
+            try {
+                eventually(10.seconds) {
+                    replies.listByReview(app.orgId, review.id).single().simulated shouldBe true
+                    repliedInSlack.single().simulated shouldBe true
+                }
+                publishedToStore.shouldHaveSize(0)
+                reviews.findById(app.orgId, review.id)?.state shouldBe ReviewState.NOTIFIED
+                replies.listByReview(app.orgId, review.id).single().publishedAt shouldBe null
+                audit.list(app.orgId).map { it.action } shouldContainElement "reply.simulated"
+            } finally {
+                scheduler.stop()
+            }
+        }
+
+        test("čekající stará úloha při upgradu nezaloží druhou publikaci pod novým jménem") {
+            val app = setUpApp()
+            val observed = source.fetchReviews(StoreContext(app.gpPackageName!!, SecretPayload("test"))).single()
+            val review = reviews.upsert(app.orgId, app.id, observed, Clock.System.now(), ReviewState.NOTIFIED).review
+            val data =
+                ReplyJobData(
+                    orgId = app.orgId.toString(),
+                    reviewId = review.id.toString(),
+                    channelId = null,
+                    body = "Původní úloha",
+                    source = "CONSOLE",
+                    authorExternalId = null,
+                    authorDisplayName = null,
+                )
+            val client = buildSchedulerClient(database.asDataSource(), replyJobs)
+            val id = "${review.id}:${sha256Hex(data.body).take(16)}"
+            client.scheduleIfNotExists(replyJobs.legacyPublishTask.instance(id, data), java.time.Instant.now()) shouldBe true
+            replyJobs.enqueue(client, data) shouldBe false
+            simulation = true
+            val scheduler =
+                buildScheduler(
+                    dataSource = database.asDataSource(),
+                    jobs = ingestJobs,
+                    replyJobs = replyJobs,
+                    config = SchedulerConfig(threads = 2, pollingInterval = Duration.ofMillis(100)),
+                )
+            scheduler.start()
+            try {
+                eventually(10.seconds) {
+                    replies.listByReview(app.orgId, review.id).single().simulated shouldBe true
+                }
+                publishedToStore.shouldHaveSize(0)
             } finally {
                 scheduler.stop()
             }

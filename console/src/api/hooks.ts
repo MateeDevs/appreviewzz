@@ -789,9 +789,10 @@ export function useReview(org: string, reviewId: string) {
 export function useReply(org: string) {
   const client = useQueryClient()
   return useMutation({
-    mutationFn: (input: { reviewId: string; body: string }) =>
+    mutationFn: (input: { reviewId: string; body: string; simulateOnly?: boolean }) =>
       api.post<{ queued: boolean; message: string }>(`/api/orgs/${org}/reviews/${input.reviewId}/reply`, {
         body: input.body,
+        ...(input.simulateOnly ? { simulateOnly: true } : {}),
       }),
     onSuccess: () => client.invalidateQueries({ queryKey: ['review', org] }),
   })

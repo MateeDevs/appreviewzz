@@ -61,6 +61,7 @@ fun buildScheduler(
             jobs.ingestTask,
             deliveryJobs?.deliverTask,
             replyJobs?.publishTask,
+            replyJobs?.legacyPublishTask,
             slackRelayJobs?.relayTask,
             ratingsJobs?.ratingsTask,
             analysisJobs?.analyzeTask,
@@ -98,7 +99,13 @@ fun buildSchedulerClient(
     SchedulerClient.Builder
         .create(
             AutoCommitDataSource(dataSource),
-            listOfNotNull(replyJobs.publishTask, analysisJobs?.analyzeTask, reviewHistoryJobs?.backfillTask, slackRelayJobs?.relayTask),
+            listOfNotNull(
+                replyJobs.publishTask,
+                replyJobs.legacyPublishTask,
+                analysisJobs?.analyzeTask,
+                reviewHistoryJobs?.backfillTask,
+                slackRelayJobs?.relayTask,
+            ),
         ).serializer(JsonTaskSerializer)
         .build()
 

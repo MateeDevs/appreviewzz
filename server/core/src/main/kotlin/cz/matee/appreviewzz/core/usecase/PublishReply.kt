@@ -53,6 +53,8 @@ data class ReplyCommand(
     /** Slack user ID, resp. Teams AAD ID — člověka známe jen podle chat identity. */
     val authorExternalId: String? = null,
     val authorDisplayName: String? = null,
+    /** Zachyceno při přijetí: vypnutí režimu nesmí odeslat již zařazený test. */
+    val simulated: Boolean = false,
 )
 
 /** Proč se odpověď vůbec nezkusila publikovat. Žádný z důvodů nemá smysl opakovat. */
@@ -69,6 +71,10 @@ enum class ReplyRejection {
 }
 
 sealed interface ReplyOutcome {
+    data class Simulated(
+        val reply: Reply,
+    ) : ReplyOutcome
+
     data class Published(
         val reply: Reply,
     ) : ReplyOutcome
@@ -116,9 +122,12 @@ class PublishReplyUseCase(
     replyTargets: List<ReplyTarget>,
     notificationChannels: List<NotificationChannel> = emptyList(),
     private val clock: Clock = Clock.System,
+    private val simulateReplies: () -> Boolean = { false },
 ) {
     private val targetByPlatform: Map<Platform, ReplyTarget> = replyTargets.associateBy { it.platform }
     private val channelByType: Map<ChannelType, NotificationChannel> = notificationChannels.associateBy { it.type }
+
+    fun simulationEnabled(): Boolean = simulateReplies()
 
     suspend fun publish(command: ReplyCommand): ReplyOutcome {
         val body = command.body.trim()
@@ -137,6 +146,7 @@ class PublishReplyUseCase(
         // Ořez na limit storu tady i v konektoru: tady kvůli tomu, aby se do databáze uložilo
         // přesně to, co se odeslalo.
         val text = body.take(target.replyMaxLength)
+        val simulation = command.simulated || simulationEnabled()
         val reply =
             replies.create(
                 command.orgId,
@@ -147,8 +157,33 @@ class PublishReplyUseCase(
                     authorUserId = command.authorUserId,
                     authorExternalId = command.authorExternalId,
                     authorDisplayName = command.authorDisplayName,
+                    simulated = simulation,
                 ),
             )
+        if (reply.simulated || (simulation && reply.status != ReplyStatus.PUBLISHED)) {
+            if (reply.status != ReplyStatus.PUBLISHED) {
+                check(replies.markSimulated(command.orgId, reply.id)) { "Testovací odpověď se nepodařilo uložit" }
+                audit.append(
+                    auditEntry(
+                        orgId = command.orgId,
+                        action = "reply.simulated",
+                        actorType =
+                            when {
+                                command.source == ReplySource.AUTO -> ActorType.SYSTEM
+                                command.authorUserId != null -> ActorType.USER
+                                else -> ActorType.CHAT
+                            },
+                        actorUserId = command.authorUserId,
+                        actorLabel = command.authorDisplayName ?: command.authorExternalId,
+                        targetType = "review",
+                        targetId = review.id.toString(),
+                        metadata = mapOf("platform" to review.platform.name, "source" to command.source.name),
+                    ),
+                )
+            }
+            markRepliedInChannel(app, review, command, text, simulated = true)
+            return ReplyOutcome.Simulated(reply.copy(status = ReplyStatus.PUBLISHED, simulated = true, publishedAt = null, error = null))
+        }
         if (reply.status == ReplyStatus.PUBLISHED) return ReplyOutcome.AlreadyPublished(reply)
 
         val credential =
@@ -200,6 +235,7 @@ class PublishReplyUseCase(
         review: Review,
         command: ReplyCommand,
         text: String,
+        simulated: Boolean = false,
     ) {
         withOriginChannel(app, review, command) { channel, implementation, target, message, notification ->
             implementation.markReplied(
@@ -211,6 +247,7 @@ class PublishReplyUseCase(
                         replyText = text,
                         authorDisplayName = command.authorDisplayName,
                         repliedAt = clock.now(),
+                        simulated = simulated,
                     ),
             )
             logger.debug { "Zpráva v kanálu ${channel.id} označená jako odpovězená" }

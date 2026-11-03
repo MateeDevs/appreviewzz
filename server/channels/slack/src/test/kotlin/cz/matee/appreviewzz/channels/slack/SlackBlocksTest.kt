@@ -21,6 +21,19 @@ import kotlin.time.Instant
 
 class SlackBlocksTest :
     FunSpec({
+        test("simulovaná odpověď je označená a zpráva ztratí formulář") {
+            val original = notification().copy(simulatedReplies = true)
+            SlackBlocks.review(original).render() shouldContain "Testovací režim"
+            val result =
+                SlackBlocks
+                    .replied(
+                        ReplyRendering(original, "Test", "Tadeáš", Instant.parse("2026-11-03T12:00:00Z"), simulated = true),
+                    ).render()
+            result shouldContain "do storu neodesláno"
+            result shouldNotContain "plain_text_input"
+            result shouldNotContain "submit_reply"
+        }
+
         test("štítky z rozboru jsou v kontextovém bloku a naléhavost má vykřičník") {
             val blocks =
                 SlackBlocks.review(

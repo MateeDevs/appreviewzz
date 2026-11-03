@@ -291,6 +291,7 @@ internal object ReviewRevisions : Table("review_revision") {
 }
 
 internal object ReviewMessages : Table("review_message") {
+    val simulatedReplies = bool("simulated_replies").nullable()
     val id = reviewMessageId("id")
     val orgId = organizationId()
     val reviewId = reviewId()
@@ -308,6 +309,7 @@ internal object ReviewMessages : Table("review_message") {
 }
 
 internal object Replies : Table("reply") {
+    val simulated = bool("simulated").nullable()
     val id = replyId("id")
     val orgId = organizationId()
     val reviewId = reviewId()

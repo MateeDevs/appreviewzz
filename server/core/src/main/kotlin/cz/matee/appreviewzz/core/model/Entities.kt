@@ -188,6 +188,7 @@ data class ReviewMessage(
     /** Znění recenze, kvůli kterému zpráva vznikla — editace dostane vlastní zprávu. */
     val contentHash: String,
     val createdAt: Instant,
+    val simulatedReplies: Boolean = false,
 )
 
 data class Reply(
@@ -204,6 +205,8 @@ data class Reply(
     val error: String?,
     val publishedAt: Instant?,
     val createdAt: Instant,
+    /** PUBLISHED zde znamená dokončenou simulaci; publishedAt zůstává null a store nebyl volán. */
+    val simulated: Boolean = false,
 )
 
 data class RatingSnapshot(

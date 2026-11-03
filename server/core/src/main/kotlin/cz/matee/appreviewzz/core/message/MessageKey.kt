@@ -23,6 +23,14 @@ enum class MessageKey(
     private val en: String,
 ) {
     SEND("Odeslat", "Send"),
+    REPLY_SIMULATION(
+        "Testovací odpověď – uloženo pouze v Appreviewzz, do storu neodesláno.",
+        "Test reply – saved only in Appreviewzz, not sent to the store.",
+    ),
+    REPLY_SIMULATION_NOTICE(
+        "Testovací režim: odpověď se uloží pouze v Appreviewzz a neodešle se do storu.",
+        "Test mode: replies are saved only in Appreviewzz and are not sent to the store.",
+    ),
     SUGGESTED_REPLY_LABEL("Návrh odpovědi (max {limit} znaků)", "Suggested reply (max {limit} characters)"),
     ALREADY_REPLIED_WARNING_ANDROID(
         "V minulosti jste již odpověděli. Další odpověď bude přidána do konverzace.",

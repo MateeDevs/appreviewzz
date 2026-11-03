@@ -263,6 +263,24 @@ class RepositoryTest :
             replies.listByStatus(org.id, ReplyStatus.PUBLISHED) shouldHaveSize 1
         }
 
+        test("simulovaná odpověď se zachová při deduplikaci a nejde označit v cizí organizaci") {
+            val org = organizations.create("Matee", "matee")
+            val other = organizations.create("Jiná", "other")
+            val app = apps.create(org.id, NewApp(name = "IsleGrow", gpPackageName = "cz.matee.islegrow"))
+            val review = reviews.upsert(org.id, app.id, Fixtures.observedReview(), Fixtures.seenAt, ReviewState.NOTIFIED).review
+            val draft = NewReply(reviewId = review.id, body = "Test bez publikace", source = ReplySource.SLACK, simulated = true)
+            val reply = replies.create(org.id, draft)
+            replies.markSimulated(other.id, reply.id) shouldBe false
+            replies.markSimulated(org.id, reply.id) shouldBe true
+            replies.markPublished(org.id, reply.id, Fixtures.seenAt) shouldBe false
+            replies.findById(other.id, reply.id) shouldBe null
+            val stored = replies.create(org.id, draft.copy(simulated = false))
+            stored.id shouldBe reply.id
+            stored.simulated shouldBe true
+            stored.publishedAt shouldBe null
+            stored.status shouldBe ReplyStatus.PUBLISHED
+        }
+
         test("denní snapshot hodnocení se přepisuje, ne duplikuje") {
             val org = organizations.create("Matee", "matee")
             val app = apps.create(org.id, NewApp(name = "IsleGrow", gpPackageName = "cz.matee.islegrow"))

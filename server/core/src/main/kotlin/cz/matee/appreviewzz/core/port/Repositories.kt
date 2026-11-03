@@ -781,6 +781,7 @@ interface ReviewMessageRepository {
         conversationId: String?,
         messageId: String?,
         sentAt: Instant,
+        simulatedReplies: Boolean = false,
     ): Boolean
 
     fun markFailed(
@@ -816,9 +817,16 @@ data class NewReply(
     val authorUserId: UserId? = null,
     val authorExternalId: String? = null,
     val authorDisplayName: String? = null,
+    val simulated: Boolean = false,
 )
 
 interface ReplyRepository {
+    /** Terminální lokální výsledek. Příznak se nikdy nesmí změnit zpět na skutečnou publikaci. */
+    fun markSimulated(
+        orgId: OrganizationId,
+        id: ReplyId,
+    ): Boolean
+
     /**
      * Založí odpověď ve stavu PENDING. Když stejný text pro tutéž recenzi už existuje
      * (dvojklik na „Odeslat"), vrátí původní záznam místo druhého zápisu.

@@ -46,6 +46,11 @@ internal object TeamsCards {
         card(
             buildJsonArray {
                 content(notification).forEach { add(it) }
+                if (notification.simulatedReplies) {
+                    add(
+                        textBlock(notification.catalog[MessageKey.REPLY_SIMULATION_NOTICE], weight = "Bolder"),
+                    )
+                }
                 add(replyContainer(notification))
             },
             actions = buildJsonArray { add(submitAction(notification)) },
@@ -62,14 +67,24 @@ internal object TeamsCards {
                 content(notification).forEach { add(it) }
                 addJsonObject {
                     put("type", "Container")
-                    put("style", "good")
+                    put("style", if (notification.simulatedReplies) "warning" else "good")
                     put("separator", true)
                     putJsonArray("items") {
-                        add(textBlock("**${catalog[MessageKey.AUTO_REPLIED]}**"))
+                        add(
+                            textBlock(
+                                "**${catalog[if (notification.simulatedReplies) MessageKey.REPLY_SIMULATION_NOTICE else MessageKey.AUTO_REPLIED]}**",
+                            ),
+                        )
                         add(textBlock(notification.autoReply.orEmpty()))
                     }
                 }
-                add(textBlock(catalog[MessageKey.AUTO_REPLIED_HINT], subtle = true, size = "Small"))
+                add(
+                    textBlock(
+                        catalog[if (notification.simulatedReplies) MessageKey.REPLY_SIMULATION_NOTICE else MessageKey.AUTO_REPLIED_HINT],
+                        subtle = true,
+                        size = "Small",
+                    ),
+                )
             },
         )
     }
@@ -89,11 +104,16 @@ internal object TeamsCards {
                 content(notification).forEach { add(it) }
                 addJsonObject {
                     put("type", "Container")
-                    put("style", "good")
+                    put("style", if (rendering.simulated) "warning" else "good")
                     put("separator", true)
                     put("spacing", "Medium")
                     putJsonArray("items") {
-                        add(textBlock("✅ **${catalog[MessageKey.YOU_REPLIED]}**", weight = "Bolder"))
+                        add(
+                            textBlock(
+                                "${if (rendering.simulated) "🧪" else "✅"} **${catalog[if (rendering.simulated) MessageKey.REPLY_SIMULATION else MessageKey.YOU_REPLIED]}**",
+                                weight = "Bolder",
+                            ),
+                        )
                         add(textBlock(rendering.replyText.take(TEXT_LIMIT).ifBlank { "—" }))
                         if (stamp.isNotBlank()) add(textBlock(stamp, subtle = true, size = "Small"))
                     }
