@@ -13,7 +13,10 @@ import cz.matee.appreviewzz.core.port.ConnectivityNotice
 import cz.matee.appreviewzz.core.port.NotificationChannel
 import cz.matee.appreviewzz.core.port.PostedMessage
 import cz.matee.appreviewzz.core.port.ReplyRendering
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
@@ -24,6 +27,8 @@ import kotlinx.serialization.json.putJsonObject
  */
 class SlackNotificationChannel(
     private val api: SlackApi,
+    private val environment: SlackEnvironment = SlackEnvironment.PROD,
+    private val routing: SlackMessageRouting? = null,
 ) : NotificationChannel {
     override val type: ChannelType = ChannelType.SLACK
 
@@ -34,8 +39,14 @@ class SlackNotificationChannel(
         api.postMessage(
             token = botToken(target),
             channel = target.conversationId,
-            blocks = SlackBlocks.review(notification),
-            fallbackText = fallbackText(notification),
+            blocks =
+                decorate(
+                    SlackBlocks.review(
+                        notification,
+                        routing?.issue(environment, notification.review.orgId.toString(), notification.review.id.toString()),
+                    ),
+                ),
+            fallbackText = decorateText(fallbackText(notification)),
             metadata = metadata(notification),
         )
 
@@ -48,8 +59,8 @@ class SlackNotificationChannel(
             token = botToken(target),
             channel = message.conversationId,
             ts = message.messageId,
-            blocks = SlackBlocks.replied(rendering),
-            fallbackText = fallbackText(rendering.notification),
+            blocks = decorate(SlackBlocks.replied(rendering)),
+            fallbackText = decorateText(fallbackText(rendering.notification)),
         )
     }
 
@@ -61,8 +72,8 @@ class SlackNotificationChannel(
         return api.postMessage(
             token = botToken(target),
             channel = target.conversationId,
-            blocks = SlackBlocks.connectivityCheck(catalog, notice.appName),
-            fallbackText = catalog[MessageKey.CONNECTION_OK_TITLE],
+            blocks = decorate(SlackBlocks.connectivityCheck(catalog, notice.appName)),
+            fallbackText = decorateText(catalog[MessageKey.CONNECTION_OK_TITLE]),
         )
     }
 
@@ -73,8 +84,8 @@ class SlackNotificationChannel(
         api.postMessage(
             token = botToken(target),
             channel = target.conversationId,
-            blocks = SlackBlocks.ratingsDigest(digest),
-            fallbackText = digest.fallbackText(),
+            blocks = decorate(SlackBlocks.ratingsDigest(digest)),
+            fallbackText = decorateText(digest.fallbackText()),
         )
 
     override suspend fun postAnalysisDigest(
@@ -84,8 +95,8 @@ class SlackNotificationChannel(
         api.postMessage(
             token = botToken(target),
             channel = target.conversationId,
-            blocks = SlackBlocks.analysisDigest(digest),
-            fallbackText = digest.fallbackText(),
+            blocks = decorate(SlackBlocks.analysisDigest(digest)),
+            fallbackText = decorateText(digest.fallbackText()),
         )
 
     override suspend fun postAnalysisAlert(
@@ -95,8 +106,8 @@ class SlackNotificationChannel(
         api.postMessage(
             token = botToken(target),
             channel = target.conversationId,
-            blocks = SlackBlocks.analysisAlert(alert),
-            fallbackText = alert.fallbackText(),
+            blocks = decorate(SlackBlocks.analysisAlert(alert)),
+            fallbackText = decorateText(alert.fallbackText()),
         )
 
     override suspend fun reportFailure(
@@ -108,11 +119,48 @@ class SlackNotificationChannel(
         api.postMessage(
             token = botToken(target),
             channel = message.conversationId,
-            blocks = SlackBlocks.failure(notification, error),
-            fallbackText = ":warning: ${notification.catalog[MessageKey.REPLY_FAILED_TITLE]}: $error",
+            blocks = decorate(SlackBlocks.failure(notification, error)),
+            fallbackText = decorateText(":warning: ${notification.catalog[MessageKey.REPLY_FAILED_TITLE]}: $error"),
             // Do vlákna pod původní zprávou: ta zůstane i s formulářem, takže jde zkusit znovu.
             threadTs = message.messageId,
         )
+    }
+
+    private val alphaNotice: String? get() =
+        when (environment) {
+            SlackEnvironment.PROD -> null
+            SlackEnvironment.STAGING -> "⚠️ ALPHA · Zpráva z testovacího prostředí staging."
+            SlackEnvironment.LOCAL -> "⚠️ ALPHA · Zpráva z lokálního vývoje."
+        }
+
+    private fun decorate(blocks: JsonArray): JsonArray {
+        val notice = alphaNotice ?: return blocks
+        return JsonArray(
+            blocks +
+                listOf(
+                    buildJsonObject { put("type", "divider") },
+                    buildJsonObject {
+                        put("type", "context")
+                        put(
+                            "elements",
+                            buildJsonArray {
+                                add(
+                                    buildJsonObject {
+                                        put("type", "plain_text")
+                                        put("text", notice)
+                                    },
+                                )
+                            },
+                        )
+                    },
+                ),
+        )
+    }
+
+    private fun decorateText(text: String): String {
+        val notice = alphaNotice ?: return text
+        val suffix = "\n\n—\n$notice"
+        return text.take(3_000 - suffix.length) + suffix
     }
 
     /**
@@ -141,6 +189,7 @@ class SlackNotificationChannel(
                 put("app_id", notification.review.appId.toString())
                 put("review_id", notification.review.id.toString())
                 put("platform", notification.platform.name)
+                put("environment", environment.wireName)
             }
         }
 

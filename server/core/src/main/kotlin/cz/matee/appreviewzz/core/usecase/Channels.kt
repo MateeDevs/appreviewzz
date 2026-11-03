@@ -25,6 +25,7 @@ import cz.matee.appreviewzz.core.port.NotificationChannel
 import cz.matee.appreviewzz.core.port.SecretResolver
 import cz.matee.appreviewzz.core.port.auditEntry
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlin.time.Clock
 
 private val logger = KotlinLogging.logger {}
 
@@ -65,6 +66,7 @@ class ChannelService(
     private val secrets: SecretResolver,
     private val implementations: List<NotificationChannel>,
     private val audit: AuditLogRepository,
+    private val clock: Clock = Clock.System,
 ) {
     fun list(
         orgId: OrganizationId,
@@ -77,19 +79,7 @@ class ChannelService(
         draft: ChannelDraft,
     ): Channel {
         requireRole(actor, OrgRole.ADMIN)
-        val app = app(organization.id, draft.appId)
-        val meta =
-            credentials.findMeta(organization.id, draft.credentialId)
-                ?: throw ConsoleException(ConsoleFailure.NOT_FOUND, "Taková instalace tu není")
-
-        val expected = credentialTypeFor(draft.type)
-        if (meta.type != expected) {
-            throw ConsoleException(
-                ConsoleFailure.INVALID_INPUT,
-                "Kanál typu ${draft.type.name} potřebuje instalaci ${expected.name}, ne ${meta.type.name}",
-            )
-        }
-        requireTargetRef(draft.type, draft.targetRef)
+        val app = validateDraft(organization, draft)
 
         val channel =
             channels.create(
@@ -99,7 +89,7 @@ class ChannelService(
                     type = draft.type,
                     targetRef = draft.targetRef.trim(),
                     targetLabel = draft.label?.trim()?.takeIf { it.isNotEmpty() },
-                    credentialId = meta.id,
+                    credentialId = draft.credentialId,
                     // Jazyk se dědí z appky: jeden klient může mít český tým na jedné a anglický na druhé.
                     locale = draft.locale?.let { AppInputs.locale(it, "locale") } ?: app.locale,
                     deliverReviews = draft.deliverReviews,
@@ -116,6 +106,62 @@ class ChannelService(
         )
         logger.info { "Kanál ${channel.id} (${channel.targetRef}) připojený k aplikaci ${app.id}" }
         return channel
+    }
+
+    /** Pilot: potvrzení je součást připojení. Neúspěšný pokus nezaloží aktivní kanál. */
+    suspend fun connectChecked(
+        organization: Organization,
+        actor: OrgActor,
+        draft: ChannelDraft,
+    ): Channel {
+        requireRole(actor, OrgRole.ADMIN)
+        val app = validateDraft(organization, draft)
+        val existing =
+            channels
+                .listByApp(organization.id, app.id)
+                .firstOrNull { it.type == draft.type && it.targetRef == draft.targetRef.trim() }
+        if (existing != null && existing.credentialId != draft.credentialId) {
+            throw ConsoleException(ConsoleFailure.INVALID_INPUT, "Kanál už je připojený přes jinou instalaci. Nejprve ho odpojte.")
+        }
+        val implementation =
+            implementations.firstOrNull { it.type == draft.type }
+                ?: throw ConsoleException(ConsoleFailure.INVALID_INPUT, "Tento typ kanálu není dostupný")
+        try {
+            implementation.postConnectivityCheck(
+                ChannelTarget(draft.targetRef.trim(), secrets.resolve(organization.id, draft.credentialId)),
+                ConnectivityNotice(appName = app.name, locale = existing?.locale ?: app.locale),
+            )
+        } catch (error: ChannelException) {
+            existing?.let { channels.recordCheck(organization.id, it.id, clock.now(), error.message ?: "Připojení selhalo") }
+            throw ConsoleException(ConsoleFailure.INVALID_INPUT, "Připojení se nepodařilo ověřit: ${hintFor(error, draft.type)}")
+        }
+        val channel = existing ?: add(organization, actor, draft)
+        if (!channel.enabled) setEnabled(organization, actor, channel.id, true)
+        if (!channel.deliverReviews) setDeliveries(organization, actor, channel.id, true, null, null)
+        val checkedAt = clock.now()
+        channels.recordCheck(organization.id, channel.id, checkedAt, null)
+        return channel.copy(enabled = true, deliverReviews = true, lastCheckedAt = checkedAt, lastCheckError = null)
+    }
+
+    private fun validateDraft(
+        organization: Organization,
+        draft: ChannelDraft,
+    ): App {
+        val app = app(organization.id, draft.appId)
+        val meta =
+            credentials.findMeta(organization.id, draft.credentialId)
+                ?: throw ConsoleException(ConsoleFailure.NOT_FOUND, "Taková instalace tu není")
+
+        val expected = credentialTypeFor(draft.type)
+        if (meta.type != expected) {
+            throw ConsoleException(
+                ConsoleFailure.INVALID_INPUT,
+                "Kanál typu ${draft.type.name} potřebuje instalaci ${expected.name}, ne ${meta.type.name}",
+            )
+        }
+        requireTargetRef(draft.type, draft.targetRef)
+
+        return app
     }
 
     fun setEnabled(
@@ -242,6 +288,8 @@ class ChannelService(
                                 hint = hintFor(error, channel.type),
                             )
                         }
+                }.also { check ->
+                    channels.recordCheck(organization.id, channel.id, clock.now(), if (check.ok) null else check.error ?: "Ověření selhalo")
                 }
             }
 
@@ -336,7 +384,7 @@ fun hintFor(
 
         ChannelErrorKind.NOT_FOUND ->
             when (type) {
-                ChannelType.SLACK -> "kanál neexistuje, nebo v něm bot není — pozvi ho přes /invite @appreviewzz"
+                ChannelType.SLACK -> "kanál neexistuje, nebo v něm bot není — pozvi ho přes /invite @appreviewz"
                 ChannelType.TEAMS -> "kanál neexistuje, nebo v týmu není naše aplikace — přidej ji v Teams přes 'Aplikace'"
             }
 

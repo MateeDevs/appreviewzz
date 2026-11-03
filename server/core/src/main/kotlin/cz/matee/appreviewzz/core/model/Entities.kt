@@ -140,6 +140,9 @@ data class Channel(
     /** Týdenní rozbory a alerty na výkyv (F8) — třetí druh zprávy vedle recenzí a hodnocení. */
     val deliverAnalyses: Boolean = true,
     val enabled: Boolean,
+    /** Poslední zkušební zpráva; není to průběžný healthcheck. */
+    val lastCheckedAt: Instant? = null,
+    val lastCheckError: String? = null,
 )
 
 /**

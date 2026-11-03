@@ -329,7 +329,7 @@ export function OnboardingPage() {
             ) : null}
             {step === 'extras' && app ? (
               <div className="stack">
-                <details className="optional activation-optional">
+                <details className="optional activation-optional" open={params.has('slack')}>
                   <summary>
                     <strong>Slack a Microsoft Teams</strong>
                     <span>Recenze přímo tam, kde se potkává váš tým</span>

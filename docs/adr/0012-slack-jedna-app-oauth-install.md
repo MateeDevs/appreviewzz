@@ -48,3 +48,19 @@ rovnou podle jejich požadavků — minimální scopes, OAuth install flow, žá
 - Vyšší scope `chat:write.public` (psaní do veřejného kanálu bez pozvání bota) je vědomá
   výměna: bez něj je první krok onboardingu „napiš `/invite`" a klienti na něm zůstávají viset.
   U privátních kanálů pozvání bota potřeba je a runbook to říká.
+
+## Doplnění — jedna appka i pro prostředí
+
+Staging a produkce sdílejí Slack App `appreviewz`. Jednotlivá prostředí mají oddělená data
+v databázi a vaultu, ale společné OAuth údaje a signing secret appky. OAuth návratové URL
+jsou dvě, interactivity Request URL jedna: `https://console.appreviewzz.com/webhooks/slack/interactivity`.
+Produkční API a worker slouží jako společný příjem už během stagingového pilotu.
+Nové zprávy nesou podepsanou hodnotu tlačítka
+s prostředím, organizací a recenzí; společný příjem z ní určí cíl a vzdálený callback
+předá přes trvalou úlohu `slack-relay`. Relay endpoint ověřuje doménově oddělený HMAC,
+čerstvý timestamp, cílové prostředí a vazbu zprávy v DB. Znovu nic nepřeposílá.
+
+Stagingové zprávy včetně aktualizací a chyb končí oddělovačem a upozorněním ALPHA.
+Text upozornění nemá vliv na routing. OAuth state je svázaný s prostředím, aby společný
+signing secret neumožnil záměnu databází při instalaci. Podrobná konfigurace a pilotní
+ověření jsou v [návodu Slack App](../slack-app.md).

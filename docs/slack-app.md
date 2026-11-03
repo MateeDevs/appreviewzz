@@ -1,114 +1,207 @@
-# Slack App — založení, oprávnění a připojení kanálu
+# Slack App — pilotní připojení
 
-Návod platí pro dvě situace a liší se jen posledním krokem:
+Pilot i produkce používají **jednu Slack App `appreviewz`** s OAuth. Klient **nevytváří
+bota, nekopíruje token ani nehledá ID veřejného kanálu**. Publikaci do Marketplace tato příprava nezahrnuje.
 
-- **Jeden workspace** (self-host, a do konce F5 i náš provoz): appku si nainstaluješ přímo
-  z api.slack.com a token vložíš příkazem `slack connect`. OAuth flow ani veřejný install
-  odkaz nepotřebuješ.
-- **Víc workspaců** (po schválení v App Directory): klient dostane instalační odkaz
-  a appku si nainstaluje sám.
+## 1. Jednorázové nastavení provozovatelem
 
-Nastavení appky je v obou případech stejné, takže se přechodem z prvního na druhé nic
-nepřepisuje — přibude jen `SLACK_CLIENT_ID`/`SLACK_CLIENT_SECRET`.
+Potřebuješ Slack workspace pro vývoj appky a veřejné HTTPS API. API a worker musí běžet
+nad stejnou databází a se stejným přístupem k vaultu. Samotné API přijme odpověď ze Slacku,
+worker ji publikuje do storu.
 
-## 1. Založení appky
+Pilot poběží na **https://console.staging.appreviewzz.com** — zde jsou konzole i API.
+Doména `https://staging.appreviewzz.com` je staging marketingového webu; Slack callbacky
+na ni nesměřují. Rozdělení odpovídá [konfiguraci nasazení](../deploy/coolify/README.md).
+Společný příjem interakcí má od začátku stálou produkční URL
+**https://console.appreviewzz.com/webhooks/slack/interactivity**. Produkční API a worker
+proto musí mít nasazený routing a běžet už během stagingového pilotu.
 
-1. <https://api.slack.com/apps> → **Create New App** → *From scratch*.
-2. **OAuth & Permissions → Bot Token Scopes** — jen tyhle tři:
-
-   | Scope | K čemu |
-   |---|---|
-   | `chat:write` | poslat zprávu s recenzí, přepsat ji po odeslání odpovědi |
-   | `chat:write.public` | psát do veřejného kanálu, aniž by klient musel bota zvát |
-   | `channels:read` | výběr kanálu při onboardingu (console, F3) |
-
-   **Žádné user tokeny a žádný `channels:history`.** Stav „✅ odpovězeno" skládáme z vlastních
-   dat, původní zprávu ze Slacku nečteme — a scope navíc je v App Directory otázka navíc.
-3. **OAuth & Permissions → Redirect URLs**: `https://<PUBLIC_BASE_URL>/slack/oauth/callback`.
-   Potřeba až pro instalaci do cizích workspaců; při jednom workspace tenhle krok přeskoč.
-4. **Interactivity & Shortcuts** → zapnout, **Request URL**:
-   `https://<PUBLIC_BASE_URL>/webhooks/slack/interactivity`.
-   Slack čeká na potvrzení do tří sekund; endpoint proto odpověď jen zařadí do fronty.
-5. **Basic Information** → z *App Credentials* opsat `Client ID`, `Client Secret` a
-   `Signing Secret`.
-
-## 2. Konfigurace aplikace
+Hotový [manifest společné appky](../deploy/slack/manifest.json) můžeš rovnou vložit
+do Slacku. Znovu ho vygeneruješ tímto příkazem:
 
 ```bash
-SLACK_SIGNING_SECRET=…    # povinné: bez něj se interactivity endpoint vůbec nezaregistruje
-PUBLIC_BASE_URL=https://appreviewzz.example.com
-SLACK_CLIENT_ID=…         # jen pro „Add to Slack" do cizích workspaců
-SLACK_CLIENT_SECRET=…
+node deploy/slack/render-manifest.mjs > /tmp/appreviewz-slack.json
 ```
 
-**Interactivity URL musí být HTTPS na standardním portu** — na `https://…:8080` Slack tlačítko
-*Odeslat* nepošle. Tohle platí i pro jediný vlastní workspace.
+1. Na <https://api.slack.com/apps> zvol **Create New App → From a manifest**, vyber svůj
+   vývojový workspace a vlož JSON z vygenerovaného souboru.
+2. Manifest nastaví bot oprávnění `chat:write`, `chat:write.public`, `channels:read`, OAuth
+   callback a interaktivitu. Pro existující appku lze tytéž hodnoty nastavit ručně:
+   - Redirect URL pro staging: `https://console.staging.appreviewzz.com/slack/oauth/callback`
+   - Redirect URL pro produkci: `https://console.appreviewzz.com/slack/oauth/callback`
+   - **Jedna stálá** Interactivity Request URL: `https://console.appreviewzz.com/webhooks/slack/interactivity`
+   - App i bot se jmenují `appreviewz`. Pro produkci nezakládej druhou appku.
+3. V **Basic Information → App Credentials** zkopíruj Client ID, Client Secret a Signing
+   Secret do **Coolify → projekt Appreviewzz → příslušné prostředí → Docker Compose resource
+   → Environment Variables**. Client ID vlož jako `SLACK_CLIENT_ID`, Client Secret jako
+   `SLACK_CLIENT_SECRET` a Signing Secret jako `SLACK_SIGNING_SECRET`. Stejné tři hodnoty
+   ulož u stagingového i produkčního resource. Compose předává signing secret API i workeru;
+   OAuth údaje používá API. Přidej i relay adresy z bloku níže. Hodnoty patří do runtime
+   prostředí, po uložení se projeví až po novém nasazení / vytvoření kontejnerů.
+   Manifest žádné tajemství neobsahuje.
+4. V **Manage Distribution → Share Your App with Other Workspaces** dokonči checklist a
+   zapni **Activate Public Distribution**. Jde o distribuci pilotu instalačním odkazem;
+   do Marketplace nic neposílej. Pro pilot v původním vývojovém workspace tento krok není
+   potřeba, pro ostatní workspacy ano.
 
-Signing secret je app-level, tedy **jeden pro všechny klienty** — tím padá dnešní stav, kdy
-má každý klient v n8n vlastní HMAC secret nalepený v uzlu.
-
-## 3a. Instalace do jednoho workspace (self-host, náš provoz do konce F5)
-
-V appce **Install App → Install to Workspace**, zkopíruj *Bot User OAuth Token* (`xoxb-…`) a:
-
-```bash
-docker compose exec api appreviewzz slack connect --org islegrow --token xoxb-…
+```dotenv
+SLACK_SIGNING_SECRET=...
+SLACK_CLIENT_ID=...
+SLACK_CLIENT_SECRET=...
+APPREVIEWZZ_ENV=staging
+PUBLIC_BASE_URL=https://console.staging.appreviewzz.com
+CONSOLE_BASE_URL=https://console.staging.appreviewzz.com
+SLACK_RELAY_STAGING_BASE_URL=https://console.staging.appreviewzz.com
+SLACK_RELAY_PROD_BASE_URL=https://console.appreviewzz.com
 ```
 
-Příkaz token rovnou ověří proti Slacku (`auth.test`), doplní název workspace i schválené
-scopes a uloží ho **zašifrovaný ve vaultu** jako credential typu `SLACK_INSTALL` — tedy přesně
-to, co by vzniklo po instalaci odkazem. Token se pak dá v CLI jen připojit ke kanálu, přečíst
-už ho nikdo nemůže.
+V produkci nastav `APPREVIEWZZ_ENV=prod` a obě base URL na
+`https://console.appreviewzz.com`. Relay cíle zůstávají stejné v obou prostředích.
+**Signing secret, Client ID a Client Secret patří stejné appce a jsou společné pro obě
+prostředí.** Token workspace se přesto ukládá do odděleného vaultu příslušného prostředí.
+Každé prostředí připoj přes jeho vlastní konzoli. Ve stejném Slack workspace zůstává jeden
+bot; prostředí se neodvozuje od workspace ani kanálu.
 
-Jeden workspace zvládne víc organizací: každý partner má vlastní organizaci a vlastní kanál,
-credential se do každé organizace vloží zvlášť (šifruje se klíčem té organizace). Až bude mít
-partner vlastní workspace, přibude jen nová instalace a nový kanál — data se nestěhují.
+`SLACK_SIGNING_SECRET` a oba `SLACK_RELAY_*_BASE_URL` nastav v **API i workeru**.
+Compose soubory je předávají oběma rolím. Bez workeru v prostředí společného příjmu
+zůstane předání callbacku čekat ve frontě. Bez workeru cíle se nepublikuje odpověď do storu.
+Oba relay cíle jsou pevné HTTPS originy bez cesty; nepřebírají se ze Slack payloadu.
 
-## 3b. Instalace do workspace klienta (po App Directory)
+Nový build obsahuje migraci `V28__channel_connectivity_check.sql` pro uložení výsledku
+zkoušky; spouští se standardním mechanismem migrací aplikace. Po změně konfigurace
+restartuj API a worker. Ověř jejich healthchecky. AI je volitelná;
+bez ní jsou recenze doručené s prázdným polem pro odpověď. Klíče ke storu pro odpovídání
+jsou samostatné připojení v Appreviewzz.
+
+Oprávnění na historii zpráv ani user tokeny nepotřebujeme. Aktuální nastavení token rotation
+v manifestu je vypnuté; implementace neobnovuje rotující OAuth tokeny.
+
+Distribuci odkazem a pravidla správce workspace popisuje
+[Slack dokumentace](https://docs.slack.dev/app-management/distribution/).
+
+## Společný příjem callbacků a oddělení prostředí
+
+Slack posílá všechny interakce na produkční URL, včetně stagingového pilotu. Požadavek projde ověřením
+originálního Slack podpisu. Tlačítko každé nové recenze má podepsanou hodnotu obsahující
+prostředí, organizaci a recenzi. Viditelný štítek ALPHA se pro směrování nepoužívá.
+Produkční zprávy se zpracují místně; stagingové se po uložení do fronty předají staging API.
+Jde o předání mezi servery přes podepsaný relay, nikoli HTTP přesměrování Slack požadavku.
+
+- **Místní zpráva:** podle `channel + ts` se dohledá v místní DB, porovná se organizace
+  a recenze z podepsané hodnoty a odpověď se zařadí do místní publikační fronty.
+- **Zpráva z druhého prostředí:** normalizovaná odpověď se uloží do úlohy `slack-relay`.
+  Slack dostane potvrzení po uložení do DB, bez čekání na druhé prostředí. Worker ji
+  předá na `/webhooks/slack/relay` cílového API s vlastním časově omezeným HMAC podpisem.
+  Cíl znovu ověří prostředí a vazbu na zprávu v DB a založí úlohu pro publikaci.
+- Cíl relay už nic nepřeposílá. Chybná konfigurace nevytvoří smyčku. Přenos má retry
+  a DLQ; opakované doručení nevytvoří další publikaci stejného textu. Do fronty se neukládá
+  původní Slack payload s tajným `response_url`, pouze pole potřebná pro odpověď.
+
+Každá stagingová zpráva, přehled, alert, ověřovací zpráva i chyba ve vlákně končí
+**oddělovačem a „⚠️ ALPHA · Zpráva z testovacího prostředí staging.“** Označení zůstává
+po úpravě zprávy na odpovězenou a je i v mobilním notifikačním textu. Produkce patičku
+ALPHA nemá. Lokální vývoj je označený ALPHA s dodatkem lokálního vývoje.
+ALPHA určuje prostředí systému; odpovědi se stále publikují přes store účet a klíče,
+které jsou v tomto prostředí nakonfigurované.
+
+OAuth používá dvě návratové URL povolené ve **stejné** appce. Každé prostředí výslovně
+posílá vlastní `redirect_uri`; podepsaný `state` je svázaný s prostředím. Stagingový
+instalační odkaz proto nelze dokončit v produkční DB se stejným signing secretem.
+Po upgradu je třeba staré instalační odkazy bez označení prostředí vygenerovat znovu.
+
+Před nastavením produkční Request URL nasaď tento routing do obou prostředí a spusť jejich
+API i workery. Výchozí manifest už používá produkční příjem; při přechodu z pilotu do
+produkce se Request URL nemění. Pro vlastní instalaci lze origin příjmu změnit prvním
+argumentem generátoru nebo proměnnou `SLACK_INGRESS_BASE_URL` při generování manifestu.
+
+Staré zprávy bez podepsané hodnoty se zpracovávají pouze v prostředí, které callback
+přijalo. Neprovádí se odhad podle textu ani přeposílání do obou prostředí. Odinstalování
+společné appky ze stejného workspace ovlivní staging i produkci.
+
+## 2. Průchod uživatele
+
+1. V Appreviewzz otevři aplikaci → **Klíče a kanály**, případně Slack v posledním kroku
+   onboardingu. Klikni na **Připojit přes Slack**.
+2. Ve Slacku vyber workspace a schval přístup. Pokud firma vyžaduje souhlas správce,
+   dokonči žádost o schválení a poté připojení znovu spusť.
+3. Automaticky se vrátíš na stejné místo. Právě připojený workspace bude vybraný.
+4. Vyber kanál podle názvu a klikni na **Připojit a ověřit kanál**. Tlačítko předem říká,
+   že odešle zkušební zprávu.
+5. V kanálu se objeví „✅ Kanál je připojený“ se jménem aplikace. V konzoli uvidíš úspěch.
+   Jazyk se přebírá z aplikace, další přepínače jsou až v úpravě kanálu. Výsledek poslední
+   zkoušky zůstává uložený i po obnovení stránky; další neúspěšná zkouška ho přepíše.
+
+Seznam zobrazuje veřejné nearchivované kanály. Ve větším workspace použij hledání mezi
+načtenými kanály a **Načíst další kanály**. Pro privátní kanál zvol **Privátní kanál / zadat
+ID**, přidej Appreviewzz v kanálu přes Integrace (nebo `/invite @appreviewz`) a vlož jeho ID.
+
+Když ověřovací zpráva selže, nový kanál se neuloží jako aktivní. Oprav přístup a opakuj
+stejné tlačítko. Opakované připojení stejného kanálu nevytváří další kanál.
+Zrušený OAuth tě vrátí do konzole a dovolí začít znovu. Návrat je součástí podepsaného
+jednorázového state; instalační odkaz platí dvě hodiny. Při vypršení session se přihlas,
+cíl rozpracovaného připojení zůstává v přihlašovacím odkazu.
+
+## 3. Co otestovat v pilotu
+
+- První připojení appky `appreviewz` přes tlačítko: žádné tokeny ani ruční ID veřejného kanálu, automatický
+  návrat, jedna ověřovací zpráva po potvrzení.
+- Stejný průchod z onboardingu, i na telefonu. Po návratu je sekce integrací otevřená.
+- Zrušení přístupu na stránce Slacku a následný úspěšný pokus.
+- Druhý workspace: po OAuth je vybraný nově připojený workspace.
+- Privátní kanál bez bota: srozumitelná chyba, žádný nově aktivní kanál; po přidání bota
+  stejný pokus projde.
+- Oprávnění: po odebrání tokenu se objeví chyba a lze použít **obnovit oprávnění**.
+- Nová nebo editovaná recenze: objeví se zpráva s formulářem. Historické recenze pod
+  `notify_from` se automaticky neposílají, připojení staré appky kanál nezaplaví.
+- Stejný workspace i kanál v obou prostředích: stagingová zpráva má patičku ALPHA,
+  produkční ji nemá; kliknutí skončí vždy ve frontě správného prostředí.
+- Dočasný výpadek cílového API: callback zůstane jako `slack-relay` ve frontě a worker ho
+  po obnově spojení předá. Vyčerpané retry je vidět v `jobs failed` na straně příjmu.
+- Odpověď z formuláře: po kliknutí se odpověď publikuje do storu, formulář nahradí
+  potvrzení s textem a autorem. Jde o skutečnou veřejnou odpověď — pro tento test použij
+  určenou testovací recenzi a připojený klíč pro odpovědi.
+
+První ověřovací zpráva potvrzuje přístup do kanálu; neověřuje oprávnění ke storu ani
+publikaci odpovědi. Tu je třeba vyzkoušet na skutečné recenzi. Nové recenze vyžadují
+běžící worker a zapnutý ingest, případně spusť jednorázový ingest z konzole.
+
+## 4. Diagnostika
+
+| Projev | Co ověřit |
+|---|---|
+| Tlačítko hlásí, že připojení není nastavené | OAuth údaje, signing secret, PUBLIC_BASE_URL a restart API |
+| Slack hlásí redirect mismatch | Přesná Redirect URL v nastavení appky, včetně schématu a domény |
+| Kanály nejdou načíst | Scope `channels:read`; po přidání scope workspace připoj znovu |
+| Veřejný kanál vrací `not_in_channel` | Scope `chat:write.public`, případně přidej bota do kanálu |
+| Privátní kanál zprávu nepřijme | Přidej bota přímo do tohoto kanálu |
+| Odeslat nepublikuje odpověď | Společná Interactivity URL, stejný signing secret v obou prostředích, workery, klíč ke storu pro odpovědi |
+| Callback do druhého prostředí neodchází | `SLACK_RELAY_*_BASE_URL` v API i workeru, stav úlohy `slack-relay` a DLQ |
+| ALPHA nebo podepsané prostředí chybí | `APPREVIEWZZ_ENV` a `SLACK_SIGNING_SECRET` ve workeru, nasazení stejné verze API i workeru |
+| Recenze nepřicházejí | Zapnutá aplikace i kanál, přepínač recenzí, watermark, worker a delivery health |
+| Zpráva nemá AI návrh | Konfigurace AI v nastavení platformy a logy workeru |
 
 ```bash
+docker compose exec api appreviewzz jobs failed
+docker compose logs --tail 100 api worker
+```
+
+Doručení recenzí používá frontu s retry a evidencí chyb. Vzácný pád po přijetí zprávy
+Slackem a před uložením jejího ID do databáze může stále způsobit duplicitní zprávu;
+rezervace v databázi sama neposkytuje záruku přesně jednoho odeslání.
+
+## 5. Ruční připojení pro self-host a podporu
+
+Původní CLI zůstává funkční:
+
+```bash
+docker compose exec api appreviewzz slack connect --org islegrow --token xoxb-...
 docker compose exec api appreviewzz slack install-url --org islegrow
-```
-
-Vypíše odkaz s podepsaným `state`, který instalaci váže na organizaci (odkaz platí 2 hodiny).
-Klient ho otevře, schválí oprávnění a token workspace se uloží **zašifrovaný ve vaultu** jako
-credential typu `SLACK_INSTALL`; v consoli je z něj vidět jen název workspace.
-
-Opakovaná instalace téhož workspace přepíše payload existujícího credentialu — nevzniká druhý,
-mrtvý token.
-
-## 4. Připojení kanálu
-
-ID kanálu (`C…`) se ve Slacku vezme z *View channel details* dole, nebo z odkazu na kanál.
-
-```bash
-docker compose exec api appreviewzz credential list --org islegrow      # najdi ID instalace
+docker compose exec api appreviewzz credential list --org islegrow
 docker compose exec api appreviewzz channel add --org islegrow --app <APP_ID> \
-    --credential <ID_INSTALACE> --slack-channel C0123456789 --locale cs
-docker compose exec api appreviewzz channel list --org islegrow --app <APP_ID>
+  --credential <ID_INSTALACE> --slack-channel C0123456789 --locale cs
 docker compose exec api appreviewzz channel test --org islegrow --app <APP_ID>
 ```
 
-`channel test` pošle do kanálu krátké „✅ Kanál je připojený". Když nedorazí, řekne rovnou proč
-— odvolaný token, chybějící scope, nebo bot, kterého nikdo nepozval do privátního kanálu. Tohle
-je jediný způsob, jak to ověřit dřív, než přijde první recenze.
-
-Od téhle chvíle chodí nové recenze do kanálu s předvyplněným návrhem odpovědi; kliknutí na
-**Odeslat** publikuje odpověď do storu a zprávu přepíše na „✅ Recenze byla zpracována".
-
-## 5. Ověření, že to celé funguje
-
-```bash
-docker compose exec api appreviewzz ingest run --org islegrow --app <APP_ID>
-docker compose exec api appreviewzz review list --org islegrow --app <APP_ID> --limit 5
-docker compose exec api appreviewzz jobs failed          # co se nepovedlo ani po opakování
-```
-
-Když zpráva nedorazí, nejčastější příčiny v pořadí, v jakém je hledat:
-
-| Projev | Příčina |
-|---|---|
-| `jobs failed` hlásí `deliver-review` s `not_in_channel` | kanál je privátní — pozvi do něj bota (`/invite @appreviewzz`) |
-| `jobs failed` hlásí `deliver-review` s `invalid_auth` | instalace byla ve Slacku odvolaná, projdi krok 3 znovu |
-| Klik na Odeslat nic neudělá | Request URL v kroku 4 nesedí, nebo API neběží na HTTPS bez portu |
-| Zpráva dorazí bez návrhu odpovědi | `AI_PROVIDER`/`AI_API_KEY` nejsou nastavené (nebo AI selhala — je to v logu) |
+`slack connect` ověří bot token přes `auth.test` a uloží ho zašifrovaný do vaultu.
+CLI instalační odkaz bez návratové cesty nadále zobrazí jednoduché potvrzení instalace;
+kanál pak připojíš v konzoli nebo CLI.

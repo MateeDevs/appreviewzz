@@ -2,6 +2,7 @@ package cz.matee.appreviewzz.app
 
 import cz.matee.appreviewzz.app.cli.TestDatabase
 import cz.matee.appreviewzz.channels.slack.SlackApi
+import cz.matee.appreviewzz.channels.slack.SlackInstallStates
 import cz.matee.appreviewzz.core.model.CredentialType
 import cz.matee.appreviewzz.core.model.OrganizationId
 import cz.matee.appreviewzz.core.model.Platform
@@ -54,7 +55,7 @@ private fun installSlack(orgSlug: String): String {
             .ExposedOrganizationRepository(TestDatabase.database.exposed)
     val orgId: OrganizationId = checkNotNull(organizations.findBySlug(orgSlug)).id
     return consoleVault()
-        .store(orgId, CredentialType.SLACK_INSTALL, "Slack Matee", SecretPayload("""{"botToken":"xoxb-test"}"""), "Matee")
+        .store(orgId, CredentialType.SLACK_INSTALL, "Slack Matee", SecretPayload("""{"botToken":"xoxb-test","teamId":"T0123"}"""), "Matee")
         .id
         .toString()
 }
@@ -83,13 +84,21 @@ private fun fakeSlackApi(
     )
 }
 
-private fun consoleSlack(api: SlackApi = fakeSlackApi()): ConsoleSlack =
+private fun consoleSlack(
+    api: SlackApi = fakeSlackApi(),
+    states: SlackInstallStates? = null,
+    configured: Boolean = true,
+): ConsoleSlack =
     ConsoleSlack(
         api = api,
         vault = consoleVault(),
         audit = ExposedAuditLogRepository(TestDatabase.database.exposed),
-        installStates = null,
-        publicBaseUrl = null,
+        installStates = states,
+        publicBaseUrl = if (states != null) "https://api.test" else null,
+        oauthConfigured = configured,
+        credentials =
+            cz.matee.appreviewzz.persistence.repository
+                .ExposedCredentialRepository(TestDatabase.database.exposed),
     )
 
 /**
@@ -106,6 +115,123 @@ class ChannelRoutesTest :
             TestDatabase.reset()
             mailer = RecordingMailer()
             fakes = ConsoleFakes(FakeReviewSource(Platform.ANDROID), FakeReviewSource(Platform.IOS), FakeNotificationChannel())
+        }
+
+        "instalační odkaz podepisuje návrat jen do vlastní organizace a je pro každý pokus jiný" {
+            val states = SlackInstallStates(SecretPayload("pilot-signing-secret"))
+            testApplication {
+                consoleModule(mailer, fakes = fakes, slack = consoleSlack(states = states))
+                val (owner, appId) = ownerWithApp(mailer)
+                val path = "/$SLUG/aplikace/$appId?tab=klice"
+                val query = java.net.URLEncoder.encode(path, Charsets.UTF_8)
+                val first = owner.get("/api/orgs/$SLUG/slack/install-url?returnTo=$query")
+                first.status shouldBe HttpStatusCode.OK
+                val url = first.bodyAsText().jsonValue("url")
+                states.verify(url.substringAfter("state="))?.returnPath shouldBe path
+                val second = owner.get("/api/orgs/$SLUG/slack/install-url?returnTo=$query").bodyAsText().jsonValue("url")
+                (url != second) shouldBe true
+                listOf("https://evil.test", "//evil.test", "/other/onboarding", "/$SLUG/aplikace/%2F%2Fevil").forEach { bad ->
+                    owner
+                        .get("/api/orgs/$SLUG/slack/install-url?returnTo=${java.net.URLEncoder.encode(bad, Charsets.UTF_8)}")
+                        .status shouldBe HttpStatusCode.BadRequest
+                }
+            }
+        }
+
+        "bez OAuth údajů se nevydá nefunkční instalační odkaz" {
+            testApplication {
+                consoleModule(mailer, fakes = fakes, slack = consoleSlack(configured = false))
+                val (owner, _) = ownerWithApp(mailer)
+                val response = owner.get("/api/orgs/$SLUG/slack/install-url")
+                response.status shouldBe HttpStatusCode.BadRequest
+                response.bodyAsText() shouldContain "správce Appreviewzz"
+                response.bodyAsText() shouldNotContain "state="
+            }
+        }
+
+        "pilot připojí kanál až po úspěšné zkušební zprávě a zdědí jazyk appky" {
+            testApplication {
+                consoleModule(mailer, fakes = fakes)
+                val (owner, appId) = ownerWithApp(mailer)
+                val credentialId = installSlack(SLUG)
+                val body = """{"targetRef":"$CHANNEL_ID","credentialId":"$credentialId","label":"#reviews"}"""
+                val created = owner.postJson("/api/orgs/$SLUG/apps/$appId/channels/connect-slack", body)
+                created.status shouldBe HttpStatusCode.Created
+                created.bodyAsText() shouldContain "\"locale\":\"CS\""
+                created.bodyAsText() shouldContain "lastCheckedAt"
+                fakes.slack.notices
+                    .single()
+                    .appName shouldBe "Testovací appka"
+                val id = created.bodyAsText().jsonValue("id")
+                owner.patchJson("/api/orgs/$SLUG/apps/$appId/channels/$id", """{"enabled":false,"deliverReviews":false}""")
+                // Opakované potvrzení nebo obnovený prohlížeč nezaloží druhý kanál.
+                owner.postJson("/api/orgs/$SLUG/apps/$appId/channels/connect-slack", body).status shouldBe HttpStatusCode.Created
+                val list = owner.get("/api/orgs/$SLUG/apps/$appId/channels").bodyAsText()
+                list shouldContain "lastCheckedAt"
+                list shouldContain "\"enabled\":true"
+                list shouldContain "\"deliverReviews\":true"
+                fakes.slack.failWith = ChannelException(ChannelErrorKind.NOT_FOUND, "not_in_channel")
+                owner.postJson("/api/orgs/$SLUG/apps/$appId/channels/test", "{}")
+                owner.get("/api/orgs/$SLUG/apps/$appId/channels").bodyAsText() shouldContain "\"lastCheckError\":\"not_in_channel\""
+                kotlinx.serialization.json.Json.parseToJsonElement(list).let {
+                    (it as kotlinx.serialization.json.JsonArray).size shouldBe 1
+                }
+            }
+        }
+
+        "pilot při odmítnutí Slackem neuloží aktivní kanál a pokus lze zopakovat" {
+            testApplication {
+                consoleModule(mailer, fakes = fakes)
+                val (owner, appId) = ownerWithApp(mailer)
+                val credentialId = installSlack(SLUG)
+                val body = """{"targetRef":"$CHANNEL_ID","credentialId":"$credentialId"}"""
+                fakes.slack.failWith = ChannelException(ChannelErrorKind.NOT_FOUND, "not_in_channel")
+                val failed = owner.postJson("/api/orgs/$SLUG/apps/$appId/channels/connect-slack", body)
+                failed.status shouldBe HttpStatusCode.BadRequest
+                failed.bodyAsText() shouldContain "/invite"
+                owner.get("/api/orgs/$SLUG/apps/$appId/channels").bodyAsText() shouldBe "[]"
+                fakes.slack.failWith = null
+                owner.postJson("/api/orgs/$SLUG/apps/$appId/channels/connect-slack", body).status shouldBe HttpStatusCode.Created
+            }
+        }
+
+        "výběr kanálů používá jen instalaci vlastní organizace a nevrací token" {
+            val api =
+                SlackApi(
+                    HttpClient(
+                        MockEngine { request ->
+                            request.url.parameters["cursor"] shouldBe "next="
+                            request.headers["Authorization"] shouldBe "Bearer xoxb-test"
+                            respond(
+                                """{"ok":true,"channels":[{"id":"C1","name":"reviews"}],"response_metadata":{"next_cursor":"last"}}""",
+                                headers = headersOf("Content-Type", "application/json"),
+                            )
+                        },
+                    ),
+                )
+            testApplication {
+                consoleModule(mailer, fakes = fakes, slack = consoleSlack(api))
+                val (owner, _) = ownerWithApp(mailer)
+                val credentialId = installSlack(SLUG)
+                val response = owner.get("/api/orgs/$SLUG/slack/channels?credentialId=$credentialId&cursor=next%3D")
+                response.status shouldBe HttpStatusCode.OK
+                response.bodyAsText() shouldContain "reviews"
+                response.bodyAsText() shouldContain "last"
+                response.bodyAsText() shouldNotContain "xoxb"
+                owner.get("/api/orgs/$SLUG/slack/channels?credentialId=${Uuid.random()}").status shouldBe HttpStatusCode.NotFound
+                val foreignOrg =
+                    cz.matee.appreviewzz.persistence.repository
+                        .ExposedOrganizationRepository(TestDatabase.database.exposed)
+                        .create("Foreign", "foreign")
+                val foreignCredential =
+                    consoleVault().store(
+                        foreignOrg.id,
+                        CredentialType.SLACK_INSTALL,
+                        "Slack Foreign",
+                        SecretPayload("""{"botToken":"xoxb-foreign","teamId":"T_OTHER"}"""),
+                    )
+                owner.get("/api/orgs/$SLUG/slack/channels?credentialId=${foreignCredential.id}").status shouldBe HttpStatusCode.NotFound
+            }
         }
 
         "kanál se připojí k appce a zdědí její jazyk" {
@@ -194,7 +320,7 @@ class ChannelRoutesTest :
                 response.status shouldBe HttpStatusCode.OK
                 val body = response.bodyAsText()
                 body shouldContain "\"ok\":false"
-                body shouldContain "/invite @appreviewzz"
+                body shouldContain "/invite @appreviewz"
             }
         }
 

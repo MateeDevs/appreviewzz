@@ -1,6 +1,8 @@
 package cz.matee.appreviewzz.app
 
 import cz.matee.appreviewzz.channels.slack.SlackApi
+import cz.matee.appreviewzz.channels.slack.SlackConversationPage
+import cz.matee.appreviewzz.channels.slack.SlackInstall
 import cz.matee.appreviewzz.channels.slack.SlackInstallStates
 import cz.matee.appreviewzz.channels.teams.TeamsBotIdentity
 import cz.matee.appreviewzz.channels.teams.TeamsInstall
@@ -15,12 +17,14 @@ import cz.matee.appreviewzz.core.model.Organization
 import cz.matee.appreviewzz.core.model.SecretPayload
 import cz.matee.appreviewzz.core.port.AuditLogRepository
 import cz.matee.appreviewzz.core.port.ChannelException
+import cz.matee.appreviewzz.core.port.CredentialRepository
 import cz.matee.appreviewzz.core.port.CredentialStore
 import cz.matee.appreviewzz.core.port.auditEntry
 import cz.matee.appreviewzz.core.usecase.ChannelDraft
 import cz.matee.appreviewzz.core.usecase.ConsoleException
 import cz.matee.appreviewzz.core.usecase.ConsoleFailure
 import cz.matee.appreviewzz.core.usecase.OrgActor
+import cz.matee.appreviewzz.core.usecase.hintFor
 import cz.matee.appreviewzz.core.usecase.requireRole
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.request.receive
@@ -58,6 +62,8 @@ data class ChannelResponse(
     val deliverRatings: Boolean,
     val deliverAnalyses: Boolean,
     val enabled: Boolean,
+    val lastCheckedAt: String?,
+    val lastCheckError: String?,
 )
 
 /** Vynechané pole znamená „nech, jak je" — console posílá jen to, co člověk přepnul. */
@@ -143,6 +149,8 @@ class ConsoleSlack(
     private val audit: AuditLogRepository,
     private val installStates: SlackInstallStates?,
     private val publicBaseUrl: String?,
+    private val credentials: CredentialRepository,
+    private val oauthConfigured: Boolean,
 ) {
     suspend fun connect(
         organization: Organization,
@@ -200,8 +208,26 @@ class ConsoleSlack(
     fun installUrl(
         organization: Organization,
         actor: OrgActor,
+        returnTo: String? = null,
     ): SlackInstallUrlResponse {
         requireRole(actor, OrgRole.ADMIN)
+        if (!oauthConfigured) {
+            throw ConsoleException(
+                ConsoleFailure.INVALID_INPUT,
+                "Připojení přes Slack zatím není nastavené. Obraťte se na správce Appreviewzz.",
+            )
+        }
+        if (returnTo != null &&
+            (
+                !SlackInstallStates.safeReturnPath(returnTo) ||
+                    !returnTo.substringBefore('?').let {
+                        it == "/${organization.slug}/onboarding" ||
+                            it.matches(Regex("/${organization.slug}/aplikace/[a-zA-Z0-9-]+"))
+                    }
+            )
+        ) {
+            throw ConsoleException(ConsoleFailure.INVALID_INPUT, "Neplatná návratová adresa")
+        }
         val states =
             installStates
                 ?: throw ConsoleException(
@@ -214,11 +240,36 @@ class ConsoleSlack(
                     ConsoleFailure.INVALID_INPUT,
                     "Instalace odkazem není nastavená (chybí PUBLIC_BASE_URL) — vlož bot token ručně",
                 )
-        val state = states.issue(organization.id.toString())
+        val state = states.issue(organization.id.toString(), returnTo)
         return SlackInstallUrlResponse(
             url = "${baseUrl.trimEnd('/')}$SLACK_INSTALL_PATH?state=$state",
             validFor = SlackInstallStates.DEFAULT_VALIDITY.toString(),
         )
+    }
+
+    suspend fun listChannels(
+        organization: Organization,
+        actor: OrgActor,
+        credentialId: String,
+        cursor: String?,
+    ): SlackConversationPage {
+        requireRole(actor, OrgRole.ADMIN)
+        val id = credentialIdOf(credentialId)
+        val meta =
+            credentials.findMeta(organization.id, id)
+                ?: throw ConsoleException(ConsoleFailure.NOT_FOUND, "Taková instalace Slacku tu není")
+        if (meta.type != CredentialType.SLACK_INSTALL) {
+            throw ConsoleException(ConsoleFailure.INVALID_INPUT, "Vyberte instalaci Slacku")
+        }
+        return try {
+            val install = SlackInstall.parse(vault.resolve(organization.id, id))
+            api.listPublicChannels(SecretPayload(install.botToken), cursor)
+        } catch (error: ChannelException) {
+            throw ConsoleException(
+                ConsoleFailure.INVALID_INPUT,
+                "Kanály se nepodařilo načíst. ${hintFor(error)}",
+            )
+        }
     }
 
     private companion object {
@@ -329,6 +380,25 @@ fun Route.channelRoutes(console: ConsoleWiring) {
             call.respond(io { channels.list(context.organization.id, call.appIdParam()).map { it.toResponse() } })
         }
 
+        post("/connect-slack") {
+            val context = call.orgContext(console.organizations, console.memberships)
+            val request = call.receive<CreateChannelRequest>()
+            if (request.type != ChannelType.SLACK) throw ConsoleException(ConsoleFailure.INVALID_INPUT, "Vyberte Slack kanál")
+            val channel =
+                channels.connectChecked(
+                    context.organization,
+                    context.actor,
+                    ChannelDraft(
+                        call.appIdParam(),
+                        ChannelType.SLACK,
+                        request.targetRef,
+                        credentialIdOf(request.credentialId),
+                        request.label,
+                    ),
+                )
+            call.respond(HttpStatusCode.Created, channel.toResponse())
+        }
+
         post {
             val context = call.orgContext(console.organizations, console.memberships)
             val request = call.receive<CreateChannelRequest>()
@@ -415,6 +485,15 @@ fun Route.channelRoutes(console: ConsoleWiring) {
     }
 
     route("/orgs/{org}/slack") {
+        get("/channels") {
+            val context = call.orgContext(console.organizations, console.memberships)
+            val slack = console.slack ?: throw ConsoleException(ConsoleFailure.NOT_FOUND, "Slack není zapnutý")
+            val credentialId =
+                call.request.queryParameters["credentialId"]
+                    ?: throw ConsoleException(ConsoleFailure.INVALID_INPUT, "Vyberte workspace")
+            call.respond(slack.listChannels(context.organization, context.actor, credentialId, call.request.queryParameters["cursor"]))
+        }
+
         post("/connect") {
             val context = call.orgContext(console.organizations, console.memberships)
             val slack = console.slack ?: throw ConsoleException(ConsoleFailure.NOT_FOUND, "Slack není v téhle instalaci zapnutý")
@@ -425,7 +504,7 @@ fun Route.channelRoutes(console: ConsoleWiring) {
         get("/install-url") {
             val context = call.orgContext(console.organizations, console.memberships)
             val slack = console.slack ?: throw ConsoleException(ConsoleFailure.NOT_FOUND, "Slack není v téhle instalaci zapnutý")
-            call.respond(slack.installUrl(context.organization, context.actor))
+            call.respond(slack.installUrl(context.organization, context.actor, call.request.queryParameters["returnTo"]))
         }
     }
 }
@@ -441,5 +520,7 @@ private fun Channel.toResponse() =
         deliverReviews = deliverReviews,
         deliverRatings = deliverRatings,
         deliverAnalyses = deliverAnalyses,
+        lastCheckedAt = lastCheckedAt?.toString(),
+        lastCheckError = lastCheckError,
         enabled = enabled,
     )

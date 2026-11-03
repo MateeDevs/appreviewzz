@@ -5,6 +5,7 @@ import cz.matee.appreviewzz.channels.slack.SlackInstall
 import cz.matee.appreviewzz.channels.slack.SlackInstallStates
 import cz.matee.appreviewzz.channels.slack.SlackOAuth
 import cz.matee.appreviewzz.core.model.ActorType
+import cz.matee.appreviewzz.core.model.CredentialMeta
 import cz.matee.appreviewzz.core.model.CredentialType
 import cz.matee.appreviewzz.core.model.OrganizationId
 import cz.matee.appreviewzz.core.port.AuditLogRepository
@@ -15,6 +16,7 @@ import cz.matee.appreviewzz.crypto.CredentialVault
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.URLBuilder
 import io.ktor.server.application.Application
 import io.ktor.server.response.respondRedirect
 import io.ktor.server.response.respondText
@@ -36,12 +38,12 @@ class SlackInstallStore(
     fun save(
         orgId: OrganizationId,
         install: SlackInstall,
-    ) {
+    ): CredentialMeta {
         val label = "Slack ${install.hint()}"
         val existing =
             credentials
                 .listByOrg(orgId, CredentialType.SLACK_INSTALL)
-                .firstOrNull { it.hint == install.hint() }
+                .firstOrNull { it.hint == install.hint() || it.hint == install.teamId || it.hint?.endsWith("(${install.teamId})") == true }
 
         val meta =
             if (existing == null) {
@@ -63,6 +65,7 @@ class SlackInstallStore(
             ),
         )
         logger.info { "Slack App nainstalovaná pro organizaci $orgId do workspace ${install.teamId}" }
+        return meta
     }
 }
 
@@ -76,6 +79,7 @@ fun Application.slackInstallRoutes(
     store: SlackInstallStore,
     redirectUri: String,
     replay: ReplayGuard = ReplayGuard("slack-install", ReplayGuard.INSTALL_RETENTION),
+    consoleBaseUrl: String? = null,
 ) {
     routing {
         get(SLACK_INSTALL_PATH) {
@@ -93,13 +97,17 @@ fun Application.slackInstallRoutes(
 
         get(SLACK_OAUTH_CALLBACK_PATH) {
             val parameters = call.request.queryParameters
-            parameters["error"]?.let { error ->
-                logger.info { "Instalace Slacku zrušená klientem: $error" }
-                call.respondText("Instalace byla zrušena ($error).", status = HttpStatusCode.OK)
+            val verified = states.verify(parameters["state"])
+            val returnPath = verified?.returnPath
+            if (verified != null && parameters["error"] != null) {
+                if (returnPath != null) {
+                    call.respondRedirect(slackReturnUrl(consoleBaseUrl, returnPath, "cancelled"))
+                } else {
+                    call.respondText("Instalace byla zrušena. Můžete ji spustit znovu v Appreviewzz.")
+                }
                 return@get
             }
 
-            val verified = states.verify(parameters["state"])
             val code = parameters["code"]
             if (verified == null || code.isNullOrBlank()) {
                 call.respondText("Instalaci se nepodařilo dokončit — zkus to prosím znovu.", status = HttpStatusCode.BadRequest)
@@ -121,15 +129,23 @@ fun Application.slackInstallRoutes(
 
             try {
                 val install = oauth.exchange(code, redirectUri)
-                store.save(OrganizationId.parse(verified.orgId), install)
+                val credential = store.save(OrganizationId.parse(verified.orgId), install)
+                if (returnPath != null) {
+                    call.respondRedirect(slackReturnUrl(consoleBaseUrl, returnPath, "connected", credential.id.toString()))
+                    return@get
+                }
                 call.respondText(
                     successPage(install.teamName ?: install.teamId),
                     contentType = ContentType.Text.Html,
                 )
             } catch (error: ChannelException) {
                 logger.warn { "Instalace Slacku selhala: ${error.message}" }
+                if (returnPath != null) {
+                    call.respondRedirect(slackReturnUrl(consoleBaseUrl, returnPath, "failed"))
+                    return@get
+                }
                 call.respondText(
-                    "Instalaci se nepodařilo dokončit: ${error.message}",
+                    "Instalaci se nepodařilo dokončit. Zkuste ji znovu z Appreviewzz.",
                     status = HttpStatusCode.BadGateway,
                 )
             }
@@ -137,15 +153,43 @@ fun Application.slackInstallRoutes(
     }
 }
 
+internal fun slackReturnUrl(
+    baseUrl: String?,
+    path: String,
+    status: String,
+    credentialId: String? = null,
+): String {
+    require(SlackInstallStates.safeReturnPath(path))
+    // Cíl pochází výhradně z podepsaného state a nakonfigurované adresy konzole.
+    val url =
+        URLBuilder("https://console.invalid$path")
+            .apply {
+                parameters.remove("slack")
+                parameters.remove("slackCredential")
+                parameters.append("slack", status)
+                credentialId?.let { parameters.append("slackCredential", it) }
+                fragment = "kanaly"
+            }.buildString()
+            .removePrefix("https://console.invalid")
+    return baseUrl?.trimEnd('/')?.let { it + url } ?: url
+}
+
+private fun escapeHtml(value: String): String =
+    value
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace("\"", "&quot;")
+
 /** Prostá stránka bez závislostí — po instalaci se klient vrací do console (F3). */
 private fun successPage(workspace: String): String =
     """
     <!doctype html>
     <html lang="cs">
-      <head><meta charset="utf-8"><title>appreviewzz — hotovo</title></head>
+      <head><meta charset="utf-8"><title>appreviewz — hotovo</title></head>
       <body style="font-family: system-ui, sans-serif; max-width: 32rem; margin: 4rem auto;">
         <h1>Hotovo</h1>
-        <p>appreviewzz je nainstalovaný ve workspace <strong>$workspace</strong>.</p>
+        <p>appreviewz je nainstalovaný ve workspace <strong>${escapeHtml(workspace)}</strong>.</p>
         <p>Teď zbývá vybrat kanál, do kterého mají recenze chodit.</p>
       </body>
     </html>

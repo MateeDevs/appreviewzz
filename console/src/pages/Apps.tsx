@@ -9,8 +9,6 @@ import {
   useBackfillAnalysis,
   useChannels,
   useCheckReportingBucket,
-  useConnectSlack,
-  useCreateChannel,
   useCreateReplyTemplate,
   useCreateTopic,
   useCredentials,
@@ -41,8 +39,9 @@ import {
   When,
 } from '../components/ui'
 import { AIInstructionsField } from '../components/ReplyPreferences'
-import { SlackOAuth, TeamsConnection } from '../components/OptionalIntegrations'
+import { TeamsConnection } from '../components/OptionalIntegrations'
 import { Select } from '../components/Select'
+import { SlackChannelSetup } from '../components/SlackConnection'
 import { AddAppDialog, ConnectStoreWizard } from '../components/ConnectStoreWizard'
 import { RatingsChart } from '../components/RatingsChart'
 import type {
@@ -1710,29 +1709,21 @@ export function ChannelsCard({ org, app }: { org: string; app: App }) {
   const appId = app.id
   const focus = useSetupFocus('kanaly')
   const channels = useChannels(org, appId)
-  const credentials = useCredentials(org)
-  const create = useCreateChannel(org, appId)
   const remove = useDeleteChannel(org, appId)
   const test = useTestChannels(org, appId)
-  const connect = useConnectSlack(org)
-  const [targetRef, setTargetRef] = useState('')
-  const [credentialId, setCredentialId] = useState('')
-  // Nový kanál dostane jazyk appky — to je nejčastější případ; cizojazyčný tým si ho přepne.
-  const [locale, setLocale] = useState(app.locale === 'EN' ? 'en' : 'cs')
-  const [token, setToken] = useState('')
   const [checks, setChecks] = useState<ChannelCheck[] | null>(null)
   const [editing, setEditing] = useState<Channel | null>(null)
 
-  const installs = (credentials.data ?? []).filter(
-    (credential) => credential.type === 'SLACK_INSTALL',
-  )
+  const verified = (channel: Channel) => channel.lastCheckedAt
+    ? channel.lastCheckError == null
+    : checks?.find((check) => check.channelId === channel.id)?.ok === true
 
   return (
     <Card id="kanaly" className={focus} title="Kanály">
       <ErrorBox error={channels.error} />
       <p className="small muted">
-        Připojení kanálu samo nepotvrzuje doručování. Ověříte ho zkušební
-        zprávou; ta se odešle až na váš pokyn.
+        Vyberte kanál, do kterého mají chodit recenze. Při připojení do něj
+        odešleme zkušební zprávu a ověříme doručování.
       </p>
       {channels.data?.length === 0 ? (
         <p className="muted">Zatím žádný kanál — recenze nemají kam chodit.</p>
@@ -1760,18 +1751,10 @@ export function ChannelsCard({ org, app }: { org: string; app: App }) {
                 <td className="small muted">{deliveriesLabel(channel)}</td>
                 <td>
                   {channel.enabled ? (
-                    <Badge
-                      tone={
-                        checks?.find((check) => check.channelId === channel.id)
-                          ?.ok
-                          ? 'ok'
-                          : 'warn'
-                      }
-                    >
-                      {checks?.find((check) => check.channelId === channel.id)
-                        ?.ok
+                    <Badge tone={verified(channel) ? 'ok' : 'warn'}>
+                      {verified(channel)
                         ? 'zpráva doručena'
-                        : 'doručení neověřeno'}
+                        : channel.lastCheckError ? 'ověření selhalo' : 'doručení neověřeno'}
                     </Badge>
                   ) : (
                     <Badge tone="warn">pozastavený</Badge>
@@ -1836,101 +1819,7 @@ export function ChannelsCard({ org, app }: { org: string; app: App }) {
         />
       ) : null}
 
-      {installs.length === 0 ? (
-        <>
-          <SlackOAuth org={org} />
-          <details className="optional">
-            <summary>Pokročilé: vlastní Slack bot token</summary>
-            <form
-              onSubmit={(event) => {
-                event.preventDefault()
-                connect.mutate({ token }, { onSuccess: () => setToken('') })
-              }}
-            >
-              <Field
-                label="Bot token workspace"
-                hint="Slack App → OAuth & Permissions → Bot User OAuth Token. Začíná xoxb-."
-              >
-                <input
-                  value={token}
-                  onChange={(e) => setToken(e.target.value)}
-                  type="password"
-                  autoComplete="off"
-                  placeholder="xoxb-…"
-                  required
-                />
-              </Field>
-              <div className="stack" style={{ marginTop: '1rem' }}>
-                <ErrorBox error={connect.error} />
-                <button type="submit" disabled={connect.isPending}>
-                  Připojit workspace
-                </button>
-              </div>
-            </form>
-          </details>
-        </>
-      ) : (
-        <>
-          <h3 style={{ marginTop: '1.25rem' }}>Přidat kanál</h3>
-          <form
-            onSubmit={(event) => {
-              event.preventDefault()
-              create.mutate(
-                {
-                  targetRef,
-                  credentialId: credentialId || (installs[0]?.id ?? ''),
-                  locale,
-                },
-                { onSuccess: () => setTargetRef('') },
-              )
-            }}
-          >
-            <Field label="Workspace">
-              <Select
-                value={credentialId || (installs[0]?.id ?? '')}
-                options={installs.map((install) => ({
-                  value: install.id,
-                  label: install.hint ?? install.label,
-                }))}
-                onChange={setCredentialId}
-                ariaLabel="Slack workspace"
-              />
-            </Field>
-            <Field
-              label="ID kanálu"
-              hint="Ve Slacku: klikni na kanál → View channel details → dole je ID (začíná C). Jméno kanálu se mění, ID ne."
-            >
-              <input
-                value={targetRef}
-                onChange={(e) => setTargetRef(e.target.value)}
-                placeholder="C0123456789"
-                required
-              />
-            </Field>
-            <Field
-              label="Jazyk zpráv"
-              hint="Jazyk kanálu je nezávislý na jazyku appky — anglický kanál pro zahraniční tým vedle českého."
-            >
-              <Select
-                value={locale}
-                options={LOCALE_OPTIONS}
-                onChange={setLocale}
-                ariaLabel="Jazyk zpráv kanálu"
-              />
-            </Field>
-            <div className="stack" style={{ marginTop: '1rem' }}>
-              <ErrorBox error={create.error} />
-              <button type="submit" disabled={create.isPending}>
-                Připojit kanál
-              </button>
-              <p className="small muted">
-                U privátního kanálu nezapomeň bota pozvat:{' '}
-                <code>/invite @appreviewzz</code>
-              </p>
-            </div>
-          </form>
-        </>
-      )}
+      <SlackChannelSetup org={org} app={app} connectedChannels={channels.data ?? []} />
       <details className="optional">
         <summary>Microsoft Teams</summary>
         <TeamsConnection org={org} app={app} />

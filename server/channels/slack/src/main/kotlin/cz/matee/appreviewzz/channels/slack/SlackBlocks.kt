@@ -40,11 +40,14 @@ internal object SlackBlocks {
      * U recenze s automatickým poděkováním (C2) formulář **nevzniká**: odpověď už je ve
      * frontě a vstup, který za vteřinu přestane dávat smysl, je horší než žádný.
      */
-    fun review(notification: ReviewNotification): JsonArray =
+    fun review(
+        notification: ReviewNotification,
+        routeValue: String? = null,
+    ): JsonArray =
         if (notification.autoReply != null) {
             JsonArray(content(notification) + autoReplied(notification))
         } else {
-            JsonArray(content(notification) + input(notification) + submitButton(notification))
+            JsonArray(content(notification) + input(notification) + submitButton(notification, routeValue))
         }
 
     /** „🤖 Odpovězeno automaticky:" plus text, který odešel. Bez formuláře a bez tlačítka. */
@@ -407,7 +410,10 @@ internal object SlackBlocks {
             }
         }
 
-    private fun submitButton(notification: ReviewNotification): JsonObject =
+    private fun submitButton(
+        notification: ReviewNotification,
+        routeValue: String?,
+    ): JsonObject =
         buildJsonObject {
             put("type", "actions")
             putJsonArray("elements") {
@@ -416,7 +422,7 @@ internal object SlackBlocks {
                         put("type", "button")
                         put("action_id", SUBMIT_ACTION_ID)
                         put("style", "primary")
-                        put("value", notification.review.id.toString())
+                        put("value", routeValue ?: notification.review.id.toString())
                         putJsonObject("text") {
                             put("type", "plain_text")
                             put("text", notification.catalog[MessageKey.SEND])

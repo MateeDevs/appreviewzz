@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query'
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query'
 import { clearDrafts } from '../state/replyDrafts'
 import { ApiError, api } from './client'
 import type {
@@ -454,11 +454,13 @@ export function useDeleteChannel(org: string, appId: string) {
 }
 
 export function useTestChannels(org: string, appId: string) {
+  const client = useQueryClient()
   return useMutation({
     mutationFn: (channelId?: string) =>
       api.post<ChannelCheck[]>(`/api/orgs/${org}/apps/${appId}/channels/test`, {
         channelId: channelId ?? null,
       }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ['channels', org, appId] }),
   })
 }
 
@@ -468,6 +470,36 @@ export function useConnectSlack(org: string) {
     mutationFn: (input: { token: string; label?: string }) =>
       api.post(`/api/orgs/${org}/slack/connect`, input),
     onSuccess: () => client.invalidateQueries({ queryKey: ['credentials', org] }),
+  })
+}
+
+export function useSlackChannels(org: string, credentialId: string, enabled = true) {
+  return useInfiniteQuery({
+    queryKey: ['slack-channels', org, credentialId],
+    initialPageParam: '',
+    queryFn: ({ pageParam }) => api.get<{
+      channels: { id: string; name: string }[]
+      nextCursor: string | null
+    }>(`/api/orgs/${org}/slack/channels?${new URLSearchParams({ credentialId, cursor: pageParam })}`),
+    getNextPageParam: (page) => page.nextCursor || undefined,
+    enabled: credentialId !== '' && enabled,
+    retry: false,
+    staleTime: 60_000,
+  })
+}
+
+/** Úspěch znamená, že Slack skutečně přijal zkušební zprávu. */
+export function useConnectSlackChannel(org: string, appId: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (input: { credentialId: string; targetRef: string; label?: string }) =>
+      api.post<Channel>(`/api/orgs/${org}/apps/${appId}/channels/connect-slack`, input),
+    onError: () => client.invalidateQueries({ queryKey: ['channels', org, appId] }),
+    onSuccess: () => Promise.all([
+      client.invalidateQueries({ queryKey: ['channels', org, appId] }),
+      client.invalidateQueries({ queryKey: ['apps', org] }),
+      client.invalidateQueries({ queryKey: ['health', org] }),
+    ]),
   })
 }
 

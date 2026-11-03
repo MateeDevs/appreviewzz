@@ -416,32 +416,9 @@ test('rozpracovaný postup přežije odhlášení a nový login; deep link má p
   await expect(page).toHaveURL('/studio/recenze?app=app-1')
 })
 
-test('volitelný Slack používá OAuth, připojený kanál neznamená ověřené doručení', async ({
-  page,
-}) => {
+test('připojený kanál bez zkoušky nepotvrzuje doručení a dovolí pokračovat bez integrací', async ({ page }) => {
   const state = await onboardingApi(page)
-  await page.route('**/slack/install-url', (route) =>
-    route.fulfill({
-      json: {
-        url: 'http://127.0.0.1:5173/slack/install?state=synthetic-state',
-      },
-    }),
-  )
-  await page.goto('/studio/onboarding?step=extras')
-  await page
-    .locator('.activation-optional')
-    .first()
-    .locator(':scope > summary')
-    .click()
-  await page
-    .getByRole('button', { name: 'Připojit přes Slack', exact: true })
-    .click()
-  await expect(
-    page.getByRole('link', { name: 'Pokračovat ve Slacku ↗', exact: true }),
-  ).toHaveAttribute('href', /slack\/install\?state=/)
-  await expect(
-    page.getByLabel('Bot token workspace', { exact: true }),
-  ).not.toBeVisible()
+  await page.route('**/slack/channels?**', (route) => route.fulfill({ json: { channels: [], nextCursor: null } }))
   state.credentials.push({
     id: 'slack-test',
     type: 'SLACK_INSTALL',
@@ -486,7 +463,7 @@ test('volitelný Slack používá OAuth, připojený kanál neznamená ověřen�
       ],
     })
   })
-  await page.reload()
+  await page.goto('/studio/onboarding?step=extras')
   await page
     .locator('.activation-optional')
     .first()

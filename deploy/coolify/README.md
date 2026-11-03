@@ -31,10 +31,20 @@ Vyplňují se v Coolify UI, nikdy do repozitáře.
 | `PUBLIC_BASE_URL` | `https://console.staging.appreviewzz.com` | `https://console.appreviewzz.com` |
 | `CONSOLE_BASE_URL` | totéž | totéž |
 | `CONSOLE_ALLOWED_HOSTS` | `console.staging.appreviewzz.com` | `console.appreviewzz.com` |
+| `SLACK_SIGNING_SECRET` | signing secret společné appky `appreviewz` (API **i worker**) | stejný jako staging |
+| `SLACK_CLIENT_ID` / `SLACK_CLIENT_SECRET` | OAuth údaje appky `appreviewz` | stejné jako staging |
+| `SLACK_RELAY_STAGING_BASE_URL` | `https://console.staging.appreviewzz.com` | totéž |
+| `SLACK_RELAY_PROD_BASE_URL` | `https://console.appreviewzz.com` | totéž |
 | `MAIL_SMTP_HOST` | `smtp.resend.com` | `smtp.resend.com` |
 | `MAIL_SMTP_USER` | `resend` | `resend` |
 | `MAIL_SMTP_PASSWORD` | API klíč `appreviewzz-staging` | API klíč `appreviewzz-prod` |
 | `MAIL_FROM` | `staging@…` | `noreply@…` |
+
+Společná Slack Interactivity Request URL je od pilotu
+`https://console.appreviewzz.com/webhooks/slack/interactivity`. Produkční API a worker
+musí mít nasazený Slack routing a běžet i pro stagingový pilot: stagingové odpovědi
+se ukládají do produkční fronty a přes autentizovaný relay předávají staging API.
+Stagingové `PUBLIC_BASE_URL` a `CONSOLE_BASE_URL` zůstávají stagingové kvůli OAuth a odkazům.
 
 `CONSOLE_ALLOWED_HOSTS` vypisuj přesně, ne zástupným znakem: `*.appreviewzz.com` sedí
 i na doménu druhého prostředí, takže by produkce uměla poslat odkaz na obnovu hesla

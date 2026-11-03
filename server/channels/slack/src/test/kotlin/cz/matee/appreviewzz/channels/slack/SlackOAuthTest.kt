@@ -152,6 +152,19 @@ class SlackInstallStatesTest :
             states.verify(state)?.orgId shouldBe "11111111-1111-1111-1111-111111111111"
         }
 
+        test("návrat k rozpracované aplikaci je podepsaný a každý pokus má vlastní state") {
+            val states = SlackInstallStates(secret, clockAt(NOW))
+            val path = "/matee/onboarding?step=extras"
+            val first = states.issue("org", path)
+            states.verify(first)?.returnPath shouldBe path
+            (first != states.issue("org", path)) shouldBe true
+        }
+
+        test("OAuth nikdy nepřesměruje na cizí doménu ani zakódovanou cestu") {
+            listOf("https://evil.test", "//evil.test", "/\\evil.test", "/%2f%2fevil.test", "/ok\r\nLocation: evil")
+                .forEach { path -> SlackInstallStates.safeReturnPath(path) shouldBe false }
+        }
+
         test("podvržený state neprojde — jinak by šlo instalovat za cizí organizaci") {
             val states = SlackInstallStates(secret, clockAt(NOW))
             val foreign = SlackInstallStates(SecretPayload("cizi-secret"), clockAt(NOW))

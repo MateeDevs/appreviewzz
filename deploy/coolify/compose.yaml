@@ -38,6 +38,8 @@ services:
       SLACK_SIGNING_SECRET: ${SLACK_SIGNING_SECRET}
       SLACK_CLIENT_ID: ${SLACK_CLIENT_ID}
       SLACK_CLIENT_SECRET: ${SLACK_CLIENT_SECRET}
+      SLACK_RELAY_STAGING_BASE_URL: ${SLACK_RELAY_STAGING_BASE_URL:-}
+      SLACK_RELAY_PROD_BASE_URL: ${SLACK_RELAY_PROD_BASE_URL:-}
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL}
       # Teams messaging endpoint běží v API roli; publikaci pak převezme worker.
       TEAMS_BOT_APP_ID: ${TEAMS_BOT_APP_ID:-}
@@ -81,6 +83,12 @@ services:
       BACKUP_TARGET: ${BACKUP_TARGET}
       BACKUP_AT: ${BACKUP_AT:-02:30}
       BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
+      # Jedna Slack App: worker podepisuje prostředí tlačítek a předává callbacky z fronty.
+      SLACK_SIGNING_SECRET: ${SLACK_SIGNING_SECRET}
+      SLACK_RELAY_STAGING_BASE_URL: ${SLACK_RELAY_STAGING_BASE_URL:-}
+      SLACK_RELAY_PROD_BASE_URL: ${SLACK_RELAY_PROD_BASE_URL:-}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL}
+      CONSOLE_BASE_URL: ${CONSOLE_BASE_URL:-}
       # AI návrhy odpovědí (F2) — vyrábí je worker při doručování recenzí.
       AI_PROVIDER: ${AI_PROVIDER:-gemini}
       AI_API_KEY: ${AI_API_KEY}

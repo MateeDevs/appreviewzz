@@ -254,6 +254,19 @@ class ExposedChannelRepository(
                 .map { it.toChannel() }
         }
 
+    override fun recordCheck(
+        orgId: OrganizationId,
+        id: ChannelId,
+        checkedAt: kotlin.time.Instant,
+        error: String?,
+    ): Boolean =
+        transaction(database) {
+            Channels.update({ (Channels.orgId eq orgId) and (Channels.id eq id) }) {
+                it[lastCheckedAt] = checkedAt
+                it[lastCheckError] = error
+            } > 0
+        }
+
     override fun setEnabled(
         orgId: OrganizationId,
         id: ChannelId,

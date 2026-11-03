@@ -1,0 +1,35 @@
+{
+  "display_information": {
+    "name": "appreviewz",
+    "description": "App reviews and reply approval in your Slack channel.",
+    "background_color": "#172724"
+  },
+  "features": {
+    "bot_user": {
+      "display_name": "appreviewz",
+      "always_online": false
+    }
+  },
+  "oauth_config": {
+    "redirect_urls": [
+      "https://console.staging.appreviewzz.com/slack/oauth/callback",
+      "https://console.appreviewzz.com/slack/oauth/callback"
+    ],
+    "scopes": {
+      "bot": [
+        "chat:write",
+        "chat:write.public",
+        "channels:read"
+      ]
+    }
+  },
+  "settings": {
+    "interactivity": {
+      "is_enabled": true,
+      "request_url": "https://console.appreviewzz.com/webhooks/slack/interactivity"
+    },
+    "org_deploy_enabled": false,
+    "socket_mode_enabled": false,
+    "token_rotation_enabled": false
+  }
+}

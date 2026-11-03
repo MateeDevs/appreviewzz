@@ -1,10 +1,12 @@
 package cz.matee.appreviewzz.app
 
 import cz.matee.appreviewzz.channels.slack.SlackInteraction
+import cz.matee.appreviewzz.channels.slack.SlackMessageRoute
 import cz.matee.appreviewzz.channels.slack.SlackReplySubmission
 import cz.matee.appreviewzz.channels.slack.SlackSignatureVerifier
 import cz.matee.appreviewzz.core.model.ChannelType
 import cz.matee.appreviewzz.core.model.ReplySource
+import cz.matee.appreviewzz.core.model.sha256Hex
 import cz.matee.appreviewzz.core.port.ReviewMessageRepository
 import cz.matee.appreviewzz.jobs.ReplyJobData
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -24,6 +26,9 @@ private val logger = KotlinLogging.logger {}
 enum class IntakeResult {
     /** Odpověď je ve frontě, worker ji publikuje. */
     QUEUED,
+
+    /** Doručení do druhého prostředí je bezpečně uložené ve frontě. */
+    FORWARDED,
 
     /** Tatáž odpověď už ve frontě je (dvojklik na „Odeslat"). */
     DUPLICATE,
@@ -47,13 +52,19 @@ class SlackReplyIntake(
     private val messages: ReviewMessageRepository,
     private val enqueue: (ReplyJobData) -> Boolean,
 ) {
-    fun accept(submission: SlackReplySubmission): IntakeResult {
+    fun accept(
+        submission: SlackReplySubmission,
+        route: SlackMessageRoute? = null,
+    ): IntakeResult {
         val text = submission.text.trim()
         if (text.isEmpty()) return IntakeResult.EMPTY
 
         val message =
             messages.findByProviderMessage(ChannelType.SLACK, submission.conversationId, submission.messageTs)
                 ?: return IntakeResult.UNKNOWN_MESSAGE
+        if (route != null && (message.orgId.toString() != route.orgId || message.reviewId.toString() != route.reviewId)) {
+            return IntakeResult.UNKNOWN_MESSAGE
+        }
 
         val queued =
             enqueue(
@@ -80,6 +91,7 @@ fun Application.slackWebhookRoutes(
     intake: SlackReplyIntake,
     limits: RateLimits = RateLimits.disabled(),
     replay: ReplayGuard = ReplayGuard("slack-interactivity", ReplayGuard.SLACK_RETENTION),
+    dispatcher: SlackInteractionDispatcher? = null,
 ) {
     routing {
         route(SLACK_INTERACTIVITY_PATH) {
@@ -119,7 +131,18 @@ fun Application.slackWebhookRoutes(
                     return@post
                 }
 
-                val result = intake.accept(submission)
+                val result =
+                    try {
+                        dispatcher?.accept(submission, sha256Hex(signature.orEmpty())) ?: intake.accept(submission)
+                    } catch (error: SlackRoutingException) {
+                        replay.forget(signature.orEmpty())
+                        logger.warn { "Slack interactivity: ${error.message}" }
+                        call.respond(error.status)
+                        return@post
+                    } catch (error: Exception) {
+                        replay.forget(signature.orEmpty())
+                        throw error
+                    }
                 if (result == IntakeResult.UNKNOWN_MESSAGE) {
                     logger.warn {
                         "Slack interactivity: zpráva ${submission.conversationId}/${submission.messageTs} není v databázi"

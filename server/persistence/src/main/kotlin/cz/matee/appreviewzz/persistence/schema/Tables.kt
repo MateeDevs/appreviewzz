@@ -240,6 +240,8 @@ internal object Channels : Table("channel") {
     val deliverRatings = bool("deliver_ratings")
     val deliverAnalyses = bool("deliver_analyses")
     val enabled = bool("enabled")
+    val lastCheckedAt = instant("last_checked_at").nullable()
+    val lastCheckError = text("last_check_error").nullable()
     val createdAt = instant("created_at")
     val updatedAt = instant("updated_at")
 

@@ -158,17 +158,25 @@ najdeš ho v `server/app/build/install/appreviewzz/bin/`.
 
 ## Slack
 
-Jedna Slack App pro všechny klienty ([ADR 0012](docs/adr/0012-slack-jedna-app-oauth-install.md))
+Jedna Slack App **`appreviewz`** pro všechny klienty i pro staging a produkci ([ADR 0012](docs/adr/0012-slack-jedna-app-oauth-install.md))
 se třemi oprávněními: `chat:write`, `chat:write.public`, `channels:read`.
 
-Připojit workspace jde dvěma způsoby. Do **vlastního workspace** (self-host i náš provoz do
-schválení v App Directory) se appka nainstaluje z api.slack.com a token se vloží příkazem
-`slack connect`. Do **cizího workspace** dostane klient odkaz z `slack install-url` a appku si
-nainstaluje sám; výsledek je v obou případech tentýž zašifrovaný credential.
+Pro pilot stačí zapnout **Public Distribution** v nastavení naší Slack App; schválení v
+Marketplace není podmínkou pilotního OAuth připojení. V konzoli uživatel klikne na
+**Připojit přes Slack**, schválí přístup a automaticky se vrátí ke stejné aplikaci nebo do
+rozpracovaného onboardingu. Vybere kanál podle názvu a klikne na **Připojit a ověřit kanál**.
+Kanál se uloží až po úspěšné zkušební zprávě. Jazyk zdědí z aplikace.
 
-Nová recenze dorazí do kanálu s předvyplněným návrhem odpovědi. Po kliknutí na *Odeslat* se
-odpověď publikuje do storu a zpráva se přepíše na „✅ Recenze byla zpracována"; když ji store
-odmítne, přistane důvod ve vlákně a formulář zůstane, takže jde odpověď opravit a poslat znovu.
+Výběr nabízí veřejné nearchivované kanály, včetně stránkování velkých workspaců. Privátní
+kanál lze připojit přes rozšířené zadání ID po pozvání bota. Ruční vložení tokenu a příkazy
+`slack connect` / `slack install-url` zůstávají pro self-host a podporu.
+
+Stagingové zprávy končí oddělovačem a upozorněním **ALPHA**. Tlačítko obsahuje podepsané
+prostředí; stálý interactivity webhook na
+`https://console.appreviewzz.com/webhooks/slack/interactivity` předává stagingové odpovědi přes databázovou frontu
+`slack-relay` a autentizovaný relay endpoint. OAuth má vlastní návratovou URL pro každé
+prostředí. Produkční API a worker musí běžet už během stagingového pilotu.
+Manifest jedné appky je v [deploy/slack/manifest.json](deploy/slack/manifest.json).
 
 Založení vlastní Slack Appky (self-host) a řešení potíží: [docs/slack-app.md](docs/slack-app.md).
 

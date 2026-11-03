@@ -15,6 +15,7 @@ import kotlinx.serialization.json.Json
 fun slackHttpClient(engine: HttpClientEngine = CIO.create()): HttpClient =
     HttpClient(engine) {
         expectSuccess = false
+        followRedirects = false
         install(ContentNegotiation) {
             json(
                 Json {

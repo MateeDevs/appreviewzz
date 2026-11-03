@@ -1,6 +1,7 @@
 package cz.matee.appreviewzz.channels.slack
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
@@ -16,6 +17,7 @@ private val json = Json { ignoreUnknownKeys = true }
  * konkrétní recenzi si dohledáme v databázi podle kanálu a `ts`, ne podle toho, co přišlo
  * v payloadu.
  */
+@Serializable
 data class SlackReplySubmission(
     val conversationId: String,
     val messageTs: String,
@@ -24,6 +26,7 @@ data class SlackReplySubmission(
     val userId: String?,
     val userName: String?,
     val teamId: String?,
+    val routeValue: String? = null,
 )
 
 /**
@@ -66,6 +69,7 @@ object SlackInteraction {
             userName =
                 payload["user"]?.jsonObject?.let { it.string("name") ?: it.string("username") },
             teamId = payload["team"]?.jsonObject?.string("id"),
+            routeValue = action.string("value")?.takeIf { SlackMessageRouting.isRouted(it) },
         )
     }
 

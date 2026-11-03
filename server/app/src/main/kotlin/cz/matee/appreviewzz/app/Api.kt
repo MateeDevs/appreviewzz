@@ -48,10 +48,25 @@ fun runApi(
             components.replyJobs,
             components.analysisJobs,
             components.reviewHistoryJobs,
+            components.slackRelayJobs,
         )
     val intake =
         verifier?.let {
             SlackReplyIntake(components.reviewMessages) { data -> components.replyJobs.enqueue(queue, data) }
+        }
+
+    val dispatcher =
+        intake?.let {
+            val routing = components.slackMessageRouting ?: return@let null
+            val authentication = components.slackRelayAuthentication ?: return@let null
+            val relayJobs = components.slackRelayJobs ?: return@let null
+            SlackInteractionDispatcher(
+                components.slackEnvironment,
+                routing,
+                authentication,
+                it,
+                components.slackRelayTargets.keys,
+            ) { data -> relayJobs.enqueue(queue, data) }
         }
 
     val teamsAuthenticator = components.teamsAuthenticator
@@ -63,7 +78,7 @@ fun runApi(
             TeamsReplyIntake(components.reviewMessages) { data -> components.replyJobs.enqueue(queue, data) }
         }
 
-    val install = installRoutes(components)
+    val install = installRoutes(components, config.console.baseUrl)
     val console =
         ConsoleWiring(
             auth = components.authentication,
@@ -143,6 +158,7 @@ fun runApi(
                 hardening = hardening,
                 slackVerifier = verifier,
                 slackIntake = intake,
+                slackDispatcher = dispatcher,
                 teamsAuthenticator = teamsAuthenticator,
                 teamsIntake = teamsIntake,
                 slackInstall = install,
@@ -156,12 +172,15 @@ fun runApi(
  * Instalační flow se zapíná až s OAuth údaji a veřejnou adresou. Do té doby appku instalujeme
  * ručně (vlastní dev workspace) a install endpointy vůbec neexistují.
  */
-private fun installRoutes(components: Components): SlackInstallRoutes? {
+private fun installRoutes(
+    components: Components,
+    consoleBaseUrl: String?,
+): SlackInstallRoutes? {
     val oauth = components.slackOAuth ?: return null
     val states = components.slackInstallStates ?: return null
     val redirectUri = components.slackRedirectUri ?: return null
     logger.info { "Slack install flow je zapnutý, redirect URL: $redirectUri" }
-    return SlackInstallRoutes(oauth, states, components.slackInstallStore, redirectUri)
+    return SlackInstallRoutes(oauth, states, components.slackInstallStore, redirectUri, consoleBaseUrl)
 }
 
 /**
@@ -187,6 +206,7 @@ class SlackInstallRoutes(
     val states: SlackInstallStates,
     val store: SlackInstallStore,
     val redirectUri: String,
+    val consoleBaseUrl: String? = null,
 )
 
 @Suppress("LongParameterList")
@@ -196,6 +216,7 @@ fun Application.apiModule(
     hardening: ApiHardening = ApiHardening(),
     slackVerifier: SlackSignatureVerifier? = null,
     slackIntake: SlackReplyIntake? = null,
+    slackDispatcher: SlackInteractionDispatcher? = null,
     teamsAuthenticator: BotFrameworkAuthenticator? = null,
     teamsIntake: TeamsReplyIntake? = null,
     slackInstall: SlackInstallRoutes? = null,
@@ -213,7 +234,8 @@ fun Application.apiModule(
     if (slackVerifier != null &&
         slackIntake != null
     ) {
-        slackWebhookRoutes(slackVerifier, slackIntake, hardening.rateLimits, hardening.replay.slack)
+        slackWebhookRoutes(slackVerifier, slackIntake, hardening.rateLimits, hardening.replay.slack, slackDispatcher)
+        slackDispatcher?.let { slackRelayRoutes(it, hardening.rateLimits) }
     }
     // Totéž pro Teams: bez ověření tokenu od Bot Connectoru endpoint nevzniká.
     if (teamsAuthenticator != null &&
@@ -221,7 +243,16 @@ fun Application.apiModule(
     ) {
         teamsWebhookRoutes(teamsAuthenticator, teamsIntake, hardening.rateLimits, hardening.replay.teams)
     }
-    slackInstall?.let { slackInstallRoutes(it.oauth, it.states, it.store, it.redirectUri, hardening.replay.slackInstall) }
+    slackInstall?.let {
+        slackInstallRoutes(
+            it.oauth,
+            it.states,
+            it.store,
+            it.redirectUri,
+            hardening.replay.slackInstall,
+            it.consoleBaseUrl,
+        )
+    }
     console?.let { consoleRoutes(it, hardening.rateLimits) }
     // Mimo `/api` a mimo session: odkaz na report se posílá klientovi, který u nás účet nemá.
     console?.reports?.let { publicReportRoutes(it, hardening.rateLimits) }

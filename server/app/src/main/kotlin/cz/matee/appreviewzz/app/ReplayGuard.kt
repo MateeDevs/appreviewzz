@@ -51,6 +51,11 @@ class ReplayGuard(
         return false
     }
 
+    /** Chyba před potvrzeným zápisem do fronty musí umožnit nový pokus. */
+    fun forget(value: String) {
+        seen.remove(fingerprint(value))
+    }
+
     private fun prune(now: Instant) {
         seen.entries.removeIf { (_, at) -> at + retention <= now }
         if (seen.size >= maxEntries) {

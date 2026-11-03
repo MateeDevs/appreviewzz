@@ -58,6 +58,7 @@ fun runWorker(
             jobs = components.ingestJobs(),
             deliveryJobs = components.deliveryJobs,
             replyJobs = components.replyJobs,
+            slackRelayJobs = components.slackRelayJobs,
             backupJobs = backupJobs,
             ratingsJobs = components.ratingsJobs(),
             maintenanceJobs = components.maintenanceJobs,

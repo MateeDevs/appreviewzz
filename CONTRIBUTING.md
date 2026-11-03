@@ -38,6 +38,9 @@ cd console && npm ci && npm run lint && npm run build
 
 ## Jak to tady vypadá
 
+- **Aktuální vývojová větev je `epic/v2`.** Změny commitujeme přímo nad epicem, bez
+  samostatných feature větví a PR do epicu. Tento postup platí i pro další sessions,
+  dokud se nedomluvíme jinak (viz [AGENTS.md](AGENTS.md)).
 - **Modulární monolit** v Kotlinu na Ktoru ([ADR 0002](docs/adr/0002-modularni-monolit-kotlin-ktor.md)).
   `core` je doména a porty, `persistence`/`crypto`/`channels`/`connectors` jsou adaptéry,
   `app` je wiring a HTTP.

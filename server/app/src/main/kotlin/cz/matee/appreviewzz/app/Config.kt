@@ -100,9 +100,26 @@ data class SlackConfig(
     val signingSecret: String?,
     val clientId: String?,
     val clientSecret: String?,
-    /** Veřejná adresa API (`https://api.appreviewzz.com`) — z ní se skládá OAuth redirect URL. */
+    /** Veřejná adresa API aktuálního prostředí — z ní se skládá jeho OAuth redirect URL. */
     val publicBaseUrl: String?,
+    val relayStagingBaseUrl: String? = null,
+    val relayProdBaseUrl: String? = null,
 ) {
+    init {
+        listOfNotNull(relayStagingBaseUrl, relayProdBaseUrl).forEach { value ->
+            val uri = java.net.URI(value)
+            require(
+                uri.scheme == "https" &&
+                    !uri.host.isNullOrBlank() &&
+                    uri.userInfo == null &&
+                    uri.rawQuery == null &&
+                    uri.rawFragment == null &&
+                    (uri.path.isNullOrEmpty() || uri.path == "/") &&
+                    (uri.port == -1 || uri.port == 443),
+            ) { "SLACK_RELAY_*_BASE_URL musí být HTTPS origin bez cesty" }
+        }
+    }
+
     val enabled: Boolean get() = signingSecret != null
 
     /** Install flow potřebuje navíc OAuth údaje a adresu, na kterou se Slack vrací. */
@@ -285,6 +302,8 @@ data class AppConfig(
                         clientId = env("SLACK_CLIENT_ID")?.takeIf { it.isNotBlank() },
                         clientSecret = env("SLACK_CLIENT_SECRET")?.takeIf { it.isNotBlank() },
                         publicBaseUrl = env("PUBLIC_BASE_URL")?.takeIf { it.isNotBlank() },
+                        relayStagingBaseUrl = env("SLACK_RELAY_STAGING_BASE_URL")?.takeIf { it.isNotBlank() },
+                        relayProdBaseUrl = env("SLACK_RELAY_PROD_BASE_URL")?.takeIf { it.isNotBlank() },
                     ),
             )
         }

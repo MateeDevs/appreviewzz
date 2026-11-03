@@ -6,57 +6,6 @@ import type { App } from '../api/types'
 import { ErrorBox, Field } from './ui'
 import { Select } from './Select'
 
-export function SlackOAuth({ org }: { org: string }) {
-  const client = useQueryClient()
-  const install = useMutation({
-    mutationFn: () =>
-      api.get<{ url: string }>(`/api/orgs/${org}/slack/install-url`),
-  })
-  return (
-    <div className="stack optional-connection">
-      <h3>Připojit Slack</h3>
-      <p className="small muted">
-        Povolíte přístup aplikaci appreviewzz ve svém workspace. Potom vyberete
-        kanál. Do dokončení výběru se doručování nepotvrzuje.
-      </p>
-      <ErrorBox error={install.error} />
-      {install.data ? (
-        <a
-          className="button"
-          href={install.data.url}
-          target="_blank"
-          rel="noreferrer"
-        >
-          Pokračovat ve Slacku ↗
-        </a>
-      ) : null}
-      <div className="row">
-        <button
-          type="button"
-          className="secondary"
-          disabled={install.isPending}
-          onClick={() => install.mutate()}
-        >
-          {install.isPending
-            ? 'Připravuji…'
-            : install.data
-              ? 'Vygenerovat nový odkaz'
-              : 'Připojit přes Slack'}
-        </button>
-        <button
-          type="button"
-          className="link"
-          onClick={() =>
-            void client.invalidateQueries({ queryKey: ['credentials', org] })
-          }
-        >
-          Už jsem workspace připojil/a
-        </button>
-      </div>
-    </div>
-  )
-}
-
 export function TeamsConnection({ org, app }: { org: string; app: App }) {
   const client = useQueryClient()
   const credentials = useCredentials(org)

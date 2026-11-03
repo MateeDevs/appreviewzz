@@ -7,23 +7,39 @@ import cz.matee.appreviewzz.core.port.PostedMessage
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.HttpClient
 import io.ktor.client.request.bearerAuth
-import io.ktor.client.request.post
+import io.ktor.client.request.request
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
+import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 
 private val logger = KotlinLogging.logger {}
 private val json = Json { ignoreUnknownKeys = true }
+
+@Serializable
+data class SlackConversation(
+    val id: String,
+    val name: String,
+)
+
+@Serializable
+data class SlackConversationPage(
+    val channels: List<SlackConversation>,
+    val nextCursor: String? = null,
+)
 
 /**
  * Tenká vrstva nad Slack Web API. Dvě věci, které se u Slacku dělají špatně a tady se dělají
@@ -38,6 +54,40 @@ class SlackApi(
     private val httpClient: HttpClient,
     private val baseUrl: String = SLACK_API_BASE_URL,
 ) {
+    /** Veřejné nearchivované kanály; cursor musí obsloužit i prázdnou stránku. */
+    suspend fun listPublicChannels(
+        token: SecretPayload,
+        cursor: String? = null,
+    ): SlackConversationPage {
+        val query =
+            buildMap {
+                put("types", "public_channel")
+                put("exclude_archived", "true")
+                put("limit", "200")
+                cursor?.takeIf { it.isNotBlank() }?.let { put("cursor", it) }
+            }
+        val payload = call("conversations.list", token, buildJsonObject { }, query).payload
+        val channels =
+            payload["channels"]?.jsonArray.orEmpty().mapNotNull { element ->
+                val channel = element.jsonObject
+                if (channel["is_archived"]?.jsonPrimitive?.boolean == true ||
+                    channel["is_private"]?.jsonPrimitive?.boolean == true
+                ) {
+                    return@mapNotNull null
+                }
+                val id = channel["id"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+                val name = channel["name"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+                SlackConversation(id, name)
+            }
+        val next =
+            payload["response_metadata"]
+                ?.jsonObject
+                ?.get("next_cursor")
+                ?.jsonPrimitive
+                ?.contentOrNull
+        return SlackConversationPage(channels, next?.takeIf { it.isNotBlank() })
+    }
+
     suspend fun postMessage(
         token: SecretPayload,
         channel: String,
@@ -108,13 +158,16 @@ class SlackApi(
         method: String,
         token: SecretPayload,
         body: JsonObject,
+        query: Map<String, String> = emptyMap(),
     ): SlackResponse {
         val response =
             try {
-                httpClient.post("$baseUrl/$method") {
+                httpClient.request("$baseUrl/$method") {
+                    this.method = if (query.isEmpty()) HttpMethod.Post else HttpMethod.Get
+                    query.forEach { (key, value) -> url.parameters.append(key, value) }
                     bearerAuth(token.value)
                     contentType(ContentType.Application.Json)
-                    setBody(body)
+                    if (query.isEmpty()) setBody(body)
                 }
             } catch (error: Exception) {
                 throw ChannelException(ChannelErrorKind.TRANSIENT, "Slack API je nedostupné", error)

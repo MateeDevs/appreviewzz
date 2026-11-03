@@ -12,9 +12,13 @@ import cz.matee.appreviewzz.backup.BackupStores
 import cz.matee.appreviewzz.backup.PostgresCommands
 import cz.matee.appreviewzz.backup.PostgresTarget
 import cz.matee.appreviewzz.channels.slack.SlackApi
+import cz.matee.appreviewzz.channels.slack.SlackEnvironment
 import cz.matee.appreviewzz.channels.slack.SlackInstallStates
+import cz.matee.appreviewzz.channels.slack.SlackMessageRouting
 import cz.matee.appreviewzz.channels.slack.SlackNotificationChannel
 import cz.matee.appreviewzz.channels.slack.SlackOAuth
+import cz.matee.appreviewzz.channels.slack.SlackRelayAuthentication
+import cz.matee.appreviewzz.channels.slack.SlackRelayClient
 import cz.matee.appreviewzz.channels.slack.SlackSignatureVerifier
 import cz.matee.appreviewzz.channels.slack.slackHttpClient
 import cz.matee.appreviewzz.channels.teams.BotFrameworkAuthenticator
@@ -96,6 +100,7 @@ import cz.matee.appreviewzz.jobs.RefreshRepliesJobs
 import cz.matee.appreviewzz.jobs.ReplyJobs
 import cz.matee.appreviewzz.jobs.RevalidateCredentialsJobs
 import cz.matee.appreviewzz.jobs.ReviewHistoryJobs
+import cz.matee.appreviewzz.jobs.SlackRelayJobs
 import cz.matee.appreviewzz.persistence.Database
 import cz.matee.appreviewzz.persistence.repository.ExposedAnalysisAggregateRepository
 import cz.matee.appreviewzz.persistence.repository.ExposedAnalysisAlertRepository
@@ -320,7 +325,7 @@ class Components(
 
     val notificationChannels: List<NotificationChannel> by lazy {
         listOfNotNull(
-            SlackNotificationChannel(slackApi),
+            SlackNotificationChannel(slackApi, slackEnvironment, slackMessageRouting),
             teamsBot?.let { TeamsNotificationChannel(teamsApi, teamsTokens, it) },
         )
     }
@@ -612,6 +617,34 @@ class Components(
         )
     }
 
+    /** Označení zpráv a routing nezávisí na doméně společného příjmu. */
+    val slackEnvironment: SlackEnvironment = SlackEnvironment.deployment(config.environment)
+
+    val slackRelayTargets: Map<SlackEnvironment, String> =
+        buildMap {
+            config.slack.relayStagingBaseUrl?.let { put(SlackEnvironment.STAGING, it) }
+            config.slack.relayProdBaseUrl?.let { put(SlackEnvironment.PROD, it) }
+        }
+
+    val slackMessageRouting: SlackMessageRouting? by lazy {
+        config.slack.signingSecret?.let { SlackMessageRouting(SecretPayload(it)) }
+    }
+
+    val slackRelayAuthentication: SlackRelayAuthentication? by lazy {
+        config.slack.signingSecret?.let { SlackRelayAuthentication(SecretPayload(it)) }
+    }
+
+    val slackRelayJobs: SlackRelayJobs? by lazy {
+        val auth = slackRelayAuthentication ?: return@lazy null
+        val client = SlackRelayClient(slackClientDelegate.value, auth, slackRelayTargets)
+        SlackRelayJobs(forward = { data ->
+            val environment =
+                SlackEnvironment.parse(data.environment)
+                    ?: throw IllegalArgumentException("Neznámé prostředí Slack relay")
+            client.forward(environment, data.deliveryId, data.payload)
+        }, failedJobs = failedJobs)
+    }
+
     /**
      * Ověření podpisu Slacku. `null` znamená nenastavený `SLACK_SIGNING_SECRET` — interactivity
      * endpoint se pak nezaregistruje vůbec, místo aby běžel bez kontroly.
@@ -625,7 +658,7 @@ class Components(
      * je to jediné tajemství, které Slack App má, a obojí je „důkaz, že je to od nás".
      */
     val slackInstallStates: SlackInstallStates? by lazy {
-        config.slack.signingSecret?.let { SlackInstallStates(SecretPayload(it)) }
+        config.slack.signingSecret?.let { SlackInstallStates(SecretPayload(it), environment = slackEnvironment.wireName) }
     }
 
     val slackOAuth: SlackOAuth? by lazy {
@@ -803,6 +836,8 @@ class Components(
             audit = audit,
             installStates = slackInstallStates,
             publicBaseUrl = publicBaseUrl,
+            credentials = credentials,
+            oauthConfigured = slackOAuth != null,
         )
     }
 

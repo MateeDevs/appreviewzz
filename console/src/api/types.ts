@@ -191,6 +191,8 @@ export interface Channel {
   deliverRatings: boolean
   /** Týdenní rozbory a alerty na výkyv. */
   deliverAnalyses: boolean
+  lastCheckedAt?: string | null
+  lastCheckError?: string | null
   enabled: boolean
 }
 

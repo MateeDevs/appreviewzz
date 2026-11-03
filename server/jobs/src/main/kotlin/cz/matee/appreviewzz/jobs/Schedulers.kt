@@ -40,6 +40,7 @@ fun buildScheduler(
     revalidateCredentialsJobs: RevalidateCredentialsJobs? = null,
     analysisJobs: AnalysisJobs? = null,
     reviewHistoryJobs: ReviewHistoryJobs? = null,
+    slackRelayJobs: SlackRelayJobs? = null,
     config: SchedulerConfig = SchedulerConfig(),
 ): Scheduler {
     logger.info { "Scheduler: ${config.threads} vláken, polling po ${config.pollingInterval}" }
@@ -60,6 +61,7 @@ fun buildScheduler(
             jobs.ingestTask,
             deliveryJobs?.deliverTask,
             replyJobs?.publishTask,
+            slackRelayJobs?.relayTask,
             ratingsJobs?.ratingsTask,
             analysisJobs?.analyzeTask,
             analysisJobs?.weeklyTask,
@@ -91,11 +93,12 @@ fun buildSchedulerClient(
     analysisJobs: AnalysisJobs? = null,
     /** Dotažení historie recenzí po přidání appky (A10). */
     reviewHistoryJobs: ReviewHistoryJobs? = null,
+    slackRelayJobs: SlackRelayJobs? = null,
 ): SchedulerClient =
     SchedulerClient.Builder
         .create(
             AutoCommitDataSource(dataSource),
-            listOfNotNull(replyJobs.publishTask, analysisJobs?.analyzeTask, reviewHistoryJobs?.backfillTask),
+            listOfNotNull(replyJobs.publishTask, analysisJobs?.analyzeTask, reviewHistoryJobs?.backfillTask, slackRelayJobs?.relayTask),
         ).serializer(JsonTaskSerializer)
         .build()
 

@@ -233,6 +233,13 @@ internal class FakeChannelRepository(
         channel: NewChannel,
     ): Channel = unused()
 
+    override fun recordCheck(
+        orgId: OrganizationId,
+        id: ChannelId,
+        checkedAt: Instant,
+        error: String?,
+    ): Boolean = unused()
+
     override fun setEnabled(
         orgId: OrganizationId,
         id: ChannelId,

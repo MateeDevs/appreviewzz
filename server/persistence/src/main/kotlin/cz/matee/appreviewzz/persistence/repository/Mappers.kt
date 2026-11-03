@@ -167,6 +167,8 @@ internal fun ResultRow.toChannel(): Channel =
         deliverReviews = this[Channels.deliverReviews],
         deliverRatings = this[Channels.deliverRatings],
         deliverAnalyses = this[Channels.deliverAnalyses],
+        lastCheckedAt = this[Channels.lastCheckedAt],
+        lastCheckError = this[Channels.lastCheckError],
         enabled = this[Channels.enabled],
     )
 

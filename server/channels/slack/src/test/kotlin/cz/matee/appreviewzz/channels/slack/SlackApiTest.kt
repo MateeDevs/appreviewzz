@@ -1,6 +1,7 @@
 package cz.matee.appreviewzz.channels.slack
 
 import cz.matee.appreviewzz.core.model.MessageLocale
+import cz.matee.appreviewzz.core.model.SecretPayload
 import cz.matee.appreviewzz.core.port.ChannelErrorKind
 import cz.matee.appreviewzz.core.port.ChannelException
 import cz.matee.appreviewzz.core.port.ChannelTarget
@@ -28,6 +29,37 @@ private val TOKEN =
 
 class SlackApiTest :
     FunSpec({
+        test("výběr kanálů posílá GET s cursorem a vrací jen veřejné nearchivované kanály") {
+            val engine =
+                RecordingEngine {
+                    respond(
+                        """{"ok":true,"channels":[
+                    {"id":"C1","name":"reviews"},
+                    {"id":"C2","name":"archive","is_archived":true},
+                    {"id":"G1","name":"secret","is_private":true}],
+                    "response_metadata":{"next_cursor":"next-page="}}""",
+                        headers = jsonHeaders,
+                    )
+                }
+            val page = SlackApi(engine.client()).listPublicChannels(SecretPayload(BOT_TOKEN), "cursor=")
+            page.channels shouldBe listOf(SlackConversation("C1", "reviews"))
+            page.nextCursor shouldBe "next-page="
+            val request = engine.requests.single()
+            request.method shouldBe io.ktor.http.HttpMethod.Get
+            request.url.parameters["cursor"] shouldBe "cursor="
+            request.url.parameters["types"] shouldBe "public_channel"
+            request.url.parameters["exclude_archived"] shouldBe "true"
+            request.headers["Authorization"] shouldBe "Bearer $BOT_TOKEN"
+        }
+
+        test("prázdná stránka kanálů nemusí být poslední") {
+            val engine =
+                RecordingEngine {
+                    respond("""{"ok":true,"channels":[],"response_metadata":{"next_cursor":"next"}}""", headers = jsonHeaders)
+                }
+            SlackApi(engine.client()).listPublicChannels(SecretPayload(BOT_TOKEN)).nextCursor shouldBe "next"
+        }
+
         test("odeslaná recenze vrátí kanál a ts, tělo nese bloky i metadata") {
             val engine =
                 RecordingEngine {

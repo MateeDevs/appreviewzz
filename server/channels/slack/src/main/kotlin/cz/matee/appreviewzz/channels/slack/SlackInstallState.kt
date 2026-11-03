@@ -9,11 +9,14 @@ import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Instant
+import kotlin.uuid.Uuid
 
 /** Komu instalační odkaz patří a do kdy platí. */
 data class SlackInstallState(
     val orgId: String,
     val expiresAt: Instant,
+    val returnPath: String? = null,
+    val environment: String = "local",
 )
 
 /**
@@ -22,17 +25,30 @@ data class SlackInstallState(
  * v prohlížeči, kde ještě nikdo přihlášený není. Bez podpisu by si kdokoli mohl nainstalovat
  * appku „za cizí organizaci" a začal by dostávat její recenze.
  *
- * Formát: `base64url(orgId:expiry).base64url(HMAC-SHA256)`, klíč je signing secret Slack Appky.
+ * Podepsaný obsah nese organizaci, expiraci, návratovou cestu a náhodné ID pokusu.
+ * Klíč je signing secret Slack Appky. Prostředí je také podepsané, protože tajemství je společné.
  * Odkaz má krátkou platnost, aby se nedal poslat dál a použít za měsíc.
  */
 class SlackInstallStates(
     private val secret: SecretPayload,
     private val clock: Clock = Clock.System,
     private val validity: Duration = DEFAULT_VALIDITY,
+    private val environment: String = "local",
 ) {
-    fun issue(orgId: String): String {
+    fun issue(
+        orgId: String,
+        returnPath: String? = null,
+    ): String {
         require(SEPARATOR !in orgId) { "ID organizace nesmí obsahovat '$SEPARATOR'" }
-        val body = "$orgId$SEPARATOR${(clock.now() + validity).epochSeconds}"
+        require(returnPath == null || safeReturnPath(returnPath)) { "Návrat musí vést do konzole" }
+        val body =
+            listOf(
+                orgId,
+                (clock.now() + validity).epochSeconds,
+                encode(returnPath.orEmpty()),
+                Uuid.random(),
+                environment,
+            ).joinToString(SEPARATOR)
         return encode(body) + TOKEN_SEPARATOR + encode(sign(body))
     }
 
@@ -47,10 +63,13 @@ class SlackInstallStates(
         }
 
         val fields = body.split(SEPARATOR)
-        if (fields.size != 2) return null
+        // Nesdílíme instalační odkazy mezi databázemi, i když mají společnou Slack App.
+        if (fields.size != 5 || fields[4] != environment) return null
         val expiresAt = fields[1].toLongOrNull()?.let { Instant.fromEpochSeconds(it) } ?: return null
         if (clock.now() > expiresAt) return null
-        return SlackInstallState(orgId = fields[0], expiresAt = expiresAt)
+        val returnPath = decode(fields[2])?.takeIf { it.isNotEmpty() }
+        if (returnPath != null && !safeReturnPath(returnPath)) return null
+        return SlackInstallState(orgId = fields[0], expiresAt = expiresAt, returnPath = returnPath, environment = environment)
     }
 
     private fun sign(body: String): String {
@@ -64,6 +83,14 @@ class SlackInstallStates(
     private fun decode(value: String): String? = runCatching { String(Base64.getUrlDecoder().decode(value), Charsets.UTF_8) }.getOrNull()
 
     companion object {
+        fun safeReturnPath(path: String): Boolean =
+            path.startsWith("/") &&
+                !path.startsWith("//") &&
+                path.length <= 2_000 &&
+                path.none { it == '\\' || it.isISOControl() } &&
+                '%' !in path.substringBefore('?') &&
+                '#' !in path
+
         /** Delší platnost nedává smysl: odkaz se generuje ve chvíli, kdy si ho klient rozklikne. */
         val DEFAULT_VALIDITY: Duration = 2.hours
 

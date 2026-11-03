@@ -466,6 +466,13 @@ interface ChannelRepository {
         appId: AppId,
     ): List<Channel>
 
+    fun recordCheck(
+        orgId: OrganizationId,
+        id: ChannelId,
+        checkedAt: Instant,
+        error: String?,
+    ): Boolean
+
     fun setEnabled(
         orgId: OrganizationId,
         id: ChannelId,
