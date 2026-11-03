@@ -63,6 +63,8 @@ services:
 
   api:
     image: appreviewzz:local
+    mem_limit: ${API_MEMORY_LIMIT:-1g}
+    memswap_limit: ${API_MEMORY_LIMIT:-1g}
     build:
       context: .
       dockerfile: deploy/docker/Dockerfile
@@ -71,6 +73,7 @@ services:
     environment:
       <<: *app-env
       APPREVIEWZZ_ROLE: api
+      JAVA_OPTS: -Dlogback.configurationFile=logback-json.xml -Xmx${API_HEAP_MAX:-512m}
     volumes:
       - keyset-data:/var/lib/appreviewzz
       # Zálohy jsou tu i u API, protože přes něj se pouští CLI (`backup run`, `backup restore`).
@@ -86,9 +89,12 @@ services:
 
   worker:
     image: appreviewzz:local
+    mem_limit: ${WORKER_MEMORY_LIMIT:-1g}
+    memswap_limit: ${WORKER_MEMORY_LIMIT:-1g}
     environment:
       <<: *app-env
       APPREVIEWZZ_ROLE: worker
+      JAVA_OPTS: -Dlogback.configurationFile=logback-json.xml -Xmx${WORKER_HEAP_MAX:-512m}
       # Migrace pouští API; worker jen čeká, až je schéma hotové.
       DATABASE_MIGRATE_ON_START: "false"
     volumes:

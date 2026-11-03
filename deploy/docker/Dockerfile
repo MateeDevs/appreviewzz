@@ -60,7 +60,7 @@ EXPOSE 8080
 ENV PATH="/opt/appreviewzz/bin:${PATH}" \
     APPREVIEWZZ_ROLE=api \
     SERVER_PORT=8080 \
-    JAVA_OPTS="-Dlogback.configurationFile=logback-json.xml -XX:MaxRAMPercentage=75.0"
+    JAVA_OPTS="-Dlogback.configurationFile=logback-json.xml"
 
 HEALTHCHECK --interval=15s --timeout=3s --start-period=30s --retries=3 \
     CMD curl -fsS "http://127.0.0.1:${SERVER_PORT}/health/live" || exit 1

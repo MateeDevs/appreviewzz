@@ -37,8 +37,15 @@ application {
     applicationName = "appreviewzz"
     applicationDefaultJvmArgs =
         listOf(
-            "-XX:MaxRAMPercentage=75.0",
-            "-XX:+UseZGC",
+            // Bez limitu cgroup by procento RAM počítalo celý sdílený hostitel pro každou roli zvlášť.
+            "-Xms64m",
+            "-Xmx512m",
+            "-XX:+UseG1GC",
+            // I při malém provozu vracet nevyužitou paměť; jinak se čeká na další alokační tlak.
+            "-XX:G1PeriodicGCInterval=60000",
+            "-XX:+ExitOnOutOfMemoryError",
+            // CLI má na stdout jen svůj výsledek; GC diagnostika patří na stderr.
+            "-Xlog:gc=info:stderr:time,uptime,level,tags",
             // Uvítací řádek kotlin-loggingu jde na stdout mimo logback; ve výstupu seed CLI nemá co dělat.
             "-Dkotlin-logging.logStartupMessage=false",
         )

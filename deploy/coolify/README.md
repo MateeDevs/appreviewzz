@@ -50,6 +50,12 @@ Stagingové `PUBLIC_BASE_URL` a `CONSOLE_BASE_URL` zůstávají stagingové kvů
 i na doménu druhého prostředí, takže by produkce uměla poslat odkaz na obnovu hesla
 mířící na staging.
 
+API i worker mají každý výchozí limit **1 GiB RAM bez swapu a 512 MiB heapu**. Stejné
+defaulty platí pro self-host Compose. `API_MEMORY_LIMIT` / `WORKER_MEMORY_LIMIT` a
+`API_HEAP_MAX` / `WORKER_HEAP_MAX` je mění samostatně; heap ponech nejvýš na polovině
+limitu kontejneru. Image používá G1 a průběžně uvolňuje nevyužitou paměť. Důvody,
+diagnostika a rozlišení GC od pádu jsou v [runbooku paměti](../../docs/runbooks/pamet-jvm.md).
+
 Access key se generuje ručně v AWS konzoli (IAM → Users → `appreviewzz-<prostředí>-app` →
 Security credentials → Create access key → *Application running outside AWS*), aby se
 tajná část nikdy neocitla v terraform state.

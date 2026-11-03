@@ -7,6 +7,10 @@
 services:
   api:
     image: ghcr.io/mateedevs/appreviewzz:${APP_VERSION:-latest}
+    # Polovina rozpočtu je heap, zbytek necháváme JVM, Netty a vláknům. Stejný součet
+    # RAM + swap jako RAM zakazuje odkládat odpad z heapu do swapu sdíleného hostitele.
+    mem_limit: ${API_MEMORY_LIMIT:-1g}
+    memswap_limit: ${API_MEMORY_LIMIT:-1g}
     # Bez tohohle by hostitel u pohyblivého tagu 'latest' sáhl po lokální kopii
     # a nasazení by tiše zůstalo viset na první stažené verzi.
     pull_policy: always
@@ -16,6 +20,7 @@ services:
       - "8080"
     environment:
       APPREVIEWZZ_ROLE: api
+      JAVA_OPTS: -Dlogback.configurationFile=logback-json.xml -Xmx${API_HEAP_MAX:-512m}
       APPREVIEWZZ_ENV: ${APPREVIEWZZ_ENV:-dev}
       TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-1}
       # Hostitel databáze je proměnná se jménem služby jako výchozí hodnotou. V běžném
@@ -66,9 +71,12 @@ services:
 
   worker:
     image: ghcr.io/mateedevs/appreviewzz:${APP_VERSION:-latest}
+    mem_limit: ${WORKER_MEMORY_LIMIT:-1g}
+    memswap_limit: ${WORKER_MEMORY_LIMIT:-1g}
     pull_policy: always
     environment:
       APPREVIEWZZ_ROLE: worker
+      JAVA_OPTS: -Dlogback.configurationFile=logback-json.xml -Xmx${WORKER_HEAP_MAX:-512m}
       APPREVIEWZZ_ENV: ${APPREVIEWZZ_ENV:-dev}
       DATABASE_URL: jdbc:postgresql://${POSTGRES_HOST:-postgres}:5432/${POSTGRES_DB:-appreviewzz}
       DATABASE_USER: ${POSTGRES_USER:-appreviewzz}
