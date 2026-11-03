@@ -636,6 +636,31 @@ thead + tbody tr:hover {
     color: var(--text);
     font-weight: 550;
 }
+.review-history {
+    margin-top: 1rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+.review-history summary {
+    cursor: pointer;
+    font-weight: 550;
+}
+.review-versions {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.review-versions li {
+    border-top: 1px solid var(--border);
+    padding: 0.75rem 0;
+}
+.review-versions h3 {
+    margin: 0.5rem 0;
+}
+.review-versions .review-body {
+    overflow-wrap: anywhere;
+}
 .review-actions {
     display: flex;
     gap: 0.6rem;

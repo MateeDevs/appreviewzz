@@ -192,3 +192,63 @@ test('Přehled předává naléhavost a konkrétní den výkyvu', async ({ page 
   await expect(page).toHaveURL(/from=2026-10-24&to=2026-10-24/)
   await expect(page).toHaveURL(/topic=login/)
 })
+
+for (const earlierReply of [true, false])
+  test(`dřívější znění recenze a změny samotné odpovědi (${earlierReply})`, async ({ page }) => {
+    await mockApi(page)
+    const review = {
+      ...reviews[0]!,
+      storeUpdatedAt: '2026-11-02T12:00:00Z',
+      developerResponseBody: earlierReply ? 'Děkujeme, prověříme to.' : null,
+      developerResponseAt: earlierReply ? '2026-11-01T12:00:00Z' : null,
+    }
+    const previous = {
+      id: 'version-1',
+      starRating: 2,
+      title: 'Dřívější titulek',
+      body: 'Nefunguje mi chat.\nProsím o opravu.',
+      appVersion: '3.0',
+      observedAt: '2026-10-30T12:00:00Z',
+    }
+    await page.route('**/api/orgs/studio/reviews/review-1', (route) => route.fulfill({
+      json: {
+        review, messages: [], replies: [],
+        revisions: [
+          { ...review, id: 'current', observedAt: '2026-11-02T12:00:00Z' },
+          { ...previous, id: 'reply-only-change', observedAt: '2026-11-01T12:00:00Z' },
+          previous,
+        ],
+      },
+    }))
+    await page.goto('/studio/recenze?app=app-1&review=review-1')
+    const history = page.locator('.review-history')
+    await expect(history.locator('summary')).toHaveText('Dřívější znění recenze (1)')
+    if (!earlierReply) {
+      await expect(history.getByText(previous.body)).toBeHidden()
+      await history.locator('summary').click()
+    }
+    await expect(history.getByText(previous.body)).toBeVisible()
+    await expect(history.getByRole('heading', { name: previous.title })).toBeVisible()
+    await expect(history.getByText('verze 3.0')).toBeVisible()
+    await expect(history.locator('li')).toHaveCount(1)
+    await expect(history.getByText(/30. 10. 2026/)).toBeVisible()
+  })
+
+test('odpověď ke staršímu znění vysvětlí chybějící historii', async ({ page }) => {
+  await mockApi(page)
+  await page.route('**/api/orgs/studio/reviews/review-1', (route) => route.fulfill({
+    json: {
+      review: {
+        ...reviews[0]!,
+        storeUpdatedAt: '2026-11-02T12:00:00Z',
+        developerResponseBody: 'Děkujeme, prověříme to.',
+        developerResponseAt: '2026-11-01T12:00:00Z',
+      },
+      messages: [], replies: [], revisions: [],
+    },
+  }))
+  await page.goto('/studio/recenze?app=app-1&review=review-1')
+  await expect(page.getByText('k dřívějšímu znění', { exact: true })).toBeVisible()
+  await expect(page.getByText(/Dřívější znění recenze nemáme uložené/)).toBeVisible()
+  await expect(page.locator('.review-history')).toHaveCount(0)
+})

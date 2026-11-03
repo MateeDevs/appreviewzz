@@ -143,10 +143,21 @@ data class ReplyResponse(
 )
 
 @Serializable
+data class ReviewRevisionResponse(
+    val id: String,
+    val starRating: Int,
+    val title: String?,
+    val body: String?,
+    val appVersion: String?,
+    val observedAt: String,
+)
+
+@Serializable
 data class ReviewDetailResponse(
     val review: ReviewResponse,
     val messages: List<ReviewMessageResponse>,
     val replies: List<ReplyResponse>,
+    val revisions: List<ReviewRevisionResponse>,
 )
 
 @Serializable
@@ -349,6 +360,17 @@ fun Route.reviewRoutes(console: ConsoleWiring) {
                             ReviewMessageResponse(it.channelId.toString(), it.status, it.error, it.sentAt?.toString())
                         },
                     replies = detail.replies.map { it.toResponse() },
+                    revisions =
+                        detail.revisions.map {
+                            ReviewRevisionResponse(
+                                id = it.id.toString(),
+                                starRating = it.starRating,
+                                title = it.title,
+                                body = it.body,
+                                appVersion = it.appVersion,
+                                observedAt = it.observedAt.toString(),
+                            )
+                        },
                 ),
             )
         }

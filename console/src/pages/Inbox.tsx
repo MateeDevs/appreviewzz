@@ -29,6 +29,7 @@ import { Select } from '../components/Select'
 import type {
   Review,
   ReviewInsight,
+  ReviewRevision,
   ReviewSort,
   ReviewState,
   ReviewType,
@@ -658,6 +659,7 @@ function ReviewPane({
           <p>{review.developerResponseBody}</p>
         </div>
       ) : null}
+      <ReviewHistory review={review} revisions={detail.data?.revisions ?? []} />
       <ReplyForm
         org={org}
         appId={appId}
@@ -667,6 +669,53 @@ function ReviewPane({
         onClose={onClose}
       />
     </article>
+  )
+}
+
+function ReviewHistory({ review, revisions }: { review: Review; revisions: ReviewRevision[] }) {
+  const wordingKey = (version: Pick<Review, 'starRating' | 'title' | 'body' | 'appVersion'>) =>
+    JSON.stringify([version.starRating, version.title, version.body, version.appVersion])
+  const current = wordingKey(review)
+  // Změna samotné odpovědi také vytváří revizi; stejné znění autora stačí ukázat jednou.
+  const wordings = new Map<string, ReviewRevision>()
+  for (const revision of [...revisions].sort((a, b) => Date.parse(a.observedAt) - Date.parse(b.observedAt))) {
+    const key = wordingKey(revision)
+    if (key !== current && !wordings.has(key)) wordings.set(key, revision)
+  }
+  const previous = [...wordings.values()].reverse()
+  const earlierReply = Boolean(review.developerResponseBody) && answersEarlierWording(review)
+  const edited =
+    review.storeUpdatedAt != null &&
+    Date.parse(review.storeUpdatedAt) - Date.parse(review.submittedAt) >= 60_000
+  if (previous.length === 0) {
+    return earlierReply || edited || review.state === 'UPDATED' ? (
+      <p className="small muted review-history-missing">
+        Dřívější znění recenze nemáme uložené. Pokud autor recenzi upravil před prvním načtením,
+        původní text není k dispozici.
+      </p>
+    ) : null
+  }
+  return (
+    <details className="review-history" open={earlierReply}>
+      <summary>Dřívější znění recenze ({previous.length})</summary>
+      <p className="small muted">
+        Časy uvádějí, kdy jsme znění načetli ze storu. Přesné znění v okamžiku odpovědi nemusí být
+        k dispozici.
+      </p>
+      <ol className="review-versions">
+        {previous.map((revision) => (
+          <li key={revision.id}>
+            <div className="row small muted">
+              <Stars count={revision.starRating} />
+              <span>Načteno <When iso={revision.observedAt} /></span>
+              {revision.appVersion ? <span>verze {revision.appVersion}</span> : null}
+            </div>
+            {revision.title ? <h3>{revision.title}</h3> : null}
+            <p className="review-body">{revision.body ?? 'Hodnocení bez textu.'}</p>
+          </li>
+        ))}
+      </ol>
+    </details>
   )
 }
 

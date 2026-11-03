@@ -17,6 +17,7 @@ import cz.matee.appreviewzz.core.model.Review
 import cz.matee.appreviewzz.core.model.ReviewId
 import cz.matee.appreviewzz.core.model.ReviewInsight
 import cz.matee.appreviewzz.core.model.ReviewMessage
+import cz.matee.appreviewzz.core.model.ReviewRevision
 import cz.matee.appreviewzz.core.model.ReviewState
 import cz.matee.appreviewzz.core.model.Topic
 import cz.matee.appreviewzz.core.model.TopicGroup
@@ -75,6 +76,7 @@ data class ReviewDetail(
     val messages: List<ReviewMessage>,
     val replies: List<Reply>,
     val insight: ReviewInsight? = null,
+    val revisions: List<ReviewRevision> = emptyList(),
 )
 
 /**
@@ -210,6 +212,7 @@ class ReviewInbox(
             messages = messages.listByReview(orgId, id),
             replies = replies.listByReview(orgId, id),
             insight = insights.findByReview(orgId, id),
+            revisions = reviews.listRevisions(orgId, id),
         )
     }
 

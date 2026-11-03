@@ -454,10 +454,21 @@ export interface Reply {
   createdAt: string
 }
 
+export interface ReviewRevision {
+  id: string
+  starRating: number
+  title: string | null
+  body: string | null
+  appVersion: string | null
+  /** Kdy jsme znění načetli, nikoli kdy ho autor upravil. */
+  observedAt: string
+}
+
 export interface ReviewDetail {
   review: Review
   messages: { channelId: string; status: MessageStatus; error: string | null; sentAt: string | null }[]
   replies: Reply[]
+  revisions?: ReviewRevision[]
 }
 
 export interface AppHealth {

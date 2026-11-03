@@ -21,6 +21,7 @@ import cz.matee.appreviewzz.core.model.Review
 import cz.matee.appreviewzz.core.model.ReviewId
 import cz.matee.appreviewzz.core.model.ReviewMessage
 import cz.matee.appreviewzz.core.model.ReviewMessageId
+import cz.matee.appreviewzz.core.model.ReviewRevision
 import cz.matee.appreviewzz.core.model.ReviewState
 import cz.matee.appreviewzz.core.model.sha256Hex
 import cz.matee.appreviewzz.core.port.ChannelException
@@ -122,6 +123,11 @@ internal class FakeReviewRepository(
         reviews.removeAll { it.id == review.id }
         return put(review)
     }
+
+    override fun listRevisions(
+        orgId: OrganizationId,
+        id: ReviewId,
+    ): List<ReviewRevision> = emptyList()
 
     override fun findById(
         orgId: OrganizationId,

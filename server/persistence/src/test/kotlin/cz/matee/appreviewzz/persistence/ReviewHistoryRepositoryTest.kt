@@ -31,6 +31,22 @@ class ReviewHistoryRepositoryTest :
 
         beforeTest { TestDatabase.reset() }
 
+        test("revize patří jen organizaci vlastnící recenzi") {
+            val org = organizations.create("Matee", "matee")
+            val other = organizations.create("Jiná", "jina")
+            val app = apps.create(org.id, NewApp(name = "MujUp", gpPackageName = "cz.myup.customer"))
+            val observed = Fixtures.observedReview()
+            val review = reviews.upsert(org.id, app.id, observed, Fixtures.seenAt, ReviewState.NEW).review
+            reviews.upsert(org.id, app.id, observed, Fixtures.seenAt, ReviewState.NEW)
+
+            val revisions = reviews.listRevisions(org.id, review.id)
+            revisions.size shouldBe 1
+            revisions.single().body shouldBe observed.body
+            revisions.single().starRating shouldBe observed.starRating
+            revisions.single().appVersion shouldBe observed.appVersion
+            reviews.listRevisions(other.id, review.id).shouldBeEmpty()
+        }
+
         test("listTimeKeys vrací ID a časy recenzí v období, jen pro svou appku a platformu") {
             val org = organizations.create("Matee", "matee")
             val app = apps.create(org.id, NewApp(name = "IsleGrow", gpPackageName = "cz.matee.islegrow", ascAppId = "123"))

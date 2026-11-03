@@ -15,6 +15,7 @@ import cz.matee.appreviewzz.core.model.OrganizationId
 import cz.matee.appreviewzz.core.model.Platform
 import cz.matee.appreviewzz.core.model.Review
 import cz.matee.appreviewzz.core.model.ReviewId
+import cz.matee.appreviewzz.core.model.ReviewRevision
 import cz.matee.appreviewzz.core.model.ReviewState
 import cz.matee.appreviewzz.core.model.SecretPayload
 import cz.matee.appreviewzz.core.model.ValidationStatus
@@ -317,6 +318,11 @@ internal class RecordingReviewRepository : ReviewRepository {
         stateUpdates += id to state
         return true
     }
+
+    override fun listRevisions(
+        orgId: OrganizationId,
+        id: ReviewId,
+    ): List<ReviewRevision> = emptyList()
 
     override fun findById(
         orgId: OrganizationId,

@@ -9,6 +9,7 @@ import cz.matee.appreviewzz.core.model.Platform
 import cz.matee.appreviewzz.core.model.Review
 import cz.matee.appreviewzz.core.model.ReviewChange
 import cz.matee.appreviewzz.core.model.ReviewId
+import cz.matee.appreviewzz.core.model.ReviewRevision
 import cz.matee.appreviewzz.core.model.ReviewState
 import cz.matee.appreviewzz.core.port.ReviewAuthorKey
 import cz.matee.appreviewzz.core.port.ReviewFilter
@@ -291,6 +292,11 @@ private class RefreshReviewRepository : ReviewRepository {
         stateUpdates += id to state
         return true
     }
+
+    override fun listRevisions(
+        orgId: OrganizationId,
+        id: ReviewId,
+    ): List<ReviewRevision> = emptyList()
 
     override fun findById(
         orgId: OrganizationId,

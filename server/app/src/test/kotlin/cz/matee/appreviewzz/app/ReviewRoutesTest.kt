@@ -22,6 +22,7 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
+import kotlinx.serialization.json.Json
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
 
@@ -29,6 +30,7 @@ private const val OWNER = "vlastnik@example.com"
 private const val COLLEAGUE = "kolega@example.com"
 private const val SLUG = "matee"
 private val NOW = Instant.parse("2026-08-20T09:00:00Z")
+private val REVIEW_JSON = Json { explicitNulls = false }
 
 private fun String.jsonValue(field: String): String =
     checkNotNull(Regex(""""$field":"([^"]+)"""").find(this)) { "V odpovědi chybí $field: $this" }.groupValues[1]
@@ -41,6 +43,7 @@ private fun seedReview(
     stars: Int = 2,
     body: String = "Po aktualizaci to padá",
     state: ReviewState = ReviewState.NEW,
+    seenAt: Instant = NOW,
 ): String {
     val exposed = TestDatabase.database.exposed
     val orgId: OrganizationId = checkNotNull(ExposedOrganizationRepository(exposed).findBySlug(orgSlug)).id
@@ -62,7 +65,7 @@ private fun seedReview(
             developerResponseAt = null,
         )
     return ExposedReviewRepository(exposed)
-        .upsert(orgId, AppId(Uuid.parse(appId)), observed, NOW, state)
+        .upsert(orgId, AppId(Uuid.parse(appId)), observed, seenAt, state)
         .review.id
         .toString()
 }
@@ -213,6 +216,24 @@ class ReviewRoutesTest :
                 body shouldContain "\"starRating\":2"
                 body shouldContain "\"messages\":[]"
                 body shouldContain "\"replies\":[]"
+            }
+        }
+
+        "detail vrací původní i upravené znění od nejnovějšího" {
+            testApplication {
+                consoleModule(mailer, replyQueue = queue)
+                val (owner, appId) = ownerWithApp(mailer)
+                val reviewId = seedReview(SLUG, appId, "gp-1")
+                val later = Instant.parse("2026-08-21T09:00:00Z")
+                seedReview(SLUG, appId, "gp-1", stars = 5, body = "Paráda", seenAt = later) shouldBe reviewId
+
+                val response = owner.get("/api/orgs/$SLUG/reviews/$reviewId")
+                response.status shouldBe HttpStatusCode.OK
+                val detail = REVIEW_JSON.decodeFromString<ReviewDetailResponse>(response.bodyAsText())
+                detail.review.body shouldBe "Paráda"
+                detail.revisions.map { it.body } shouldBe listOf("Paráda", "Po aktualizaci to padá")
+                detail.revisions.map { it.starRating } shouldBe listOf(5, 2)
+                detail.revisions.map { it.observedAt } shouldBe listOf(later.toString(), NOW.toString())
             }
         }
 

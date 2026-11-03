@@ -15,6 +15,7 @@ import cz.matee.appreviewzz.core.model.ReviewChange
 import cz.matee.appreviewzz.core.model.ReviewId
 import cz.matee.appreviewzz.core.model.ReviewMessage
 import cz.matee.appreviewzz.core.model.ReviewMessageId
+import cz.matee.appreviewzz.core.model.ReviewRevision
 import cz.matee.appreviewzz.core.model.ReviewState
 import cz.matee.appreviewzz.core.model.sha256Hex
 import cz.matee.appreviewzz.core.port.NewReply
@@ -154,6 +155,28 @@ class ExposedReviewRepository(
                     ReviewUpsertResult(updated, ReviewUpsertOutcome.UPDATED, changes)
                 }
             }
+        }
+
+    override fun listRevisions(
+        orgId: OrganizationId,
+        id: ReviewId,
+    ): List<ReviewRevision> =
+        transaction(database) {
+            ReviewRevisions
+                .join(Reviews, JoinType.INNER, ReviewRevisions.reviewId, Reviews.id)
+                .selectAll()
+                .where { (Reviews.orgId eq orgId) and (Reviews.id eq id) }
+                .orderBy(ReviewRevisions.observedAt to SortOrder.DESC, ReviewRevisions.id to SortOrder.DESC)
+                .map {
+                    ReviewRevision(
+                        id = it[ReviewRevisions.id],
+                        starRating = it[ReviewRevisions.starRating].toInt(),
+                        title = it[ReviewRevisions.title],
+                        body = it[ReviewRevisions.body],
+                        appVersion = it[ReviewRevisions.appVersion],
+                        observedAt = it[ReviewRevisions.observedAt],
+                    )
+                }
         }
 
     override fun findById(

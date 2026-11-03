@@ -49,6 +49,7 @@ import cz.matee.appreviewzz.core.model.ReviewId
 import cz.matee.appreviewzz.core.model.ReviewInsight
 import cz.matee.appreviewzz.core.model.ReviewMessage
 import cz.matee.appreviewzz.core.model.ReviewMessageId
+import cz.matee.appreviewzz.core.model.ReviewRevision
 import cz.matee.appreviewzz.core.model.ReviewState
 import cz.matee.appreviewzz.core.model.ReviewType
 import cz.matee.appreviewzz.core.model.TopicMention
@@ -600,6 +601,12 @@ interface ReviewRepository {
         orgId: OrganizationId,
         id: ReviewId,
     ): Review?
+
+    /** Všechna zachycená znění od nejnovějšího; cizí recenze nevrací nic. */
+    fun listRevisions(
+        orgId: OrganizationId,
+        id: ReviewId,
+    ): List<ReviewRevision>
 
     fun findByStoreId(
         orgId: OrganizationId,
