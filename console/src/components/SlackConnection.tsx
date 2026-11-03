@@ -2,9 +2,9 @@ import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { useLocation, useSearchParams } from 'react-router-dom'
 import { api } from '../api/client'
-import { useConnectSlack, useConnectSlackChannel, useCredentials, useSlackChannels } from '../api/hooks'
-import type { App, Channel } from '../api/types'
-import { ErrorBox, Field, Loading } from './ui'
+import { useConnectSlack, useConnectSlackChannel, useCredentials, useDeleteCredential, useSlackChannels } from '../api/hooks'
+import type { App, Channel, Credential } from '../api/types'
+import { ErrorBox, Field, Loading, Modal } from './ui'
 import { Select } from './Select'
 
 export function SlackChannelSetup({ org, app, connectedChannels }: {
@@ -13,7 +13,7 @@ export function SlackChannelSetup({ org, app, connectedChannels }: {
   connectedChannels: Channel[]
 }) {
   const location = useLocation()
-  const [params] = useSearchParams()
+  const [params, setParams] = useSearchParams()
   const credentials = useCredentials(org)
   const [workspace, setWorkspace] = useState('')
   const [target, setTarget] = useState('')
@@ -21,10 +21,13 @@ export function SlackChannelSetup({ org, app, connectedChannels }: {
   const [manual, setManual] = useState(false)
   const [token, setToken] = useState('')
   const [adding, setAdding] = useState(false)
+  const [removing, setRemoving] = useState<Credential | null>(null)
+  const remove = useDeleteCredential(org)
   const installs = (credentials.data ?? []).filter((item) => item.type === 'SLACK_INSTALL')
   const returned = installs.find((item) => item.id === params.get('slackCredential'))
   const existing = connectedChannels.find((channel) => channel.type === 'SLACK' && channel.enabled)
-  const credentialId = workspace || returned?.id || installs.find((item) => item.id === existing?.credentialId)?.id || installs[0]?.id || ''
+  const credentialId = installs.find((item) => item.id === workspace)?.id || returned?.id || installs.find((item) => item.id === existing?.credentialId)?.id || installs[0]?.id || ''
+  const selectedInstall = installs.find((item) => item.id === credentialId)
   const alreadyConnected = connectedChannels.some((channel) => channel.type === 'SLACK' && channel.enabled && channel.credentialId === credentialId)
   const conversations = useSlackChannels(org, credentialId, !manual)
   const channels = [...new Map((conversations.data?.pages.flatMap((page) => page.channels) ?? [])
@@ -50,20 +53,64 @@ export function SlackChannelSetup({ org, app, connectedChannels }: {
     connect.reset()
   }
 
+  const workspaceConnection = selectedInstall ? (
+    <div className="row">
+      <p className="small">Workspace: <strong>{selectedInstall.hint ?? selectedInstall.label}</strong></p>
+      <button type="button" className="danger" disabled={connect.isPending || remove.isPending} onClick={() => {
+        remove.reset()
+        setRemoving(selectedInstall)
+      }}>Odpojit workspace</button>
+    </div>
+  ) : null
+
+  const disconnectDialog = removing ? (
+    <Modal title="Odpojit Slack workspace" onClose={() => setRemoving(null)}>
+      <div className="stack">
+        <p>Opravdu odpojit <strong>{removing.hint ?? removing.label}</strong> pro celou tuto organizaci?</p>
+        <p className="small muted">Nejprve odpojte všechny kanály, které toto připojení používají, včetně kanálů ostatních aplikací v organizaci. Aplikace appreviewz zůstane ve Slacku nainstalovaná.</p>
+        <ErrorBox error={remove.error} />
+        <div className="row">
+          <button type="button" className="danger" disabled={remove.isPending} onClick={() => {
+            remove.mutate(removing.id, { onSuccess: () => {
+              setRemoving(null)
+              setWorkspace('')
+              setTarget('')
+              setSearch('')
+              setAdding(false)
+              connect.reset()
+              oauth.reset()
+              if (params.get('slackCredential') === removing.id) {
+                setParams((query) => {
+                  query.delete('slack')
+                  query.delete('slackCredential')
+                  return query
+                }, { replace: true })
+              }
+            } })
+          }}>{remove.isPending ? 'Odpojuji…' : 'Odpojit workspace'}</button>
+          <button type="button" className="secondary" disabled={remove.isPending} onClick={() => setRemoving(null)}>Zrušit</button>
+        </div>
+      </div>
+    </Modal>
+  ) : null
+
   if (connect.isSuccess || (alreadyConnected && !adding)) return (
     <div className="stack optional-connection">
       {connect.isSuccess ? <p className="notice" role="status">Hotovo — kanál je připojený a zkušební zpráva dorazila. Nové recenze sem budou chodit automaticky.</p> : null}
+      {workspaceConnection}
       <button type="button" className="link" onClick={() => {
         connect.reset()
         setManual(false)
         setAdding(true)
       }}>Připojit další kanál nebo workspace</button>
+      {disconnectDialog}
     </div>
   )
 
   return (
     <div className="stack optional-connection">
       <h3>Slack</h3>
+      {remove.isSuccess ? <p className="notice" role="status">Slack workspace byl odpojen. Můžete ho znovu připojit přes Slack.</p> : null}
       {params.get('slack') === 'cancelled' ? (
         <p className="notice" role="status">Připojení jste zrušili. Až budete chtít, můžete ho spustit znovu.</p>
       ) : null}
@@ -91,7 +138,8 @@ export function SlackChannelSetup({ org, app, connectedChannels }: {
               <Select value={credentialId} options={installs.map((item) => ({ value: item.id, label: item.hint ?? item.label }))}
                 onChange={changeWorkspace} ariaLabel="Slack workspace" disabled={connect.isPending} />
             </Field>
-          ) : <p className="small">Workspace: <strong>{installs[0]?.hint ?? installs[0]?.label}</strong></p>}
+          ) : null}
+          {workspaceConnection}
           {manual ? (
             <Field label="ID kanálu" hint="U privátního kanálu nejprve přidejte Appreviewzz přes nabídku Integrace v kanálu nebo /invite @appreviewz.">
               <input value={target} onChange={(event) => setTarget(event.target.value)} required placeholder="C… nebo G…" disabled={connect.isPending} />
@@ -151,6 +199,7 @@ export function SlackChannelSetup({ org, app, connectedChannels }: {
           <button type="submit" className="secondary" disabled={tokenConnect.isPending}>Připojit token</button>
         </form>
       </details>
+      {disconnectDialog}
     </div>
   )
 }

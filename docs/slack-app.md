@@ -141,6 +141,14 @@ Zrušený OAuth tě vrátí do konzole a dovolí začít znovu. Návrat je souč
 jednorázového state; instalační odkaz platí dvě hodiny. Při vypršení session se přihlas,
 cíl rozpracovaného připojení zůstává v přihlašovacím odkazu.
 
+### Odpojení workspace
+
+U vybraného Slack workspace klikni na **Odpojit workspace** a potvrď dialog. Uložený
+přístup se odebere pro celou organizaci v daném prostředí; appka `appreviewz` zůstane ve
+Slacku nainstalovaná. Pokud připojení používá některý kanál, nejprve jej odpoj tlačítkem
+**Odpojit** v seznamu kanálů, včetně kanálů ostatních aplikací v organizaci. API používaný
+přístup smazat nedovolí. Poté lze začít znovu tlačítkem **Připojit přes Slack**.
+
 ## 3. Co otestovat v pilotu
 
 - První připojení appky `appreviewz` přes tlačítko: žádné tokeny ani ruční ID veřejného kanálu, automatický
